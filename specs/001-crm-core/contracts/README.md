@@ -51,6 +51,10 @@
 | 销售机会 /sales-opportunities | ✅ | ✅ | ❌ |
 | 跟进 /follow-ups | ✅ | ✅ | ✅ |
 | 统计 /stats/opportunity-pipeline | ✅ | ✅ | ❌ |
+| 用户管理 /users（CRUD/重置密码，见 002 契约） | ✅ | ❌ | ❌ |
+| 审计日志 /audit-logs（见 002 契约 README） | ✅ | ❌ | ❌ |
+
+> 用户管理（002-user-management）端点契约见 `specs/002-user-management/contracts/`。
 
 ## 契约清单
 
