@@ -1,30 +1,31 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Alert, Button, Card, Form, Input, Typography } from 'antd'
 import { changeOwnPassword } from '../../services/userService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
 
+interface FormValues {
+  oldPassword: string
+  newPassword: string
+  confirm: string
+}
+
 export default function ChangePasswordPage() {
-  const [oldPassword, setOldPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const clear = useAuthStore((s) => s.clear)
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const onFinish = async (values: FormValues) => {
     setError('')
-    setSuccess('')
-    if (newPassword !== confirm) {
+    if (values.newPassword !== values.confirm) {
       setError('两次输入的新密码不一致')
       return
     }
     setLoading(true)
     try {
-      await changeOwnPassword(oldPassword, newPassword)
+      await changeOwnPassword(values.oldPassword, values.newPassword)
       // 密码已变更，旧令牌失效，要求重新登录
       clear()
       navigate('/login', { replace: true })
@@ -35,71 +36,57 @@ export default function ChangePasswordPage() {
     }
   }
 
-  const inputClass =
-    'w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none'
-
   return (
-    <div className="mx-auto max-w-md">
-      <h2 className="mb-4 text-xl font-semibold text-gray-800">修改密码</h2>
-      {error && (
-        <div role="alert" className="mb-4 rounded bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="mb-4 rounded bg-green-50 p-3 text-sm text-green-700">{success}</div>
-      )}
-      <form onSubmit={onSubmit} className="space-y-4 rounded-lg bg-white p-6 shadow">
-        <div>
-          <label htmlFor="cp-old" className="mb-1 block text-sm font-medium text-gray-700">
-            旧密码 *
-          </label>
-          <input
-            id="cp-old"
-            type="password"
-            value={oldPassword}
-            onChange={(e) => setOldPassword(e.target.value)}
-            required
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label htmlFor="cp-new" className="mb-1 block text-sm font-medium text-gray-700">
-            新密码 *（8~64 位，含字母与数字）
-          </label>
-          <input
-            id="cp-new"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-            minLength={8}
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label htmlFor="cp-confirm" className="mb-1 block text-sm font-medium text-gray-700">
-            确认新密码 *
-          </label>
-          <input
-            id="cp-confirm"
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-            minLength={8}
-            className={inputClass}
-          />
-        </div>
-        <p className="text-xs text-gray-400">修改成功后需要重新登录（旧访问令牌立即失效）。</p>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded bg-blue-600 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? '提交中…' : '确认修改'}
-        </button>
-      </form>
+    <div style={{ maxWidth: 420, margin: '0 auto' }}>
+      <Card title="修改密码">
+        {error && <Alert type="error" showIcon message={error} className="mb-4" role="alert" />}
+        <Form<FormValues> name="change-password" onFinish={onFinish} layout="vertical">
+          <Form.Item
+            name="oldPassword"
+            label="旧密码"
+            rules={[{ required: true, message: '请输入旧密码' }]}
+          >
+            <Input.Password />
+          </Form.Item>
+          <Form.Item
+            name="newPassword"
+            label="新密码"
+            rules={[
+              { required: true, message: '请输入新密码' },
+              { min: 8, max: 64, message: '8~64 位' },
+            ]}
+            extra="须同时包含字母与数字"
+          >
+            <Input.Password />
+          </Form.Item>
+          <Form.Item
+            name="confirm"
+            label="确认新密码"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: '请再次输入新密码' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve()
+                  }
+                  return Promise.reject(new Error('两次输入的新密码不一致'))
+                },
+              }),
+            ]}
+          >
+            <Input.Password />
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" htmlType="submit" block loading={loading}>
+              确认修改
+            </Button>
+          </Form.Item>
+        </Form>
+        <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0 }}>
+          修改成功后需要重新登录（旧访问令牌立即失效）。
+        </Typography.Paragraph>
+      </Card>
     </div>
   )
 }

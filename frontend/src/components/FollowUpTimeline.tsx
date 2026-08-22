@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { App, Button, Card, DatePicker, Empty, Form, Input, Modal, Select, Timeline, Typography } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
+import dayjs, { type Dayjs } from 'dayjs'
 import {
   createFollowUp,
   fetchFollowUps,
@@ -14,183 +16,138 @@ interface Props {
   customerId: number
 }
 
-const emptyForm: FollowUpPayload = {
-  customerId: 0,
-  method: 'PHONE',
-  content: '',
-  nextFollowUpAt: undefined,
+interface FormValues {
+  method: FollowUpMethod
+  content: string
+  nextFollowUpAt?: Dayjs
 }
 
 export default function FollowUpTimeline({ customerId }: Props) {
+  const { message } = App.useApp()
+  const [items, setItems] = useState<FollowUp[]>([])
+  const [loading, setLoading] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<FollowUp | null>(null)
-  const [form, setForm] = useState<FollowUpPayload>({ ...emptyForm, customerId })
-  const [showForm, setShowForm] = useState(false)
-  const [error, setError] = useState('')
-  const queryClient = useQueryClient()
+  const [form] = Form.useForm<FormValues>()
   const user = useAuthStore((s) => s.user)
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['follow-ups', customerId],
-    queryFn: () => fetchFollowUps({ customerId, page: 1, pageSize: 50 }),
-  })
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['follow-ups'] })
-
-  const saveMutation = useMutation({
-    mutationFn: (payload: FollowUpPayload) =>
-      editing ? updateFollowUp(editing.id, payload) : createFollowUp(payload),
-    onSuccess: () => {
-      setShowForm(false)
-      setEditing(null)
-      setForm({ ...emptyForm, customerId })
-      setError('')
-      invalidate()
-    },
-    onError: (err) => setError(extractErrorMessage(err, '保存失败')),
-  })
-
-  const startEdit = (f: FollowUp) => {
-    setEditing(f)
-    setForm({
-      customerId: f.customerId,
-      opportunityId: f.opportunityId,
-      method: f.method,
-      content: f.content,
-      nextFollowUpAt: f.nextFollowUpAt,
-      version: f.version,
-    })
-    setError('')
-    setShowForm(true)
+  const load = async () => {
+    setLoading(true)
+    try {
+      const res = await fetchFollowUps({ customerId, page: 1, pageSize: 50 })
+      setItems(res.items)
+    } catch (err) {
+      message.error(extractErrorMessage(err, '加载跟进记录失败'))
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const canEdit = (f: FollowUp) =>
-    user?.role === 'ADMIN' || f.followUpBy === user?.id
+  const openCreate = () => {
+    setEditing(null)
+    form.resetFields()
+    setModalOpen(true)
+    void load()
+  }
 
-  const inputClass =
-    'w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none'
+  const openEdit = (f: FollowUp) => {
+    setEditing(f)
+    form.setFieldsValue({
+      method: f.method,
+      content: f.content,
+      nextFollowUpAt: f.nextFollowUpAt ? dayjs(f.nextFollowUpAt) : undefined,
+    })
+    setModalOpen(true)
+  }
+
+  const onSave = async () => {
+    const values = await form.validateFields()
+    const payload: FollowUpPayload = {
+      customerId,
+      method: values.method,
+      content: values.content,
+      nextFollowUpAt: values.nextFollowUpAt?.toISOString(),
+      version: editing?.version,
+    }
+    try {
+      if (editing) {
+        await updateFollowUp(editing.id, payload)
+        message.success('已保存')
+      } else {
+        await createFollowUp(payload)
+        message.success('已添加')
+      }
+      setModalOpen(false)
+      void load()
+    } catch (err) {
+      message.error(extractErrorMessage(err, '保存失败'))
+    }
+  }
+
+  const canEdit = (f: FollowUp) => user?.role === 'ADMIN' || f.followUpBy === user?.id
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-800">跟进记录</h3>
-        {!showForm && (
-          <button
-            onClick={() => {
-              setEditing(null)
-              setForm({ ...emptyForm, customerId })
-              setError('')
-              setShowForm(true)
-            }}
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
-          >
-            添加跟进
-          </button>
-        )}
-      </div>
-
-      {error && (
-        <div role="alert" className="mb-4 rounded bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {showForm && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (!form.content.trim()) {
-              setError('跟进内容不能为空')
-              return
-            }
-            void saveMutation.mutateAsync({ ...form, customerId })
-          }}
-          className="mb-6 space-y-3 rounded border border-gray-200 p-4"
-          aria-label="跟进记录表单"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">方式</label>
-              <select
-                value={form.method}
-                onChange={(e) => setForm((f) => ({ ...f, method: e.target.value as FollowUpMethod }))}
-                className={inputClass}
-              >
-                {Object.entries(METHOD_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">下次跟进</label>
-              <input
-                type="datetime-local"
-                value={form.nextFollowUpAt ?? ''}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, nextFollowUpAt: e.target.value || undefined }))
-                }
-                className={inputClass}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">内容 *</label>
-            <textarea
-              value={form.content}
-              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
-              rows={3}
-              className={inputClass}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setShowForm(false)
-                setEditing(null)
-                setError('')
-              }}
-              className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-100"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={saveMutation.isPending}
-              className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saveMutation.isPending ? '保存中…' : '保存'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {isLoading ? (
-        <p className="py-4 text-center text-sm text-gray-400">加载中…</p>
-      ) : (data?.items ?? []).length === 0 ? (
-        <p className="py-4 text-center text-sm text-gray-400">暂无跟进记录</p>
+    <Card
+      title="跟进记录"
+      loading={loading}
+      extra={
+        <Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}>
+          添加跟进
+        </Button>
+      }
+    >
+      {items.length === 0 ? (
+        <Empty description="暂无跟进记录" />
       ) : (
-        <ul className="space-y-3">
-          {(data?.items ?? []).map((f) => (
-            <li key={f.id} className="rounded border border-gray-100 p-3">
-              <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
-                <span>
-                  {METHOD_LABELS[f.method]} · {f.followUpByName ?? '未知'} ·{' '}
-                  {f.createdAt ? f.createdAt.replace('T', ' ').slice(0, 16) : ''}
-                  {f.nextFollowUpAt ? ` · 下次跟进 ${f.nextFollowUpAt.replace('T', ' ').slice(0, 16)}` : ''}
-                </span>
+        <Timeline
+          items={items.map((f) => ({
+            key: f.id,
+            color: f.method === 'PHONE' ? 'blue' : f.method === 'EMAIL' ? 'green' : 'gray',
+            children: (
+              <div>
+                <Typography.Text strong>{METHOD_LABELS[f.method]}</Typography.Text>{' '}
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {f.followUpByName ?? '未知'} ·{' '}
+                  {f.createdAt ? dayjs(f.createdAt).format('YYYY-MM-DD HH:mm') : ''}
+                  {f.nextFollowUpAt
+                    ? ` · 下次跟进 ${dayjs(f.nextFollowUpAt).format('YYYY-MM-DD HH:mm')}`
+                    : ''}
+                </Typography.Text>
                 {canEdit(f) && (
-                  <button onClick={() => startEdit(f)} className="text-blue-600 hover:underline">
+                  <a style={{ marginLeft: 8 }} onClick={() => openEdit(f)}>
                     编辑
-                  </button>
+                  </a>
                 )}
+                <div style={{ marginTop: 4 }}>{f.content}</div>
               </div>
-              <p className="text-sm text-gray-700">{f.content}</p>
-            </li>
-          ))}
-        </ul>
+            ),
+          }))}
+        />
       )}
-    </div>
+
+      <Modal
+        title={editing ? '编辑跟进记录' : '添加跟进记录'}
+        open={modalOpen}
+        onOk={() => void onSave()}
+        onCancel={() => setModalOpen(false)}
+        okText="保存" destroyOnClose>
+        <Form form={form} name="followUpForm" layout="vertical">
+          <Form.Item name="method" label="方式" rules={[{ required: true, message: '请选择方式' }]}>
+            <Select
+              options={Object.entries(METHOD_LABELS).map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="content" label="内容" rules={[{ required: true, message: '请输入内容' }]}>
+            <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item name="nextFollowUpAt" label="下次跟进">
+            <DatePicker showTime style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Card>
   )
 }

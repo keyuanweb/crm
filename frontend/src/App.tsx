@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { ProLayout } from '@ant-design/pro-components'
+import { Dropdown, Spin } from 'antd'
+import {
+  AuditOutlined,
+  BarChartOutlined,
+  DeploymentUnitOutlined,
+  FundOutlined,
+  KeyOutlined,
+  LogoutOutlined,
+  TeamOutlined,
+  UserOutlined,
+} from '@ant-design/icons'
 import { fetchMe, logout } from './services/authService'
 import { useAuthStore } from './store/authStore'
 import LoginPage from './pages/LoginPage'
@@ -23,6 +35,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function Shell() {
   const { user, setUser, clear, getAccessToken } = useAuthStore()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [booted, setBooted] = useState(false)
 
   useEffect(() => {
@@ -37,7 +51,18 @@ function Shell() {
   }, [getAccessToken, setUser, clear])
 
   if (!booted) {
-    return <div className="p-8 text-center text-gray-400">加载中…</div>
+    return (
+      <div
+        style={{
+          display: 'flex',
+          minHeight: '100vh',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Spin size="large" />
+      </div>
+    )
   }
 
   const onLogout = async () => {
@@ -50,57 +75,57 @@ function Shell() {
       }
     }
     clear()
+    navigate('/login', { replace: true })
   }
 
-  const navClass = ({ isActive }: { isActive: boolean }) =>
-    isActive ? 'px-3 py-2 text-white' : 'px-3 py-2 text-gray-300 hover:text-white'
+  const isAdmin = user?.role === 'ADMIN'
+  const menuRoutes = [
+    { path: '/customers', name: '客户', icon: <TeamOutlined /> },
+    { path: '/opportunities', name: '商机', icon: <FundOutlined /> },
+    { path: '/sales-opportunities', name: '销售机会', icon: <DeploymentUnitOutlined /> },
+    { path: '/stats', name: '统计', icon: <BarChartOutlined /> },
+    ...(isAdmin ? [{ path: '/users', name: '用户管理', icon: <UserOutlined /> }] : []),
+    ...(isAdmin ? [{ path: '/audit-logs', name: '审计日志', icon: <AuditOutlined /> }] : []),
+  ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-gray-800 text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-1">
-            <span className="mr-4 font-semibold">CRM 系统</span>
-            <NavLink to="/customers" className={navClass}>
-              客户
-            </NavLink>
-            <NavLink to="/opportunities" className={navClass}>
-              商机
-            </NavLink>
-            <NavLink to="/sales-opportunities" className={navClass}>
-              销售机会
-            </NavLink>
-            <NavLink to="/stats" className={navClass}>
-              统计
-            </NavLink>
-            {user?.role === 'ADMIN' && (
-              <NavLink to="/users" className={navClass}>
-                用户管理
-              </NavLink>
-            )}
-            {user?.role === 'ADMIN' && (
-              <NavLink to="/audit-logs" className={navClass}>
-                审计日志
-              </NavLink>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-300">
-              {user?.displayName ?? user?.username}（{user?.role ?? ''}）
-            </span>
-            <NavLink to="/account/password" className="text-sm text-gray-300 hover:text-white">
-              修改密码
-            </NavLink>
-            <button onClick={onLogout} className="text-sm text-gray-300 hover:text-white">
-              退出
-            </button>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-7xl px-4 py-6">
-        <Outlet />
-      </main>
-    </div>
+    <ProLayout
+      title="CRM 客户关系管理系统"
+      logo={<TeamOutlined style={{ fontSize: 22, color: '#1677ff' }} />}
+      layout="mix"
+      location={{ pathname: location.pathname }}
+      route={{ routes: menuRoutes }}
+      menuItemRender={(item, dom) => <Link to={item.path ?? '/'}>{dom}</Link>}
+      avatarProps={{
+        title: `${user?.displayName ?? user?.username}（${user?.role ?? ''}）`,
+        render: (_, dom) => (
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'password',
+                  icon: <KeyOutlined />,
+                  label: '修改密码',
+                  onClick: () => navigate('/account/password'),
+                },
+                { type: 'divider' },
+                {
+                  key: 'logout',
+                  icon: <LogoutOutlined />,
+                  label: '退出登录',
+                  onClick: onLogout,
+                },
+              ],
+            }}
+          >
+            {dom}
+          </Dropdown>
+        ),
+      }}
+      onMenuHeaderClick={() => navigate('/customers')}
+    >
+      <Outlet />
+    </ProLayout>
   )
 }
 

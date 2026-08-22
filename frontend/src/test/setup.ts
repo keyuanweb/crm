@@ -32,3 +32,26 @@ Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
   writable: true,
 })
+
+// antd v5（Grid/ProLayout 响应式）依赖 matchMedia，jsdom 未实现
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+})
+
+// ProLayout/ProTable 依赖 ResizeObserver，jsdom 未实现
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver = ResizeObserverMock as never

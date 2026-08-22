@@ -1,11 +1,29 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
+import {
+  App,
+  Button,
+  Form,
+  Input,
+  Modal,
+  Popconfirm,
+  Space,
+  Upload,
+} from 'antd'
+import {
+  DeleteOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  PlusOutlined,
+  UploadOutlined,
+} from '@ant-design/icons'
 import {
   createCustomer,
   deleteCustomer,
   downloadTemplate,
   exportCustomers,
+  fetchCustomers,
   importCustomers,
   updateCustomer,
   type CustomerPayload,
@@ -13,271 +31,204 @@ import {
 } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
-import { useCustomerList } from '../../hooks/useCustomers'
 import type { Customer } from '../../types/customer'
-import CustomerForm from './CustomerForm'
+
+interface FormValues {
+  name: string
+  company: string
+  contactPerson?: string
+  phone?: string
+  email?: string
+  address?: string
+  remark?: string
+}
 
 export default function CustomerListPage() {
-  const [keyword, setKeyword] = useState('')
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('')
-  const [page, setPage] = useState(1)
+  const actionRef = useRef<ActionType>()
+  const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Customer | null>(null)
-  const [error, setError] = useState('')
-  const [importResult, setImportResult] = useState<ImportResult | null>(null)
-  const queryClient = useQueryClient()
+  const [form] = Form.useForm<FormValues>()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
 
-  const { data, isLoading } = useCustomerList({
-    keyword: search || undefined,
-    status: status || undefined,
-    page,
-    pageSize: 20,
-  })
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['customers'] })
-
-  const saveMutation = useMutation({
-    mutationFn: (payload: CustomerPayload) =>
-      editing ? updateCustomer(editing.id, payload) : createCustomer(payload),
-    onSuccess: () => {
-      setModalOpen(false)
-      setEditing(null)
-      setError('')
-      invalidate()
-    },
-    onError: (err) => setError(extractErrorMessage(err, '保存失败')),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteCustomer(id),
-    onSuccess: () => invalidate(),
-    onError: (err) => setError(extractErrorMessage(err, '删除失败')),
-  })
+  const reload = () => actionRef.current?.reload()
 
   const openCreate = () => {
     setEditing(null)
-    setError('')
+    form.resetFields()
     setModalOpen(true)
   }
 
-  const openEdit = (c: Customer) => {
-    setEditing(c)
-    setError('')
+  const openEdit = (row: Customer) => {
+    setEditing(row)
+    form.setFieldsValue({
+      name: row.name,
+      company: row.company,
+      contactPerson: row.contactPerson,
+      phone: row.phone,
+      email: row.email,
+      address: row.address,
+      remark: row.remark,
+    })
     setModalOpen(true)
   }
 
-  const confirmDelete = (c: Customer) => {
-    if (window.confirm(`确定删除客户「${c.name}」吗？（逻辑删除，可恢复）`)) {
-      void deleteMutation.mutate(c.id)
+  const onSave = async () => {
+    const values = await form.validateFields()
+    const payload: CustomerPayload = { name: values.name, company: values.company }
+    for (const [key, value] of Object.entries(values)) {
+      if (key !== 'name' && key !== 'company' && value !== undefined && value !== '') {
+        payload[key as keyof CustomerPayload] = value as never
+      }
+    }
+    try {
+      if (editing) {
+        await updateCustomer(editing.id, { ...payload, version: editing.version })
+        message.success('已保存')
+      } else {
+        await createCustomer(payload)
+        message.success('已创建')
+      }
+      setModalOpen(false)
+      reload()
+    } catch (err) {
+      message.error(extractErrorMessage(err, '保存失败'))
     }
   }
 
-  const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / 20))
+  const onDelete = async (row: Customer) => {
+    try {
+      await deleteCustomer(row.id)
+      message.success('已删除（逻辑删除）')
+      reload()
+    } catch (err) {
+      message.error(extractErrorMessage(err, '删除失败'))
+    }
+  }
+
+  const onImport = async (file: File) => {
+    try {
+      const result: ImportResult = await importCustomers(file)
+      message.success(`导入完成：成功 ${result.successCount} 条，失败 ${result.failureCount} 条`)
+      reload()
+    } catch (err) {
+      message.error(extractErrorMessage(err, '导入失败'))
+    }
+    return false
+  }
+
+  const columns: ProColumns<Customer>[] = [
+    {
+      title: '客户名称',
+      dataIndex: 'name',
+      render: (_, row) => <Link to={`/customers/${row.id}`}>{row.name}</Link>,
+    },
+    { title: '公司', dataIndex: 'company' },
+    { title: '联系人', dataIndex: 'contactPerson', search: false },
+    { title: '电话', dataIndex: 'phone', search: false },
+    { title: '邮箱', dataIndex: 'email', search: false },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      valueType: 'select',
+      valueEnum: {
+        ACTIVE: { text: '启用', status: 'Success' },
+        INACTIVE: { text: '停用', status: 'Default' },
+      },
+    },
+    {
+      title: '操作',
+      valueType: 'option',
+      width: 140,
+      render: (_, row) => [
+        <a key="edit" onClick={() => openEdit(row)}>
+          <EditOutlined /> 编辑
+        </a>,
+        <Popconfirm
+          key="delete"
+          title={`确定删除客户「${row.name}」吗？（逻辑删除，可恢复）`}
+          onConfirm={() => onDelete(row)}
+        >
+          <a style={{ color: '#ff4d4f' }}>
+            <DeleteOutlined /> 删除
+          </a>
+        </Popconfirm>,
+      ],
+    },
+  ]
 
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-800">客户管理</h2>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <>
-              <button
-                onClick={() => {
-                  setImportResult(null)
-                  document.getElementById('import-file-input')?.click()
-                }}
-                className="rounded border border-gray-300 px-4 py-2 hover:bg-gray-100"
-              >
-                导入
-              </button>
-              <input
-                id="import-file-input"
-                type="file"
-                accept=".xlsx"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0]
-                  e.target.value = ''
-                  if (!file) return
-                  try {
-                    const result = await importCustomers(file)
-                    setImportResult(result)
-                    invalidate()
-                  } catch (err) {
-                    setError(extractErrorMessage(err, '导入失败'))
-                  }
-                }}
-              />
-              <button
-                onClick={() => void downloadTemplate()}
-                className="rounded border border-gray-300 px-4 py-2 hover:bg-gray-100"
-              >
-                下载模板
-              </button>
-              <button
-                onClick={() =>
-                  void exportCustomers({ keyword: search || undefined, status: status || undefined })
-                }
-                className="rounded border border-gray-300 px-4 py-2 hover:bg-gray-100"
-              >
-                导出
-              </button>
-            </>
-          )}
-          <button onClick={openCreate} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+    <>
+      <ProTable<Customer>
+        headerTitle="客户管理"
+        rowKey="id"
+        actionRef={actionRef}
+        columns={columns}
+        search={{ labelWidth: 'auto' }}
+        pagination={{ defaultPageSize: 20 }}
+        request={async (params) => {
+          const res = await fetchCustomers({
+            keyword: params.keyword,
+            status: params.status,
+            page: params.current ?? 1,
+            pageSize: params.pageSize ?? 20,
+          })
+          return { data: res.items, success: true, total: res.total }
+        }}
+        toolBarRender={() => [
+          ...(isAdmin
+            ? [
+                <Upload key="import" showUploadList={false} beforeUpload={(f) => onImport(f as unknown as File)} accept=".xlsx">
+                  <Button icon={<UploadOutlined />}>导入</Button>
+                </Upload>,
+                <Button key="template" icon={<DownloadOutlined />} onClick={() => void downloadTemplate()}>
+                  下载模板
+                </Button>,
+                <Button key="export" icon={<DownloadOutlined />} onClick={() => void exportCustomers({})}>
+                  导出
+                </Button>,
+              ]
+            : []),
+          <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新增客户
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div role="alert" className="mb-4 rounded bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {importResult && (
-        <div
-          role="status"
-          className="mb-4 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800"
-        >
-          导入完成：成功 {importResult.successCount} 条，失败 {importResult.failureCount} 条。
-          {importResult.failures.length > 0 && (
-            <ul className="mt-1 list-inside list-disc text-xs text-green-700">
-              {importResult.failures.slice(0, 10).map((f) => (
-                <li key={f.row}>
-                  第 {f.row} 行：{f.message}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      <div className="mb-4 flex gap-2">
-        <input
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              setSearch(keyword)
-              setPage(1)
-            }
-          }}
-          placeholder="搜索名称 / 公司 / 联系人 / 电话"
-          className="w-72 rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
-        />
-        <button
-          onClick={() => {
-            setSearch(keyword)
-            setPage(1)
-          }}
-          className="rounded border border-gray-300 px-4 py-2 hover:bg-gray-100"
-        >
-          搜索
-        </button>
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value)
-            setPage(1)
-          }}
-          className="rounded border border-gray-300 px-3 py-2"
-        >
-          <option value="">全部状态</option>
-          <option value="ACTIVE">启用</option>
-          <option value="INACTIVE">停用</option>
-        </select>
-      </div>
-
-      {isLoading ? (
-        <p className="py-8 text-center text-gray-400">加载中…</p>
-      ) : (
-        <table className="w-full rounded-lg bg-white shadow">
-          <thead>
-            <tr className="border-b text-left text-sm text-gray-500">
-              <th className="px-4 py-3">名称</th>
-              <th className="px-4 py-3">公司</th>
-              <th className="px-4 py-3">联系人</th>
-              <th className="px-4 py-3">电话</th>
-              <th className="px-4 py-3">邮箱</th>
-              <th className="px-4 py-3">状态</th>
-              <th className="px-4 py-3">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data?.items ?? []).map((c) => (
-              <tr key={c.id} className="border-b text-sm hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <Link to={`/customers/${c.id}`} className="text-blue-600 hover:underline">
-                    {c.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-3">{c.company}</td>
-                <td className="px-4 py-3">{c.contactPerson ?? '-'}</td>
-                <td className="px-4 py-3">{c.phone ?? '-'}</td>
-                <td className="px-4 py-3">{c.email ?? '-'}</td>
-                <td className="px-4 py-3">{c.status === 'ACTIVE' ? '启用' : '停用'}</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => openEdit(c)} className="mr-3 text-blue-600 hover:underline">
-                    编辑
-                  </button>
-                  <button onClick={() => confirmDelete(c)} className="text-red-600 hover:underline">
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {data?.items?.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                  暂无客户数据
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      )}
-
-      <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-        <span>
-          共 {total} 条，第 {page} / {totalPages} 页
-        </span>
-        <div className="flex gap-2">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="rounded border border-gray-300 px-3 py-1 disabled:opacity-40"
-          >
-            上一页
-          </button>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="rounded border border-gray-300 px-3 py-1 disabled:opacity-40"
-          >
-            下一页
-          </button>
-        </div>
-      </div>
-
-      {modalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/30" onClick={() => setModalOpen(false)}>
-          <div className="w-full max-w-lg rounded-lg bg-white p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-4 text-lg font-semibold">{editing ? '编辑客户' : '新增客户'}</h3>
-            <CustomerForm
-              initial={editing ?? undefined}
-              onSubmit={(payload) => saveMutation.mutateAsync(payload)}
-              onCancel={() => setModalOpen(false)}
-              submitting={saveMutation.isPending}
-            />
-          </div>
-        </div>
-      )}
-    </div>
+          </Button>,
+        ]}
+      />
+      <Modal
+        title={editing ? '编辑客户' : '新增客户'}
+        open={modalOpen}
+        onOk={() => void onSave()}
+        onCancel={() => setModalOpen(false)}
+        okText="保存" destroyOnClose>
+        <Form form={form} name="customerForm" layout="vertical">
+          <Form.Item name="name" label="客户名称" rules={[{ required: true, message: '请输入客户名称' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="company" label="公司" rules={[{ required: true, message: '请输入公司' }]}>
+            <Input />
+          </Form.Item>
+          <Space size="middle" style={{ display: 'flex' }} align="start">
+            <Form.Item name="contactPerson" label="联系人" style={{ flex: 1 }}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="phone" label="电话" style={{ flex: 1 }}>
+              <Input />
+            </Form.Item>
+          </Space>
+          <Space size="middle" style={{ display: 'flex' }} align="start">
+            <Form.Item name="email" label="邮箱" style={{ flex: 1 }}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="address" label="地址" style={{ flex: 1 }}>
+              <Input />
+            </Form.Item>
+          </Space>
+          <Form.Item name="remark" label="备注">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
   )
 }

@@ -1,24 +1,28 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Alert, Button, Card, Form, Input, Typography } from 'antd'
+import { LockOutlined, UserOutlined } from '@ant-design/icons'
 import { login } from '../services/authService'
 import { extractErrorMessage } from '../services/apiClient'
 import { useAuthStore } from '../store/authStore'
 
+interface LoginValues {
+  username: string
+  password: string
+}
+
 export default function LoginPage() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const setTokens = useAuthStore((s) => s.setTokens)
   const setUser = useAuthStore((s) => s.setUser)
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const onFinish = async (values: LoginValues) => {
     setError('')
     setLoading(true)
     try {
-      const res = await login(username, password)
+      const res = await login(values.username, values.password)
       setTokens(res.accessToken, res.refreshToken)
       setUser(res.user)
       navigate('/', { replace: true })
@@ -30,56 +34,54 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-sm rounded-lg bg-white p-8 shadow"
-        aria-label="登录表单"
-      >
-        <h1 className="mb-6 text-center text-2xl font-semibold text-gray-800">
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f5f5f5',
+      }}
+    >
+      <Card style={{ width: '100%', maxWidth: 380 }}>
+        <Typography.Title level={3} style={{ textAlign: 'center', marginBottom: 24 }}>
           CRM 客户关系管理系统
-        </h1>
+        </Typography.Title>
         {error && (
-          <div role="alert" className="mb-4 rounded bg-red-50 p-3 text-sm text-red-700">
-            {error}
-          </div>
+          <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} role="alert" />
         )}
-        <div className="mb-4">
-          <label htmlFor="username" className="mb-1 block text-sm font-medium text-gray-700">
-            用户名
-          </label>
-          <input
-            id="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            autoComplete="username"
-            className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
-          />
-        </div>
-        <div className="mb-6">
-          <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">
-            密码
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-            className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded bg-blue-600 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+        <Form<LoginValues> name="login" onFinish={onFinish} size="large">
+          <Form.Item
+            name="username"
+            label="用户名"
+            rules={[{ required: true, message: '请输入用户名' }]}
+          >
+            <Input prefix={<UserOutlined />} placeholder="用户名" autoComplete="username" />
+          </Form.Item>
+          <Form.Item
+            name="password"
+            label="密码"
+            rules={[{ required: true, message: '请输入密码' }]}
+          >
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="密码"
+              autoComplete="current-password"
+            />
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" htmlType="submit" block loading={loading}>
+              登录
+            </Button>
+          </Form.Item>
+        </Form>
+        <Typography.Paragraph
+          type="secondary"
+          style={{ fontSize: 12, textAlign: 'center', marginBottom: 0 }}
         >
-          {loading ? '登录中…' : '登录'}
-        </button>
-        <p className="mt-4 text-center text-xs text-gray-400">默认账号：admin / admin123</p>
-      </form>
+          默认账号：admin / admin123
+        </Typography.Paragraph>
+      </Card>
     </div>
   )
 }

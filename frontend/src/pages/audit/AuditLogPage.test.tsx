@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { screen, waitFor, within } from '@testing-library/react'
+import { renderWithProviders } from '../../test/renderWithProviders'
 import AuditLogPage from './AuditLogPage'
 import { fetchAuditLogs } from '../../services/auditLogService'
 import type { AuditLog } from '../../types/auditLog'
@@ -10,18 +9,7 @@ vi.mock('../../services/auditLogService', () => ({
   fetchAuditLogs: vi.fn(),
 }))
 
-function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <AuditLogPage />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  )
-}
-
-describe('AuditLogPage（T071）', () => {
+describe('AuditLogPage（T071，antd ProTable 版）', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(fetchAuditLogs).mockResolvedValue({
@@ -33,9 +21,12 @@ describe('AuditLogPage（T071）', () => {
   })
 
   it('渲染标题与空状态', async () => {
-    renderPage()
-    expect(screen.getByText('审计日志')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByText('暂无审计记录')).toBeInTheDocument())
+    renderWithProviders(<AuditLogPage />)
+    expect(await screen.findByText('审计日志', {}, { timeout: 5000 })).toBeInTheDocument()
+    await waitFor(
+      () => expect(screen.getAllByText('暂无数据').length).toBeGreaterThan(0),
+      { timeout: 5000 },
+    )
   })
 
   it('渲染审计记录行', async () => {
@@ -54,7 +45,7 @@ describe('AuditLogPage（T071）', () => {
       page: 1,
       pageSize: 20,
     })
-    renderPage()
+    renderWithProviders(<AuditLogPage />)
     const table = await screen.findByRole('table')
     await waitFor(() => expect(within(table).getByText('admin')).toBeInTheDocument())
     expect(within(table).getByText('创建')).toBeInTheDocument()

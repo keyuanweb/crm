@@ -3,9 +3,10 @@
 前后端分离的客户关系管理系统（CRM），采用规范驱动开发（Spec Kit 工作流）。
 
 - **后端**: Java 17 + Spring Boot 3.2 + MyBatis-Plus 3.5 + MySQL 8 + Redis 7 + Spring Security (JWT) + Flyway + OpenAPI (Swagger)
-- **前端**: React 18 + TypeScript + Vite 5 + React Router + React Query + Zustand + Tailwind CSS
+- **前端**: React 18 + TypeScript + Vite 5 + React Router + React Query + Zustand + **Ant Design v5 + @ant-design/pro-components**（ProLayout/ProTable/ProForm 等）
 - **测试**: JUnit 5 / Spring Boot Test（后端）、Vitest + React Testing Library（前端）、Playwright（端到端）
-- **规范文档**: `specs/001-crm-core/`（spec/plan/research/data-model/contracts/quickstart/tasks，由 Spec Kit 流程生成）
+- **包管理**: pnpm（前端）
+- **规范文档**: `specs/001-crm-core/`、`specs/002-user-management/`（spec/plan/research/data-model/contracts/quickstart/tasks，由 Spec Kit 流程生成）
 
 ## 功能范围
 
