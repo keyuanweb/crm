@@ -12,6 +12,7 @@ import {
   IdcardOutlined,
   KeyOutlined,
   LogoutOutlined,
+  ProfileOutlined,
   ShoppingOutlined,
   TeamOutlined,
   UserOutlined,
@@ -33,6 +34,8 @@ import QuoteDetailPage from './pages/quotes/QuoteDetailPage'
 import ContractListPage from './pages/contracts/ContractListPage'
 import ContractDetailPage from './pages/contracts/ContractDetailPage'
 import ContractTemplateListPage from './pages/contract-templates/ContractTemplateListPage'
+import OrderListPage from './pages/orders/OrderListPage'
+import OrderDetailPage from './pages/orders/OrderDetailPage'
 import UserManagementPage from './pages/users/UserManagementPage'
 import ChangePasswordPage from './pages/account/ChangePasswordPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
@@ -100,6 +103,7 @@ function Shell() {
     { path: '/sales-opportunities', name: '销售机会', icon: <DeploymentUnitOutlined /> },
     { path: '/quotes', name: '报价单', icon: <FileTextOutlined /> },
     { path: '/contracts', name: '合同', icon: <FileProtectOutlined /> },
+    { path: '/orders', name: '订单', icon: <ProfileOutlined /> },
     { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
     ...(isAdmin ? [{ path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> }] : []),
     { path: '/stats', name: '统计', icon: <BarChartOutlined /> },
@@ -235,6 +239,8 @@ export default function App() {
         <Route path="contracts" element={<ContractListPage />} />
         <Route path="contracts/:id" element={<ContractDetailPage />} />
         <Route path="contract-templates" element={<ContractTemplateListPage />} />
+        <Route path="orders" element={<OrderListPage />} />
+        <Route path="orders/:id" element={<OrderDetailPage />} />
         <Route path="products" element={<ProductListPage />} />
         <Route path="stats" element={<DashboardPage />} />
         <Route path="users" element={<UserManagementPage />} />
