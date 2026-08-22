@@ -6,10 +6,12 @@ import {
   BarChartOutlined,
   ContactsOutlined,
   DeploymentUnitOutlined,
+  FileTextOutlined,
   FundOutlined,
   IdcardOutlined,
   KeyOutlined,
   LogoutOutlined,
+  ShoppingOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons'
@@ -24,6 +26,9 @@ import LeadDetailPage from './pages/leads/LeadDetailPage'
 import OpportunityListPage from './pages/opportunities/OpportunityListPage'
 import SalesOpportunityListPage from './pages/sales-opportunities/SalesOpportunityListPage'
 import DashboardPage from './pages/stats/DashboardPage'
+import ProductListPage from './pages/products/ProductListPage'
+import QuoteListPage from './pages/quotes/QuoteListPage'
+import QuoteDetailPage from './pages/quotes/QuoteDetailPage'
 import UserManagementPage from './pages/users/UserManagementPage'
 import ChangePasswordPage from './pages/account/ChangePasswordPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
@@ -89,6 +94,8 @@ function Shell() {
     { path: '/contacts', name: '联系人', icon: <IdcardOutlined /> },
     { path: '/opportunities', name: '商机', icon: <FundOutlined /> },
     { path: '/sales-opportunities', name: '销售机会', icon: <DeploymentUnitOutlined /> },
+    { path: '/quotes', name: '报价单', icon: <FileTextOutlined /> },
+    { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
     { path: '/stats', name: '统计', icon: <BarChartOutlined /> },
     ...(isAdmin ? [{ path: '/users', name: '用户管理', icon: <UserOutlined /> }] : []),
     ...(isAdmin ? [{ path: '/audit-logs', name: '审计日志', icon: <AuditOutlined /> }] : []),
@@ -217,6 +224,9 @@ export default function App() {
         <Route path="contacts" element={<ContactListPage />} />
         <Route path="opportunities" element={<OpportunityListPage />} />
         <Route path="sales-opportunities" element={<SalesOpportunityListPage />} />
+        <Route path="quotes" element={<QuoteListPage />} />
+        <Route path="quotes/:id" element={<QuoteDetailPage />} />
+        <Route path="products" element={<ProductListPage />} />
         <Route path="stats" element={<DashboardPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="audit-logs" element={<AuditLogPage />} />

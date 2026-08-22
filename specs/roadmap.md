@@ -100,3 +100,4 @@
 - [x] 004-lead-management（线索池/分配/领取/转化/跟进/Excel 导入导出）
 - [x] 005-contact-management（联系人 CRUD/角色/客户详情聚合）
 - [x] 006-sales-dashboard（指标卡/漏斗/预测/业绩达成/客户分析/跟进报表/停滞预警）
+- [x] 007-product-cpq（产品目录/报价单/审批/PDF 导出）
