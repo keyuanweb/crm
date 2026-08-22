@@ -1,0 +1,21 @@
+package com.crm.dto.customer;
+
+import java.time.LocalDateTime;
+import lombok.Data;
+
+/** 客户列表项/基本信息响应。 */
+@Data
+public class CustomerResponse {
+
+  private Long id;
+  private String name;
+  private String company;
+  private String contactPerson;
+  private String phone;
+  private String email;
+  private String address;
+  private String remark;
+  private String status;
+  private Integer version;
+  private LocalDateTime createdAt;
+}
