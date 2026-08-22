@@ -92,5 +92,5 @@
 
 **Purpose**: `/speckit-converge`（2026-08-22）追加的剩余工作
 
-- [ ] T019 为用户管理页与修改密码页补前端组件测试（列表/创建/编辑/重置密码/启停、改密流程）in `frontend/src/pages/users/UserManagementPage.test.tsx`、`frontend/src/pages/account/ChangePasswordPage.test.tsx` per Constitution IV (partial)
-- [ ] T020 增加用户管理 Playwright e2e 冒烟（管理员建号→新用户登录→停用→旧令牌失效）in `frontend/e2e/user-management.spec.ts` per FR-001~008 验收场景 (missing)
+- [x] T019 为用户管理页与修改密码页补前端组件测试（列表/创建/编辑/重置密码/启停、改密流程）in `frontend/src/pages/users/UserManagementPage.test.tsx`、`frontend/src/pages/account/ChangePasswordPage.test.tsx` per Constitution IV (partial)
+- [x] T020 增加用户管理 Playwright e2e 冒烟（管理员建号→新用户登录→停用→旧令牌失效）in `frontend/e2e/user-management.spec.ts` per FR-001~008 验收场景 (missing)

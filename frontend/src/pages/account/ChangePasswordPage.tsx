@@ -51,8 +51,11 @@ export default function ChangePasswordPage() {
       )}
       <form onSubmit={onSubmit} className="space-y-4 rounded-lg bg-white p-6 shadow">
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">旧密码 *</label>
+          <label htmlFor="cp-old" className="mb-1 block text-sm font-medium text-gray-700">
+            旧密码 *
+          </label>
           <input
+            id="cp-old"
             type="password"
             value={oldPassword}
             onChange={(e) => setOldPassword(e.target.value)}
@@ -61,10 +64,11 @@ export default function ChangePasswordPage() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="cp-new" className="mb-1 block text-sm font-medium text-gray-700">
             新密码 *（8~64 位，含字母与数字）
           </label>
           <input
+            id="cp-new"
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -74,8 +78,11 @@ export default function ChangePasswordPage() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">确认新密码 *</label>
+          <label htmlFor="cp-confirm" className="mb-1 block text-sm font-medium text-gray-700">
+            确认新密码 *
+          </label>
           <input
+            id="cp-confirm"
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}

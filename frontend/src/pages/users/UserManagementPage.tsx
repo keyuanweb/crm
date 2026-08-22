@@ -252,8 +252,11 @@ export default function UserManagementPage() {
               className="space-y-4"
             >
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">用户名 *</label>
+                <label htmlFor="user-username" className="mb-1 block text-sm font-medium text-gray-700">
+                  用户名 *
+                </label>
                 <input
+                  id="user-username"
                   value={form.username}
                   onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
                   required
@@ -262,8 +265,11 @@ export default function UserManagementPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">显示名 *</label>
+                <label htmlFor="user-displayname" className="mb-1 block text-sm font-medium text-gray-700">
+                  显示名 *
+                </label>
                 <input
+                  id="user-displayname"
                   value={form.displayName}
                   onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
                   required
@@ -271,8 +277,11 @@ export default function UserManagementPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">角色 *</label>
+                <label htmlFor="user-role" className="mb-1 block text-sm font-medium text-gray-700">
+                  角色 *
+                </label>
                 <select
+                  id="user-role"
                   value={form.role}
                   onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
                   className={inputClass}
@@ -285,10 +294,11 @@ export default function UserManagementPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label htmlFor="user-password" className="mb-1 block text-sm font-medium text-gray-700">
                   初始密码 *（8~64 位，含字母与数字）
                 </label>
                 <input
+                  id="user-password"
                   type="password"
                   value={form.password}
                   onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
@@ -337,16 +347,22 @@ export default function UserManagementPage() {
               className="space-y-4"
             >
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">显示名</label>
+                <label htmlFor="user-edit-displayname" className="mb-1 block text-sm font-medium text-gray-700">
+                  显示名
+                </label>
                 <input
+                  id="user-edit-displayname"
                   value={editing.displayName}
                   onChange={(e) => setEditing({ ...editing, displayName: e.target.value })}
                   className={inputClass}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">角色</label>
+                <label htmlFor="user-edit-role" className="mb-1 block text-sm font-medium text-gray-700">
+                  角色
+                </label>
                 <select
+                  id="user-edit-role"
                   value={editing.role}
                   onChange={(e) => setEditing({ ...editing, role: e.target.value as UserRole })}
                   className={inputClass}
@@ -391,10 +407,11 @@ export default function UserManagementPage() {
               className="space-y-4"
             >
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label htmlFor="user-reset-password" className="mb-1 block text-sm font-medium text-gray-700">
                   新密码 *（8~64 位，含字母与数字；重置后旧令牌立即失效）
                 </label>
                 <input
+                  id="user-reset-password"
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
