@@ -32,6 +32,8 @@ server:
 crm:
   contract:
     storage-dir: ${CONTRACT_STORAGE_DIR:./contract-files}
+  pool:
+    stale-days: ${POOL_STALE_DAYS:30}
 
 # CORS：允许的前端 Origin（逗号分隔），生产环境通过环境变量覆盖
 cors:

@@ -44,6 +44,36 @@ export async function deleteCustomer(id: number): Promise<void> {
   await apiClient.delete(`/customers/${id}`)
 }
 
+// ===== 011 客户公海 =====
+
+export async function fetchPoolCustomers(params: CustomerListParams): Promise<PageResult<Customer>> {
+  const { data } = await apiClient.get('/customers/pool', { params })
+  return data.data as PageResult<Customer>
+}
+
+export async function fetchMyCustomers(params: CustomerListParams): Promise<PageResult<Customer>> {
+  const { data } = await apiClient.get('/customers/my', { params })
+  return data.data as PageResult<Customer>
+}
+
+export async function claimCustomer(id: number): Promise<Customer> {
+  const { data } = await apiClient.post(`/customers/pool/${id}/claim`)
+  return data.data as Customer
+}
+
+export async function scanPool(): Promise<{ returnedCount: number }> {
+  const { data } = await apiClient.post('/customers/pool/scan')
+  return data.data as { returnedCount: number }
+}
+
+export async function batchTransferCustomers(
+  customerIds: number[],
+  targetOwnerId: number,
+): Promise<number> {
+  const { data } = await apiClient.post('/customers/batch-transfer', { customerIds, targetOwnerId })
+  return data.data as number
+}
+
 export interface ImportResult {
   successCount: number
   failureCount: number

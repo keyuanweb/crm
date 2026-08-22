@@ -22,4 +22,7 @@ public class Customer extends BaseEntity {
   private String status;
 
   private Long createdBy;
+
+  /** 归属销售（011，空 = 公海）。 */
+  private Long ownerId;
 }

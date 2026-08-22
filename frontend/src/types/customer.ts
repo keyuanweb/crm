@@ -10,6 +10,8 @@ export interface Customer {
   address?: string
   remark?: string
   status: 'ACTIVE' | 'INACTIVE'
+  ownerId?: number
+  ownerName?: string
   version: number
   createdAt?: string
 }

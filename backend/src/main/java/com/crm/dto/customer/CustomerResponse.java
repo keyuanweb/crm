@@ -16,6 +16,12 @@ public class CustomerResponse {
   private String address;
   private String remark;
   private String status;
+
+  /** 归属销售（011，空 = 公海）。 */
+  private Long ownerId;
+
+  private String ownerName;
+
   private Integer version;
   private LocalDateTime createdAt;
 }
