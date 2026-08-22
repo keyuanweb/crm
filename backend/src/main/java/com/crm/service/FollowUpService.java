@@ -34,18 +34,21 @@ public class FollowUpService {
   private final OpportunityMapper opportunityMapper;
   private final UserMapper userMapper;
   private final LeadMapper leadMapper;
+  private final DashboardStatsService dashboardStatsService;
 
   public FollowUpService(
       FollowUpMapper followUpMapper,
       CustomerMapper customerMapper,
       OpportunityMapper opportunityMapper,
       UserMapper userMapper,
-      LeadMapper leadMapper) {
+      LeadMapper leadMapper,
+      DashboardStatsService dashboardStatsService) {
     this.followUpMapper = followUpMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.userMapper = userMapper;
     this.leadMapper = leadMapper;
+    this.dashboardStatsService = dashboardStatsService;
   }
 
   public PageResult<FollowUpResponse> page(
@@ -77,6 +80,7 @@ public class FollowUpService {
     followUp.setNextFollowUpAt(req.getNextFollowUpAt());
     followUp.setFollowUpBy(SecurityUtil.currentUserId());
     followUpMapper.insert(followUp);
+    dashboardStatsService.evict();
     return toResponse(followUp);
   }
 
@@ -100,6 +104,7 @@ public class FollowUpService {
     if (rows == 0) {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
     }
+    dashboardStatsService.evict();
     return toResponse(followUpMapper.selectById(id));
   }
 

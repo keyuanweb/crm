@@ -39,6 +39,7 @@ class CustomerServiceTest {
   private SalesOpportunityMapper salesOpportunityMapper;
   private ContactMapper contactMapper;
   private AuditService auditService;
+  private DashboardStatsService dashboardStatsService;
   private CustomerService service;
 
   @BeforeEach
@@ -49,6 +50,7 @@ class CustomerServiceTest {
     salesOpportunityMapper = mock(SalesOpportunityMapper.class);
     contactMapper = mock(ContactMapper.class);
     auditService = mock(AuditService.class);
+    dashboardStatsService = mock(DashboardStatsService.class);
     service =
         new CustomerService(
             customerMapper,
@@ -56,7 +58,8 @@ class CustomerServiceTest {
             followUpMapper,
             salesOpportunityMapper,
             contactMapper,
-            auditService);
+            auditService,
+            dashboardStatsService);
   }
 
   private CustomerRequest request(String name, String company) {

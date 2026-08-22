@@ -31,6 +31,7 @@ public class OpportunityService {
   private final SalesOpportunityMapper salesOpportunityMapper;
   private final CustomerMapper customerMapper;
   private final OpportunityStatsService statsService;
+  private final DashboardStatsService dashboardStatsService;
   private final SalesOpportunityAssembler salesOpportunityAssembler;
 
   public OpportunityService(
@@ -38,11 +39,13 @@ public class OpportunityService {
       SalesOpportunityMapper salesOpportunityMapper,
       CustomerMapper customerMapper,
       OpportunityStatsService statsService,
+      DashboardStatsService dashboardStatsService,
       SalesOpportunityAssembler salesOpportunityAssembler) {
     this.opportunityMapper = opportunityMapper;
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.customerMapper = customerMapper;
     this.statsService = statsService;
+    this.dashboardStatsService = dashboardStatsService;
     this.salesOpportunityAssembler = salesOpportunityAssembler;
   }
 
@@ -96,6 +99,7 @@ public class OpportunityService {
     opportunity.setStatus(StringUtils.hasText(req.getStatus()) ? req.getStatus().trim() : "ACTIVE");
     opportunity.setCreatedBy(SecurityUtil.currentUserId());
     opportunityMapper.insert(opportunity);
+    dashboardStatsService.evict();
     return toResponse(opportunity);
   }
 
@@ -122,6 +126,7 @@ public class OpportunityService {
     if (rows == 0) {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
     }
+    dashboardStatsService.evict();
     return toResponse(opportunityMapper.selectById(id));
   }
 
@@ -133,6 +138,7 @@ public class OpportunityService {
     salesOpportunityMapper.delete(
         new LambdaQueryWrapper<SalesOpportunity>().eq(SalesOpportunity::getOpportunityId, id));
     statsService.evict();
+    dashboardStatsService.evict();
   }
 
   public Opportunity require(Long id) {

@@ -40,6 +40,7 @@ class SalesOpportunityStateTest {
             mapper,
             opportunityMapper,
             mock(OpportunityStatsService.class),
+            mock(DashboardStatsService.class),
             mock(AuditService.class),
             new SalesOpportunityAssembler(opportunityMapper, mock(CustomerMapper.class)));
   }

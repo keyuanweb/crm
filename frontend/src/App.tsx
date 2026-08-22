@@ -23,7 +23,7 @@ import LeadListPage from './pages/leads/LeadListPage'
 import LeadDetailPage from './pages/leads/LeadDetailPage'
 import OpportunityListPage from './pages/opportunities/OpportunityListPage'
 import SalesOpportunityListPage from './pages/sales-opportunities/SalesOpportunityListPage'
-import OpportunityPipelinePage from './pages/stats/OpportunityPipelinePage'
+import DashboardPage from './pages/stats/DashboardPage'
 import UserManagementPage from './pages/users/UserManagementPage'
 import ChangePasswordPage from './pages/account/ChangePasswordPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
@@ -217,7 +217,7 @@ export default function App() {
         <Route path="contacts" element={<ContactListPage />} />
         <Route path="opportunities" element={<OpportunityListPage />} />
         <Route path="sales-opportunities" element={<SalesOpportunityListPage />} />
-        <Route path="stats" element={<OpportunityPipelinePage />} />
+        <Route path="stats" element={<DashboardPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="audit-logs" element={<AuditLogPage />} />
         <Route path="account/password" element={<ChangePasswordPage />} />

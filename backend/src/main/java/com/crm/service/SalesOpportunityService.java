@@ -31,6 +31,7 @@ public class SalesOpportunityService {
   private final SalesOpportunityMapper salesOpportunityMapper;
   private final OpportunityMapper opportunityMapper;
   private final OpportunityStatsService statsService;
+  private final DashboardStatsService dashboardStatsService;
   private final AuditService auditService;
   private final SalesOpportunityAssembler assembler;
 
@@ -38,11 +39,13 @@ public class SalesOpportunityService {
       SalesOpportunityMapper salesOpportunityMapper,
       OpportunityMapper opportunityMapper,
       OpportunityStatsService statsService,
+      DashboardStatsService dashboardStatsService,
       AuditService auditService,
       SalesOpportunityAssembler assembler) {
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.opportunityMapper = opportunityMapper;
     this.statsService = statsService;
+    this.dashboardStatsService = dashboardStatsService;
     this.auditService = auditService;
     this.assembler = assembler;
   }
@@ -95,6 +98,7 @@ public class SalesOpportunityService {
     so.setCreatedBy(SecurityUtil.currentUserId());
     salesOpportunityMapper.insert(so);
     statsService.evict();
+    dashboardStatsService.evict();
     return assembleOne(so);
   }
 
@@ -115,6 +119,7 @@ public class SalesOpportunityService {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
     }
     statsService.evict();
+    dashboardStatsService.evict();
     return assembleOne(salesOpportunityMapper.selectById(id));
   }
 
@@ -137,6 +142,7 @@ public class SalesOpportunityService {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
     }
     statsService.evict();
+    dashboardStatsService.evict();
     auditService.record(
         "CLOSE", "SALES_OPPORTUNITY", id, "关闭销售机会：" + result + "（金额 " + existing.getAmount() + "）");
     return assembleOne(salesOpportunityMapper.selectById(id));

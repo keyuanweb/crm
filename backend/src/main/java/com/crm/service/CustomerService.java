@@ -39,6 +39,7 @@ public class CustomerService {
   private final SalesOpportunityMapper salesOpportunityMapper;
   private final ContactMapper contactMapper;
   private final AuditService auditService;
+  private final DashboardStatsService dashboardStatsService;
 
   public CustomerService(
       CustomerMapper customerMapper,
@@ -46,13 +47,15 @@ public class CustomerService {
       FollowUpMapper followUpMapper,
       SalesOpportunityMapper salesOpportunityMapper,
       ContactMapper contactMapper,
-      AuditService auditService) {
+      AuditService auditService,
+      DashboardStatsService dashboardStatsService) {
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.followUpMapper = followUpMapper;
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.contactMapper = contactMapper;
     this.auditService = auditService;
+    this.dashboardStatsService = dashboardStatsService;
   }
 
   public PageResult<CustomerResponse> page(
@@ -181,6 +184,7 @@ public class CustomerService {
     }
     customer.setCreatedBy(SecurityUtil.currentUserId());
     customerMapper.insert(customer);
+    dashboardStatsService.evict();
     auditService.record("CREATE", "CUSTOMER", customer.getId(), "创建客户：" + customer.getName());
     return toResponse(customer);
   }
@@ -195,6 +199,7 @@ public class CustomerService {
     if (rows == 0) {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
     }
+    dashboardStatsService.evict();
     auditService.record("UPDATE", "CUSTOMER", id, "编辑客户：" + existing.getName());
     return toResponse(customerMapper.selectById(id));
   }
@@ -203,6 +208,7 @@ public class CustomerService {
   public void delete(Long id) {
     Customer customer = require(id);
     customerMapper.deleteById(id);
+    dashboardStatsService.evict();
     auditService.record("DELETE", "CUSTOMER", id, "逻辑删除客户：" + customer.getName());
   }
 
