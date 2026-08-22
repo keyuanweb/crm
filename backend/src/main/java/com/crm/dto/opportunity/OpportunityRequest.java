@@ -1,9 +1,11 @@
 package com.crm.dto.opportunity;
 
+import com.crm.dto.customfield.CustomFieldValueDTO;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import lombok.Data;
 
 /** 商机创建/编辑请求（data-model.md §3）。 */
@@ -27,6 +29,9 @@ public class OpportunityRequest {
   private String remark;
 
   private String status;
+
+  /** 自定义字段值（016，可选）。 */
+  private List<CustomFieldValueDTO> customFieldValues;
 
   private Integer version;
 }

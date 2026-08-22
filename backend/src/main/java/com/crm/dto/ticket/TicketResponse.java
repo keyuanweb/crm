@@ -1,6 +1,8 @@
 package com.crm.dto.ticket;
 
+import com.crm.dto.customfield.CustomFieldValueDTO;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.Data;
 
 /** 工单响应（含 SLA 与回复数）。 */
@@ -23,6 +25,10 @@ public class TicketResponse {
   private String slaStatus;
   private Long replyCount;
   private String remark;
+
+  /** 自定义字段值（016）。 */
+  private List<CustomFieldValueDTO> customFieldValues;
+
   private Integer version;
   private LocalDateTime createdAt;
 }

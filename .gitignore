@@ -36,5 +36,6 @@ Thumbs.db
 # Debug screenshots
 login_screenshot*.png
 
-# Runtime attachments (contract files etc.)
+# Runtime attachments & exports (contract files etc.)
 backend/contract-files/
+contract-files/

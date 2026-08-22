@@ -73,7 +73,8 @@ class CustomerServiceTest {
             dashboardStatsService,
             dataPermissionService,
             customerShareMapper,
-            userMapper);
+            userMapper,
+            mock(CustomFieldService.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     // 当前用户为管理员（数据权限 ALL），detail/update/delete 权限校验通过

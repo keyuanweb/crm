@@ -1,9 +1,11 @@
 package com.crm.dto.customer;
 
+import com.crm.dto.customfield.CustomFieldValueDTO;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import lombok.Data;
 
 /** 客户创建/编辑请求（data-model.md §2 校验规则）。 */
@@ -38,6 +40,9 @@ public class CustomerRequest {
 
   /** 营销归因活动（014，可选）。 */
   private Long campaignId;
+
+  /** 自定义字段值（016，可选）。 */
+  private List<CustomFieldValueDTO> customFieldValues;
 
   /** 编辑时用于乐观锁校验。 */
   private Integer version;

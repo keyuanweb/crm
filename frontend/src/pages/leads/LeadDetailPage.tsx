@@ -102,6 +102,11 @@ export default function LeadDetailPage() {
           </Descriptions.Item>
           <Descriptions.Item label="负责人">{lead.ownerName || '未分配（线索池）'}</Descriptions.Item>
           <Descriptions.Item label="备注" span={3}>{lead.remark || '-'}</Descriptions.Item>
+          {lead.customFieldValues?.map((cf) => (
+            <Descriptions.Item key={cf.fieldId} label={cf.fieldName ?? `字段#${cf.fieldId}`}>
+              {cf.value || '-'}
+            </Descriptions.Item>
+          ))}
           {lead.convertedAt && (
             <Descriptions.Item label="转化时间" span={3}>
               {new Date(lead.convertedAt).toLocaleString('zh-CN')}

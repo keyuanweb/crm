@@ -1,3 +1,5 @@
+import type { CustomFieldValue } from './customField'
+
 export type LeadStatus = 'NEW' | 'WORKING' | 'QUALIFIED' | 'DISQUALIFIED'
 export type LeadSource = 'WEBSITE' | 'AD' | 'EXHIBITION' | 'REFERRAL' | 'COLD_CALL' | 'OTHER'
 
@@ -15,6 +17,8 @@ export interface Lead {
   ownerName?: string
   /** 营销活动归因（014）。 */
   campaignId?: number
+  /** 自定义字段值（016）。 */
+  customFieldValues?: CustomFieldValue[]
   convertedCustomerId?: number
   convertedAt?: string
   remark?: string
@@ -45,6 +49,8 @@ export interface LeadPayload {
   ownerId?: number
   /** 营销活动归因（014）。 */
   campaignId?: number
+  /** 自定义字段值（016）。 */
+  customFieldValues?: CustomFieldValue[]
   remark?: string
   version?: number
 }

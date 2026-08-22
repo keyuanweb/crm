@@ -43,6 +43,7 @@ public class CustomerService {
   private final DataPermissionService dataPermissionService;
   private final com.crm.repository.CustomerShareMapper customerShareMapper;
   private final com.crm.repository.UserMapper userMapper;
+  private final CustomFieldService customFieldService;
 
   public CustomerService(
       CustomerMapper customerMapper,
@@ -54,7 +55,8 @@ public class CustomerService {
       DashboardStatsService dashboardStatsService,
       DataPermissionService dataPermissionService,
       com.crm.repository.CustomerShareMapper customerShareMapper,
-      com.crm.repository.UserMapper userMapper) {
+      com.crm.repository.UserMapper userMapper,
+      CustomFieldService customFieldService) {
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.followUpMapper = followUpMapper;
@@ -65,6 +67,7 @@ public class CustomerService {
     this.dataPermissionService = dataPermissionService;
     this.customerShareMapper = customerShareMapper;
     this.userMapper = userMapper;
+    this.customFieldService = customFieldService;
   }
 
   public PageResult<CustomerResponse> page(
@@ -99,6 +102,13 @@ public class CustomerService {
                   return resp;
                 })
             .toList();
+    // 016：批量回填自定义字段值
+    List<Long> ids = p.getRecords().stream().map(Customer::getId).toList();
+    if (!ids.isEmpty()) {
+      Map<Long, List<com.crm.dto.customfield.CustomFieldValueDTO>> values =
+          customFieldService.readValuesBatch("CUSTOMER", ids);
+      items.forEach(i -> i.setCustomFieldValues(values.getOrDefault(i.getId(), List.of())));
+    }
     return PageResult.of(items, p.getTotal(), page, pageSize);
   }
 
@@ -182,6 +192,7 @@ public class CustomerService {
                 })
             .toList();
     resp.setContacts(contacts);
+    resp.setCustomFieldValues(customFieldService.readValues("CUSTOMER", id));
     return resp;
   }
 
@@ -195,6 +206,9 @@ public class CustomerService {
     }
     customer.setCreatedBy(SecurityUtil.currentUserId());
     customerMapper.insert(customer);
+    if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
+      customFieldService.saveValues("CUSTOMER", customer.getId(), req.getCustomFieldValues());
+    }
     dashboardStatsService.evict();
     auditService.record("CREATE", "CUSTOMER", customer.getId(), "创建客户：" + customer.getName());
     return toResponse(customer);
@@ -210,6 +224,9 @@ public class CustomerService {
     int rows = customerMapper.updateById(existing);
     if (rows == 0) {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
+    }
+    if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
+      customFieldService.saveValues("CUSTOMER", id, req.getCustomFieldValues());
     }
     dashboardStatsService.evict();
     auditService.record("UPDATE", "CUSTOMER", id, "编辑客户：" + existing.getName());

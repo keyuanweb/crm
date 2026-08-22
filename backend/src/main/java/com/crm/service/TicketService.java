@@ -54,6 +54,8 @@ public class TicketService {
   private final SlaPolicyMapper slaPolicyMapper;
   private final UserMapper userMapper;
   private final AuditService auditService;
+  private final CustomFieldService customFieldService;
+  private final NotificationService notificationService;
 
   public TicketService(
       TicketMapper ticketMapper,
@@ -61,13 +63,17 @@ public class TicketService {
       CustomerMapper customerMapper,
       SlaPolicyMapper slaPolicyMapper,
       UserMapper userMapper,
-      AuditService auditService) {
+      AuditService auditService,
+      CustomFieldService customFieldService,
+      NotificationService notificationService) {
     this.ticketMapper = ticketMapper;
     this.replyMapper = replyMapper;
     this.customerMapper = customerMapper;
     this.slaPolicyMapper = slaPolicyMapper;
     this.userMapper = userMapper;
     this.auditService = auditService;
+    this.customFieldService = customFieldService;
+    this.notificationService = notificationService;
   }
 
   public PageResult<TicketResponse> page(
@@ -117,7 +123,15 @@ public class TicketService {
     }
     qw.orderByDesc(Ticket::getId);
     Page<Ticket> p = ticketMapper.selectPage(new Page<>(page, pageSize), qw);
-    return PageResult.of(toResponses(p.getRecords()), p.getTotal(), page, pageSize);
+    List<TicketResponse> items = toResponses(p.getRecords());
+    // 016：批量回填自定义字段值
+    List<Long> ids = p.getRecords().stream().map(Ticket::getId).toList();
+    if (!ids.isEmpty()) {
+      Map<Long, List<com.crm.dto.customfield.CustomFieldValueDTO>> values =
+          customFieldService.readValuesBatch("TICKET", ids);
+      items.forEach(i -> i.setCustomFieldValues(values.getOrDefault(i.getId(), List.of())));
+    }
+    return PageResult.of(items, p.getTotal(), page, pageSize);
   }
 
   @Transactional
@@ -133,6 +147,9 @@ public class TicketService {
     // SLA：按优先级查启用策略计算到期时间
     applySla(ticket, LocalDateTime.now());
     ticketMapper.insert(ticket);
+    if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
+      customFieldService.saveValues("TICKET", ticket.getId(), req.getCustomFieldValues());
+    }
     auditService.record("CREATE", "TICKET", ticket.getId(), "创建工单：" + ticket.getTitle());
     return toResponse(ticketMapper.selectById(ticket.getId()));
   }
@@ -145,6 +162,9 @@ public class TicketService {
     int rows = ticketMapper.updateById(existing);
     if (rows == 0) {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
+    }
+    if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
+      customFieldService.saveValues("TICKET", id, req.getCustomFieldValues());
     }
     auditService.record("UPDATE", "TICKET", id, "编辑工单：" + existing.getTitle());
     return toResponse(ticketMapper.selectById(id));
@@ -160,6 +180,16 @@ public class TicketService {
     ticket.setAssigneeId(assigneeId);
     ticketMapper.updateById(ticket);
     auditService.record("ASSIGN", "TICKET", id, "工单分配给用户 " + user.getDisplayName());
+    // 016：通知新处理人（本人除外）
+    Long current = SecurityUtil.currentUserId();
+    if (!java.util.Objects.equals(current, assigneeId)) {
+      notificationService.notify(
+          assigneeId,
+          NotificationService.TYPE_TICKET_ASSIGN,
+          "工单「" + ticket.getTitle() + "」已分配给你",
+          "TICKET",
+          id);
+    }
     return toResponse(ticketMapper.selectById(id));
   }
 
@@ -176,6 +206,17 @@ public class TicketService {
     reply.setCreatedAt(LocalDateTime.now());
     replyMapper.insert(reply);
     auditService.record("REPLY", "TICKET", id, "工单回复");
+    // 016：通知处理人（本人除外）
+    Long current = SecurityUtil.currentUserId();
+    if (ticket.getAssigneeId() != null
+        && !java.util.Objects.equals(current, ticket.getAssigneeId())) {
+      notificationService.notify(
+          ticket.getAssigneeId(),
+          NotificationService.TYPE_TICKET_REPLY,
+          "工单「" + ticket.getTitle() + "」有新回复",
+          "TICKET",
+          id);
+    }
     TicketReplyResponse resp = toReplyResponse(reply);
     resp.setReplierName(
         SecurityUtil.currentPrincipal() == null
@@ -225,6 +266,7 @@ public class TicketService {
       resp.setAssigneeName(user == null ? null : user.getDisplayName());
     }
     resp.setReplyCount(countReplies(id));
+    resp.setCustomFieldValues(customFieldService.readValues("TICKET", id));
     return resp;
   }
 

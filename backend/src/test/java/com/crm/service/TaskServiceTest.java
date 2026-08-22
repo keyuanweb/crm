@@ -140,7 +140,8 @@ class TaskServiceTest {
   void reminderStatus() {
     LocalDateTime now = LocalDateTime.now();
     TaskItem overdue = task(1L, 1L, "TODO", now.minusDays(2));
-    TaskItem today = task(2L, 1L, "TODO", now.plusHours(2));
+    // 固定"今天 23:59"避免跨日边界（now.plusHours 可能跨天）
+    TaskItem today = task(2L, 1L, "TODO", LocalDate.now().atTime(23, 59, 59));
     TaskItem normal = task(3L, 1L, "TODO", now.plusDays(5));
     TaskItem done = task(4L, 1L, "DONE", now.minusDays(1));
 

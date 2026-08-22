@@ -68,7 +68,14 @@ class TicketServiceTest {
     auditService = mock(AuditService.class);
     service =
         new TicketService(
-            ticketMapper, replyMapper, customerMapper, slaPolicyMapper, userMapper, auditService);
+            ticketMapper,
+            replyMapper,
+            customerMapper,
+            slaPolicyMapper,
+            userMapper,
+            auditService,
+            mock(CustomFieldService.class),
+            mock(NotificationService.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock

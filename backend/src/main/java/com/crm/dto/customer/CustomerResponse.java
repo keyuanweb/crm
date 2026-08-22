@@ -1,6 +1,8 @@
 package com.crm.dto.customer;
 
+import com.crm.dto.customfield.CustomFieldValueDTO;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.Data;
 
 /** 客户列表项/基本信息响应。 */
@@ -24,6 +26,9 @@ public class CustomerResponse {
 
   /** 营销活动归因（014）。 */
   private Long campaignId;
+
+  /** 自定义字段值（016）。 */
+  private List<CustomFieldValueDTO> customFieldValues;
 
   private Integer version;
   private LocalDateTime createdAt;

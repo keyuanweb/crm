@@ -1,9 +1,11 @@
 package com.crm.dto.ticket;
 
+import com.crm.dto.customfield.CustomFieldValueDTO;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import lombok.Data;
 
 /** 工单创建/编辑请求（FR-C01）。 */
@@ -29,6 +31,9 @@ public class TicketRequest {
 
   @Size(max = 500, message = "备注不能超过 500 字")
   private String remark;
+
+  /** 自定义字段值（016，可选）。 */
+  private List<CustomFieldValueDTO> customFieldValues;
 
   private Integer version;
 }

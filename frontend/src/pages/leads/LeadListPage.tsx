@@ -34,6 +34,11 @@ import {
   type LeadStatus,
 } from '../../types/lead'
 import LeadConvertModal from '../../components/LeadConvertModal'
+import {
+  CustomFieldFormItems,
+  fromCustomFieldValues,
+  toCustomFieldPayload,
+} from '../../components/CustomFieldItems'
 
 interface FormValues {
   name: string
@@ -45,6 +50,7 @@ interface FormValues {
   status?: LeadStatus
   score?: number
   campaignId?: number
+  customFieldValues?: Record<string, string | number | undefined>
   remark?: string
 }
 
@@ -89,6 +95,8 @@ export default function LeadListPage() {
       campaignId: row.campaignId,
       remark: row.remark,
     })
+    const cf = fromCustomFieldValues(row.customFieldValues)
+    if (cf) form.setFieldsValue({ customFieldValues: cf })
     setModalOpen(true)
   }
 
@@ -110,6 +118,7 @@ export default function LeadListPage() {
       score: values.score,
       campaignId: values.campaignId,
       remark: values.remark,
+      customFieldValues: toCustomFieldPayload(values.customFieldValues as Record<string, unknown>),
     }
     try {
       if (editing) {
@@ -320,6 +329,7 @@ export default function LeadListPage() {
               options={campaignOptions}
             />
           </Form.Item>
+          <CustomFieldFormItems entityType="LEAD" />
           <Form.Item name="remark" label="备注">
             <Input.TextArea rows={2} />
           </Form.Item>

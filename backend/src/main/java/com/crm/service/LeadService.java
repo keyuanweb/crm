@@ -48,6 +48,7 @@ public class LeadService {
   private final UserMapper userMapper;
   private final AuditService auditService;
   private final WorkflowEventPublisher workflowEventPublisher;
+  private final CustomFieldService customFieldService;
 
   public LeadService(
       LeadMapper leadMapper,
@@ -57,7 +58,8 @@ public class LeadService {
       FollowUpMapper followUpMapper,
       UserMapper userMapper,
       AuditService auditService,
-      WorkflowEventPublisher workflowEventPublisher) {
+      WorkflowEventPublisher workflowEventPublisher,
+      CustomFieldService customFieldService) {
     this.leadMapper = leadMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
@@ -66,6 +68,7 @@ public class LeadService {
     this.userMapper = userMapper;
     this.auditService = auditService;
     this.workflowEventPublisher = workflowEventPublisher;
+    this.customFieldService = customFieldService;
   }
 
   public PageResult<LeadResponse> page(
@@ -105,6 +108,7 @@ public class LeadService {
     qw.orderByDesc(Lead::getId);
     Page<Lead> p = leadMapper.selectPage(new Page<>(page, pageSize), qw);
     List<LeadResponse> items = toResponses(p.getRecords());
+    fillCustomFields(items, p.getRecords().stream().map(Lead::getId).toList());
     return PageResult.of(items, p.getTotal(), page, pageSize);
   }
 
@@ -130,6 +134,7 @@ public class LeadService {
                 })
             .toList();
     resp.setFollowUps(followUps);
+    fillCustomFields(resp, id);
     return resp;
   }
 
@@ -148,6 +153,9 @@ public class LeadService {
     }
     lead.setCreatedBy(SecurityUtil.currentUserId());
     leadMapper.insert(lead);
+    if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
+      customFieldService.saveValues("LEAD", lead.getId(), req.getCustomFieldValues());
+    }
     auditService.record("CREATE", "LEAD", lead.getId(), "创建线索：" + lead.getName());
     // 013：触发工作流事件（线索创建）
     workflowEventPublisher.leadCreated(
@@ -171,6 +179,9 @@ public class LeadService {
     int rows = leadMapper.updateById(existing);
     if (rows == 0) {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
+    }
+    if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
+      customFieldService.saveValues("LEAD", id, req.getCustomFieldValues());
     }
     auditService.record("UPDATE", "LEAD", id, "编辑线索：" + existing.getName());
     return toResponse(leadMapper.selectById(id));
@@ -341,6 +352,23 @@ public class LeadService {
       resp.setOwnerName(owner == null ? null : owner.getDisplayName());
     }
     return resp;
+  }
+
+  /** 回填自定义字段值（批量，避免 N+1）。 */
+  private void fillCustomFields(List<LeadResponse> items, List<Long> ids) {
+    if (ids.isEmpty()) {
+      return;
+    }
+    Map<Long, List<com.crm.dto.customfield.CustomFieldValueDTO>> values =
+        customFieldService.readValuesBatch("LEAD", ids);
+    items.forEach(i -> i.setCustomFieldValues(values.getOrDefault(i.getId(), List.of())));
+  }
+
+  /** 回填自定义字段值（单条）。 */
+  private void fillCustomFields(LeadResponse resp, Long id) {
+    if (id != null) {
+      resp.setCustomFieldValues(customFieldService.readValues("LEAD", id));
+    }
   }
 
   /** 纯字段映射，不做数据库访问（批量路径避免 N+1）。 */

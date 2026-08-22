@@ -1,8 +1,10 @@
 package com.crm.dto.lead;
 
+import com.crm.dto.customfield.CustomFieldValueDTO;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import lombok.Data;
 
 @Data
@@ -38,6 +40,9 @@ public class LeadRequest {
 
   /** 营销归因活动（014，可选）。 */
   private Long campaignId;
+
+  /** 自定义字段值（016，可选）。 */
+  private List<CustomFieldValueDTO> customFieldValues;
 
   private Integer version;
 

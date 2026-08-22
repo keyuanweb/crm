@@ -33,6 +33,7 @@ public class OpportunityService {
   private final OpportunityStatsService statsService;
   private final DashboardStatsService dashboardStatsService;
   private final SalesOpportunityAssembler salesOpportunityAssembler;
+  private final CustomFieldService customFieldService;
 
   public OpportunityService(
       OpportunityMapper opportunityMapper,
@@ -40,13 +41,15 @@ public class OpportunityService {
       CustomerMapper customerMapper,
       OpportunityStatsService statsService,
       DashboardStatsService dashboardStatsService,
-      SalesOpportunityAssembler salesOpportunityAssembler) {
+      SalesOpportunityAssembler salesOpportunityAssembler,
+      CustomFieldService customFieldService) {
     this.opportunityMapper = opportunityMapper;
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.customerMapper = customerMapper;
     this.statsService = statsService;
     this.dashboardStatsService = dashboardStatsService;
     this.salesOpportunityAssembler = salesOpportunityAssembler;
+    this.customFieldService = customFieldService;
   }
 
   public PageResult<OpportunityResponse> page(
@@ -64,6 +67,13 @@ public class OpportunityService {
     qw.orderByDesc(Opportunity::getId);
     Page<Opportunity> p = opportunityMapper.selectPage(new Page<>(page, pageSize), qw);
     List<OpportunityResponse> items = fillResponses(p.getRecords());
+    // 016：批量回填自定义字段值
+    List<Long> ids = p.getRecords().stream().map(Opportunity::getId).toList();
+    if (!ids.isEmpty()) {
+      Map<Long, List<com.crm.dto.customfield.CustomFieldValueDTO>> values =
+          customFieldService.readValuesBatch("OPPORTUNITY", ids);
+      items.forEach(i -> i.setCustomFieldValues(values.getOrDefault(i.getId(), List.of())));
+    }
     return PageResult.of(items, p.getTotal(), page, pageSize);
   }
 
@@ -78,6 +88,7 @@ public class OpportunityService {
                 .eq(SalesOpportunity::getOpportunityId, id)
                 .orderByDesc(SalesOpportunity::getId));
     resp.setSalesOpportunities(salesOpportunityAssembler.assemble(children));
+    resp.setCustomFieldValues(customFieldService.readValues("OPPORTUNITY", id));
     return resp;
   }
 
@@ -99,6 +110,9 @@ public class OpportunityService {
     opportunity.setStatus(StringUtils.hasText(req.getStatus()) ? req.getStatus().trim() : "ACTIVE");
     opportunity.setCreatedBy(SecurityUtil.currentUserId());
     opportunityMapper.insert(opportunity);
+    if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
+      customFieldService.saveValues("OPPORTUNITY", opportunity.getId(), req.getCustomFieldValues());
+    }
     dashboardStatsService.evict();
     return toResponse(opportunity);
   }
@@ -125,6 +139,9 @@ public class OpportunityService {
     int rows = opportunityMapper.updateById(existing);
     if (rows == 0) {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
+    }
+    if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
+      customFieldService.saveValues("OPPORTUNITY", id, req.getCustomFieldValues());
     }
     dashboardStatsService.evict();
     return toResponse(opportunityMapper.selectById(id));

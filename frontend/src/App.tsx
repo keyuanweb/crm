@@ -9,6 +9,7 @@ import {
   ContactsOutlined,
   CustomerServiceOutlined,
   DeploymentUnitOutlined,
+  DownloadOutlined,
   FileProtectOutlined,
   FileTextOutlined,
   FundOutlined,
@@ -17,6 +18,7 @@ import {
   LogoutOutlined,
   NotificationOutlined,
   ProfileOutlined,
+  SettingOutlined,
   ShoppingOutlined,
   ThunderboltOutlined,
   TeamOutlined,
@@ -55,6 +57,9 @@ import TicketListPage from './pages/tickets/TicketListPage'
 import TicketDetailPage from './pages/tickets/TicketDetailPage'
 import KnowledgeArticleListPage from './pages/knowledge/KnowledgeArticleListPage'
 import SlaPolicyListPage from './pages/sla/SlaPolicyListPage'
+import CustomFieldListPage from './pages/settings/CustomFieldListPage'
+import ExportCenterPage from './pages/exports/ExportCenterPage'
+import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
@@ -70,6 +75,13 @@ function Shell() {
   const navigate = useNavigate()
   const location = useLocation()
   const [booted, setBooted] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     if (getAccessToken()) {
@@ -125,7 +137,11 @@ function Shell() {
     { path: '/marketing', name: '营销', icon: <NotificationOutlined /> },
     { path: '/tickets', name: '客户服务', icon: <CustomerServiceOutlined /> },
     { path: '/knowledge', name: '知识库', icon: <FileTextOutlined /> },
+    { path: '/exports', name: '导出中心', icon: <DownloadOutlined /> },
     ...(isAdmin ? [{ path: '/sla-policies', name: 'SLA 策略', icon: <AuditOutlined /> }] : []),
+    ...(isAdmin
+      ? [{ path: '/settings/custom-fields', name: '自定义字段', icon: <SettingOutlined /> }]
+      : []),
     ...(isAdmin ? [{ path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> }] : []),
     { path: '/stats', name: '统计', icon: <BarChartOutlined /> },
     ...(isAdmin ? [{ path: '/users', name: '用户管理', icon: <UserOutlined /> }] : []),
@@ -170,7 +186,9 @@ function Shell() {
               CRM 客户关系管理系统
             </span>
           </div>
-          <Dropdown
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <NotificationCenter />
+            <Dropdown
             menu={{
               items: [
                 {
@@ -198,18 +216,25 @@ function Shell() {
               </span>
             </div>
           </Dropdown>
+          </div>
         </div>
       </Header>
 
-      {/* header 下方：左侧菜单栏 + 右侧内容区 */}
-      <Layout style={{ flex: 1, minHeight: 0 }}>
+      {/* header 下方：左侧菜单栏 + 右侧内容区（窄屏折叠菜单为顶部横向滚动） */}
+      <Layout style={{ flex: 1, minHeight: 0, flexDirection: isMobile ? 'column' : 'row' }}>
         <Sider
-          width={200}
+          width={isMobile ? undefined : 200}
           theme="light"
-          style={{ background: '#fff', borderRight: '1px solid #f0f0f0' }}
+          collapsed={isMobile}
+          collapsedWidth={isMobile ? '100%' : undefined}
+          style={{
+            background: '#fff',
+            borderRight: '1px solid #f0f0f0',
+            ...(isMobile ? { height: 48 } : {}),
+          }}
         >
           <Menu
-            mode="inline"
+            mode={isMobile ? 'horizontal' : 'inline'}
             style={{ height: '100%', borderInlineEnd: 'none' }}
             items={menuItems}
             selectedKeys={[selectedKey]}
@@ -217,7 +242,7 @@ function Shell() {
           />
         </Sider>
         <Layout style={{ flexDirection: 'column' }}>
-          <Content style={{ background: '#f0f2f5', padding: 16, overflow: 'auto' }}>
+          <Content style={{ background: '#f0f2f5', padding: isMobile ? 8 : 16, overflow: 'auto' }}>
             <Outlet />
           </Content>
           <Footer
@@ -273,6 +298,8 @@ export default function App() {
         <Route path="tickets/:id" element={<TicketDetailPage />} />
         <Route path="knowledge" element={<KnowledgeArticleListPage />} />
         <Route path="sla-policies" element={<SlaPolicyListPage />} />
+        <Route path="exports" element={<ExportCenterPage />} />
+        <Route path="settings/custom-fields" element={<CustomFieldListPage />} />
         <Route path="stats" element={<DashboardPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="departments" element={<DepartmentListPage />} />

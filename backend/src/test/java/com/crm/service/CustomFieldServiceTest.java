@@ -1,0 +1,175 @@
+package com.crm.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.crm.common.BusinessException;
+import com.crm.common.ErrorCode;
+import com.crm.dto.customfield.CustomFieldRequest;
+import com.crm.dto.customfield.CustomFieldValueDTO;
+import com.crm.entity.CustomField;
+import com.crm.entity.CustomFieldValue;
+import com.crm.repository.CustomFieldMapper;
+import com.crm.repository.CustomFieldValueMapper;
+import com.crm.security.JwtAuthFilter.CrmPrincipal;
+import com.crm.security.SecurityUtil;
+import java.util.List;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+
+/** CustomFieldService 单元测试（016 T013）：定义 CRUD/重复 409/类型校验/必填 422。 */
+class CustomFieldServiceTest {
+
+  private CustomFieldMapper fieldMapper;
+  private CustomFieldValueMapper valueMapper;
+  private AuditService auditService;
+  private CustomFieldService service;
+  private MockedStatic<SecurityUtil> securityUtilMock;
+
+  @BeforeAll
+  static void initTableInfo() {
+    MybatisConfiguration configuration = new MybatisConfiguration();
+    MapperBuilderAssistant assistant = new MapperBuilderAssistant(configuration, "");
+    TableInfoHelper.initTableInfo(assistant, CustomField.class);
+    TableInfoHelper.initTableInfo(assistant, CustomFieldValue.class);
+  }
+
+  @BeforeEach
+  void setUp() {
+    fieldMapper = mock(CustomFieldMapper.class);
+    valueMapper = mock(CustomFieldValueMapper.class);
+    auditService = mock(AuditService.class);
+    service = new CustomFieldService(fieldMapper, valueMapper, auditService);
+    securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
+    securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
+    securityUtilMock
+        .when(SecurityUtil::currentPrincipal)
+        .thenReturn(new CrmPrincipal(1L, "admin", "ADMIN"));
+  }
+
+  @AfterEach
+  void tearDown() {
+    securityUtilMock.close();
+  }
+
+  private CustomFieldRequest request(String entity, String name, String type) {
+    CustomFieldRequest req = new CustomFieldRequest();
+    req.setEntityType(entity);
+    req.setName(name);
+    req.setFieldType(type);
+    return req;
+  }
+
+  private CustomField field(Long id) {
+    CustomField f = new CustomField();
+    f.setId(id);
+    f.setEntityType("LEAD");
+    f.setName("预算规模");
+    f.setFieldType("NUMBER");
+    f.setRequired(0);
+    f.setEnabled(1);
+    f.setVersion(0);
+    return f;
+  }
+
+  @Test
+  @DisplayName("创建字段成功：审计记录")
+  void createSucceeds() {
+    when(fieldMapper.selectCount(any())).thenReturn(0L);
+    when(fieldMapper.insert(any(CustomField.class)))
+        .thenAnswer(
+            invocation -> {
+              CustomField f = invocation.getArgument(0);
+              f.setId(1L);
+              return 1;
+            });
+
+    var resp = service.create(request("LEAD", "预算规模", "NUMBER"));
+
+    assertThat(resp.getId()).isEqualTo(1L);
+    assertThat(resp.getName()).isEqualTo("预算规模");
+    verify(auditService).record("CREATE", "CUSTOM_FIELD", 1L, "创建自定义字段：LEAD.预算规模");
+  }
+
+  @Test
+  @DisplayName("创建字段：实体内重名 → 409")
+  void createDuplicateThrows() {
+    when(fieldMapper.selectCount(any())).thenReturn(1L);
+
+    assertThatThrownBy(() -> service.create(request("LEAD", "预算规模", "NUMBER")))
+        .isInstanceOf(BusinessException.class)
+        .extracting(e -> ((BusinessException) e).getErrorCode())
+        .isEqualTo(ErrorCode.CUSTOM_FIELD_DUPLICATE);
+  }
+
+  @Test
+  @DisplayName("SELECT 类型无选项 → 422；非 SELECT 带选项 → 422")
+  void typeOptionsValidation() {
+    CustomFieldRequest select = request("LEAD", "来源", "SELECT");
+    assertThatThrownBy(() -> service.create(select))
+        .isInstanceOf(BusinessException.class)
+        .extracting(e -> ((BusinessException) e).getErrorCode())
+        .isEqualTo(ErrorCode.CUSTOM_FIELD_INVALID);
+
+    CustomFieldRequest text = request("LEAD", "备注", "TEXT");
+    text.setOptions("a,b");
+    assertThatThrownBy(() -> service.create(text))
+        .isInstanceOf(BusinessException.class)
+        .extracting(e -> ((BusinessException) e).getErrorCode())
+        .isEqualTo(ErrorCode.CUSTOM_FIELD_INVALID);
+    verify(fieldMapper, never()).insert(any(CustomField.class));
+  }
+
+  @Test
+  @DisplayName("保存值：必填字段缺失 → 422 CUSTOM_FIELD_REQUIRED")
+  void saveValuesRequiredMissingThrows() {
+    CustomField required = field(1L);
+    required.setRequired(1);
+    when(fieldMapper.selectList(any())).thenReturn(List.of(required));
+
+    assertThatThrownBy(() -> service.saveValues("LEAD", 10L, null))
+        .isInstanceOf(BusinessException.class)
+        .extracting(e -> ((BusinessException) e).getErrorCode())
+        .isEqualTo(ErrorCode.CUSTOM_FIELD_REQUIRED);
+  }
+
+  @Test
+  @DisplayName("保存值：提供必填字段值则成功（先删后插）")
+  void saveValuesSucceeds() {
+    CustomField required = field(1L);
+    required.setRequired(1);
+    when(fieldMapper.selectList(any())).thenReturn(List.of(required));
+
+    CustomFieldValueDTO v = new CustomFieldValueDTO();
+    v.setFieldId(1L);
+    v.setValue("500万");
+    service.saveValues("LEAD", 10L, List.of(v));
+
+    verify(valueMapper).delete(any());
+    verify(valueMapper).insert(any(CustomFieldValue.class));
+  }
+
+  @Test
+  @DisplayName("删除字段：物理清理关联值")
+  void deleteCleansValues() {
+    when(fieldMapper.selectById(1L)).thenReturn(field(1L));
+
+    service.delete(1L);
+
+    verify(valueMapper).delete(any());
+    verify(fieldMapper).deleteById(org.mockito.ArgumentMatchers.<Long>any());
+  }
+}
