@@ -122,6 +122,11 @@ export default function CustomerDetailPage() {
           <Descriptions.Item label="状态">
             {data.status === 'ACTIVE' ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>}
           </Descriptions.Item>
+          {data.customFieldValues?.map((cf) => (
+            <Descriptions.Item key={cf.fieldId} label={cf.fieldName ?? `字段#${cf.fieldId}`}>
+              {cf.value || '-'}
+            </Descriptions.Item>
+          ))}
         </Descriptions>
       </Card>
 

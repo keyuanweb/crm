@@ -2,6 +2,8 @@ export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'
 export type TicketSlaStatus = 'NORMAL' | 'WARNING' | 'OVERDUE'
 
+import type { CustomFieldValue } from './customField'
+
 export interface Ticket {
   id: number
   customerId: number
@@ -19,6 +21,8 @@ export interface Ticket {
   slaStatus?: TicketSlaStatus
   replyCount?: number
   remark?: string
+  /** 自定义字段值（016）。 */
+  customFieldValues?: CustomFieldValue[]
   version: number
   createdAt?: string
 }
@@ -31,6 +35,8 @@ export interface TicketPayload {
   priority: string
   assigneeId?: number
   remark?: string
+  /** 自定义字段值（016）。 */
+  customFieldValues?: { fieldId: number; value?: string }[]
   version?: number
 }
 

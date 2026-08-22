@@ -1,4 +1,5 @@
 import type { Contact } from './contact'
+import type { CustomFieldValue } from './customField'
 
 export interface Customer {
   id: number
@@ -14,6 +15,8 @@ export interface Customer {
   ownerName?: string
   /** 营销活动归因（014）。 */
   campaignId?: number
+  /** 自定义字段值（016）。 */
+  customFieldValues?: CustomFieldValue[]
   version: number
   createdAt?: string
 }

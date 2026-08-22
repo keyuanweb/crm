@@ -200,6 +200,11 @@ export default function TicketDetailPage() {
             {ticket.description}
           </Descriptions.Item>
         )}
+        {ticket.customFieldValues?.map((cf) => (
+          <Descriptions.Item key={cf.fieldId} label={cf.fieldName ?? `字段#${cf.fieldId}`}>
+            {cf.value || '-'}
+          </Descriptions.Item>
+        ))}
       </Descriptions>
 
       <List

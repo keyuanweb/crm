@@ -13,12 +13,18 @@ import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { formatAmount, type Opportunity } from '../../types/opportunity'
 import { useQuery } from '@tanstack/react-query'
+import {
+  CustomFieldFormItems,
+  fromCustomFieldValues,
+  toCustomFieldPayload,
+} from '../../components/CustomFieldItems'
 
 interface FormValues {
   customerId: number
   name: string
   expectedAmountMin?: number
   expectedAmountMax?: number
+  customFieldValues?: Record<string, string | number | undefined>
   remark?: string
 }
 
@@ -51,6 +57,8 @@ export default function OpportunityListPage() {
       expectedAmountMax: row.expectedAmountMax ? row.expectedAmountMax / 100 : undefined,
       remark: row.remark,
     })
+    const cf = fromCustomFieldValues(row.customFieldValues)
+    if (cf) form.setFieldsValue({ customFieldValues: cf })
     setModalOpen(true)
   }
 
@@ -62,6 +70,7 @@ export default function OpportunityListPage() {
       expectedAmountMin: values.expectedAmountMin ? values.expectedAmountMin * 100 : undefined,
       expectedAmountMax: values.expectedAmountMax ? values.expectedAmountMax * 100 : undefined,
       remark: values.remark,
+      customFieldValues: toCustomFieldPayload(values.customFieldValues as Record<string, unknown>),
     }
     try {
       if (editing) {
@@ -184,6 +193,7 @@ export default function OpportunityListPage() {
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
           </Space>
+          <CustomFieldFormItems entityType="OPPORTUNITY" />
           <Form.Item name="remark" label="备注">
             <Input.TextArea rows={2} />
           </Form.Item>

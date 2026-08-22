@@ -1,3 +1,5 @@
+import type { CustomFieldValue } from './customField'
+
 export interface Opportunity {
   id: number
   name: string
@@ -8,6 +10,8 @@ export interface Opportunity {
   remark?: string
   status: 'ACTIVE' | 'ARCHIVED'
   salesOpportunityCount: number
+  /** 自定义字段值（016）。 */
+  customFieldValues?: CustomFieldValue[]
   version: number
   createdAt?: string
 }

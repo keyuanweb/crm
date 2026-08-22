@@ -21,12 +21,17 @@ import {
   type TicketPriority,
   type TicketStatus,
 } from '../../types/ticket'
+import {
+  CustomFieldFormItems,
+  toCustomFieldPayload,
+} from '../../components/CustomFieldItems'
 
 interface FormValues {
   customerId: number
   title: string
   description?: string
   priority: TicketPriority
+  customFieldValues?: Record<string, string | number | undefined>
   remark?: string
 }
 
@@ -52,6 +57,7 @@ export default function TicketListPage() {
       description: values.description,
       priority: values.priority,
       remark: values.remark,
+      customFieldValues: toCustomFieldPayload(values.customFieldValues as Record<string, unknown>),
     }
     try {
       await createTicket(payload)
@@ -187,6 +193,7 @@ export default function TicketListPage() {
               options={Object.entries(TICKET_PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
             />
           </Form.Item>
+          <CustomFieldFormItems entityType="TICKET" />
           <Form.Item name="remark" label="备注">
             <Input.TextArea rows={2} />
           </Form.Item>

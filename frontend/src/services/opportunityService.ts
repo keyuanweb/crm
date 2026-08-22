@@ -14,6 +14,8 @@ export interface OpportunityPayload {
   expectedAmountMax?: number
   remark?: string
   status?: string
+  /** 自定义字段值（016）。 */
+  customFieldValues?: { fieldId: number; value?: string }[]
   version?: number
 }
 

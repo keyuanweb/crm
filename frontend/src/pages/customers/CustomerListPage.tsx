@@ -42,6 +42,11 @@ import { fetchCampaigns } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
 import type { Customer } from '../../types/customer'
+import {
+  CustomFieldFormItems,
+  fromCustomFieldValues,
+  toCustomFieldPayload,
+} from '../../components/CustomFieldItems'
 
 interface FormValues {
   name: string
@@ -51,6 +56,7 @@ interface FormValues {
   email?: string
   address?: string
   campaignId?: number
+  customFieldValues?: Record<string, string | number | undefined>
   remark?: string
 }
 
@@ -97,6 +103,8 @@ export default function CustomerListPage() {
       campaignId: row.campaignId,
       remark: row.remark,
     })
+    const cf = fromCustomFieldValues(row.customFieldValues)
+    if (cf) form.setFieldsValue({ customFieldValues: cf })
     setModalOpen(true)
   }
 
@@ -104,10 +112,12 @@ export default function CustomerListPage() {
     const values = await form.validateFields()
     const payload: CustomerPayload = { name: values.name, company: values.company }
     for (const [key, value] of Object.entries(values)) {
-      if (key !== 'name' && key !== 'company' && value !== undefined && value !== '') {
+      if (key !== 'name' && key !== 'company' && key !== 'customFieldValues' && value !== undefined && value !== '') {
         payload[key as keyof CustomerPayload] = value as never
       }
     }
+    const cf = toCustomFieldPayload(values.customFieldValues as Record<string, unknown>)
+    if (cf) payload.customFieldValues = cf
     try {
       if (editing) {
         await updateCustomer(editing.id, { ...payload, version: editing.version })
@@ -359,6 +369,7 @@ export default function CustomerListPage() {
               options={campaignOptions}
             />
           </Form.Item>
+          <CustomFieldFormItems entityType="CUSTOMER" />
           <Form.Item name="remark" label="备注">
             <Input.TextArea rows={2} />
           </Form.Item>

@@ -12,6 +12,8 @@ export interface CustomerPayload {
   status?: string
   /** 营销活动归因（014）。 */
   campaignId?: number
+  /** 自定义字段值（016）。 */
+  customFieldValues?: { fieldId: number; value?: string }[]
   version?: number
 }
 
