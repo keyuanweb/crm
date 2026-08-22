@@ -7,6 +7,7 @@ import {
   BarChartOutlined,
   CalendarOutlined,
   ContactsOutlined,
+  CustomerServiceOutlined,
   DeploymentUnitOutlined,
   FileProtectOutlined,
   FileTextOutlined,
@@ -50,6 +51,10 @@ import ChangePasswordPage from './pages/account/ChangePasswordPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
 import CampaignListPage from './pages/marketing/CampaignListPage'
 import ChannelRoiPage from './pages/marketing/ChannelRoiPage'
+import TicketListPage from './pages/tickets/TicketListPage'
+import TicketDetailPage from './pages/tickets/TicketDetailPage'
+import KnowledgeArticleListPage from './pages/knowledge/KnowledgeArticleListPage'
+import SlaPolicyListPage from './pages/sla/SlaPolicyListPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
@@ -118,6 +123,9 @@ function Shell() {
     { path: '/tasks', name: '任务', icon: <CalendarOutlined /> },
     { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
     { path: '/marketing', name: '营销', icon: <NotificationOutlined /> },
+    { path: '/tickets', name: '客户服务', icon: <CustomerServiceOutlined /> },
+    { path: '/knowledge', name: '知识库', icon: <FileTextOutlined /> },
+    ...(isAdmin ? [{ path: '/sla-policies', name: 'SLA 策略', icon: <AuditOutlined /> }] : []),
     ...(isAdmin ? [{ path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> }] : []),
     { path: '/stats', name: '统计', icon: <BarChartOutlined /> },
     ...(isAdmin ? [{ path: '/users', name: '用户管理', icon: <UserOutlined /> }] : []),
@@ -261,6 +269,10 @@ export default function App() {
         <Route path="products" element={<ProductListPage />} />
         <Route path="marketing" element={<CampaignListPage />} />
         <Route path="marketing/roi" element={<ChannelRoiPage />} />
+        <Route path="tickets" element={<TicketListPage />} />
+        <Route path="tickets/:id" element={<TicketDetailPage />} />
+        <Route path="knowledge" element={<KnowledgeArticleListPage />} />
+        <Route path="sla-policies" element={<SlaPolicyListPage />} />
         <Route path="stats" element={<DashboardPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="departments" element={<DepartmentListPage />} />
