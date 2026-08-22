@@ -17,6 +17,10 @@ public class LeadResponse {
   private Integer score;
   private Long ownerId;
   private String ownerName;
+
+  /** 营销活动归因（014）。 */
+  private Long campaignId;
+
   private Long convertedCustomerId;
   private LocalDateTime convertedAt;
   private String remark;

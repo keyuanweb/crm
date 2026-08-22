@@ -25,4 +25,7 @@ public class Customer extends BaseEntity {
 
   /** 归属销售（011，空 = 公海）。 */
   private Long ownerId;
+
+  /** 营销归因活动（014，可选）。 */
+  private Long campaignId;
 }

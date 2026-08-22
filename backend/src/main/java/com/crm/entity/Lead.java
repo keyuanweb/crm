@@ -35,6 +35,9 @@ public class Lead extends BaseEntity {
   /** 转化时间。 */
   private LocalDateTime convertedAt;
 
+  /** 营销归因活动（014，可选）。 */
+  private Long campaignId;
+
   private String remark;
   private Long createdBy;
 }

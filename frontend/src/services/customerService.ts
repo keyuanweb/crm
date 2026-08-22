@@ -10,6 +10,8 @@ export interface CustomerPayload {
   address?: string
   remark?: string
   status?: string
+  /** 营销活动归因（014）。 */
+  campaignId?: number
   version?: number
 }
 

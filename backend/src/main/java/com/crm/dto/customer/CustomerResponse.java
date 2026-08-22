@@ -22,6 +22,9 @@ public class CustomerResponse {
 
   private String ownerName;
 
+  /** 营销活动归因（014）。 */
+  private Long campaignId;
+
   private Integer version;
   private LocalDateTime createdAt;
 }

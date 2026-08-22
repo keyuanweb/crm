@@ -12,6 +12,8 @@ export interface Customer {
   status: 'ACTIVE' | 'INACTIVE'
   ownerId?: number
   ownerName?: string
+  /** 营销活动归因（014）。 */
+  campaignId?: number
   version: number
   createdAt?: string
 }

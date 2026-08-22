@@ -14,6 +14,7 @@ import {
   IdcardOutlined,
   KeyOutlined,
   LogoutOutlined,
+  NotificationOutlined,
   ProfileOutlined,
   ShoppingOutlined,
   ThunderboltOutlined,
@@ -47,6 +48,8 @@ import WorkflowLogListPage from './pages/workflows/WorkflowLogListPage'
 import UserManagementPage from './pages/users/UserManagementPage'
 import ChangePasswordPage from './pages/account/ChangePasswordPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
+import CampaignListPage from './pages/marketing/CampaignListPage'
+import ChannelRoiPage from './pages/marketing/ChannelRoiPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
@@ -114,6 +117,7 @@ function Shell() {
     { path: '/orders', name: '订单', icon: <ProfileOutlined /> },
     { path: '/tasks', name: '任务', icon: <CalendarOutlined /> },
     { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
+    { path: '/marketing', name: '营销', icon: <NotificationOutlined /> },
     ...(isAdmin ? [{ path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> }] : []),
     { path: '/stats', name: '统计', icon: <BarChartOutlined /> },
     ...(isAdmin ? [{ path: '/users', name: '用户管理', icon: <UserOutlined /> }] : []),
@@ -255,6 +259,8 @@ export default function App() {
         <Route path="tasks" element={<TaskListPage />} />
         <Route path="tasks/calendar" element={<TaskCalendarPage />} />
         <Route path="products" element={<ProductListPage />} />
+        <Route path="marketing" element={<CampaignListPage />} />
+        <Route path="marketing/roi" element={<ChannelRoiPage />} />
         <Route path="stats" element={<DashboardPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="departments" element={<DepartmentListPage />} />

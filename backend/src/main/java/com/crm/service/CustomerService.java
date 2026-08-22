@@ -303,6 +303,7 @@ public class CustomerService {
     customer.setEmail(req.getEmail());
     customer.setAddress(req.getAddress());
     customer.setRemark(req.getRemark());
+    customer.setCampaignId(req.getCampaignId()); // 014：营销归因
     if (StringUtils.hasText(req.getStatus())) {
       customer.setStatus(req.getStatus().trim());
     }
@@ -324,6 +325,7 @@ public class CustomerService {
     resp.setAddress(customer.getAddress());
     resp.setRemark(customer.getRemark());
     resp.setStatus(customer.getStatus());
+    resp.setCampaignId(customer.getCampaignId());
     resp.setVersion(customer.getVersion());
     resp.setCreatedAt(customer.getCreatedAt());
   }

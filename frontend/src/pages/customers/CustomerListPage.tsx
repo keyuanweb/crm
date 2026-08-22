@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
@@ -38,6 +38,7 @@ import {
   type ImportResult,
 } from '../../services/customerService'
 import { fetchUsers } from '../../services/userService'
+import { fetchCampaigns } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
 import type { Customer } from '../../types/customer'
@@ -49,6 +50,7 @@ interface FormValues {
   phone?: string
   email?: string
   address?: string
+  campaignId?: number
   remark?: string
 }
 
@@ -64,9 +66,16 @@ export default function CustomerListPage() {
   const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([])
   const [transferOpen, setTransferOpen] = useState(false)
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
+  const [campaignOptions, setCampaignOptions] = useState<{ value: number; label: string }[]>([])
   const [transferForm] = Form.useForm<{ targetOwnerId: number }>()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
+
+  useEffect(() => {
+    void fetchCampaigns({ page: 1, pageSize: 100 }).then((res) =>
+      setCampaignOptions(res.items.map((c) => ({ value: c.id, label: c.name }))),
+    )
+  }, [])
 
   const reload = () => actionRef.current?.reload()
 
@@ -85,6 +94,7 @@ export default function CustomerListPage() {
       phone: row.phone,
       email: row.email,
       address: row.address,
+      campaignId: row.campaignId,
       remark: row.remark,
     })
     setModalOpen(true)
@@ -340,6 +350,15 @@ export default function CustomerListPage() {
               <Input />
             </Form.Item>
           </Space>
+          <Form.Item name="campaignId" label="营销活动">
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="选择来源活动（可选）"
+              options={campaignOptions}
+            />
+          </Form.Item>
           <Form.Item name="remark" label="备注">
             <Input.TextArea rows={2} />
           </Form.Item>

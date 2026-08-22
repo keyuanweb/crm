@@ -36,6 +36,9 @@ public class CustomerRequest {
 
   private String status;
 
+  /** 营销归因活动（014，可选）。 */
+  private Long campaignId;
+
   /** 编辑时用于乐观锁校验。 */
   private Integer version;
 }

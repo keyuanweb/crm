@@ -36,6 +36,9 @@ public class LeadRequest {
 
   private Long ownerId;
 
+  /** 营销归因活动（014，可选）。 */
+  private Long campaignId;
+
   private Integer version;
 
   @Size(max = 500)

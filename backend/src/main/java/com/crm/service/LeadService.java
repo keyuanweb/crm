@@ -238,6 +238,7 @@ public class LeadService {
       customer.setPhone(lead.getPhone());
       customer.setEmail(lead.getEmail());
       customer.setStatus("ACTIVE");
+      customer.setCampaignId(lead.getCampaignId()); // 014：归因带入
       customer.setCreatedBy(SecurityUtil.currentUserId());
       customerMapper.insert(customer);
       auditService.record(
@@ -302,6 +303,7 @@ public class LeadService {
       lead.setScore(Math.max(0, Math.min(100, req.getScore())));
     }
     lead.setOwnerId(req.getOwnerId());
+    lead.setCampaignId(req.getCampaignId());
     lead.setRemark(req.getRemark());
   }
 
@@ -353,6 +355,7 @@ public class LeadService {
     resp.setStatus(lead.getStatus());
     resp.setScore(lead.getScore());
     resp.setOwnerId(lead.getOwnerId());
+    resp.setCampaignId(lead.getCampaignId());
     resp.setConvertedCustomerId(lead.getConvertedCustomerId());
     resp.setConvertedAt(lead.getConvertedAt());
     resp.setRemark(lead.getRemark());

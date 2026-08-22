@@ -13,6 +13,8 @@ export interface Lead {
   score: number
   ownerId?: number
   ownerName?: string
+  /** 营销活动归因（014）。 */
+  campaignId?: number
   convertedCustomerId?: number
   convertedAt?: string
   remark?: string
@@ -41,6 +43,8 @@ export interface LeadPayload {
   status?: string
   score?: number
   ownerId?: number
+  /** 营销活动归因（014）。 */
+  campaignId?: number
   remark?: string
   version?: number
 }
