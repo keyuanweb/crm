@@ -22,14 +22,18 @@ import com.crm.repository.CustomerMapper;
 import com.crm.repository.FollowUpMapper;
 import com.crm.repository.OpportunityMapper;
 import com.crm.repository.SalesOpportunityMapper;
+import com.crm.security.SecurityUtil;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/** CustomerService 单元测试（T019）：校验/去重/乐观锁/逻辑删除。 */
+/** CustomerService 单元测试（T019）：校验/去重/乐观锁/逻辑删除/数据权限。 */
 @ExtendWith(MockitoExtension.class)
 class CustomerServiceTest {
 
@@ -40,7 +44,11 @@ class CustomerServiceTest {
   private ContactMapper contactMapper;
   private AuditService auditService;
   private DashboardStatsService dashboardStatsService;
+  private DataPermissionService dataPermissionService;
+  private com.crm.repository.CustomerShareMapper customerShareMapper;
+  private com.crm.repository.UserMapper userMapper;
   private CustomerService service;
+  private MockedStatic<SecurityUtil> securityUtilMock;
 
   @BeforeEach
   void setUp() {
@@ -51,6 +59,9 @@ class CustomerServiceTest {
     contactMapper = mock(ContactMapper.class);
     auditService = mock(AuditService.class);
     dashboardStatsService = mock(DashboardStatsService.class);
+    dataPermissionService = mock(DataPermissionService.class);
+    customerShareMapper = mock(com.crm.repository.CustomerShareMapper.class);
+    userMapper = mock(com.crm.repository.UserMapper.class);
     service =
         new CustomerService(
             customerMapper,
@@ -59,7 +70,23 @@ class CustomerServiceTest {
             salesOpportunityMapper,
             contactMapper,
             auditService,
-            dashboardStatsService);
+            dashboardStatsService,
+            dataPermissionService,
+            customerShareMapper,
+            userMapper);
+    securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
+    securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
+    // 当前用户为管理员（数据权限 ALL），detail/update/delete 权限校验通过
+    com.crm.entity.User current = new com.crm.entity.User();
+    current.setId(1L);
+    current.setRole("ADMIN");
+    lenient().when(userMapper.selectById(1L)).thenReturn(current);
+    lenient().when(dataPermissionService.resolveVisibleOwnerIds(1L)).thenReturn(List.of());
+  }
+
+  @AfterEach
+  void tearDown() {
+    securityUtilMock.close();
   }
 
   private CustomerRequest request(String name, String company) {

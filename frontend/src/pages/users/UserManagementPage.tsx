@@ -3,8 +3,10 @@ import { App, Button, Form, Input, Modal, Popconfirm, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { createUser, fetchUsers, resetPassword, updateUser } from '../../services/userService'
+import { fetchDepartmentTree, setUserDataPermission } from '../../services/departmentService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { ROLE_LABELS, type User, type UserRole } from '../../types/user'
+import { DATA_SCOPE_LABELS, type DataScope } from '../../types/department'
 import { useAuthStore } from '../../store/authStore'
 import dayjs from 'dayjs'
 
@@ -30,6 +32,9 @@ export default function UserManagementPage() {
   const [createForm] = Form.useForm<CreateValues>()
   const [editForm] = Form.useForm<EditValues>()
   const [resetForm] = Form.useForm<{ newPassword: string }>()
+  const [permOpen, setPermOpen] = useState(false)
+  const [permForm] = Form.useForm<{ departmentId?: number; dataScope?: DataScope }>()
+  const [deptOptions, setDeptOptions] = useState<{ value: number; label: string }[]>([])
   const currentUser = useAuthStore((s) => s.user)
 
   const reload = () => actionRef.current?.reload()
@@ -49,6 +54,37 @@ export default function UserManagementPage() {
     setEditing(row)
     resetForm.resetFields()
     setResetOpen(true)
+  }
+
+  const openPermission = async (row: User) => {
+    setEditing(row)
+    const depts = await fetchDepartmentTree()
+    const options: { value: number; label: string }[] = []
+    const walk = (nodes: typeof depts, prefix: string) => {
+      for (const n of nodes) {
+        options.push({ value: n.id, label: prefix + n.name })
+        walk(n.children, prefix + '　')
+      }
+    }
+    walk(depts, '')
+    setDeptOptions(options)
+    permForm.setFieldsValue({
+      departmentId: row.departmentId,
+      dataScope: (row.dataScope as DataScope) ?? 'SELF',
+    })
+    setPermOpen(true)
+  }
+
+  const onPermission = async () => {
+    const values = await permForm.validateFields()
+    try {
+      await setUserDataPermission(editing!.id, values)
+      message.success('已保存')
+      setPermOpen(false)
+      reload()
+    } catch (err) {
+      message.error(extractErrorMessage(err, '保存失败'))
+    }
   }
 
   const onCreate = async () => {
@@ -123,6 +159,21 @@ export default function UserManagementPage() {
         row.enabled ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>,
     },
     {
+      title: '部门',
+      dataIndex: 'departmentName',
+      search: false,
+      render: (_, row) => row.departmentName ?? '-',
+    },
+    {
+      title: '数据权限',
+      dataIndex: 'dataScope',
+      search: false,
+      render: (_, row) => {
+        const label = row.dataScope ? DATA_SCOPE_LABELS[row.dataScope as DataScope] : '本人'
+        return <Tag>{label}</Tag>
+      },
+    },
+    {
       title: '最后登录',
       dataIndex: 'lastLoginAt',
       search: false,
@@ -135,6 +186,9 @@ export default function UserManagementPage() {
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>
           编辑
+        </a>,
+        <a key="perm" onClick={() => void openPermission(row)}>
+          数据权限
         </a>,
         <a key="reset" style={{ color: '#fa8c16' }} onClick={() => openReset(row)}>
           重置密码
@@ -261,6 +315,24 @@ export default function UserManagementPage() {
             extra="重置后旧令牌立即失效"
           >
             <Input.Password />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={editing ? `数据权限：${editing.username}` : ''}
+        open={permOpen}
+        onOk={() => void onPermission()}
+        onCancel={() => setPermOpen(false)}
+        okText="保存"
+        destroyOnClose
+      >
+        <Form form={permForm} name="permUser" layout="vertical">
+          <Form.Item name="departmentId" label="所属部门">
+            <Select allowClear placeholder="选择部门" options={deptOptions} />
+          </Form.Item>
+          <Form.Item name="dataScope" label="数据权限范围" rules={[{ required: true, message: '请选择范围' }]}>
+            <Select options={Object.entries(DATA_SCOPE_LABELS).map(([value, label]) => ({ value, label }))} />
           </Form.Item>
         </Form>
       </Modal>

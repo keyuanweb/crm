@@ -2,6 +2,7 @@ package com.crm.controller;
 
 import com.crm.common.ApiResponse;
 import com.crm.common.PageResult;
+import com.crm.dto.department.DataPermissionRequest;
 import com.crm.dto.user.ChangePasswordRequest;
 import com.crm.dto.user.ResetPasswordRequest;
 import com.crm.dto.user.UserCreateRequest;
@@ -76,6 +77,14 @@ public class UserController {
       @PathVariable Long id, @Valid @RequestBody ResetPasswordRequest request) {
     userService.resetPassword(id, request);
     return ApiResponse.ok();
+  }
+
+  @PutMapping("/{id}/data-permission")
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "设置用户部门与数据权限范围（仅管理员）")
+  public ApiResponse<UserResponse> setDataPermission(
+      @PathVariable Long id, @Valid @RequestBody DataPermissionRequest request) {
+    return ApiResponse.ok(userService.setDataPermission(id, request));
   }
 
   @PutMapping("/me/password")

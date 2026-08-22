@@ -5,6 +5,9 @@ export interface User {
   username: string
   displayName: string
   role: UserRole
+  departmentId?: number
+  departmentName?: string
+  dataScope?: string
   enabled: boolean
   lastLoginAt?: string
   version: number

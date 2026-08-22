@@ -15,6 +15,13 @@ public class User extends BaseEntity {
   private String passwordHash;
   private String displayName;
   private String role;
+
+  /** 所属部门（012）。 */
+  private Long departmentId;
+
+  /** 数据权限范围（012）：SELF/DEPT/DEPT_AND_CHILD/ALL。 */
+  private String dataScope;
+
   private Boolean enabled;
   private LocalDateTime lastLoginAt;
 

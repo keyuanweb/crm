@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react
 import { Avatar, Dropdown, Layout, Menu, Spin } from 'antd'
 import {
   AuditOutlined,
+  ApartmentOutlined,
   BarChartOutlined,
   CalendarOutlined,
   ContactsOutlined,
@@ -39,6 +40,7 @@ import OrderListPage from './pages/orders/OrderListPage'
 import OrderDetailPage from './pages/orders/OrderDetailPage'
 import TaskListPage from './pages/tasks/TaskListPage'
 import TaskCalendarPage from './pages/tasks/TaskCalendarPage'
+import DepartmentListPage from './pages/departments/DepartmentListPage'
 import UserManagementPage from './pages/users/UserManagementPage'
 import ChangePasswordPage from './pages/account/ChangePasswordPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
@@ -112,6 +114,7 @@ function Shell() {
     ...(isAdmin ? [{ path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> }] : []),
     { path: '/stats', name: '统计', icon: <BarChartOutlined /> },
     ...(isAdmin ? [{ path: '/users', name: '用户管理', icon: <UserOutlined /> }] : []),
+    ...(isAdmin ? [{ path: '/departments', name: '部门', icon: <ApartmentOutlined /> }] : []),
     ...(isAdmin ? [{ path: '/audit-logs', name: '审计日志', icon: <AuditOutlined /> }] : []),
   ]
   const menuItems = menuRoutes.map((r) => ({ key: r.path, icon: r.icon, label: r.name }))
@@ -250,6 +253,7 @@ export default function App() {
         <Route path="products" element={<ProductListPage />} />
         <Route path="stats" element={<DashboardPage />} />
         <Route path="users" element={<UserManagementPage />} />
+        <Route path="departments" element={<DepartmentListPage />} />
         <Route path="audit-logs" element={<AuditLogPage />} />
         <Route path="account/password" element={<ChangePasswordPage />} />
       </Route>

@@ -40,6 +40,9 @@ public class CustomerService {
   private final ContactMapper contactMapper;
   private final AuditService auditService;
   private final DashboardStatsService dashboardStatsService;
+  private final DataPermissionService dataPermissionService;
+  private final com.crm.repository.CustomerShareMapper customerShareMapper;
+  private final com.crm.repository.UserMapper userMapper;
 
   public CustomerService(
       CustomerMapper customerMapper,
@@ -48,7 +51,10 @@ public class CustomerService {
       SalesOpportunityMapper salesOpportunityMapper,
       ContactMapper contactMapper,
       AuditService auditService,
-      DashboardStatsService dashboardStatsService) {
+      DashboardStatsService dashboardStatsService,
+      DataPermissionService dataPermissionService,
+      com.crm.repository.CustomerShareMapper customerShareMapper,
+      com.crm.repository.UserMapper userMapper) {
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.followUpMapper = followUpMapper;
@@ -56,6 +62,9 @@ public class CustomerService {
     this.contactMapper = contactMapper;
     this.auditService = auditService;
     this.dashboardStatsService = dashboardStatsService;
+    this.dataPermissionService = dataPermissionService;
+    this.customerShareMapper = customerShareMapper;
+    this.userMapper = userMapper;
   }
 
   public PageResult<CustomerResponse> page(
@@ -76,6 +85,7 @@ public class CustomerService {
     if (StringUtils.hasText(status)) {
       qw.eq(Customer::getStatus, status.trim());
     }
+    applyDataScopeFilter(qw);
     qw.orderByDesc(Customer::getId);
     Page<Customer> p = customerMapper.selectPage(new Page<>(page, pageSize), qw);
     // FR-016：列表/搜索结果敏感字段脱敏，详情保持完整
@@ -94,6 +104,7 @@ public class CustomerService {
 
   public CustomerDetailResponse detail(Long id) {
     Customer customer = require(id);
+    checkViewPermission(customer);
     CustomerDetailResponse resp = new CustomerDetailResponse();
     copyToResponse(customer, resp);
 
@@ -192,6 +203,7 @@ public class CustomerService {
   @Transactional
   public CustomerResponse update(Long id, CustomerRequest req) {
     Customer existing = require(id);
+    checkWritePermission(existing);
     ensureUnique(id, req.getName(), req.getCompany());
     apply(req, existing);
     existing.setVersion(req.getVersion());
@@ -207,9 +219,58 @@ public class CustomerService {
   @Transactional
   public void delete(Long id) {
     Customer customer = require(id);
+    checkWritePermission(customer);
     customerMapper.deleteById(id);
     dashboardStatsService.evict();
     auditService.record("DELETE", "CUSTOMER", id, "逻辑删除客户：" + customer.getName());
+  }
+
+  /** 012：行级数据权限过滤（ALL 不过滤；其余按可见 owner 集合）。 */
+  private void applyDataScopeFilter(LambdaQueryWrapper<Customer> qw) {
+    Long userId = SecurityUtil.currentUserId();
+    java.util.List<Long> visibleOwners = dataPermissionService.resolveVisibleOwnerIds(userId);
+    if (!visibleOwners.isEmpty()) {
+      qw.in(Customer::getOwnerId, visibleOwners);
+    }
+  }
+
+  /** 012：查看权限——owner 在可见集合（含 ALL）或已共享给我。 */
+  private void checkViewPermission(Customer customer) {
+    Long userId = SecurityUtil.currentUserId();
+    if (userId.equals(customer.getOwnerId())) {
+      return;
+    }
+    java.util.List<Long> visibleOwners = dataPermissionService.resolveVisibleOwnerIds(userId);
+    if (visibleOwners.isEmpty() || visibleOwners.contains(customer.getOwnerId())) {
+      return;
+    }
+    Long shared =
+        customerShareMapper.selectCount(
+            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
+                    com.crm.entity.CustomerShare>()
+                .eq(com.crm.entity.CustomerShare::getCustomerId, customer.getId())
+                .eq(com.crm.entity.CustomerShare::getSharedToUserId, userId));
+    if (shared != null && shared > 0) {
+      return;
+    }
+    throw new BusinessException(ErrorCode.FORBIDDEN);
+  }
+
+  /** 012：写操作权限——归属本人或管理员（ALL）。共享用户只读不可写。 */
+  private void checkWritePermission(Customer customer) {
+    Long userId = SecurityUtil.currentUserId();
+    if (userId.equals(customer.getOwnerId())) {
+      return;
+    }
+    if (isAdmin(userId)) {
+      return;
+    }
+    throw new BusinessException(ErrorCode.FORBIDDEN);
+  }
+
+  private boolean isAdmin(Long userId) {
+    com.crm.entity.User user = userMapper.selectById(userId);
+    return user != null && "ADMIN".equals(user.getRole());
   }
 
   public Customer require(Long id) {

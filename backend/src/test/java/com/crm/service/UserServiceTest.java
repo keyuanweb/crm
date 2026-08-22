@@ -45,7 +45,12 @@ class UserServiceTest {
     userStateCache = mock(UserStateCache.class);
     service =
         new UserService(
-            userMapper, new BCryptPasswordEncoder(), redisTemplate, auditService, userStateCache);
+            userMapper,
+            new BCryptPasswordEncoder(),
+            redisTemplate,
+            auditService,
+            userStateCache,
+            mock(com.crm.repository.DepartmentMapper.class));
   }
 
   @AfterEach

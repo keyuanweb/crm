@@ -11,6 +11,15 @@ public class UserResponse {
   private String username;
   private String displayName;
   private String role;
+
+  /** 所属部门（012）。 */
+  private Long departmentId;
+
+  private String departmentName;
+
+  /** 数据权限范围（012）。 */
+  private String dataScope;
+
   private Boolean enabled;
   private LocalDateTime lastLoginAt;
   private Integer version;

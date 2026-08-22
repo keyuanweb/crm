@@ -10,7 +10,9 @@ import com.crm.dto.user.ResetPasswordRequest;
 import com.crm.dto.user.UserCreateRequest;
 import com.crm.dto.user.UserResponse;
 import com.crm.dto.user.UserUpdateRequest;
+import com.crm.entity.Department;
 import com.crm.entity.User;
+import com.crm.repository.DepartmentMapper;
 import com.crm.repository.UserMapper;
 import com.crm.security.SecurityUtil;
 import com.crm.security.UserStateCache;
@@ -34,18 +36,21 @@ public class UserService {
   private final RedisTemplate<String, Object> redisTemplate;
   private final AuditService auditService;
   private final UserStateCache userStateCache;
+  private final DepartmentMapper departmentMapper;
 
   public UserService(
       UserMapper userMapper,
       PasswordEncoder passwordEncoder,
       RedisTemplate<String, Object> redisTemplate,
       AuditService auditService,
-      UserStateCache userStateCache) {
+      UserStateCache userStateCache,
+      DepartmentMapper departmentMapper) {
     this.userMapper = userMapper;
     this.passwordEncoder = passwordEncoder;
     this.redisTemplate = redisTemplate;
     this.auditService = auditService;
     this.userStateCache = userStateCache;
+    this.departmentMapper = departmentMapper;
   }
 
   public PageResult<UserResponse> page(String keyword, String role, long page, long pageSize) {
@@ -122,6 +127,25 @@ public class UserService {
     return toResponse(userMapper.selectById(id));
   }
 
+  /** 012：设置用户部门与数据权限范围（仅 ADMIN）。 */
+  @Transactional
+  public UserResponse setDataPermission(Long id, com.crm.dto.department.DataPermissionRequest req) {
+    User user = require(id);
+    if (req.getDepartmentId() != null) {
+      user.setDepartmentId(req.getDepartmentId());
+    }
+    if (StringUtils.hasText(req.getDataScope())) {
+      user.setDataScope(req.getDataScope().trim());
+    }
+    userMapper.updateById(user);
+    auditService.record(
+        "UPDATE",
+        "USER",
+        id,
+        "设置数据权限：部门=" + req.getDepartmentId() + " scope=" + req.getDataScope());
+    return toResponse(userMapper.selectById(id));
+  }
+
   /** FR-005：管理员重置密码，旧令牌全部失效。 */
   @Transactional
   public void resetPassword(Long id, ResetPasswordRequest req) {
@@ -192,6 +216,12 @@ public class UserService {
     resp.setUsername(user.getUsername());
     resp.setDisplayName(user.getDisplayName());
     resp.setRole(user.getRole());
+    resp.setDepartmentId(user.getDepartmentId());
+    resp.setDataScope(user.getDataScope());
+    if (user.getDepartmentId() != null) {
+      Department dept = departmentMapper.selectById(user.getDepartmentId());
+      resp.setDepartmentName(dept == null ? null : dept.getName());
+    }
     resp.setEnabled(user.getEnabled());
     resp.setLastLoginAt(user.getLastLoginAt());
     resp.setVersion(user.getVersion());
