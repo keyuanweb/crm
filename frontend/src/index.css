@@ -1,1 +1,28 @@
-﻿body { margin: 0; }
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* 统一字体与抗锯齿，与 antd 字体栈一致 */
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 登录页：小屏隐藏品牌展示区，聚焦登录表单 */
+.login-brand {
+  display: none;
+}
+@media (min-width: 768px) {
+  .login-brand {
+    display: flex;
+  }
+}

@@ -2,7 +2,8 @@ import { apiClient, type PageResult } from './apiClient'
 import type { FollowUp, FollowUpMethod } from '../types/followUp'
 
 export interface FollowUpPayload {
-  customerId: number
+  customerId?: number
+  leadId?: number
   opportunityId?: number
   method: FollowUpMethod
   content: string
@@ -12,6 +13,7 @@ export interface FollowUpPayload {
 
 export async function fetchFollowUps(params: {
   customerId?: number
+  leadId?: number
   opportunityId?: number
   page: number
   pageSize: number

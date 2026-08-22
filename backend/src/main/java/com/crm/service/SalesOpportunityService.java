@@ -8,13 +8,12 @@ import com.crm.common.PageResult;
 import com.crm.dto.opportunity.CloseRequest;
 import com.crm.dto.opportunity.SalesOpportunityRequest;
 import com.crm.dto.opportunity.SalesOpportunityResponse;
-import com.crm.entity.Customer;
 import com.crm.entity.Opportunity;
 import com.crm.entity.SalesOpportunity;
-import com.crm.repository.CustomerMapper;
 import com.crm.repository.OpportunityMapper;
 import com.crm.repository.SalesOpportunityMapper;
 import com.crm.security.SecurityUtil;
+import com.crm.support.SalesOpportunityAssembler;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -31,21 +30,21 @@ public class SalesOpportunityService {
 
   private final SalesOpportunityMapper salesOpportunityMapper;
   private final OpportunityMapper opportunityMapper;
-  private final CustomerMapper customerMapper;
   private final OpportunityStatsService statsService;
   private final AuditService auditService;
+  private final SalesOpportunityAssembler assembler;
 
   public SalesOpportunityService(
       SalesOpportunityMapper salesOpportunityMapper,
       OpportunityMapper opportunityMapper,
-      CustomerMapper customerMapper,
       OpportunityStatsService statsService,
-      AuditService auditService) {
+      AuditService auditService,
+      SalesOpportunityAssembler assembler) {
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.opportunityMapper = opportunityMapper;
-    this.customerMapper = customerMapper;
     this.statsService = statsService;
     this.auditService = auditService;
+    this.assembler = assembler;
   }
 
   public PageResult<SalesOpportunityResponse> page(
@@ -72,13 +71,12 @@ public class SalesOpportunityService {
     }
     qw.orderByDesc(SalesOpportunity::getId);
     Page<SalesOpportunity> p = salesOpportunityMapper.selectPage(new Page<>(page, pageSize), qw);
-    return PageResult.of(
-        p.getRecords().stream().map(this::toResponse).toList(), p.getTotal(), page, pageSize);
+    return PageResult.of(assembler.assemble(p.getRecords()), p.getTotal(), page, pageSize);
   }
 
   public SalesOpportunityResponse detail(Long id) {
     SalesOpportunity so = require(id);
-    return toResponse(so);
+    return assembleOne(so);
   }
 
   @Transactional
@@ -97,7 +95,7 @@ public class SalesOpportunityService {
     so.setCreatedBy(SecurityUtil.currentUserId());
     salesOpportunityMapper.insert(so);
     statsService.evict();
-    return toResponse(so);
+    return assembleOne(so);
   }
 
   @Transactional
@@ -117,7 +115,7 @@ public class SalesOpportunityService {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
     }
     statsService.evict();
-    return toResponse(salesOpportunityMapper.selectById(id));
+    return assembleOne(salesOpportunityMapper.selectById(id));
   }
 
   @Transactional
@@ -141,7 +139,7 @@ public class SalesOpportunityService {
     statsService.evict();
     auditService.record(
         "CLOSE", "SALES_OPPORTUNITY", id, "关闭销售机会：" + result + "（金额 " + existing.getAmount() + "）");
-    return toResponse(salesOpportunityMapper.selectById(id));
+    return assembleOne(salesOpportunityMapper.selectById(id));
   }
 
   public SalesOpportunity require(Long id) {
@@ -167,23 +165,8 @@ public class SalesOpportunityService {
     }
   }
 
-  private SalesOpportunityResponse toResponse(SalesOpportunity so) {
-    SalesOpportunityResponse resp = new SalesOpportunityResponse();
-    resp.setId(so.getId());
-    resp.setOpportunityId(so.getOpportunityId());
-    resp.setAmount(so.getAmount());
-    resp.setStage(so.getStage());
-    resp.setExpectedCloseDate(so.getExpectedCloseDate());
-    resp.setCloseResult(so.getCloseResult());
-    resp.setClosedAt(so.getClosedAt());
-    resp.setVersion(so.getVersion());
-    resp.setCreatedAt(so.getCreatedAt());
-    Opportunity parent = opportunityMapper.selectById(so.getOpportunityId());
-    if (parent != null) {
-      resp.setOpportunityName(parent.getName());
-      Customer customer = customerMapper.selectById(parent.getCustomerId());
-      resp.setCustomerName(customer == null ? null : customer.getName());
-    }
-    return resp;
+  /** 单条装配：复用批量路径（一次查询父商机与客户），避免额外的逐行查询。 */
+  private SalesOpportunityResponse assembleOne(SalesOpportunity so) {
+    return assembler.assembleOne(so);
   }
 }

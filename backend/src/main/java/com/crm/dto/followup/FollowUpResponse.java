@@ -9,6 +9,7 @@ public class FollowUpResponse {
 
   private Long id;
   private Long customerId;
+  private Long leadId;
   private Long opportunityId;
   private String method;
   private String content;

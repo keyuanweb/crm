@@ -37,16 +37,24 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: '0 auto' }}>
-      <Card title="修改密码">
-        {error && <Alert type="error" showIcon message={error} className="mb-4" role="alert" />}
-        <Form<FormValues> name="change-password" onFinish={onFinish} layout="vertical">
+    <div style={{ maxWidth: 460, margin: '0 auto' }}>
+      <div style={{ marginBottom: 20 }}>
+        <Typography.Title level={4} style={{ marginBottom: 4 }}>
+          修改密码
+        </Typography.Title>
+        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+          定期更换密码可提升账号安全性
+        </Typography.Text>
+      </div>
+      <Card style={{ borderRadius: 10 }} bodyStyle={{ padding: '24px 28px' }}>
+        {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 20 }} role="alert" />}
+        <Form<FormValues> name="change-password" onFinish={onFinish} layout="vertical" requiredMark={false}>
           <Form.Item
             name="oldPassword"
             label="旧密码"
             rules={[{ required: true, message: '请输入旧密码' }]}
           >
-            <Input.Password />
+            <Input.Password size="large" />
           </Form.Item>
           <Form.Item
             name="newPassword"
@@ -57,7 +65,7 @@ export default function ChangePasswordPage() {
             ]}
             extra="须同时包含字母与数字"
           >
-            <Input.Password />
+            <Input.Password size="large" />
           </Form.Item>
           <Form.Item
             name="confirm"
@@ -75,16 +83,16 @@ export default function ChangePasswordPage() {
               }),
             ]}
           >
-            <Input.Password />
+            <Input.Password size="large" />
           </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" block loading={loading}>
+          <Form.Item style={{ marginBottom: 0, marginTop: 8 }}>
+            <Button type="primary" htmlType="submit" block loading={loading} style={{ height: 42 }}>
               确认修改
             </Button>
           </Form.Item>
         </Form>
-        <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0 }}>
-          修改成功后需要重新登录（旧访问令牌立即失效）。
+        <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0, marginTop: 16, textAlign: 'center' }}>
+          修改成功后需要重新登录（旧访问令牌立即失效）
         </Typography.Paragraph>
       </Card>
     </div>

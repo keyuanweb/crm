@@ -10,6 +10,7 @@ import com.crm.dto.auth.UserInfo;
 import com.crm.entity.User;
 import com.crm.repository.UserMapper;
 import com.crm.security.JwtUtil;
+import com.crm.security.UserStateCache;
 import io.jsonwebtoken.Claims;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -33,16 +34,19 @@ public class AuthService {
   private final PasswordEncoder passwordEncoder;
   private final JwtUtil jwtUtil;
   private final RedisTemplate<String, Object> redisTemplate;
+  private final UserStateCache userStateCache;
 
   public AuthService(
       UserMapper userMapper,
       PasswordEncoder passwordEncoder,
       JwtUtil jwtUtil,
-      RedisTemplate<String, Object> redisTemplate) {
+      RedisTemplate<String, Object> redisTemplate,
+      UserStateCache userStateCache) {
     this.userMapper = userMapper;
     this.passwordEncoder = passwordEncoder;
     this.jwtUtil = jwtUtil;
     this.redisTemplate = redisTemplate;
+    this.userStateCache = userStateCache;
   }
 
   public AuthResponse login(LoginRequest request) {
@@ -63,6 +67,10 @@ public class AuthService {
     // FR-002：更新最后登录时间
     user.setLastLoginAt(LocalDateTime.now());
     userMapper.updateById(user);
+    // 预热用户状态缓存，减少登录后首次请求的 DB 查询
+    int tv = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
+    userStateCache.put(
+        user.getId(), new UserStateCache.UserState(Boolean.TRUE.equals(user.getEnabled()), tv));
     return issueTokens(user);
   }
 

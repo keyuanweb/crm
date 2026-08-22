@@ -14,6 +14,7 @@ import com.crm.entity.SalesOpportunity;
 import com.crm.repository.CustomerMapper;
 import com.crm.repository.OpportunityMapper;
 import com.crm.repository.SalesOpportunityMapper;
+import com.crm.support.SalesOpportunityAssembler;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,21 +28,20 @@ class SalesOpportunityStateTest {
 
   private SalesOpportunityMapper mapper;
   private OpportunityMapper opportunityMapper;
-  private CustomerMapper customerMapper;
   private SalesOpportunityService service;
 
   @BeforeEach
   void setUp() {
     mapper = mock(SalesOpportunityMapper.class);
     opportunityMapper = mock(OpportunityMapper.class);
-    customerMapper = mock(CustomerMapper.class);
+    // 真实装配器（mappers 为 mock）：单条装配时 selectById 返回 null 即安全降级
     service =
         new SalesOpportunityService(
             mapper,
             opportunityMapper,
-            customerMapper,
             mock(OpportunityStatsService.class),
-            mock(AuditService.class));
+            mock(AuditService.class),
+            new SalesOpportunityAssembler(opportunityMapper, mock(CustomerMapper.class)));
   }
 
   private SalesOpportunity active(String stage) {

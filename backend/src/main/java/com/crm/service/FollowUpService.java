@@ -9,13 +9,19 @@ import com.crm.dto.followup.FollowUpRequest;
 import com.crm.dto.followup.FollowUpResponse;
 import com.crm.entity.Customer;
 import com.crm.entity.FollowUp;
+import com.crm.entity.Lead;
 import com.crm.entity.Opportunity;
 import com.crm.entity.User;
 import com.crm.repository.CustomerMapper;
 import com.crm.repository.FollowUpMapper;
+import com.crm.repository.LeadMapper;
 import com.crm.repository.OpportunityMapper;
 import com.crm.repository.UserMapper;
 import com.crm.security.SecurityUtil;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,38 +33,44 @@ public class FollowUpService {
   private final CustomerMapper customerMapper;
   private final OpportunityMapper opportunityMapper;
   private final UserMapper userMapper;
+  private final LeadMapper leadMapper;
 
   public FollowUpService(
       FollowUpMapper followUpMapper,
       CustomerMapper customerMapper,
       OpportunityMapper opportunityMapper,
-      UserMapper userMapper) {
+      UserMapper userMapper,
+      LeadMapper leadMapper) {
     this.followUpMapper = followUpMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.userMapper = userMapper;
+    this.leadMapper = leadMapper;
   }
 
   public PageResult<FollowUpResponse> page(
-      Long customerId, Long opportunityId, long page, long pageSize) {
+      Long customerId, Long leadId, Long opportunityId, long page, long pageSize) {
     LambdaQueryWrapper<FollowUp> qw = new LambdaQueryWrapper<>();
     if (customerId != null) {
       qw.eq(FollowUp::getCustomerId, customerId);
+    }
+    if (leadId != null) {
+      qw.eq(FollowUp::getLeadId, leadId);
     }
     if (opportunityId != null) {
       qw.eq(FollowUp::getOpportunityId, opportunityId);
     }
     qw.orderByDesc(FollowUp::getCreatedAt);
     Page<FollowUp> p = followUpMapper.selectPage(new Page<>(page, pageSize), qw);
-    return PageResult.of(
-        p.getRecords().stream().map(this::toResponse).toList(), p.getTotal(), page, pageSize);
+    return PageResult.of(toResponses(p.getRecords()), p.getTotal(), page, pageSize);
   }
 
   @Transactional
   public FollowUpResponse create(FollowUpRequest req) {
-    validateLinkage(req.getCustomerId(), req.getOpportunityId());
+    validateLinkage(req.getCustomerId(), req.getLeadId(), req.getOpportunityId());
     FollowUp followUp = new FollowUp();
     followUp.setCustomerId(req.getCustomerId());
+    followUp.setLeadId(req.getLeadId());
     followUp.setOpportunityId(req.getOpportunityId());
     followUp.setMethod(req.getMethod().trim().toUpperCase());
     followUp.setContent(req.getContent());
@@ -76,8 +88,9 @@ public class FollowUpService {
         || (!currentUserId.equals(existing.getFollowUpBy()) && !isAdmin(currentUserId))) {
       throw new BusinessException(ErrorCode.FORBIDDEN);
     }
-    validateLinkage(req.getCustomerId(), req.getOpportunityId());
+    validateLinkage(req.getCustomerId(), req.getLeadId(), req.getOpportunityId());
     existing.setCustomerId(req.getCustomerId());
+    existing.setLeadId(req.getLeadId());
     existing.setOpportunityId(req.getOpportunityId());
     existing.setMethod(req.getMethod().trim().toUpperCase());
     existing.setContent(req.getContent());
@@ -98,18 +111,31 @@ public class FollowUpService {
     return followUp;
   }
 
-  private void validateLinkage(Long customerId, Long opportunityId) {
-    Customer customer = customerMapper.selectById(customerId);
-    if (customer == null) {
-      throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND);
+  private void validateLinkage(Long customerId, Long leadId, Long opportunityId) {
+    if (customerId == null && leadId == null) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST, "必须关联客户或线索");
     }
-    if (opportunityId != null) {
-      Opportunity opportunity = opportunityMapper.selectById(opportunityId);
-      if (opportunity == null) {
-        throw new BusinessException(ErrorCode.OPPORTUNITY_NOT_FOUND);
+    if (customerId != null && leadId != null) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST, "客户和线索只能关联一个");
+    }
+    if (customerId != null) {
+      Customer customer = customerMapper.selectById(customerId);
+      if (customer == null) {
+        throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND);
       }
-      if (!opportunity.getCustomerId().equals(customerId)) {
-        throw new BusinessException(ErrorCode.OPPORTUNITY_CUSTOMER_MISMATCH);
+      if (opportunityId != null) {
+        Opportunity opportunity = opportunityMapper.selectById(opportunityId);
+        if (opportunity == null) {
+          throw new BusinessException(ErrorCode.OPPORTUNITY_NOT_FOUND);
+        }
+        if (!opportunity.getCustomerId().equals(customerId)) {
+          throw new BusinessException(ErrorCode.OPPORTUNITY_CUSTOMER_MISMATCH);
+        }
+      }
+    } else {
+      Lead lead = leadMapper.selectById(leadId);
+      if (lead == null) {
+        throw new BusinessException(ErrorCode.LEAD_NOT_FOUND);
       }
     }
   }
@@ -119,10 +145,43 @@ public class FollowUpService {
     return user != null && "ADMIN".equals(user.getRole());
   }
 
+  /** 批量装配：一次查询全部跟进人显示名，避免逐行查询（N+1，章程原则五）。 */
+  private List<FollowUpResponse> toResponses(List<FollowUp> list) {
+    if (list.isEmpty()) {
+      return List.of();
+    }
+    List<Long> userIds =
+        list.stream().map(FollowUp::getFollowUpBy).filter(Objects::nonNull).distinct().toList();
+    Map<Long, String> userNames =
+        userIds.isEmpty()
+            ? Map.of()
+            : userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getDisplayName, (a, b) -> a));
+    return list.stream()
+        .map(
+            followUp -> {
+              FollowUpResponse resp = new FollowUpResponse();
+              copyToResponse(followUp, resp);
+              resp.setFollowUpByName(userNames.get(followUp.getFollowUpBy()));
+              return resp;
+            })
+        .toList();
+  }
+
   private FollowUpResponse toResponse(FollowUp followUp) {
     FollowUpResponse resp = new FollowUpResponse();
+    copyToResponse(followUp, resp);
+    if (followUp.getFollowUpBy() != null) {
+      User user = userMapper.selectById(followUp.getFollowUpBy());
+      resp.setFollowUpByName(user == null ? null : user.getDisplayName());
+    }
+    return resp;
+  }
+
+  private void copyToResponse(FollowUp followUp, FollowUpResponse resp) {
     resp.setId(followUp.getId());
     resp.setCustomerId(followUp.getCustomerId());
+    resp.setLeadId(followUp.getLeadId());
     resp.setOpportunityId(followUp.getOpportunityId());
     resp.setMethod(followUp.getMethod());
     resp.setContent(followUp.getContent());
@@ -130,10 +189,5 @@ public class FollowUpService {
     resp.setFollowUpBy(followUp.getFollowUpBy());
     resp.setVersion(followUp.getVersion());
     resp.setCreatedAt(followUp.getCreatedAt());
-    if (followUp.getFollowUpBy() != null) {
-      User user = userMapper.selectById(followUp.getFollowUpBy());
-      resp.setFollowUpByName(user == null ? null : user.getDisplayName());
-    }
-    return resp;
   }
 }

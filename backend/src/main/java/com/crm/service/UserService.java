@@ -13,6 +13,7 @@ import com.crm.dto.user.UserUpdateRequest;
 import com.crm.entity.User;
 import com.crm.repository.UserMapper;
 import com.crm.security.SecurityUtil;
+import com.crm.security.UserStateCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -32,16 +33,19 @@ public class UserService {
   private final PasswordEncoder passwordEncoder;
   private final RedisTemplate<String, Object> redisTemplate;
   private final AuditService auditService;
+  private final UserStateCache userStateCache;
 
   public UserService(
       UserMapper userMapper,
       PasswordEncoder passwordEncoder,
       RedisTemplate<String, Object> redisTemplate,
-      AuditService auditService) {
+      AuditService auditService,
+      UserStateCache userStateCache) {
     this.userMapper = userMapper;
     this.passwordEncoder = passwordEncoder;
     this.redisTemplate = redisTemplate;
     this.auditService = auditService;
+    this.userStateCache = userStateCache;
   }
 
   public PageResult<UserResponse> page(String keyword, String role, long page, long pageSize) {
@@ -113,6 +117,7 @@ public class UserService {
     if (rows == 0) {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
     }
+    userStateCache.evict(id);
     auditService.record("UPDATE", "USER", id, "编辑用户：" + user.getUsername());
     return toResponse(userMapper.selectById(id));
   }
@@ -126,6 +131,7 @@ public class UserService {
     user.setTokenVersion((user.getTokenVersion() == null ? 0 : user.getTokenVersion()) + 1);
     userMapper.updateById(user);
     invalidateUserTokens(user.getId());
+    userStateCache.evict(user.getId());
     auditService.record("RESET_PASSWORD", "USER", id, "重置密码：" + user.getUsername());
   }
 
@@ -142,6 +148,7 @@ public class UserService {
     user.setTokenVersion((user.getTokenVersion() == null ? 0 : user.getTokenVersion()) + 1);
     userMapper.updateById(user);
     invalidateUserTokens(user.getId());
+    userStateCache.evict(user.getId());
     auditService.record("CHANGE_PASSWORD", "USER", user.getId(), "修改自身密码");
   }
 

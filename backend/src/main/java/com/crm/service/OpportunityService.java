@@ -8,7 +8,6 @@ import com.crm.common.PageResult;
 import com.crm.dto.opportunity.OpportunityDetailResponse;
 import com.crm.dto.opportunity.OpportunityRequest;
 import com.crm.dto.opportunity.OpportunityResponse;
-import com.crm.dto.opportunity.SalesOpportunityResponse;
 import com.crm.entity.Customer;
 import com.crm.entity.Opportunity;
 import com.crm.entity.SalesOpportunity;
@@ -16,6 +15,7 @@ import com.crm.repository.CustomerMapper;
 import com.crm.repository.OpportunityMapper;
 import com.crm.repository.SalesOpportunityMapper;
 import com.crm.security.SecurityUtil;
+import com.crm.support.SalesOpportunityAssembler;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -31,16 +31,19 @@ public class OpportunityService {
   private final SalesOpportunityMapper salesOpportunityMapper;
   private final CustomerMapper customerMapper;
   private final OpportunityStatsService statsService;
+  private final SalesOpportunityAssembler salesOpportunityAssembler;
 
   public OpportunityService(
       OpportunityMapper opportunityMapper,
       SalesOpportunityMapper salesOpportunityMapper,
       CustomerMapper customerMapper,
-      OpportunityStatsService statsService) {
+      OpportunityStatsService statsService,
+      SalesOpportunityAssembler salesOpportunityAssembler) {
     this.opportunityMapper = opportunityMapper;
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.customerMapper = customerMapper;
     this.statsService = statsService;
+    this.salesOpportunityAssembler = salesOpportunityAssembler;
   }
 
   public PageResult<OpportunityResponse> page(
@@ -71,7 +74,7 @@ public class OpportunityService {
             new LambdaQueryWrapper<SalesOpportunity>()
                 .eq(SalesOpportunity::getOpportunityId, id)
                 .orderByDesc(SalesOpportunity::getId));
-    resp.setSalesOpportunities(children.stream().map(this::toSalesResponse).toList());
+    resp.setSalesOpportunities(salesOpportunityAssembler.assemble(children));
     return resp;
   }
 
@@ -199,26 +202,6 @@ public class OpportunityService {
   private OpportunityResponse toResponse(Opportunity opportunity) {
     OpportunityResponse resp = new OpportunityResponse();
     fillResponse(opportunity, resp);
-    return resp;
-  }
-
-  private SalesOpportunityResponse toSalesResponse(SalesOpportunity so) {
-    SalesOpportunityResponse resp = new SalesOpportunityResponse();
-    resp.setId(so.getId());
-    resp.setOpportunityId(so.getOpportunityId());
-    resp.setAmount(so.getAmount());
-    resp.setStage(so.getStage());
-    resp.setExpectedCloseDate(so.getExpectedCloseDate());
-    resp.setCloseResult(so.getCloseResult());
-    resp.setClosedAt(so.getClosedAt());
-    resp.setVersion(so.getVersion());
-    resp.setCreatedAt(so.getCreatedAt());
-    Opportunity parent = opportunityMapper.selectById(so.getOpportunityId());
-    if (parent != null) {
-      resp.setOpportunityName(parent.getName());
-      Customer customer = customerMapper.selectById(parent.getCustomerId());
-      resp.setCustomerName(customer == null ? null : customer.getName());
-    }
     return resp;
   }
 }

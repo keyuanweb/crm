@@ -18,7 +18,12 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** JWT 认证过滤器：解析 Bearer 令牌、校验账号状态与令牌版本（research.md R1，FR-005/006）。 */
+/**
+ * JWT 认证过滤器：解析 Bearer 令牌、校验账号状态与令牌版本（research.md R1，FR-005/006）。
+ *
+ * <p>用户状态（enabled/tokenVersion）通过 UserStateCache 缓存（TTL 30s），缓存命中时零 DB 查询；未命中时查 DB 并回写缓存。用户状态变更时主动
+ * evict。
+ */
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
@@ -26,10 +31,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
   private final JwtUtil jwtUtil;
   private final UserMapper userMapper;
+  private final UserStateCache userStateCache;
 
-  public JwtAuthFilter(JwtUtil jwtUtil, UserMapper userMapper) {
+  public JwtAuthFilter(JwtUtil jwtUtil, UserMapper userMapper, UserStateCache userStateCache) {
     this.jwtUtil = jwtUtil;
     this.userMapper = userMapper;
+    this.userStateCache = userStateCache;
   }
 
   @Override
@@ -51,13 +58,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String role = roleObj instanceof String s ? s : "";
         if (username != null && userId != null) {
           // FR-005/FR-006/SC-004：密码变更/重置后 tokenVersion 递增，旧令牌失效；停用账号即时失效
-          User user = userMapper.selectById(userId);
           int claimTv = tvObj instanceof Number n ? n.intValue() : -1;
-          boolean tokenValid =
-              user != null
-                  && Boolean.TRUE.equals(user.getEnabled())
-                  && user.getTokenVersion() != null
-                  && user.getTokenVersion() == claimTv;
+          boolean tokenValid = validateUserState(userId, claimTv);
           if (tokenValid) {
             var authentication =
                 new UsernamePasswordAuthenticationToken(
@@ -73,6 +75,27 @@ public class JwtAuthFilter extends OncePerRequestFilter {
       }
     }
     filterChain.doFilter(request, response);
+  }
+
+  /**
+   * 校验用户状态：优先读缓存，未命中查 DB 并回写。
+   *
+   * @return true 如果用户存在、启用且令牌版本匹配
+   */
+  private boolean validateUserState(Long userId, int claimTv) {
+    UserStateCache.UserState cached = userStateCache.get(userId);
+    if (cached != null) {
+      return cached.enabled() && cached.tokenVersion() == claimTv;
+    }
+    // 缓存未命中：查 DB 并回写
+    User user = userMapper.selectById(userId);
+    if (user == null) {
+      return false;
+    }
+    int dbTv = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
+    boolean enabled = Boolean.TRUE.equals(user.getEnabled());
+    userStateCache.put(userId, new UserStateCache.UserState(enabled, dbTv));
+    return enabled && dbTv == claimTv;
   }
 
   /** 认证主体：暴露 userId/role 供业务层使用。 */

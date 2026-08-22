@@ -1,0 +1,11 @@
+# 生产环境配置：通过 SPRING_PROFILES_ACTIVE=prod 激活
+# 生产环境关闭 OpenAPI/Swagger 文档暴露（安全加固）
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    com.crm: INFO

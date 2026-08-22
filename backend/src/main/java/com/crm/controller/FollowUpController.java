@@ -32,13 +32,14 @@ public class FollowUpController {
   }
 
   @GetMapping
-  @Operation(summary = "按客户或商机查询跟进记录（时间线）")
+  @Operation(summary = "按客户/线索/商机查询跟进记录（时间线）")
   public ApiResponse<PageResult<FollowUpResponse>> page(
       @RequestParam(required = false) Long customerId,
+      @RequestParam(required = false) Long leadId,
       @RequestParam(required = false) Long opportunityId,
       @RequestParam(defaultValue = "1") long page,
       @RequestParam(defaultValue = "20") long pageSize) {
-    return ApiResponse.ok(followUpService.page(customerId, opportunityId, page, pageSize));
+    return ApiResponse.ok(followUpService.page(customerId, leadId, opportunityId, page, pageSize));
   }
 
   @PostMapping

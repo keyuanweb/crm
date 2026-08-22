@@ -13,7 +13,8 @@ import { METHOD_LABELS, type FollowUp, type FollowUpMethod } from '../types/foll
 import { useAuthStore } from '../store/authStore'
 
 interface Props {
-  customerId: number
+  customerId?: number
+  leadId?: number
 }
 
 interface FormValues {
@@ -22,7 +23,7 @@ interface FormValues {
   nextFollowUpAt?: Dayjs
 }
 
-export default function FollowUpTimeline({ customerId }: Props) {
+export default function FollowUpTimeline({ customerId, leadId }: Props) {
   const { message } = App.useApp()
   const [items, setItems] = useState<FollowUp[]>([])
   const [loading, setLoading] = useState(false)
@@ -34,7 +35,7 @@ export default function FollowUpTimeline({ customerId }: Props) {
   const load = async () => {
     setLoading(true)
     try {
-      const res = await fetchFollowUps({ customerId, page: 1, pageSize: 50 })
+      const res = await fetchFollowUps({ customerId, leadId, page: 1, pageSize: 50 })
       setItems(res.items)
     } catch (err) {
       message.error(extractErrorMessage(err, '加载跟进记录失败'))
@@ -64,6 +65,7 @@ export default function FollowUpTimeline({ customerId }: Props) {
     const values = await form.validateFields()
     const payload: FollowUpPayload = {
       customerId,
+      leadId,
       method: values.method,
       content: values.content,
       nextFollowUpAt: values.nextFollowUpAt?.toISOString(),
@@ -90,6 +92,8 @@ export default function FollowUpTimeline({ customerId }: Props) {
     <Card
       title="跟进记录"
       loading={loading}
+      style={{ borderRadius: 10 }}
+      headStyle={{ borderBottom: '1px solid #f0f0f0' }}
       extra={
         <Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}>
           添加跟进

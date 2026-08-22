@@ -14,6 +14,9 @@ public class FollowUp extends BaseEntity {
   private Long customerId;
   private Long opportunityId;
 
+  /** 关联线索（与 customer_id 二选一）。 */
+  private Long leadId;
+
   /** PHONE / EMAIL / MEETING / OTHER。 */
   private String method;
 

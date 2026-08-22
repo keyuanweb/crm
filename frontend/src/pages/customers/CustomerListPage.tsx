@@ -167,6 +167,7 @@ export default function CustomerListPage() {
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchCustomers({
             keyword: params.keyword,

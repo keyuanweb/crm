@@ -15,6 +15,7 @@ import com.crm.dto.user.UserCreateRequest;
 import com.crm.dto.user.UserUpdateRequest;
 import com.crm.entity.User;
 import com.crm.repository.UserMapper;
+import com.crm.security.UserStateCache;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +34,7 @@ class UserServiceTest {
   private UserMapper userMapper;
   private RedisTemplate<String, Object> redisTemplate;
   private AuditService auditService;
+  private UserStateCache userStateCache;
   private UserService service;
 
   @BeforeEach
@@ -40,7 +42,10 @@ class UserServiceTest {
     userMapper = mock(UserMapper.class);
     redisTemplate = mock(RedisTemplate.class);
     auditService = mock(AuditService.class);
-    service = new UserService(userMapper, new BCryptPasswordEncoder(), redisTemplate, auditService);
+    userStateCache = mock(UserStateCache.class);
+    service =
+        new UserService(
+            userMapper, new BCryptPasswordEncoder(), redisTemplate, auditService, userStateCache);
   }
 
   @AfterEach

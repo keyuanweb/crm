@@ -32,3 +32,6 @@ Thumbs.db
 
 # Local toolchain downloads
 .tools/
+
+# Debug screenshots
+login_screenshot*.png

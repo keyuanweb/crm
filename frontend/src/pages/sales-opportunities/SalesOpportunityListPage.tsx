@@ -129,6 +129,7 @@ export default function SalesOpportunityListPage() {
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchSalesOpportunities({
             stage: params.stage,

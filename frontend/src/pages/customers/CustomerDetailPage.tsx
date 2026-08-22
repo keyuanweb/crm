@@ -50,9 +50,21 @@ export default function CustomerDetailPage() {
           返回客户列表
         </Button>
       </Link>
-      <Typography.Title level={4}>客户详情：{data.name}</Typography.Title>
 
-      <Card title="基本信息" style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 20 }}>
+        <Typography.Title level={4} style={{ marginBottom: 4 }}>
+          {data.name}
+        </Typography.Title>
+        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+          {data.company} · {data.status === 'ACTIVE' ? '启用中' : '已停用'}
+        </Typography.Text>
+      </div>
+
+      <Card
+        title="基本信息"
+        style={{ marginBottom: 16, borderRadius: 10 }}
+        headStyle={{ borderBottom: '1px solid #f0f0f0' }}
+      >
         <Descriptions column={2} bordered size="small">
           <Descriptions.Item label="客户名称">{data.name}</Descriptions.Item>
           <Descriptions.Item label="公司">{data.company}</Descriptions.Item>
@@ -69,7 +81,12 @@ export default function CustomerDetailPage() {
         </Descriptions>
       </Card>
 
-      <Card title="关联商机" style={{ marginBottom: 16 }}>
+      <Card
+        title="关联商机"
+        style={{ marginBottom: 16, borderRadius: 10 }}
+        headStyle={{ borderBottom: '1px solid #f0f0f0' }}
+        bodyStyle={{ padding: 0 }}
+      >
         <Table<OpportunityBrief>
           rowKey="id"
           size="small"
