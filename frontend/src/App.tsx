@@ -16,6 +16,7 @@ import {
   LogoutOutlined,
   ProfileOutlined,
   ShoppingOutlined,
+  ThunderboltOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons'
@@ -41,6 +42,8 @@ import OrderDetailPage from './pages/orders/OrderDetailPage'
 import TaskListPage from './pages/tasks/TaskListPage'
 import TaskCalendarPage from './pages/tasks/TaskCalendarPage'
 import DepartmentListPage from './pages/departments/DepartmentListPage'
+import WorkflowRuleListPage from './pages/workflows/WorkflowRuleListPage'
+import WorkflowLogListPage from './pages/workflows/WorkflowLogListPage'
 import UserManagementPage from './pages/users/UserManagementPage'
 import ChangePasswordPage from './pages/account/ChangePasswordPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
@@ -115,6 +118,7 @@ function Shell() {
     { path: '/stats', name: '统计', icon: <BarChartOutlined /> },
     ...(isAdmin ? [{ path: '/users', name: '用户管理', icon: <UserOutlined /> }] : []),
     ...(isAdmin ? [{ path: '/departments', name: '部门', icon: <ApartmentOutlined /> }] : []),
+    ...(isAdmin ? [{ path: '/workflows', name: '工作流', icon: <ThunderboltOutlined /> }] : []),
     ...(isAdmin ? [{ path: '/audit-logs', name: '审计日志', icon: <AuditOutlined /> }] : []),
   ]
   const menuItems = menuRoutes.map((r) => ({ key: r.path, icon: r.icon, label: r.name }))
@@ -254,6 +258,8 @@ export default function App() {
         <Route path="stats" element={<DashboardPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="departments" element={<DepartmentListPage />} />
+        <Route path="workflows" element={<WorkflowRuleListPage />} />
+        <Route path="workflows/logs" element={<WorkflowLogListPage />} />
         <Route path="audit-logs" element={<AuditLogPage />} />
         <Route path="account/password" element={<ChangePasswordPage />} />
       </Route>

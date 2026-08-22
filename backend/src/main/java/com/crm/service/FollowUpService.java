@@ -36,6 +36,7 @@ public class FollowUpService {
   private final LeadMapper leadMapper;
   private final DashboardStatsService dashboardStatsService;
   private final TaskService taskService;
+  private final WorkflowEventPublisher workflowEventPublisher;
 
   public FollowUpService(
       FollowUpMapper followUpMapper,
@@ -44,7 +45,8 @@ public class FollowUpService {
       UserMapper userMapper,
       LeadMapper leadMapper,
       DashboardStatsService dashboardStatsService,
-      TaskService taskService) {
+      TaskService taskService,
+      WorkflowEventPublisher workflowEventPublisher) {
     this.followUpMapper = followUpMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
@@ -52,6 +54,7 @@ public class FollowUpService {
     this.leadMapper = leadMapper;
     this.dashboardStatsService = dashboardStatsService;
     this.taskService = taskService;
+    this.workflowEventPublisher = workflowEventPublisher;
   }
 
   public PageResult<FollowUpResponse> page(
@@ -85,6 +88,9 @@ public class FollowUpService {
     followUpMapper.insert(followUp);
     dashboardStatsService.evict();
     maybeCreateFollowUpTask(req);
+    // 013：跟进创建触发工作流
+    workflowEventPublisher.followUpCreated(
+        followUp.getId(), java.util.Map.of("method", followUp.getMethod(), "name", "跟进"));
     return toResponse(followUp);
   }
 

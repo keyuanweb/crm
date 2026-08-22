@@ -47,6 +47,7 @@ public class LeadService {
   private final FollowUpMapper followUpMapper;
   private final UserMapper userMapper;
   private final AuditService auditService;
+  private final WorkflowEventPublisher workflowEventPublisher;
 
   public LeadService(
       LeadMapper leadMapper,
@@ -55,7 +56,8 @@ public class LeadService {
       SalesOpportunityMapper salesOpportunityMapper,
       FollowUpMapper followUpMapper,
       UserMapper userMapper,
-      AuditService auditService) {
+      AuditService auditService,
+      WorkflowEventPublisher workflowEventPublisher) {
     this.leadMapper = leadMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
@@ -63,6 +65,7 @@ public class LeadService {
     this.followUpMapper = followUpMapper;
     this.userMapper = userMapper;
     this.auditService = auditService;
+    this.workflowEventPublisher = workflowEventPublisher;
   }
 
   public PageResult<LeadResponse> page(
@@ -146,7 +149,14 @@ public class LeadService {
     lead.setCreatedBy(SecurityUtil.currentUserId());
     leadMapper.insert(lead);
     auditService.record("CREATE", "LEAD", lead.getId(), "创建线索：" + lead.getName());
-    return toResponse(lead);
+    // 013：触发工作流事件（线索创建）
+    workflowEventPublisher.leadCreated(
+        lead.getId(),
+        java.util.Map.of(
+            "name", lead.getName() == null ? "" : lead.getName(),
+            "source", lead.getSource() == null ? "" : lead.getSource()));
+    // 工作流可能更新了 ownerId：返回 DB 最新数据
+    return toResponse(leadMapper.selectById(lead.getId()));
   }
 
   @Transactional

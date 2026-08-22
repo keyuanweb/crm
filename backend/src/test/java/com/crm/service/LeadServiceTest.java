@@ -67,7 +67,8 @@ class LeadServiceTest {
             salesOpportunityMapper,
             followUpMapper,
             userMapper,
-            auditService);
+            auditService,
+            mock(WorkflowEventPublisher.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
   }
@@ -104,7 +105,18 @@ class LeadServiceTest {
     LeadRequest req = new LeadRequest();
     req.setName("张三");
     req.setCompany("测试科技");
-    when(leadMapper.insert(any(Lead.class))).thenReturn(1);
+    when(leadMapper.insert(any(Lead.class)))
+        .thenAnswer(
+            invocation -> {
+              Lead l = invocation.getArgument(0);
+              l.setId(1L);
+              return 1;
+            });
+    Lead saved = lead(1L, "NEW");
+    saved.setName("张三");
+    saved.setSource("OTHER");
+    saved.setScore(0);
+    when(leadMapper.selectById(1L)).thenReturn(saved);
 
     var resp = service.create(req);
 

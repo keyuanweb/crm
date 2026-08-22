@@ -42,7 +42,8 @@ class SalesOpportunityStateTest {
             mock(OpportunityStatsService.class),
             mock(DashboardStatsService.class),
             mock(AuditService.class),
-            new SalesOpportunityAssembler(opportunityMapper, mock(CustomerMapper.class)));
+            new SalesOpportunityAssembler(opportunityMapper, mock(CustomerMapper.class)),
+            mock(WorkflowEventPublisher.class));
   }
 
   private SalesOpportunity active(String stage) {

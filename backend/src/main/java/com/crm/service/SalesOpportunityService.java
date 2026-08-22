@@ -34,6 +34,7 @@ public class SalesOpportunityService {
   private final DashboardStatsService dashboardStatsService;
   private final AuditService auditService;
   private final SalesOpportunityAssembler assembler;
+  private final WorkflowEventPublisher workflowEventPublisher;
 
   public SalesOpportunityService(
       SalesOpportunityMapper salesOpportunityMapper,
@@ -41,13 +42,15 @@ public class SalesOpportunityService {
       OpportunityStatsService statsService,
       DashboardStatsService dashboardStatsService,
       AuditService auditService,
-      SalesOpportunityAssembler assembler) {
+      SalesOpportunityAssembler assembler,
+      WorkflowEventPublisher workflowEventPublisher) {
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.opportunityMapper = opportunityMapper;
     this.statsService = statsService;
     this.dashboardStatsService = dashboardStatsService;
     this.auditService = auditService;
     this.assembler = assembler;
+    this.workflowEventPublisher = workflowEventPublisher;
   }
 
   public PageResult<SalesOpportunityResponse> page(
@@ -120,6 +123,9 @@ public class SalesOpportunityService {
     }
     statsService.evict();
     dashboardStatsService.evict();
+    // 013：阶段变更触发工作流
+    workflowEventPublisher.opportunityStageChanged(
+        id, java.util.Map.of("stage", existing.getStage(), "name", "销售机会"));
     return assembleOne(salesOpportunityMapper.selectById(id));
   }
 

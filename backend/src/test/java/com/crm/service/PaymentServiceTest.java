@@ -60,7 +60,13 @@ class PaymentServiceTest {
     planMapper = mock(PaymentPlanMapper.class);
     recordMapper = mock(PaymentRecordMapper.class);
     auditService = mock(AuditService.class);
-    service = new PaymentService(orderMapper, planMapper, recordMapper, auditService);
+    service =
+        new PaymentService(
+            orderMapper,
+            planMapper,
+            recordMapper,
+            auditService,
+            mock(WorkflowEventPublisher.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
   }

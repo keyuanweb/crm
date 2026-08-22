@@ -37,16 +37,19 @@ public class PaymentService {
   private final PaymentPlanMapper planMapper;
   private final PaymentRecordMapper recordMapper;
   private final AuditService auditService;
+  private final WorkflowEventPublisher workflowEventPublisher;
 
   public PaymentService(
       SalesOrderMapper orderMapper,
       PaymentPlanMapper planMapper,
       PaymentRecordMapper recordMapper,
-      AuditService auditService) {
+      AuditService auditService,
+      WorkflowEventPublisher workflowEventPublisher) {
     this.orderMapper = orderMapper;
     this.planMapper = planMapper;
     this.recordMapper = recordMapper;
     this.auditService = auditService;
+    this.workflowEventPublisher = workflowEventPublisher;
   }
 
   @Transactional
@@ -93,6 +96,9 @@ public class PaymentService {
         "SALES_ORDER",
         orderId,
         "登记回款：" + req.getAmount() + "（期次 " + plan.getSeqNo() + "）");
+    // 013：回款登记触发工作流
+    workflowEventPublisher.paymentRecorded(
+        orderId, java.util.Map.of("amount", String.valueOf(req.getAmount()), "name", "回款"));
   }
 
   /** 重算订单状态：全 PAID → PAID；部分 → PARTIAL；否则 PENDING。 */
