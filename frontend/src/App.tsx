@@ -10,6 +10,7 @@ import SalesOpportunityListPage from './pages/sales-opportunities/SalesOpportuni
 import OpportunityPipelinePage from './pages/stats/OpportunityPipelinePage'
 import UserManagementPage from './pages/users/UserManagementPage'
 import ChangePasswordPage from './pages/account/ChangePasswordPage'
+import AuditLogPage from './pages/audit/AuditLogPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
@@ -77,6 +78,11 @@ function Shell() {
                 用户管理
               </NavLink>
             )}
+            {user?.role === 'ADMIN' && (
+              <NavLink to="/audit-logs" className={navClass}>
+                审计日志
+              </NavLink>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-300">
@@ -117,6 +123,7 @@ export default function App() {
         <Route path="sales-opportunities" element={<SalesOpportunityListPage />} />
         <Route path="stats" element={<OpportunityPipelinePage />} />
         <Route path="users" element={<UserManagementPage />} />
+        <Route path="audit-logs" element={<AuditLogPage />} />
         <Route path="account/password" element={<ChangePasswordPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

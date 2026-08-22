@@ -315,3 +315,13 @@ Task: "Create Customer DTOs in backend/src/main/java/com/crm/dto/customer/"
 - [x] T066 [US1] 前端客户列表展示脱敏邮箱列 in `frontend/src/pages/customers/CustomerListPage.tsx`（FR-016）
 - [x] T067 审计与脱敏测试（单元 + 集成）+ H2 schema 更新 in `backend/src/test/`（FR-016/FR-017）
 - [x] T068 更新文档：`contracts/customers.md`、`data-model.md` 记录脱敏与审计约定（FR-016/FR-017）
+
+---
+
+## Phase 12: Convergence（审计查询入口，FR-017"仅管理员可查"）
+
+**Purpose**: 补齐 FR-017 的读取侧缺口——审计日志查询接口与前端查看页（此前仅实现写入）
+
+- [x] T069 [P] Create 审计日志查询接口 `GET /api/v1/audit-logs`（仅 ADMIN，支持分页与按操作类型/对象类型/操作人筛选）in `backend/src/main/java/com/crm/service/AuditLogService.java`、`backend/src/main/java/com/crm/controller/AuditLogController.java` per FR-017 (partial)
+- [x] T070 [P] 审计查询集成测试（管理员可查、非管理员 403、筛选/分页正确）in `backend/src/test/java/com/crm/integration/AuditLogIT.java` per FR-017 (partial)
+- [x] T071 前端审计日志查看页（仅管理员可见路由/导航）+ 类型与服务 in `frontend/src/pages/audit/AuditLogPage.tsx`、`frontend/src/services/auditLogService.ts`、`frontend/src/types/auditLog.ts`、`frontend/src/App.tsx` per FR-017 (partial)
