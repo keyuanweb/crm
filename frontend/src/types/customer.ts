@@ -1,3 +1,5 @@
+import type { Contact } from './contact'
+
 export interface Customer {
   id: number
   name: string
@@ -29,6 +31,7 @@ export interface FollowUpBrief {
 export interface CustomerDetail extends Customer {
   opportunities: OpportunityBrief[]
   followUps: FollowUpBrief[]
+  contacts: Contact[]
 }
 
 export interface CustomerQuery {

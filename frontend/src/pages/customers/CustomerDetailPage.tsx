@@ -3,6 +3,7 @@ import { Button, Card, Descriptions, Result, Table, Tag, Typography } from 'antd
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { useCustomerDetail } from '../../hooks/useCustomers'
 import FollowUpTimeline from '../../components/FollowUpTimeline'
+import ContactsCard from '../../components/ContactsCard'
 import type { OpportunityBrief } from '../../types/customer'
 
 export default function CustomerDetailPage() {
@@ -96,6 +97,8 @@ export default function CustomerDetailPage() {
           locale={{ emptyText: '暂无关联商机' }}
         />
       </Card>
+
+      <ContactsCard customerId={customerId} />
 
       <FollowUpTimeline customerId={customerId} />
     </div>

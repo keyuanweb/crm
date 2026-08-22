@@ -11,10 +11,12 @@ import com.crm.dto.customer.CustomerRequest;
 import com.crm.dto.customer.CustomerResponse;
 import com.crm.dto.followup.FollowUpBrief;
 import com.crm.dto.opportunity.OpportunityBrief;
+import com.crm.entity.Contact;
 import com.crm.entity.Customer;
 import com.crm.entity.FollowUp;
 import com.crm.entity.Opportunity;
 import com.crm.entity.SalesOpportunity;
+import com.crm.repository.ContactMapper;
 import com.crm.repository.CustomerMapper;
 import com.crm.repository.FollowUpMapper;
 import com.crm.repository.OpportunityMapper;
@@ -35,6 +37,7 @@ public class CustomerService {
   private final OpportunityMapper opportunityMapper;
   private final FollowUpMapper followUpMapper;
   private final SalesOpportunityMapper salesOpportunityMapper;
+  private final ContactMapper contactMapper;
   private final AuditService auditService;
 
   public CustomerService(
@@ -42,11 +45,13 @@ public class CustomerService {
       OpportunityMapper opportunityMapper,
       FollowUpMapper followUpMapper,
       SalesOpportunityMapper salesOpportunityMapper,
+      ContactMapper contactMapper,
       AuditService auditService) {
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.followUpMapper = followUpMapper;
     this.salesOpportunityMapper = salesOpportunityMapper;
+    this.contactMapper = contactMapper;
     this.auditService = auditService;
   }
 
@@ -137,6 +142,32 @@ public class CustomerService {
                 })
             .toList();
     resp.setFollowUps(followUps);
+
+    // 005：客户联系人列表
+    List<com.crm.dto.contact.ContactResponse> contacts =
+        contactMapper
+            .selectList(
+                new LambdaQueryWrapper<Contact>()
+                    .eq(Contact::getCustomerId, id)
+                    .orderByDesc(Contact::getId))
+            .stream()
+            .map(
+                c -> {
+                  com.crm.dto.contact.ContactResponse cr =
+                      new com.crm.dto.contact.ContactResponse();
+                  cr.setId(c.getId());
+                  cr.setCustomerId(c.getCustomerId());
+                  cr.setCustomerName(customer.getName());
+                  cr.setName(c.getName());
+                  cr.setTitle(c.getTitle());
+                  cr.setPhone(c.getPhone());
+                  cr.setEmail(c.getEmail());
+                  cr.setRole(c.getRole());
+                  cr.setRemark(c.getRemark());
+                  return cr;
+                })
+            .toList();
+    resp.setContacts(contacts);
     return resp;
   }
 

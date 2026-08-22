@@ -17,6 +17,7 @@ import com.crm.entity.Customer;
 import com.crm.entity.FollowUp;
 import com.crm.entity.Opportunity;
 import com.crm.entity.SalesOpportunity;
+import com.crm.repository.ContactMapper;
 import com.crm.repository.CustomerMapper;
 import com.crm.repository.FollowUpMapper;
 import com.crm.repository.OpportunityMapper;
@@ -36,6 +37,7 @@ class CustomerServiceTest {
   private OpportunityMapper opportunityMapper;
   private FollowUpMapper followUpMapper;
   private SalesOpportunityMapper salesOpportunityMapper;
+  private ContactMapper contactMapper;
   private AuditService auditService;
   private CustomerService service;
 
@@ -45,6 +47,7 @@ class CustomerServiceTest {
     opportunityMapper = mock(OpportunityMapper.class);
     followUpMapper = mock(FollowUpMapper.class);
     salesOpportunityMapper = mock(SalesOpportunityMapper.class);
+    contactMapper = mock(ContactMapper.class);
     auditService = mock(AuditService.class);
     service =
         new CustomerService(
@@ -52,6 +55,7 @@ class CustomerServiceTest {
             opportunityMapper,
             followUpMapper,
             salesOpportunityMapper,
+            contactMapper,
             auditService);
   }
 

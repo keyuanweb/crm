@@ -98,5 +98,5 @@
 - [x] 002-user-management（用户管理/角色/密码）
 - [x] 003-system-hardening（唯一约束/缓存/CORS）
 - [x] 004-lead-management（线索池/分配/领取/转化/跟进/Excel 导入导出）
-- [ ] 005-contact-management
+- [x] 005-contact-management（联系人 CRUD/角色/客户详情聚合）
 - [ ] 006-sales-dashboard

@@ -7,6 +7,7 @@ import {
   ContactsOutlined,
   DeploymentUnitOutlined,
   FundOutlined,
+  IdcardOutlined,
   KeyOutlined,
   LogoutOutlined,
   TeamOutlined,
@@ -17,6 +18,7 @@ import { useAuthStore } from './store/authStore'
 import LoginPage from './pages/LoginPage'
 import CustomerListPage from './pages/customers/CustomerListPage'
 import CustomerDetailPage from './pages/customers/CustomerDetailPage'
+import ContactListPage from './pages/contacts/ContactListPage'
 import LeadListPage from './pages/leads/LeadListPage'
 import LeadDetailPage from './pages/leads/LeadDetailPage'
 import OpportunityListPage from './pages/opportunities/OpportunityListPage'
@@ -84,6 +86,7 @@ function Shell() {
   const menuRoutes = [
     { path: '/leads', name: '线索', icon: <ContactsOutlined /> },
     { path: '/customers', name: '客户', icon: <TeamOutlined /> },
+    { path: '/contacts', name: '联系人', icon: <IdcardOutlined /> },
     { path: '/opportunities', name: '商机', icon: <FundOutlined /> },
     { path: '/sales-opportunities', name: '销售机会', icon: <DeploymentUnitOutlined /> },
     { path: '/stats', name: '统计', icon: <BarChartOutlined /> },
@@ -211,6 +214,7 @@ export default function App() {
         <Route path="leads/:id" element={<LeadDetailPage />} />
         <Route path="customers" element={<CustomerListPage />} />
         <Route path="customers/:id" element={<CustomerDetailPage />} />
+        <Route path="contacts" element={<ContactListPage />} />
         <Route path="opportunities" element={<OpportunityListPage />} />
         <Route path="sales-opportunities" element={<SalesOpportunityListPage />} />
         <Route path="stats" element={<OpportunityPipelinePage />} />
