@@ -27,5 +27,8 @@ public class FollowUpRequest {
 
   private LocalDateTime nextFollowUpAt;
 
+  /** 是否自动创建跟进任务（010，需 nextFollowUpAt 非空）。 */
+  private Boolean createTask;
+
   private Integer version;
 }

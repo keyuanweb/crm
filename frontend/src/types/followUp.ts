@@ -14,6 +14,17 @@ export interface FollowUp {
   createdAt: string
 }
 
+export interface FollowUpPayload {
+  customerId?: number
+  leadId?: number
+  opportunityId?: number
+  method: FollowUpMethod
+  content: string
+  nextFollowUpAt?: string
+  createTask?: boolean
+  version?: number
+}
+
 export const METHOD_LABELS: Record<FollowUpMethod, string> = {
   PHONE: '电话',
   EMAIL: '邮件',

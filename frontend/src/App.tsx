@@ -4,6 +4,7 @@ import { Avatar, Dropdown, Layout, Menu, Spin } from 'antd'
 import {
   AuditOutlined,
   BarChartOutlined,
+  CalendarOutlined,
   ContactsOutlined,
   DeploymentUnitOutlined,
   FileProtectOutlined,
@@ -36,6 +37,8 @@ import ContractDetailPage from './pages/contracts/ContractDetailPage'
 import ContractTemplateListPage from './pages/contract-templates/ContractTemplateListPage'
 import OrderListPage from './pages/orders/OrderListPage'
 import OrderDetailPage from './pages/orders/OrderDetailPage'
+import TaskListPage from './pages/tasks/TaskListPage'
+import TaskCalendarPage from './pages/tasks/TaskCalendarPage'
 import UserManagementPage from './pages/users/UserManagementPage'
 import ChangePasswordPage from './pages/account/ChangePasswordPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
@@ -104,6 +107,7 @@ function Shell() {
     { path: '/quotes', name: '报价单', icon: <FileTextOutlined /> },
     { path: '/contracts', name: '合同', icon: <FileProtectOutlined /> },
     { path: '/orders', name: '订单', icon: <ProfileOutlined /> },
+    { path: '/tasks', name: '任务', icon: <CalendarOutlined /> },
     { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
     ...(isAdmin ? [{ path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> }] : []),
     { path: '/stats', name: '统计', icon: <BarChartOutlined /> },
@@ -241,6 +245,8 @@ export default function App() {
         <Route path="contract-templates" element={<ContractTemplateListPage />} />
         <Route path="orders" element={<OrderListPage />} />
         <Route path="orders/:id" element={<OrderDetailPage />} />
+        <Route path="tasks" element={<TaskListPage />} />
+        <Route path="tasks/calendar" element={<TaskCalendarPage />} />
         <Route path="products" element={<ProductListPage />} />
         <Route path="stats" element={<DashboardPage />} />
         <Route path="users" element={<UserManagementPage />} />

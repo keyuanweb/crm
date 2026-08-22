@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { App, Button, Card, DatePicker, Empty, Form, Input, Modal, Select, Timeline, Typography } from 'antd'
+import { App, Button, Card, Checkbox, DatePicker, Empty, Form, Input, Modal, Select, Timeline, Typography } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
@@ -21,6 +21,7 @@ interface FormValues {
   method: FollowUpMethod
   content: string
   nextFollowUpAt?: Dayjs
+  createTask?: boolean
 }
 
 export default function FollowUpTimeline({ customerId, leadId }: Props) {
@@ -69,6 +70,7 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
       method: values.method,
       content: values.content,
       nextFollowUpAt: values.nextFollowUpAt?.toISOString(),
+      createTask: values.createTask ?? false,
       version: editing?.version,
     }
     try {
@@ -150,6 +152,11 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
           <Form.Item name="nextFollowUpAt" label="下次跟进">
             <DatePicker showTime style={{ width: '100%' }} />
           </Form.Item>
+          {!editing && (
+            <Form.Item name="createTask" valuePropName="checked" initialValue={false}>
+              <Checkbox>创建跟进任务（截止=下次跟进时间，需填写下次跟进）</Checkbox>
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </Card>

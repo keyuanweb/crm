@@ -35,6 +35,7 @@ public class FollowUpService {
   private final UserMapper userMapper;
   private final LeadMapper leadMapper;
   private final DashboardStatsService dashboardStatsService;
+  private final TaskService taskService;
 
   public FollowUpService(
       FollowUpMapper followUpMapper,
@@ -42,13 +43,15 @@ public class FollowUpService {
       OpportunityMapper opportunityMapper,
       UserMapper userMapper,
       LeadMapper leadMapper,
-      DashboardStatsService dashboardStatsService) {
+      DashboardStatsService dashboardStatsService,
+      TaskService taskService) {
     this.followUpMapper = followUpMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.userMapper = userMapper;
     this.leadMapper = leadMapper;
     this.dashboardStatsService = dashboardStatsService;
+    this.taskService = taskService;
   }
 
   public PageResult<FollowUpResponse> page(
@@ -81,7 +84,36 @@ public class FollowUpService {
     followUp.setFollowUpBy(SecurityUtil.currentUserId());
     followUpMapper.insert(followUp);
     dashboardStatsService.evict();
+    maybeCreateFollowUpTask(req);
     return toResponse(followUp);
+  }
+
+  /** 010：勾选 createTask 且 nextFollowUpAt 非空时自动创建跟进任务。 */
+  private void maybeCreateFollowUpTask(FollowUpRequest req) {
+    if (!Boolean.TRUE.equals(req.getCreateTask()) || req.getNextFollowUpAt() == null) {
+      return;
+    }
+    com.crm.dto.task.TaskRequest taskReq = new com.crm.dto.task.TaskRequest();
+    String linkedName = null;
+    String linkedType = null;
+    Long linkedId = null;
+    if (req.getCustomerId() != null) {
+      Customer customer = customerMapper.selectById(req.getCustomerId());
+      linkedName = customer == null ? null : customer.getName();
+      linkedType = "CUSTOMER";
+      linkedId = req.getCustomerId();
+    } else if (req.getLeadId() != null) {
+      Lead lead = leadMapper.selectById(req.getLeadId());
+      linkedName = lead == null ? null : lead.getName();
+      linkedType = "LEAD";
+      linkedId = req.getLeadId();
+    }
+    taskReq.setTitle("跟进：" + (linkedName == null ? "客户" : linkedName));
+    taskReq.setDueAt(req.getNextFollowUpAt());
+    taskReq.setPriority("MEDIUM");
+    taskReq.setLinkedType(linkedType);
+    taskReq.setLinkedId(linkedId);
+    taskService.create(taskReq);
   }
 
   @Transactional

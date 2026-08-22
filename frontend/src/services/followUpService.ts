@@ -8,6 +8,7 @@ export interface FollowUpPayload {
   method: FollowUpMethod
   content: string
   nextFollowUpAt?: string
+  createTask?: boolean
   version?: number
 }
 

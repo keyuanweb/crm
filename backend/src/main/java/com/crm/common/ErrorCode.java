@@ -46,6 +46,7 @@ public enum ErrorCode {
   PAYMENT_EXISTS(400, "PAYMENT_EXISTS", "存在已回款期次，不可删除"),
   PAYMENT_EXCEEDS(400, "PAYMENT_EXCEEDS", "回款金额超过该期应收"),
   ORDER_HAS_PAYMENTS(409, "ORDER_HAS_PAYMENTS", "存在回款记录，不可删除"),
+  TASK_NOT_FOUND(404, "TASK_NOT_FOUND", "任务不存在"),
   INTERNAL_ERROR(500, "INTERNAL_ERROR", "服务器内部错误");
 
   private final int status;
