@@ -1,0 +1,74 @@
+# SDD 规格驱动开发文档索引
+
+**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V41 迁移）
+
+> 本文档是全部 Spec-Driven Development 产物的导航入口。每个模块按统一流程
+> `spec → plan → tasks → implement → verify` 迭代，文档遵守 [章程](../../.specify/memory/constitution.md) 的
+> 契约优先、分层架构、测试优先等原则。
+
+## 工作流与文档类型
+
+| 产物 | 命令 | 内容 | 位置 |
+|---|---|---|---|
+| 规格 spec.md | `/speckit-specify` | 用户故事/验收场景/功能需求/成功标准（面向业务） | `specs/<NNN>-<name>/spec.md` |
+| 计划 plan.md | `/speckit-plan` | 技术方案/技术上下文/章程检查/项目结构 | `specs/<NNN>-<name>/plan.md` |
+| 研究 research.md | `/speckit-plan` | 关键技术决策（Decision/Rationale/Alternatives） | `specs/<NNN>-<name>/research.md` |
+| 数据模型 data-model.md | `/speckit-plan` | 实体/字段/索引/枚举/状态机 | `specs/<NNN>-<name>/data-model.md` |
+| 契约 contracts/ | `/speckit-plan` | REST API 请求/响应/错误码/权限矩阵 | `specs/<NNN>-<name>/contracts/*.md` |
+| 任务 tasks.md | `/speckit-tasks` | 按用户故事分组的实施清单（勾选=完成） | `specs/<NNN>-<name>/tasks.md` |
+| 验证指南 quickstart.md | `/speckit-plan` | 端到端验证场景与预期 | `specs/<NNN>-<name>/quickstart.md` |
+| 规格质量检查 checklists/ | `/speckit-specify` | 规格完整性自检 | `specs/<NNN>-<name>/checklists/requirements.md` |
+| 路线图 roadmap.md | 人工维护 | 全局实施顺序与完成状态 | `specs/roadmap.md` |
+
+## 契约总入口
+
+- **全局契约约定**（Base URL / 认证 / 分页信封 / 错误格式 / 状态码 / 角色矩阵）：[001-crm-core/contracts/README.md](./001-crm-core/contracts/README.md)
+- 各模块契约见下方模块表 `contracts/` 列；后端以 springdoc-openapi（Swagger 3.0）暴露同一契约。
+
+## 模块清单（按实施顺序）
+
+| # | 模块 | 阶段 | 状态 | 文档 | 契约 |
+|---|---|---|---|---|---|
+| 001 | 客户核心（客户/商机/销售机会/跟进/统计/认证） | P0 | ✅ | [目录](./001-crm-core/) | auth/customers/opportunities/sales-opportunities/follow-ups/stats |
+| 002 | 用户管理（用户 CRUD/角色/密码/令牌失效） | P0 | ✅ | [目录](./002-user-management/) | users |
+| 003 | 系统加固（唯一约束/缓存/CORS/认证性能） | P0 | ✅ | [目录](./003-system-hardening/) | —（配置与约束，无新端点） |
+| 004 | 线索管理（线索池/分配/转化/Excel） | P1 | ✅ | [目录](./004-lead-management/) | leads |
+| 005 | 联系人管理（联系人 CRUD/角色/客户详情集成） | P1 | ✅ | [目录](./005-contact-management/) | contacts |
+| 006 | 销售仪表盘（指标卡/漏斗/预测/业绩/客户分析） | P1 | ✅ | [目录](./006-sales-dashboard/) | stats |
+| 007 | 产品与报价 CPQ（产品/报价单/PDF/审批） | P1 | ✅ | [目录](./007-product-cpq/) | products-quotes |
+| 008 | 合同管理（合同/审批/附件/模板） | P1 | ✅ | [目录](./008-contract-management/) | contracts |
+| 009 | 订单与回款（订单/分期回款/应收账款） | P1 | ✅ | [目录](./009-order-payment/) | orders |
+| 010 | 任务与提醒（待办/日历/跟进计划） | P1 | ✅ | [目录](./010-task-reminder/) | tasks |
+| 011 | 客户公海（公海规则/领取/批量转移） | P1 | ✅ | [目录](./011-customer-pool/) | customer-pool |
+| 012 | 数据权限（部门/行级权限/客户共享） | P1 | ✅ | [目录](./012-data-permission/) | data-permission |
+| 013 | 工作流自动化（规则/触发/通知/日志） | P1 | ✅ | [目录](./013-workflow-automation/) | workflow |
+| 014 | 市场营销（活动/归因/渠道 ROI） | P2 | ✅ | [目录](./014-marketing/) | marketing |
+| 015 | 客户服务（工单/知识库/SLA） | P2 | ✅ | [目录](./015-customer-service/) | tickets/knowledge/sla |
+| 016 | 系统增强（自定义字段/通知中心/导出/移动端） | P2 | ✅ | [目录](./016-system-enhancement/) | custom-fields/notifications/exports |
+
+> 阶段：P0=核心销售链路补全；P1=成交链路延伸 / 效率与自动化；P2=扩展模块。
+> 完整阶段定义与依赖关系见 [roadmap.md](./roadmap.md)。
+
+## 数据库迁移对照（Flyway V1~V41）
+
+| 迁移 | 模块 | 内容 |
+|---|---|---|
+| V1~V5 | 001/002 | 初始 schema、用户审计字段、审计日志、认证字段、跟进软删除 |
+| V6 | 003 | customer 唯一约束（生成列 active_key） |
+| V7~V9 | 004 | lead 表、follow_up.lead_id、customer_id 可空 |
+| V10 | 005 | contact 表 |
+| V11~V15 | 006/007 | sales_target、product、quote、quote_item（含版本） |
+| V16~V18 | 008 | contract、contract_attachment、contract_template |
+| V19~V21 | 009 | sales_order、payment_plan、payment_record |
+| V22 | 010 | task_item |
+| V23~V26 | 011/012 | customer.owner_id、department、user.data_scope、customer_share |
+| V27~V31 | 013 | workflow_rule、workflow_execution_log（软删除/updated_at）、workflow_notification |
+| V32~V33 | 014 | marketing_campaign、lead/customer.campaign_id |
+| V34~V37 | 015 | ticket、ticket_reply、knowledge_article、sla_policy |
+| V38~V41 | 016 | custom_field、custom_field_value、export_job、notification（含 013 数据迁移） |
+
+## 使用建议
+
+- **新功能开发**：遵循 `/speckit-specify → /speckit-plan → /speckit-tasks → /speckit-implement → /speckit-converge` 全流程，产物落在新目录 `specs/<NNN>-<name>/`。
+- **查阅某模块**：从上方模块表进入，按 spec（业务）→ plan（技术）→ contracts（接口）→ tasks（实施记录）顺序阅读。
+- **改动已应用迁移**：禁止编辑已应用 migration（Flyway checksum），需新增迁移号 V42+ 并同步 `backend/src/test/resources/schema-h2.sql`。

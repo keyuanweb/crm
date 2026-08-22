@@ -1,64 +1,61 @@
 # Quickstart: 用户管理模块验证指南
 
-**Branch**: `002-user-management` | **Date**: 2026-08-22 | **Spec**: [spec.md](./spec.md) | **Contracts**: [contracts/](./contracts/README.md)
-
-> 端到端验证/运行指南（不含实现代码）。通用环境准备（MySQL/Redis/后端 8081/前端 5173）见
-> [001 quickstart](../../001-crm-core/quickstart.md)，此处仅覆盖用户管理场景。
+**Branch**: `002-user-management`
 
 ## 前置条件
 
-- 001 环境就绪（后端 8081 运行、MySQL `crm_db`、Redis 可用、管理员 admin/admin123）。
+- MySQL（`crm_db`）、Redis 运行；后端服务运行于 `SERVER_PORT=8081`。
+- Flyway 启动时自动应用 V4（user 表认证字段）。
+- 前端开发服务运行（`VITE_PROXY_TARGET=http://localhost:8081`）。
 
-## 验证场景（对应用户故事 / FR）
+## 验证场景
 
-### U1 用户列表与检索（US2 / FR-001~002）
-
-1. 管理员登录 → 顶部出现"用户管理"入口 → 进入后看到用户列表（至少包含 admin）。
-2. 搜索关键字与角色筛选后翻页，条件保持。
-3. 非管理员（SALES/SUPPORT）登录后**不应**看到"用户管理"入口（FR-008）。
-
-### U2 创建用户并登录（US1 / FR-003 / SC-001~002）
-
-1. 新增用户：用户名 `sales01`、显示名、角色 SALES、初始密码 `pass1234`（8 位含字母数字）→ 保存成功、列表出现。
-2. 用 `sales01 / pass1234` 登录 → 成功，看到自身角色。
-3. 重复创建同名用户 → 提示"用户名已存在"（409）。
-4. 弱密码（纯字母）创建 → 提示密码强度不足（400）。
-
-### U3 编辑与启停即时生效（US3 / FR-004 / SC-003）
-
-1. 将 `sales01` 角色改为 SUPPORT → 其下次请求按 SUPPORT 权限生效。
-2. 停用 `sales01` → 该账号无法登录（403），已登录会话的旧令牌立即失效（401）。
-3. 尝试停用当前登录账号 → 被拒绝（403"不能停用当前登录账号"）。
-4. 尝试停用最后一个启用 ADMIN → 被拒绝（403"至少保留一个启用 ADMIN"）。
-
-### U4 管理员重置密码（FR-005 / SC-004）
-
-1. 管理员为用户重置新密码 → 旧密码登录失败（401）、新密码登录成功。
-2. 重置前签发的旧访问令牌请求任意接口 → 401（token_version 失效）。
-
-### U5 本人修改密码（FR-006 / SC-004）
-
-1. 登录用户在"修改密码"页输入旧密码与新密码（两次一致）→ 成功后自动登出并要求重新登录。
-2. 旧密码输入错误 → 提示"旧密码不正确"。
-3. 两次新密码不一致 → 前端拦截提示。
-
-### U6 审计日志查询（001 FR-017，002 端点）
-
-1. 管理员进入"审计日志"→ 可看到创建/编辑/删除/导入/导出/关闭/密码变更等记录。
-2. 按动作/对象类型/操作人筛选与分页正确。
-3. 非管理员访问 → 403。
-
-## 自动化验证
+### 1. 后端验证（自动化）
 
 ```bash
-# 后端：契约/集成/单元（含 UserContractTest、UserIT、AuditLogIT）
-cd backend && mvn test
-
-# 前端：单元/组件（含用户管理/改密/审计页测试）+ 类型 + Lint
-cd frontend && pnpm test && pnpm typecheck && pnpm lint
-
-# 端到端（需后端运行中）
-cd frontend && VITE_PROXY_TARGET=http://localhost:8081 pnpm exec playwright test e2e/user-management.spec.ts
+cd backend
+mvn verify                          # 全部单元/契约测试 + spotless + JaCoCo
+mvn test "-Dtest=UserIT"            # 用户集成测试
 ```
 
-**预期**：全部通过；任何契约变更须同步更新本目录与契约测试（章程原则一）。
+**预期**: BUILD SUCCESS；`*Test` 全绿；`*IT` 单独运行通过。
+
+### 2. 线上端点验证（手动）
+
+```bash
+# 登录 admin
+curl -X POST http://localhost:8081/api/v1/auth/login \
+  -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}'
+
+# 创建用户（ADMIN 专属）
+curl -X POST http://localhost:8081/api/v1/users \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"username":"sales01","password":"Passw0rd!","displayName":"销售一号","role":"SALES"}'
+
+# 新用户登录（立即生效）
+curl -X POST http://localhost:8081/api/v1/auth/login \
+  -H "Content-Type: application/json" -d '{"username":"sales01","password":"Passw0rd!"}'
+
+# 管理员重置密码 → 旧令牌立即失效
+curl -X PUT http://localhost:8081/api/v1/users/2/password \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"newPassword":"NewPassw0rd!"}'
+
+# 停用账号 → 无法再登录
+curl -X PUT http://localhost:8081/api/v1/users/2 \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"displayName":"销售一号","role":"SALES","enabled":false,"version":0}'
+```
+
+**预期**: 新用户创建后可立即登录；重置/修改密码后旧令牌请求被 401 拒绝；停用账号登录被拒；无法停用最后一个启用 ADMIN。
+
+### 3. 前端验证
+
+- 用户管理页 `/users`（仅 ADMIN 菜单）：列表/搜索/筛选/创建/编辑/启停/重置密码。
+- 个人中心修改密码（任意登录用户）。
+- 用户详情含最后登录时间。
+
+### 4. 契约核对
+
+- 响应结构对照 `contracts/users.md`；通用约定见 001 契约 README。
+- Swagger: `http://localhost:8081/swagger-ui.html` → 用户分组可见新端点。
