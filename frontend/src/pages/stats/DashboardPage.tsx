@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   App,
@@ -7,11 +8,13 @@ import {
   Col,
   Empty,
   Form,
+  Grid,
   InputNumber,
   Modal,
   Progress,
   Result,
   Row,
+  Space,
   Statistic,
   Table,
   Tag,
@@ -19,6 +22,8 @@ import {
 } from 'antd'
 import {
   AimOutlined,
+  BulbOutlined,
+  CompassOutlined,
   FundOutlined,
   ReloadOutlined,
   RiseOutlined,
@@ -29,10 +34,12 @@ import {
   fetchDashboardStats,
   saveSalesTarget,
 } from '../../services/statsService'
+import { fetchSuggestionSummary } from '../../services/suggestionService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
+import AnnouncementCard from '../../components/AnnouncementCard'
 import { STAGE_LABELS, formatAmount, type OpportunityStage } from '../../types/opportunity'
-import type { FunnelStageStat, StalledOpportunity } from '../../types/stats'
+import type { StalledOpportunity } from '../../types/stats'
 
 const { Title, Paragraph, Text } = Typography
 
@@ -52,19 +59,47 @@ const stageColor: Record<string, string> = {
 
 const pct = (v?: number) => (v === undefined || v === null ? '-' : `${Math.round(v * 100)}%`)
 
+/** 统一卡片阴影（现代轻投影，替代无阴影）。 */
+const cardShadow = '0 1px 2px rgba(0,0,0,0.04), 0 2px 8px -2px rgba(0,0,0,0.06)'
+
 export default function DashboardPage() {
   const { message } = App.useApp()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.lg
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
   const currentMonth = dayjs().format('YYYY-MM')
   const [targetOpen, setTargetOpen] = useState(false)
   const [form] = Form.useForm<{ targetAmount: number }>()
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
   })
+
+  // 022：AI 智能建议摘要
+  const { data: suggestionSummary } = useQuery({
+    queryKey: ['suggestion-summary'],
+    queryFn: fetchSuggestionSummary,
+  })
+
+  // 安全取值：接口缺字段时避免整页崩溃（空白页）
+  const s = data?.summary
+  const fu = {
+    total: data?.followUps?.total ?? 0,
+    byMethod: data?.followUps?.byMethod ?? [],
+    recent: data?.followUps?.recent ?? [],
+  }
+  const fc = {
+    weightedAmount: data?.forecast?.weightedAmount,
+    breakdown: data?.forecast?.breakdown ?? [],
+  }
+  const perf = data?.performance
+  const funnel = data?.funnel
+  const stalled = data?.stalledOpportunities ?? []
+  const generatedAt = data?.generatedAt
 
   const targetMutation = useMutation({
     mutationFn: (amount: number) => saveSalesTarget({ month: currentMonth, targetAmount: amount }),
@@ -99,55 +134,32 @@ export default function DashboardPage() {
   const statCards = [
     {
       title: '商机总数',
-      value: data?.summary.opportunityCount ?? 0,
+      value: s?.opportunityCount ?? 0,
       icon: <TeamOutlined />,
-      bg: 'linear-gradient(135deg, #1677ff 0%, #4096ff 100%)',
+      iconBg: 'linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)',
     },
     {
       title: '金额合计',
-      value: formatAmount(data?.summary.amountTotal),
+      value: formatAmount(s?.amountTotal),
       prefix: '¥',
       icon: <FundOutlined />,
-      bg: 'linear-gradient(135deg, #52c41a 0%, #95de64 100%)',
+      iconBg: 'linear-gradient(135deg, #52c41a 0%, #95de64 100%)',
     },
     {
       title: '赢单率',
-      value: pct(data?.summary.winRate),
+      value: pct(s?.winRate),
       icon: <RiseOutlined />,
-      bg: 'linear-gradient(135deg, #fa8c16 0%, #ffc069 100%)',
+      iconBg: 'linear-gradient(135deg, #fa8c16 0%, #ffc069 100%)',
     },
     {
       title: '本月新增客户',
-      value: data?.summary.newCustomersThisMonth ?? 0,
+      value: s?.newCustomersThisMonth ?? 0,
       icon: <AimOutlined />,
-      bg: 'linear-gradient(135deg, #722ed1 0%, #b37feb 100%)',
+      iconBg: 'linear-gradient(135deg, #722ed1 0%, #b37feb 100%)',
     },
   ]
 
-  const funnelColumns = [
-    {
-      title: '阶段',
-      dataIndex: 'stage',
-      render: (stage: string) => (
-        <Tag color={stageColor[stage] ?? 'default'}>
-          {STAGE_LABELS[stage as OpportunityStage] ?? stage}
-        </Tag>
-      ),
-    },
-    { title: '商机数量', dataIndex: 'count' },
-    {
-      title: '金额合计（元）',
-      dataIndex: 'amountTotal',
-      render: (v: number) => formatAmount(v),
-    },
-    {
-      title: '转化率',
-      dataIndex: 'conversionRate',
-      render: (v?: number | null) => (v === null || v === undefined ? '-' : `${Math.round(v * 100)}%`),
-    },
-  ]
-
-  const methodMax = Math.max(1, ...(data?.followUps.byMethod.map((m) => m.count) ?? [1]))
+  const methodMax = Math.max(1, ...(fu.byMethod.map((m) => m.count) ?? [1]))
 
   const stalledColumns = [
     { title: '商机', dataIndex: 'opportunityName', render: (v?: string) => v ?? '-' },
@@ -180,53 +192,173 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* 页面头部：个性化欢迎 + 日期 + 刷新 */}
+      <div
+        style={{
+          marginBottom: 16,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
         <div>
-          <Title level={4} style={{ marginBottom: 4 }}>
-            销售仪表盘
+          <Title level={3} style={{ marginBottom: 4, fontWeight: 600 }}>
+            你好，{user?.displayName ?? user?.username} 👋
           </Title>
           <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 13 }}>
-            核心指标 · 漏斗 · 预测 · 业绩达成 · 客户与跟进 · 停滞预警（缓存 ≤5 分钟）
+            {dayjs().format('YYYY 年 M 月 D 日 · dddd')} · 今日销售概览
           </Paragraph>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={() => void refetch()}>
-          刷新
-        </Button>
+        <Space>
+          {/* 029：员工使用地图入口 */}
+          <Button icon={<CompassOutlined />} onClick={() => navigate('/usage-map')}>
+            查看使用地图
+          </Button>
+          <Button icon={<ReloadOutlined />} loading={isFetching} onClick={() => void refetch()}>
+            刷新
+          </Button>
+        </Space>
       </div>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+      {/* 027：移动端外勤快捷入口 */}
+      {isMobile && (
+        <Card
+          style={{ borderRadius: 12, marginBottom: 16, boxShadow: cardShadow }}
+          styles={{ body: { padding: 12 } }}
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            <Button
+              size="large"
+              icon={<TeamOutlined />}
+              style={{ height: 52 }}
+              onClick={() => navigate('/customers')}
+            >
+              看客户
+            </Button>
+            <Button
+              size="large"
+              icon={<FundOutlined />}
+              style={{ height: 52 }}
+              onClick={() => navigate('/opportunities')}
+            >
+              看商机
+            </Button>
+            <Button
+              size="large"
+              icon={<AimOutlined />}
+              style={{ height: 52 }}
+              onClick={() => navigate('/leads')}
+            >
+              看线索
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* AI 智能建议条：琥珀渐变 + 图标卡 + 4 统计点 */}
+      <Card
+        style={{
+          borderRadius: 12,
+          marginBottom: 16,
+          cursor: 'pointer',
+          background: 'linear-gradient(120deg, #fffbe6 0%, #fff7e6 100%)',
+          border: '1px solid #ffe7ba',
+          boxShadow: cardShadow,
+          transition: 'box-shadow 0.2s ease',
+        }}
+        styles={{ body: { padding: '14px 20px' } }}
+        onClick={() => navigate('/suggestions')}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: 'linear-gradient(135deg, #faad14 0%, #ffd666 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                color: '#fff',
+                flexShrink: 0,
+              }}
+            >
+              <BulbOutlined />
+            </div>
+            <div>
+              <Typography.Text strong style={{ fontSize: 14 }}>
+                AI 智能建议
+              </Typography.Text>
+              <div>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  点击查看详情
+                </Typography.Text>
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+            <Typography.Text type="secondary">
+              流失预警 <b style={{ color: '#cf1322' }}>{suggestionSummary?.atRiskCustomers ?? 0}</b>
+            </Typography.Text>
+            <Typography.Text type="secondary">
+              商机停滞 <b style={{ color: '#fa8c16' }}>{suggestionSummary?.stalledOpportunities ?? 0}</b>
+            </Typography.Text>
+            <Typography.Text type="secondary">
+              待跟进 <b style={{ color: '#1677ff' }}>{suggestionSummary?.followUpCustomers ?? 0}</b>
+            </Typography.Text>
+            <Typography.Text type="secondary">
+              高分线索 <b style={{ color: '#52c41a' }}>{suggestionSummary?.highScoreLeads ?? 0}</b>
+            </Typography.Text>
+          </div>
+        </div>
+      </Card>
+
+      {/* KPI 指标卡：白底 + 彩色渐变图标容器（统一品牌感） */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         {statCards.map((card) => (
           <Col xs={24} sm={12} md={6} key={card.title}>
             <Card
               loading={isLoading}
-              bodyStyle={{ padding: 20 }}
-              style={{ background: card.bg, border: 'none', borderRadius: 10, color: '#fff' }}
+              style={{ borderRadius: 12, boxShadow: cardShadow, height: '100%' }}
+              styles={{ body: { padding: 20 } }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 8 }}>
-                    {card.title}
-                  </div>
-                  <Statistic
-                    value={card.value}
-                    prefix={card.prefix}
-                    valueStyle={{ color: '#fff', fontSize: 24, fontWeight: 600 }}
-                  />
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div
                   style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 12,
-                    background: 'rgba(255,255,255,0.2)',
+                    width: 52,
+                    height: 52,
+                    borderRadius: 14,
+                    background: card.iconBg,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 22,
+                    fontSize: 24,
                     color: '#fff',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.12)',
                   }}
                 >
                   {card.icon}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 4 }}>{card.title}</div>
+                  <Statistic
+                    value={card.value}
+                    prefix={card.prefix}
+                    valueStyle={{ fontSize: 26, fontWeight: 700 }}
+                  />
                 </div>
               </div>
             </Card>
@@ -234,39 +366,79 @@ export default function DashboardPage() {
         ))}
       </Row>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={14}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} lg={12}>
           <Card
             loading={isLoading}
             title="销售漏斗"
-            bodyStyle={{ padding: 0 }}
-            style={{ borderRadius: 10, marginBottom: 16 }}
+            styles={{ body: { padding: 16 } }}
+            style={{ borderRadius: 12, boxShadow: cardShadow, height: '100%' }}
           >
-            <Table<FunnelStageStat>
-              rowKey="stage"
-              size="middle"
-              dataSource={data?.funnel.stages ?? []}
-              columns={funnelColumns as never}
-              pagination={false}
-              locale={{ emptyText: '暂无销售机会' }}
-            />
+            {(funnel?.stages ?? []).length ? (
+              (() => {
+                const stages = funnel?.stages ?? []
+                const maxAmount = Math.max(1, ...stages.map((st) => st.amountTotal ?? 0))
+                const grand = funnel?.grandTotal?.amountTotal ?? stages.reduce((a, st) => a + (st.amountTotal ?? 0), 0)
+                return stages.map((st, idx) => {
+                  const color = stageColor[st.stage] ?? 'blue'
+                  const colorMap: Record<string, string> = {
+                    blue: '#1677ff',
+                    gold: '#fa8c16',
+                    green: '#52c41a',
+                    red: '#cf1322',
+                    default: '#8c8c8c',
+                  }
+                  const baseColor = colorMap[color] ?? '#1677ff'
+                  const widthPct = Math.round(((st.amountTotal ?? 0) / maxAmount) * 100)
+                  const sharePct = grand > 0 ? Math.round(((st.amountTotal ?? 0) / grand) * 100) : 0
+                  return (
+                    <div key={st.stage} style={{ marginBottom: idx === stages.length - 1 ? 0 : 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <Tag color={color}>{STAGE_LABELS[st.stage as OpportunityStage] ?? st.stage}</Tag>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {st.count} 个 · {formatAmount(st.amountTotal)} 元
+                          {st.conversionRate != null && ` · 转化 ${Math.round((st.conversionRate ?? 0) * 100)}%`}
+                        </Text>
+                      </div>
+                      <div style={{ height: 14, borderRadius: 7, background: 'rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+                        <div
+                          style={{
+                            width: `${widthPct}%`,
+                            height: '100%',
+                            borderRadius: 7,
+                            background: `linear-gradient(90deg, ${baseColor} 0%, ${baseColor}cc 100%)`,
+                            transition: 'width 0.3s ease',
+                          }}
+                        />
+                      </div>
+                      <Text type="secondary" style={{ fontSize: 11, marginTop: 2, display: 'block' }}>
+                        占比 {sharePct}%
+                      </Text>
+                    </div>
+                  )
+                })
+              })()
+            ) : (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无销售机会" />
+            )}
           </Card>
         </Col>
 
-        <Col xs={24} lg={10}>
-          <Card
-            loading={isLoading}
-            title="销售预测"
-            style={{ borderRadius: 10, marginBottom: 16 }}
-            bodyStyle={{ padding: 20 }}
-          >
+        <Col xs={24} lg={12}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+            <Card
+              loading={isLoading}
+              title="销售预测"
+              style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
+              styles={{ body: { padding: 20 } }}
+            >
             <Statistic
               title="加权预测总额（元）"
-              value={formatAmount(data?.forecast.weightedAmount)}
+              value={formatAmount(fc.weightedAmount)}
               prefix="¥"
             />
             <div style={{ marginTop: 16 }}>
-              {(data?.forecast.breakdown ?? [])
+              {(fc.breakdown ?? [])
                 .filter((b) => b.stage !== 'CLOSED_LOST')
                 .map((b) => (
                   <div
@@ -275,6 +447,14 @@ export default function DashboardPage() {
                   >
                     <span>
                       {STAGE_LABELS[b.stage as OpportunityStage] ?? b.stage}（{Math.round(b.probability * 100)}%）
+                      {b.probabilitySource === 'HISTORICAL' && (
+                        <Tag color="green" style={{ marginLeft: 6, fontSize: 11 }}>
+                          历史校准
+                        </Tag>
+                      )}
+                      {b.probabilitySource === 'DEFAULT' && (
+                        <Tag style={{ marginLeft: 6, fontSize: 11 }}>默认概率</Tag>
+                      )}
                     </span>
                     <span>{formatAmount(b.weighted)} 元</span>
                   </div>
@@ -286,10 +466,15 @@ export default function DashboardPage() {
             loading={isLoading}
             title={
               <span>
-                业绩达成（{data?.performance.month ?? currentMonth}）
+                业绩达成（{perf?.month ?? currentMonth}）
+                {perf?.personal && (
+                  <Tag color="blue" style={{ marginLeft: 8 }}>
+                    个人目标
+                  </Tag>
+                )}
                 {isAdmin && (
                   <Button size="small" style={{ marginLeft: 12 }} onClick={() => {
-                    form.setFieldsValue({ targetAmount: (data?.performance.targetAmount ?? 0) / 100 })
+                    form.setFieldsValue({ targetAmount: (perf?.targetAmount ?? 0) / 100 })
                     setTargetOpen(true)
                   }}>
                     设置目标
@@ -297,32 +482,32 @@ export default function DashboardPage() {
                 )}
               </span>
             }
-            style={{ borderRadius: 10, marginBottom: 16 }}
-            bodyStyle={{ padding: 20 }}
+            style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
+            styles={{ body: { padding: 20 } }}
           >
-            {data?.performance.configured ? (
+            {perf?.configured ? (
               <>
                 <Statistic
                   title="达成率"
-                  value={pct(data.performance.achievementRate)}
+                  value={pct(perf?.achievementRate)}
                   valueStyle={{
                     color:
-                      (data.performance.achievementRate ?? 0) >= 1
+                      (perf?.achievementRate ?? 0) >= 1
                         ? '#3f8600'
-                        : (data.performance.achievementRate ?? 0) >= 0.5
+                        : (perf?.achievementRate ?? 0) >= 0.5
                           ? '#fa8c16'
                           : '#cf1322',
                   }}
                 />
                 <div style={{ marginTop: 12 }}>
                   <Progress
-                    percent={Math.round((data.performance.achievementRate ?? 0) * 100)}
-                    status={(data.performance.achievementRate ?? 0) >= 1 ? 'success' : 'active'}
+                    percent={Math.round((perf?.achievementRate ?? 0) * 100)}
+                    status={(perf?.achievementRate ?? 0) >= 1 ? 'success' : 'active'}
                   />
                 </div>
                 <Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0, fontSize: 13 }}>
-                  已赢单 {formatAmount(data.performance.wonAmount)} 元 / 目标{' '}
-                  {formatAmount(data.performance.targetAmount)} 元
+                  已赢单 {formatAmount(perf?.wonAmount)} 元 / 目标{' '}
+                  {formatAmount(perf?.targetAmount)} 元
                 </Paragraph>
               </>
             ) : (
@@ -334,28 +519,30 @@ export default function DashboardPage() {
               />
             )}
           </Card>
+          </div>
         </Col>
       </Row>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
-          <Card
-            loading={isLoading}
-            title="客户分析"
-            style={{ borderRadius: 10, marginBottom: 16 }}
-            bodyStyle={{ padding: 20 }}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+            <Card
+              loading={isLoading}
+              title="客户分析"
+              style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
+              styles={{ body: { padding: 20 } }}
           >
             <Row gutter={16}>
               <Col span={8}>
-                <Statistic title="客户总数" value={data?.summary.customerCount ?? 0} />
+                <Statistic title="客户总数" value={s?.customerCount ?? 0} />
               </Col>
               <Col span={8}>
-                <Statistic title="活跃客户" value={data?.summary.activeCustomerCount ?? 0} />
+                <Statistic title="活跃客户" value={s?.activeCustomerCount ?? 0} />
               </Col>
               <Col span={8}>
                 <Statistic
                   title="本月新增"
-                  value={data?.summary.newCustomersThisMonth ?? 0}
+                  value={s?.newCustomersThisMonth ?? 0}
                   valueStyle={{ color: '#3f8600' }}
                 />
               </Col>
@@ -365,11 +552,11 @@ export default function DashboardPage() {
           <Card
             loading={isLoading}
             title="跟进活动"
-            style={{ borderRadius: 10, marginBottom: 16 }}
-            bodyStyle={{ padding: 20 }}
+            style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
+            styles={{ body: { padding: 20 } }}
           >
-            <Statistic title="跟进总数" value={data?.followUps.total ?? 0} style={{ marginBottom: 16 }} />
-            {(data?.followUps.byMethod ?? []).map((m) => (
+            <Statistic title="跟进总数" value={fu.total} style={{ marginBottom: 16 }} />
+            {(fu.byMethod ?? []).map((m) => (
               <div key={m.method} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }}>
                 <span style={{ width: 40, fontSize: 13 }}>{METHOD_LABELS[m.method] ?? m.method}</span>
                 <Progress
@@ -380,24 +567,41 @@ export default function DashboardPage() {
                 />
               </div>
             ))}
-            {!data?.followUps.byMethod.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无跟进记录" />}
+            {!fu.byMethod.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无跟进记录" />}
           </Card>
+          {/* 037：团队公告 */}
+          <AnnouncementCard />
+          </div>
         </Col>
 
         <Col xs={24} lg={12}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
           <Card
             loading={isLoading}
             title="最近跟进"
-            bodyStyle={{ padding: 0 }}
-            style={{ borderRadius: 10, marginBottom: 16 }}
+            styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
+            style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
           >
-            <Table<{ id: number; method: string; content: string; customerName?: string; followUpBy?: string; createdAt: string }>
-              rowKey="id"
-              size="small"
-              dataSource={data?.followUps.recent ?? []}
-              pagination={false}
-              locale={{ emptyText: '暂无跟进记录' }}
-              columns={
+            {(fu.recent ?? []).length === 0 ? (
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 16,
+                }}
+              >
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无跟进记录" />
+              </div>
+            ) : (
+              <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+                <Table<{ id: number; method: string; content: string; customerName?: string; followUpBy?: string; createdAt: string }>
+                  rowKey="id"
+                  size="small"
+                  dataSource={fu.recent ?? []}
+                  pagination={false}
+                  columns={
                 [
                   {
                     title: '方式',
@@ -415,40 +619,58 @@ export default function DashboardPage() {
                   {
                     title: '跟进人',
                     dataIndex: 'followUpBy',
-                    width: 80,
+                    width: 120,
                     render: (v?: string) => v ?? '-',
                   },
                   {
                     title: '时间',
                     dataIndex: 'createdAt',
                     width: 150,
-                    render: (v: string) => v.replace('T', ' ').slice(0, 16),
+                    render: (v?: string) => (v ?? '').replace('T', ' ').slice(0, 16),
                   },
                 ] as never
               }
-            />
+              />
+              </div>
+            )}
           </Card>
+
+          <Card
+            loading={isLoading}
+            title="停滞商机预警（超过 7 天未更新）"
+            styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
+            style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
+          >
+            {stalled.length === 0 ? (
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 16,
+                }}
+              >
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无停滞商机，管道健康" />
+              </div>
+            ) : (
+              <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+                <Table<StalledOpportunity>
+                  rowKey="id"
+                  size="small"
+                  dataSource={stalled}
+                  columns={stalledColumns as never}
+                  pagination={false}
+                />
+              </div>
+            )}
+          </Card>
+          </div>
         </Col>
       </Row>
 
-      <Card
-        loading={isLoading}
-        title="停滞商机预警（超过 7 天未更新）"
-        bodyStyle={{ padding: 0 }}
-        style={{ borderRadius: 10 }}
-      >
-        <Table<StalledOpportunity>
-          rowKey="id"
-          size="middle"
-          dataSource={data?.stalledOpportunities ?? []}
-          columns={stalledColumns as never}
-          pagination={false}
-          locale={{ emptyText: '暂无停滞商机，管道健康' }}
-        />
-      </Card>
-
       <Paragraph type="secondary" style={{ marginTop: 12, fontSize: 12, marginBottom: 0 }}>
-        生成时间：{data?.generatedAt ? data.generatedAt.replace('T', ' ').slice(0, 19) : '-'}
+        生成时间：{generatedAt ? generatedAt.replace('T', ' ').slice(0, 19) : '-'}
       </Paragraph>
 
       <Modal
