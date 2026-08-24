@@ -28,6 +28,7 @@ public class EmailTrackController {
 
   private static final int RATE_LIMIT = 60;
   private static final long RATE_WINDOW_MS = 60_000L;
+
   /** IP → 请求时间戳队列（防刷统计）。 */
   private final Map<String, Deque<Long>> rateBuckets = new ConcurrentHashMap<>();
 
@@ -39,7 +40,8 @@ public class EmailTrackController {
 
   @GetMapping(value = "/open/{sendLogId}", produces = MediaType.IMAGE_GIF_VALUE)
   @Operation(summary = "打开追踪像素")
-  public ResponseEntity<byte[]> trackOpen(@PathVariable Long sendLogId, HttpServletRequest request) {
+  public ResponseEntity<byte[]> trackOpen(
+      @PathVariable Long sendLogId, HttpServletRequest request) {
     checkRateLimit(request);
     byte[] gif = campaignService.trackOpen(sendLogId);
     return ResponseEntity.ok()
