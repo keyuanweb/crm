@@ -190,3 +190,4 @@
 - [x] 036-online-forms（在线表单/线索收集）
 - [x] 037-announcements（公告/评论 @提及）
 - [x] 038-invoice（发票管理/状态跟踪）
+- [x] 039-dashboard-ux（前端体验：菜单切换防闪烁/客户分析卡布局）
