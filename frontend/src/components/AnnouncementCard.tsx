@@ -56,8 +56,8 @@ export default function AnnouncementCard() {
           查看全部
         </Button>
       }
-      style={{ borderRadius: 12, height: '100%' }}
-      styles={{ body: { paddingTop: 8 } }}
+      style={{ borderRadius: 12, height: '100%', display: 'flex', flexDirection: 'column' }}
+      styles={{ body: { paddingTop: 8, flex: 1, minHeight: 0, overflow: 'auto' } }}
     >
       <List
         loading={loading}

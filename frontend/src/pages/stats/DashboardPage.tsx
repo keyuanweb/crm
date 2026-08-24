@@ -529,48 +529,48 @@ export default function DashboardPage() {
             <Card
               loading={isLoading}
               title="客户分析"
+              style={{ borderRadius: 12, boxShadow: cardShadow }}
+              styles={{ body: { padding: '16px 20px' } }}
+            >
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={8}>
+                  <Statistic title="客户总数" value={s?.customerCount ?? 0} />
+                </Col>
+                <Col xs={24} sm={8}>
+                  <Statistic title="活跃客户" value={s?.activeCustomerCount ?? 0} />
+                </Col>
+                <Col xs={24} sm={8}>
+                  <Statistic
+                    title="本月新增"
+                    value={s?.newCustomersThisMonth ?? 0}
+                    valueStyle={{ color: '#3f8600' }}
+                  />
+                </Col>
+              </Row>
+            </Card>
+
+            <Card
+              loading={isLoading}
+              title="跟进活动"
               style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
               styles={{ body: { padding: 20 } }}
-          >
-            <Row gutter={16}>
-              <Col span={8}>
-                <Statistic title="客户总数" value={s?.customerCount ?? 0} />
-              </Col>
-              <Col span={8}>
-                <Statistic title="活跃客户" value={s?.activeCustomerCount ?? 0} />
-              </Col>
-              <Col span={8}>
-                <Statistic
-                  title="本月新增"
-                  value={s?.newCustomersThisMonth ?? 0}
-                  valueStyle={{ color: '#3f8600' }}
-                />
-              </Col>
-            </Row>
-          </Card>
-
-          <Card
-            loading={isLoading}
-            title="跟进活动"
-            style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
-            styles={{ body: { padding: 20 } }}
-          >
-            <Statistic title="跟进总数" value={fu.total} style={{ marginBottom: 16 }} />
-            {(fu.byMethod ?? []).map((m) => (
-              <div key={m.method} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }}>
-                <span style={{ width: 40, fontSize: 13 }}>{METHOD_LABELS[m.method] ?? m.method}</span>
-                <Progress
-                  percent={Math.round((m.count / methodMax) * 100)}
-                  size="small"
-                  style={{ flex: 1 }}
-                  format={() => `${m.count}`}
-                />
-              </div>
-            ))}
-            {!fu.byMethod.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无跟进记录" />}
-          </Card>
-          {/* 037：团队公告 */}
-          <AnnouncementCard />
+            >
+              <Statistic title="跟进总数" value={fu.total} style={{ marginBottom: 16 }} />
+              {(fu.byMethod ?? []).map((m) => (
+                <div key={m.method} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }}>
+                  <span style={{ width: 40, fontSize: 13 }}>{METHOD_LABELS[m.method] ?? m.method}</span>
+                  <Progress
+                    percent={Math.round((m.count / methodMax) * 100)}
+                    size="small"
+                    style={{ flex: 1 }}
+                    format={() => `${m.count}`}
+                  />
+                </div>
+              ))}
+              {!fu.byMethod.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无跟进记录" />}
+            </Card>
+            {/* 037：团队公告 */}
+            <AnnouncementCard />
           </div>
         </Col>
 
