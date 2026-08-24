@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, startTransition, useEffect, useState } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Avatar, Button, Dropdown, Layout, Menu, Spin } from 'antd'
 import {
@@ -157,7 +157,9 @@ const PRELOAD_PAGES: Array<() => Promise<unknown>> = [
 
 function preloadPages() {
   for (const load of PRELOAD_PAGES) {
-    void load()
+    void load().catch(() => {
+      // 预加载失败不影响主流程（点击时仍会按需加载）
+    })
   }
 }
 
@@ -209,22 +211,11 @@ function Shell() {
     }
   }, [getAccessToken, setUser, clear])
 
-  // 空闲时预加载全部页面 chunk：登录后即开始预热，点击菜单无需等待加载、不闪 fallback
+  // 挂载后立即预加载全部页面 chunk（不等空闲）：点击菜单时目标页已缓存，
+  // Suspense 直接渲染，杜绝切换瞬间整页闪烁
   useEffect(() => {
     if (!booted) return
-    let id: number | undefined
-    if (typeof window.requestIdleCallback === 'function') {
-      id = window.requestIdleCallback(() => preloadPages()) as unknown as number
-    } else {
-      id = window.setTimeout(preloadPages, 300)
-    }
-    return () => {
-      if (typeof window.cancelIdleCallback === 'function' && id != null) {
-        window.cancelIdleCallback(id)
-      } else if (id != null) {
-        window.clearTimeout(id)
-      }
-    }
+    preloadPages()
   }, [booted])
 
   if (!booted) {
@@ -500,13 +491,15 @@ function Shell() {
             items={menuItems}
             defaultOpenKeys={isMobile ? undefined : defaultOpenGroupKeys}
             selectedKeys={[selectedKey]}
-            onClick={({ key }) => navigate(key)}
+            onClick={({ key }) => startTransition(() => navigate(key))}
           />
         </Sider>
         <Layout style={{ flexDirection: 'column' }}>
           <Content style={{ background: '#f0f2f5', padding: isMobile ? 8 : 16, overflow: 'auto' }}>
-            <BreadcrumbNav />
-            <Outlet />
+            <div style={{ minHeight: 'calc(100vh - 56px - 64px)' }}>
+              <BreadcrumbNav />
+              <Outlet />
+            </div>
           </Content>
           <Footer
             style={{
