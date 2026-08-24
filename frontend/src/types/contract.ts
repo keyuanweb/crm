@@ -2,6 +2,7 @@ export type ContractStatus =
   | 'DRAFT'
   | 'PENDING_APPROVAL'
   | 'APPROVED'
+  | 'SIGNED'
   | 'EFFECTIVE'
   | 'COMPLETED'
   | 'TERMINATED'
@@ -94,6 +95,7 @@ export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
   DRAFT: '草稿',
   PENDING_APPROVAL: '待审批',
   APPROVED: '已通过',
+  SIGNED: '已签署',
   EFFECTIVE: '生效中',
   COMPLETED: '已完成',
   TERMINATED: '已终止',
@@ -104,6 +106,7 @@ export const CONTRACT_STATUS_COLORS: Record<ContractStatus, string> = {
   DRAFT: 'default',
   PENDING_APPROVAL: 'processing',
   APPROVED: 'blue',
+  SIGNED: 'cyan',
   EFFECTIVE: 'success',
   COMPLETED: 'green',
   TERMINATED: 'error',

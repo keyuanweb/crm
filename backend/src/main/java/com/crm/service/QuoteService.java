@@ -35,6 +35,7 @@ public class QuoteService {
   public static final String STATUS_DRAFT = "DRAFT";
   public static final String STATUS_PENDING = "PENDING_APPROVAL";
   public static final String STATUS_APPROVED = "APPROVED";
+  public static final String STATUS_SIGNED = "SIGNED";
   public static final String STATUS_REJECTED = "REJECTED";
 
   private static final DateTimeFormatter NO_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");

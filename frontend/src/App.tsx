@@ -292,7 +292,6 @@ function Shell() {
     { path: '/visits', name: '外勤拜访', icon: <EnvironmentOutlined /> },
     { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
     { path: '/playbook', name: '销售Playbook', icon: <FundOutlined /> },
-    { path: '/planned/sign', name: '电子签署', icon: <FileProtectOutlined />, planned: true },
   ]
   const dealRoutes = [
     { path: '/contracts', name: '合同', icon: <FileProtectOutlined /> },

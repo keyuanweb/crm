@@ -35,6 +35,8 @@ import {
   uploadContractAttachment,
 } from '../../services/contractService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { signContract, fetchContractSignature } from '../../services/signatureService'
+import SignSection from '../../components/SignSection'
 import { useAuthStore } from '../../store/authStore'
 import {
   CONTRACT_STATUS_COLORS,
@@ -112,8 +114,8 @@ export default function ContractDetailPage() {
   const status = data.status as ContractStatus
   const canSubmit = status === 'DRAFT' || status === 'REJECTED'
   const canApprove = isAdmin && status === 'PENDING_APPROVAL'
-  const canEffective = status === 'APPROVED'
-  const canFinish = status === 'APPROVED' || status === 'EFFECTIVE'
+  const canEffective = status === 'APPROVED' || status === 'SIGNED'
+  const canFinish = status === 'APPROVED' || status === 'SIGNED' || status === 'EFFECTIVE'
 
   const attachmentColumns = [
     {
@@ -245,6 +247,15 @@ export default function ContractDetailPage() {
           </Descriptions.Item>
         </Descriptions>
       </Card>
+
+      <SignSection
+        businessType="CONTRACT"
+        businessId={contractId}
+        canSign={status === 'APPROVED'}
+        signFn={signContract}
+        fetchFn={fetchContractSignature}
+        onSigned={invalidate}
+      />
 
       {data.content && (
         <Card title="合同正文" style={{ marginBottom: 16, borderRadius: 10 }}>

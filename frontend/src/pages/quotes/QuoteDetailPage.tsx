@@ -24,6 +24,8 @@ import {
   submitQuote,
 } from '../../services/quoteService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { signQuote, fetchQuoteSignature } from '../../services/signatureService'
+import SignSection from '../../components/SignSection'
 import { useAuthStore } from '../../store/authStore'
 import {
   QUOTE_STATUS_COLORS,
@@ -184,6 +186,15 @@ export default function QuoteDetailPage() {
           </Descriptions.Item>
         </Descriptions>
       </Card>
+
+      <SignSection
+        businessType="QUOTE"
+        businessId={quoteId}
+        canSign={status === 'APPROVED'}
+        signFn={signQuote}
+        fetchFn={fetchQuoteSignature}
+        onSigned={invalidate}
+      />
 
       <Card
         title="产品明细"

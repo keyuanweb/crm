@@ -40,6 +40,7 @@ public class ContractService {
   public static final String STATUS_DRAFT = "DRAFT";
   public static final String STATUS_PENDING = "PENDING_APPROVAL";
   public static final String STATUS_APPROVED = "APPROVED";
+  public static final String STATUS_SIGNED = "SIGNED";
   public static final String STATUS_EFFECTIVE = "EFFECTIVE";
   public static final String STATUS_COMPLETED = "COMPLETED";
   public static final String STATUS_TERMINATED = "TERMINATED";
@@ -242,7 +243,9 @@ public class ContractService {
   @Transactional
   public ContractResponse effective(Long id) {
     Contract contract = require(id);
-    if (!STATUS_APPROVED.equals(contract.getStatus())) {
+    // 047：支持签署后生效（SIGNED）；兼容旧流程（APPROVED 直接生效）
+    if (!STATUS_APPROVED.equals(contract.getStatus())
+        && !STATUS_SIGNED.equals(contract.getStatus())) {
       throw new BusinessException(ErrorCode.CONTRACT_INVALID_STATE);
     }
     contract.setStatus(STATUS_EFFECTIVE);
@@ -256,6 +259,7 @@ public class ContractService {
   public ContractResponse complete(Long id) {
     Contract contract = require(id);
     if (!STATUS_APPROVED.equals(contract.getStatus())
+        && !STATUS_SIGNED.equals(contract.getStatus())
         && !STATUS_EFFECTIVE.equals(contract.getStatus())) {
       throw new BusinessException(ErrorCode.CONTRACT_INVALID_STATE);
     }
