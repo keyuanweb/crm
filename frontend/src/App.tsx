@@ -93,6 +93,7 @@ const KnowledgeArticleListPage = lazy(() => import('./pages/knowledge/KnowledgeA
 const SlaPolicyListPage = lazy(() => import('./pages/sla/SlaPolicyListPage'))
 const CustomFieldListPage = lazy(() => import('./pages/settings/CustomFieldListPage'))
 const ExportCenterPage = lazy(() => import('./pages/exports/ExportCenterPage'))
+const StageActionTemplatePage = lazy(() => import('./pages/playbook/StageActionTemplatePage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -113,6 +114,7 @@ const PRELOAD_PAGES: Array<() => Promise<unknown>> = [
   () => import('./pages/leads/LeadDetailPage'),
   () => import('./pages/opportunities/OpportunityListPage'),
   () => import('./pages/sales-opportunities/SalesOpportunityListPage'),
+  () => import('./pages/playbook/StageActionTemplatePage'),
   () => import('./pages/stats/DashboardPage'),
   () => import('./pages/stats/TeamLeaderboardPage'),
   () => import('./pages/reports/ReportCenterPage'),
@@ -288,7 +290,7 @@ function Shell() {
     { path: '/quotes', name: '报价单', icon: <FileTextOutlined /> },
     { path: '/visits', name: '外勤拜访', icon: <EnvironmentOutlined /> },
     { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
-    { path: '/planned/playbook', name: '销售Playbook', icon: <FundOutlined />, planned: true },
+    { path: '/playbook', name: '销售Playbook', icon: <FundOutlined /> },
     { path: '/planned/sign', name: '电子签署', icon: <FileProtectOutlined />, planned: true },
   ]
   const dealRoutes = [
@@ -614,6 +616,7 @@ export default function App() {
         <Route path="contacts" element={<ContactListPage />} />
         <Route path="opportunities" element={<OpportunityListPage />} />
         <Route path="sales-opportunities" element={<SalesOpportunityListPage />} />
+        <Route path="playbook" element={<StageActionTemplatePage />} />
         <Route path="quotes" element={<QuoteListPage />} />
         <Route path="quotes/:id" element={<QuoteDetailPage />} />
         <Route path="contracts" element={<ContractListPage />} />

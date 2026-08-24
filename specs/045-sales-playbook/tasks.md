@@ -1,4 +1,4 @@
-# Tasks: 销售 Playbook 模块
+﻿# Tasks: 销售 Playbook 模块
 
 **Input**: Design documents from `/specs/045-sales-playbook/`
 
@@ -13,11 +13,11 @@
 
 ## Phase 1: 数据模型与基础
 
-- [ ] T001 [P] 创建 Flyway 迁移 V55 in `backend/src/main/resources/db/migration/V55__stage_action_template.sql`（stage_action_template 表 + 索引）
-- [ ] T002 [P] 创建 Flyway 迁移 V56 in `backend/src/main/resources/db/migration/V56__sales_opportunity_action.sql`（sales_opportunity_action 表 + uk_opp_action 唯一约束）
-- [ ] T003 [P] H2 测试 schema 同步（两表 + 索引）in `backend/src/test/resources/schema-h2.sql`
-- [ ] T004 [P] ErrorCode 新增 PLAYBOOK_* 错误码 in `backend/src/main/java/com/crm/common/ErrorCode.java`
-- [ ] T005 [P] 创建 StageActionTemplate/SalesOpportunityAction 实体 + 2 个 Mapper in `backend/src/main/java/com/crm/entity/` + `backend/src/main/java/com/crm/repository/`
+- [x] T001 [P] 创建 Flyway 迁移 V55 in `backend/src/main/resources/db/migration/V55__stage_action_template.sql`（stage_action_template 表 + 索引）
+- [x] T002 [P] 创建 Flyway 迁移 V56 in `backend/src/main/resources/db/migration/V56__sales_opportunity_action.sql`（sales_opportunity_action 表 + uk_opp_action 唯一约束）
+- [x] T003 [P] H2 测试 schema 同步（两表 + 索引）in `backend/src/test/resources/schema-h2.sql`
+- [x] T004 [P] ErrorCode 新增 PLAYBOOK_* 错误码 in `backend/src/main/java/com/crm/common/ErrorCode.java`
+- [x] T005 [P] 创建 StageActionTemplate/SalesOpportunityAction 实体 + 2 个 Mapper in `backend/src/main/java/com/crm/entity/` + `backend/src/main/java/com/crm/repository/`
 
 **Checkpoint**: 数据模型就绪
 
@@ -31,12 +31,12 @@
 
 ### 实现
 
-- [ ] T006 [P] [US1] 创建 ActionTemplateRequest/Response DTO in `backend/src/main/java/com/crm/dto/playbook/`
-- [ ] T007 [US1] 创建 StageActionTemplateService（CRUD/阶段校验/启停/审计）in `backend/src/main/java/com/crm/service/StageActionTemplateService.java`
-- [ ] T008 [US1] 创建 PlaybookController 模板端点（/stage-actions，仅 ADMIN）in `backend/src/main/java/com/crm/controller/PlaybookController.java`
-- [ ] T009 [US1] 创建 StageActionTemplateServiceTest 单元测试 in `backend/src/test/java/com/crm/service/StageActionTemplateServiceTest.java`
-- [ ] T010 [US1] 前端类型/服务 in `frontend/src/types/playbook.ts` + `frontend/src/services/playbookService.ts`
-- [ ] T011 [US1] 动作模板配置页 in `frontend/src/pages/playbook/StageActionTemplatePage.tsx`（按阶段 CRUD/启停）
+- [x] T006 [P] [US1] 创建 ActionTemplateRequest/Response DTO in `backend/src/main/java/com/crm/dto/playbook/`
+- [x] T007 [US1] 创建 StageActionTemplateService（CRUD/阶段校验/启停/审计）in `backend/src/main/java/com/crm/service/StageActionTemplateService.java`
+- [x] T008 [US1] 创建 PlaybookController 模板端点（/stage-actions，仅 ADMIN）in `backend/src/main/java/com/crm/controller/PlaybookController.java`
+- [x] T009 [US1] 创建 StageActionTemplateServiceTest 单元测试 in `backend/src/test/java/com/crm/service/StageActionTemplateServiceTest.java`
+- [x] T010 [US1] 前端类型/服务 in `frontend/src/types/playbook.ts` + `frontend/src/services/playbookService.ts`
+- [x] T011 [US1] 动作模板配置页 in `frontend/src/pages/playbook/StageActionTemplatePage.tsx`（按阶段 CRUD/启停）
 
 **Checkpoint**: US1 可用——模板配置
 
@@ -50,14 +50,14 @@
 
 ### 实现
 
-- [ ] T012 [P] [US2] 创建 ActionCompleteRequest/ActionViewResponse DTO in `backend/src/main/java/com/crm/dto/playbook/`
-- [ ] T013 [US2] 创建 SalesOpportunityActionService（清单查询含完成状态/勾选完成/唯一性校验）in `backend/src/main/java/com/crm/service/SalesOpportunityActionService.java`
-- [ ] T014 [US2] PlaybookController 动作端点（/sales-opportunities/{id}/actions，ADMIN+SALES）in `backend/src/main/java/com/crm/controller/PlaybookController.java`
-- [ ] T015 [US2] 销售机会详情接口聚合动作清单（含完成状态）in `backend/src/main/java/com/crm/`（SalesOpportunityService/Assembler）
-- [ ] T016 [US2] 阶段流转响应增加必做未完成 warning in `backend/src/main/java/com/crm/`（SalesOpportunityService update/close）
-- [ ] T017 [US2] 创建 SalesOpportunityActionServiceTest 单元测试 in `backend/src/test/java/com/crm/service/SalesOpportunityActionServiceTest.java`
-- [ ] T018 [US2] 创建 SalesPlaybookIT 集成测试 in `backend/src/test/java/com/crm/integration/SalesPlaybookIT.java`
-- [ ] T019 [US2] 销售机会详情页接入动作清单与勾选 in `frontend/src/pages/sales-opportunities/`（SalesOpportunityListPage/详情）
+- [x] T012 [P] [US2] 创建 ActionCompleteRequest/ActionViewResponse DTO in `backend/src/main/java/com/crm/dto/playbook/`
+- [x] T013 [US2] 创建 SalesOpportunityActionService（清单查询含完成状态/勾选完成/唯一性校验）in `backend/src/main/java/com/crm/service/SalesOpportunityActionService.java`
+- [x] T014 [US2] PlaybookController 动作端点（/sales-opportunities/{id}/actions，ADMIN+SALES）in `backend/src/main/java/com/crm/controller/PlaybookController.java`
+- [x] T015 [US2] 销售机会详情接口聚合动作清单（含完成状态）in `backend/src/main/java/com/crm/`（SalesOpportunityService/Assembler）
+- [x] T016 [US2] 阶段流转响应增加必做未完成 warning in `backend/src/main/java/com/crm/`（SalesOpportunityService update/close）
+- [x] T017 [US2] 创建 SalesOpportunityActionServiceTest 单元测试 in `backend/src/test/java/com/crm/service/SalesOpportunityActionServiceTest.java`
+- [x] T018 [US2] 创建 SalesPlaybookIT 集成测试 in `backend/src/test/java/com/crm/integration/SalesPlaybookIT.java`
+- [x] T019 [US2] 销售机会详情页接入动作清单与勾选 in `frontend/src/pages/sales-opportunities/`（SalesOpportunityListPage/详情）
 
 **Checkpoint**: US2 可用——动作引导
 
@@ -65,12 +65,12 @@
 
 ## Phase 4: 收尾与验证
 
-- [ ] T020 App.tsx 点亮"销售Playbook"占位项为路由 in `frontend/src/App.tsx`（/playbook 动作配置页）
-- [ ] T021 Backend `mvn verify` 通过（含新增测试、spotless、JaCoCo）
-- [ ] T022 单独运行 `mvn test "-Dtest=SalesPlaybookIT"` 通过
-- [ ] T023 Frontend typecheck / lint / test / build 通过
-- [ ] T024 线上端点验证（模板配置→清单→勾选→重复 409→流转提示）
-- [ ] T025 更新契约文档（按实现校正）与 roadmap 045 标记 `[x]`
+- [x] T020 App.tsx 点亮"销售Playbook"占位项为路由 in `frontend/src/App.tsx`（/playbook 动作配置页）
+- [x] T021 Backend `mvn verify` 通过（含新增测试、spotless、JaCoCo）
+- [x] T022 单独运行 `mvn test "-Dtest=SalesPlaybookIT"` 通过
+- [x] T023 Frontend typecheck / lint / test / build 通过
+- [x] T024 线上端点验证（模板配置→清单→勾选→重复 409→流转提示）
+- [x] T025 更新契约文档（按实现校正）与 roadmap 045 标记 `[x]`
 
 **Checkpoint**: 模块完整可用
 
