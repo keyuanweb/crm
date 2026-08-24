@@ -199,3 +199,4 @@
 - [x] 045-sales-playbook（销售 Playbook：阶段动作模板/机会动作引导/必做校验）
 - [x] 046-contract-renewal（合同续约：到期提醒/续约链/漏斗视图）
 - [x] 047-e-signature（电子签署：报价/合同在线签署/签署记录）
+- [x] 048-captcha-toggle（登录验证码默认关闭，环境变量可恢复）

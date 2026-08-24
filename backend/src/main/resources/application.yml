@@ -35,7 +35,8 @@ crm:
   pool:
     stale-days: ${POOL_STALE_DAYS:30}
   captcha:
-    enabled: ${CAPTCHA_ENABLED:true}
+    # 048：验证码默认关闭（开发/演示直接登录）；生产可通过环境变量 CAPTCHA_ENABLED=true 强制开启
+    enabled: ${CAPTCHA_ENABLED:false}
 
 # CORS：允许的前端 Origin（逗号分隔），生产环境通过环境变量覆盖
 cors:
