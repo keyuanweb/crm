@@ -26,9 +26,13 @@ public class NotificationService {
   private static final long MAX_PER_USER = 100;
 
   private final NotificationMapper notificationMapper;
+  private final com.crm.ws.NotificationWebSocketHandler webSocketHandler;
 
-  public NotificationService(NotificationMapper notificationMapper) {
+  public NotificationService(
+      NotificationMapper notificationMapper,
+      com.crm.ws.NotificationWebSocketHandler webSocketHandler) {
     this.notificationMapper = notificationMapper;
+    this.webSocketHandler = webSocketHandler;
   }
 
   public PageResult<NotificationResponse> page(Long userId, String type, long page, long pageSize) {
@@ -75,7 +79,7 @@ public class NotificationService {
             .eq(Notification::getRead, 0));
   }
 
-  /** 写入通知（内部调用）。 */
+  /** 写入通知（内部调用），并实时推送给目标用户（026）。 */
   public void notify(Long userId, String type, String message, String entityType, Long entityId) {
     if (userId == null) {
       return;
@@ -90,6 +94,15 @@ public class NotificationService {
     notification.setCreatedAt(LocalDateTime.now());
     notificationMapper.insert(notification);
     cleanup(userId);
+    // 026：WebSocket 实时推送（未读计数）
+    try {
+      webSocketHandler.notifyUser(
+          userId,
+          new com.crm.ws.NotificationPushPayload(
+              notification.getId(), type, message, unreadCount(userId)));
+    } catch (Exception ex) {
+      // 推送失败不影响通知落库
+    }
   }
 
   /** 清理：每用户保留最近 MAX_PER_USER 条。 */

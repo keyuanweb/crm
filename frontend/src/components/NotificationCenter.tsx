@@ -9,6 +9,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../services/notificationService'
+import { useNotificationSocket } from '../hooks/useNotificationSocket'
 import { NOTIFICATION_TYPE_LABELS, type Notification, type NotificationType } from '../types/notification'
 
 const TYPE_COLORS: Record<NotificationType, string> = {
@@ -23,6 +24,7 @@ export default function NotificationCenter() {
   const [unread, setUnread] = useState(0)
   const [items, setItems] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
+  const [polling, setPolling] = useState(false)
 
   const loadCount = async () => {
     try {
@@ -42,10 +44,27 @@ export default function NotificationCenter() {
     }
   }
 
+  // 026：WebSocket 实时推送优先；连接失败/不可用时降级 30 秒轮询
+  useNotificationSocket(
+    (payload) => {
+      setUnread(payload.unreadCount)
+    },
+    () => {
+      setPolling(true)
+    },
+  )
+
   useEffect(() => {
+    if (!polling) return
     void loadCount()
     const timer = window.setInterval(() => void loadCount(), 30000)
     return () => window.clearInterval(timer)
+  }, [polling])
+
+  useEffect(() => {
+    void loadCount()
+    // 首次兜底：无 WebSocket 也同步一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const onOpen = () => {
