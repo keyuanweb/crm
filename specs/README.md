@@ -1,6 +1,6 @@
 # SDD 规格驱动开发文档索引
 
-**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V41 迁移）
+**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V54 迁移）
 
 > 本文档是全部 Spec-Driven Development 产物的导航入口。每个模块按统一流程
 > `spec → plan → tasks → implement → verify` 迭代，文档遵守 [章程](../../.specify/memory/constitution.md) 的
@@ -45,11 +45,34 @@
 | 014 | 市场营销（活动/归因/渠道 ROI） | P2 | ✅ | [目录](./014-marketing/) | marketing |
 | 015 | 客户服务（工单/知识库/SLA） | P2 | ✅ | [目录](./015-customer-service/) | tickets/knowledge/sla |
 | 016 | 系统增强（自定义字段/通知中心/导出/移动端） | P2 | ✅ | [目录](./016-system-enhancement/) | custom-fields/notifications/exports |
+| 017 | 登录验证码（图形验证码/Redis 一次性） | P3 | ✅ | [目录](./017-login-captcha/) | auth-captcha |
+| 018 | 客户360（全景视图/健康度） | P3 | ✅ | [目录](./018-customer-360/) | customer-360 |
+| 019 | 线索评分（规则配置/自动评分） | P3 | ✅ | [目录](./019-lead-scoring/) | lead-scoring |
+| 020 | 销售目标（个人/全局） | P3 | ✅ | [目录](./020-sales-targets/) | sales-targets |
+| 021 | 自定义报表（模板/聚合） | P3 | ✅ | [目录](./021-custom-reports/) | custom-reports |
+| 022 | AI 助手（智能建议） | P3 | ✅ | [目录](./022-ai-assistant/) | smart-suggestions |
+| 023 | KPI 看板（大屏/排行榜） | P3 | ✅ | [目录](./023-kpi-dashboard/) | kpi-board |
+| 024 | 批量导入（多实体 Excel） | P3 | ✅ | [目录](./024-bulk-import/) | bulk-import |
+| 025 | 回收站（软删恢复） | P3 | ✅ | [目录](./025-recycle-bin/) | recycle-bin |
+| 026 | 实时通知（WebSocket） | P3 | ✅ | [目录](./026-realtime-notify/) | realtime-notify |
+| 027 | 移动端 PWA（离线/安装/推送） | P3 | ✅ | [目录](./027-mobile-pwa/) | pwa |
+| 028 | 角色权限（角色-菜单-权限点） | P3 | ✅ | [目录](./028-role-permissions/) | role-permissions |
+| 029 | 使用地图（系统使用视图） | P3 | ✅ | [目录](./029-usage-map/) | usage-map |
+| 030 | 邮件营销（模板/群发/追踪） | P4 | ✅ | [目录](./030-email-marketing/) | email-marketing |
+| 031 | 客户标签（标签/动态细分） | P4 | ✅ | [目录](./031-customer-tags/) | customer-tags |
+| 032 | 全局搜索（跨实体统一搜索） | P4 | ✅ | [目录](./032-global-search/) | global-search |
+| 033 | 审批流（多级条件审批） | P4 | ✅ | [目录](./033-approval-flow/) | approval-flow |
+| 034 | 客户合并（查重/合并） | P4 | ✅ | [目录](./034-customer-merge/) | customer-merge |
+| 035 | 外勤拜访（计划/签到） | P4 | ✅ | [目录](./035-field-visit/) | field-visit |
+| 036 | 在线表单（官网线索收集） | P4 | ✅ | [目录](./036-online-forms/) | online-forms |
+| 037 | 公告协作（公告/评论 @提及） | P4 | ✅ | [目录](./037-announcements/) | announcements |
+| 038 | 发票管理（开票/状态跟踪） | P4 | ✅ | [目录](./038-invoice/) | invoice |
 
-> 阶段：P0=核心销售链路补全；P1=成交链路延伸 / 效率与自动化；P2=扩展模块。
+> 阶段：P0=核心销售链路补全；P1=成交链路延伸 / 效率与自动化；P2=扩展模块；
+> P3=智能化与平台增强；P4=营销闭环与协作扩展（批次建议见 [roadmap-p0p1.md](./roadmap-p0p1.md)）。
 > 完整阶段定义与依赖关系见 [roadmap.md](./roadmap.md)。
 
-## 数据库迁移对照（Flyway V1~V41）
+## 数据库迁移对照（Flyway V1~V54）
 
 | 迁移 | 模块 | 内容 |
 |---|---|---|
@@ -66,9 +89,15 @@
 | V32~V33 | 014 | marketing_campaign、lead/customer.campaign_id |
 | V34~V37 | 015 | ticket、ticket_reply、knowledge_article、sla_policy |
 | V38~V41 | 016 | custom_field、custom_field_value、export_job、notification（含 013 数据迁移） |
+| V42~V43 | 017-019 | health_score_config、lead_score_config |
+| V44~V45 | 020/021 | sales_target.user_id（个人目标）、report_template |
+| V46 | 028 | role、role_menu、role_permission |
+| V47~V49 | 031/030/033 | tag、customer_tag、segment；email_campaign/send_log/template/track；approval_* |
+| V50~V53 | 035-038 | field_visit；form、form_submission；announcement、announcement_read、comment；invoice |
+| V54 | 032 | 全局搜索索引 |
 
 ## 使用建议
 
 - **新功能开发**：遵循 `/speckit-specify → /speckit-plan → /speckit-tasks → /speckit-implement → /speckit-converge` 全流程，产物落在新目录 `specs/<NNN>-<name>/`。
 - **查阅某模块**：从上方模块表进入，按 spec（业务）→ plan（技术）→ contracts（接口）→ tasks（实施记录）顺序阅读。
-- **改动已应用迁移**：禁止编辑已应用 migration（Flyway checksum），需新增迁移号 V42+ 并同步 `backend/src/test/resources/schema-h2.sql`。
+- **改动已应用迁移**：禁止编辑已应用 migration（Flyway checksum），需新增迁移号 V55+ 并同步 `backend/src/test/resources/schema-h2.sql`。
