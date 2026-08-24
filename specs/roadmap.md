@@ -194,3 +194,5 @@
 - [x] 040-menu-redesign（菜单分类重设计：8 组业务域/权限归位）
 - [x] 041-menu-system-split（系统管理二级子组：组织权限/流程配置/审计维护）
 - [x] 042-menu-system-flatten（系统管理扁平化：子组提升一级分组/组织权限更名系统管理）
+- [x] 043-crm-gap-analysis（对标成熟 CRM 差距分析与补齐方案评审稿）
+- [x] 044-menu-crm-alignment（菜单对标调整 + 未实现模块规划中占位）

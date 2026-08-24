@@ -280,6 +280,7 @@ function Shell() {
     { path: '/contacts', name: '联系人', icon: <IdcardOutlined /> },
     { path: '/customer-merge', name: '查重合并', icon: <TeamOutlined /> },
     { path: '/customers/at-risk', name: '流失预警', icon: <AlertOutlined /> },
+    { path: '/planned/renewal', name: '续约管理', icon: <FileTextOutlined />, planned: true },
   ]
   const salesRoutes = [
     { path: '/opportunities', name: '商机', icon: <FundOutlined /> },
@@ -287,6 +288,8 @@ function Shell() {
     { path: '/quotes', name: '报价单', icon: <FileTextOutlined /> },
     { path: '/visits', name: '外勤拜访', icon: <EnvironmentOutlined /> },
     { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
+    { path: '/planned/playbook', name: '销售Playbook', icon: <FundOutlined />, planned: true },
+    { path: '/planned/sign', name: '电子签署', icon: <FileProtectOutlined />, planned: true },
   ]
   const dealRoutes = [
     { path: '/contracts', name: '合同', icon: <FileProtectOutlined /> },
@@ -297,12 +300,17 @@ function Shell() {
     { path: '/marketing', name: '营销活动', icon: <NotificationOutlined /> },
     { path: '/marketing/email', name: '邮件营销', icon: <MailOutlined /> },
     { path: '/online-forms', name: '在线表单', icon: <FormOutlined /> },
+    { path: '/planned/marketing-auto', name: '营销自动化', icon: <ThunderboltOutlined />, planned: true },
+    { path: '/planned/landing', name: '落地页', icon: <FormOutlined />, planned: true },
   ]
   const serviceRoutes = [
     { path: '/tickets', name: '客户服务', icon: <CustomerServiceOutlined /> },
     { path: '/knowledge', name: '知识库', icon: <FileTextOutlined /> },
     { path: '/announcements', name: '公告管理', icon: <NotificationOutlined /> },
     { path: '/approvals', name: '我的审批', icon: <AuditOutlined /> },
+    { path: '/planned/portal', name: '客户门户', icon: <CustomerServiceOutlined />, planned: true },
+    { path: '/planned/csat', name: '满意度调查', icon: <AuditOutlined />, planned: true },
+    { path: '/planned/sla-calendar', name: 'SLA日历', icon: <CalendarOutlined />, planned: true },
   ]
   const workbenchRoutes = [
     { path: '/tasks', name: '任务', icon: <CalendarOutlined /> },
@@ -316,11 +324,13 @@ function Shell() {
   ]
   // 首页置顶（首位独立菜单项，指向统计仪表盘 /stats）
   const statsRoute = { path: '/stats', name: '首页', icon: <HomeOutlined /> }
-  // 041：系统管理二级子组（组织与权限/流程与配置/审计与维护）
+  // 042：系统管理扁平化——三个一级分组（系统管理/流程与配置/审计与维护）
   const adminOrgRoutes = [
     { path: '/users', name: '用户管理', icon: <UserOutlined /> },
     { path: '/roles', name: '角色权限', icon: <SafetyCertificateOutlined /> },
     { path: '/departments', name: '部门', icon: <ApartmentOutlined /> },
+    { path: '/planned/field-perm', name: '字段权限', icon: <SafetyCertificateOutlined />, planned: true },
+    { path: '/planned/currency', name: '多币种', icon: <FundOutlined />, planned: true },
   ]
   const adminConfigRoutes = [
     { path: '/workflows', name: '工作流', icon: <ThunderboltOutlined /> },
@@ -328,6 +338,8 @@ function Shell() {
     { path: '/sla-policies', name: 'SLA 策略', icon: <AuditOutlined /> },
     { path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> },
     { path: '/settings/custom-fields', name: '自定义字段', icon: <SettingOutlined /> },
+    { path: '/planned/open-api', name: '开放平台', icon: <ApartmentOutlined />, planned: true },
+    { path: '/planned/integration', name: '集成中心', icon: <ApartmentOutlined />, planned: true },
   ]
   const adminAuditRoutes = [
     { path: '/tags', name: '标签与细分', icon: <TagsOutlined /> },
@@ -335,19 +347,30 @@ function Shell() {
     { path: '/recycle-bin', name: '回收站', icon: <DeleteOutlined /> },
   ]
   const adminRoutes = [...adminOrgRoutes, ...adminConfigRoutes, ...adminAuditRoutes]
+  // 占位项不注册路由（不参与 selectedKey 匹配与路由渲染）
   const menuRoutes = [
     statsRoute,
-    ...customerRoutes,
-    ...salesRoutes,
+    ...customerRoutes.filter((r) => !('planned' in r && r.planned)),
+    ...salesRoutes.filter((r) => !('planned' in r && r.planned)),
     ...dealRoutes,
-    ...marketingRoutes,
-    ...serviceRoutes,
+    ...marketingRoutes.filter((r) => !('planned' in r && r.planned)),
+    ...serviceRoutes.filter((r) => !('planned' in r && r.planned)),
     ...workbenchRoutes,
     ...dataRoutes,
-    ...(isAdmin ? adminRoutes : []),
+    ...(isAdmin ? adminRoutes.filter((r) => !('planned' in r && r.planned)) : []),
   ]
   const toItems = (routes: typeof menuRoutes) =>
-    routes.map((r) => ({ key: r.path, icon: r.icon, label: r.name }))
+    routes.map((r) => {
+      const item: MenuItemLike = {
+        key: r.path,
+        icon: r.icon,
+        label: 'planned' in r && r.planned ? `${r.name}（规划中）` : r.name,
+      }
+      if ('planned' in r && r.planned) {
+        item.disabled = true
+      }
+      return item
+    })
   /** 递归拍平菜单项（移动端不支持分组/二级子组，全部拍平为普通项）。 */
   const flattenMenuItems = (items: MenuItemLike[]): MenuItemLike[] =>
     items.flatMap((item) => {
@@ -401,7 +424,9 @@ function Shell() {
     return map[path] ?? path.replace(/^\//, '')
   }
   const filterByMenus = (routes: typeof menuRoutes) =>
-    visibleMenus ? routes.filter((r) => visibleMenus.has(menuKeyOf(r.path))) : routes
+    visibleMenus
+      ? routes.filter((r) => ('planned' in r && r.planned) || visibleMenus.has(menuKeyOf(r.path)))
+      : routes
   const groupedMenuItems: MenuItemLike[] = [
     ...(filterByMenus(customerRoutes).length
       ? [{ type: 'submenu' as const, key: 'g-customer', label: '客户管理', children: toItems(filterByMenus(customerRoutes)) }]
