@@ -95,6 +95,87 @@ const CustomFieldListPage = lazy(() => import('./pages/settings/CustomFieldListP
 const ExportCenterPage = lazy(() => import('./pages/exports/ExportCenterPage'))
 import NotificationCenter from './components/NotificationCenter'
 
+/**
+ * 所有懒加载页面 chunk 的预加载函数。
+ * 挂载后在空闲时统一预热，点击菜单时 chunk 已在浏览器缓存中，
+ * Suspense 直接渲染目标页，避免首次切换时 fallback 闪烁。
+ * import() 是幂等的：首次调用下载并缓存模块，后续调用立即 resolve。
+ */
+const PRELOAD_PAGES: Array<() => Promise<unknown>> = [
+  () => import('./pages/customers/CustomerListPage'),
+  () => import('./pages/customers/CustomerDetailPage'),
+  () => import('./pages/customers/AtRiskCustomersPage'),
+  () => import('./pages/contacts/ContactListPage'),
+  () => import('./pages/leads/LeadListPage'),
+  () => import('./pages/leads/LeadDetailPage'),
+  () => import('./pages/opportunities/OpportunityListPage'),
+  () => import('./pages/sales-opportunities/SalesOpportunityListPage'),
+  () => import('./pages/stats/DashboardPage'),
+  () => import('./pages/stats/TeamLeaderboardPage'),
+  () => import('./pages/reports/ReportCenterPage'),
+  () => import('./pages/assistant/SuggestionCenterPage'),
+  () => import('./pages/board/KpiBoardPage'),
+  () => import('./pages/recycle/RecycleBinPage'),
+  () => import('./pages/roles/RoleListPage'),
+  () => import('./pages/map/UsageMapPage'),
+  () => import('./pages/tags/TagSegmentPage'),
+  () => import('./pages/marketing/EmailMarketingPage'),
+  () => import('./pages/search/SearchResultPage'),
+  () => import('./pages/approval/ApprovalFlowPage'),
+  () => import('./pages/approval/ApprovalCenterPage'),
+  () => import('./pages/customers/DuplicateMergePage'),
+  () => import('./pages/visits/VisitListPage'),
+  () => import('./pages/marketing/OnlineFormPage'),
+  () => import('./pages/marketing/PublicFormPage'),
+  () => import('./pages/announcements/AnnouncementPage'),
+  () => import('./pages/invoices/InvoiceListPage'),
+  () => import('./pages/products/ProductListPage'),
+  () => import('./pages/quotes/QuoteListPage'),
+  () => import('./pages/quotes/QuoteDetailPage'),
+  () => import('./pages/contracts/ContractListPage'),
+  () => import('./pages/contracts/ContractDetailPage'),
+  () => import('./pages/contract-templates/ContractTemplateListPage'),
+  () => import('./pages/orders/OrderListPage'),
+  () => import('./pages/orders/OrderDetailPage'),
+  () => import('./pages/tasks/TaskListPage'),
+  () => import('./pages/tasks/TaskCalendarPage'),
+  () => import('./pages/departments/DepartmentListPage'),
+  () => import('./pages/workflows/WorkflowRuleListPage'),
+  () => import('./pages/workflows/WorkflowLogListPage'),
+  () => import('./pages/users/UserManagementPage'),
+  () => import('./pages/account/ChangePasswordPage'),
+  () => import('./pages/audit/AuditLogPage'),
+  () => import('./pages/marketing/CampaignListPage'),
+  () => import('./pages/marketing/ChannelRoiPage'),
+  () => import('./pages/tickets/TicketListPage'),
+  () => import('./pages/tickets/TicketDetailPage'),
+  () => import('./pages/knowledge/KnowledgeArticleListPage'),
+  () => import('./pages/sla/SlaPolicyListPage'),
+  () => import('./pages/settings/CustomFieldListPage'),
+  () => import('./pages/exports/ExportCenterPage'),
+]
+
+function preloadPages() {
+  for (const load of PRELOAD_PAGES) {
+    void load()
+  }
+}
+
+/** 内容区占位骨架：与页面同宽高的灰色占位，避免切换时居中 Spin 造成视觉跳动。 */
+function PageSkeleton() {
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ height: 32, width: '40%', background: '#f0f2f5', borderRadius: 6, marginBottom: 16 }} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div
+          key={i}
+          style={{ height: 44, background: i % 2 === 0 ? '#fafafa' : '#fff', borderRadius: 4, marginBottom: 8 }}
+        />
+      ))}
+    </div>
+  )
+}
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
   const location = useLocation()
@@ -127,6 +208,24 @@ function Shell() {
       setBooted(true)
     }
   }, [getAccessToken, setUser, clear])
+
+  // 空闲时预加载全部页面 chunk：登录后即开始预热，点击菜单无需等待加载、不闪 fallback
+  useEffect(() => {
+    if (!booted) return
+    let id: number | undefined
+    if (typeof window.requestIdleCallback === 'function') {
+      id = window.requestIdleCallback(() => preloadPages()) as unknown as number
+    } else {
+      id = window.setTimeout(preloadPages, 300)
+    }
+    return () => {
+      if (typeof window.cancelIdleCallback === 'function' && id != null) {
+        window.cancelIdleCallback(id)
+      } else if (id != null) {
+        window.clearTimeout(id)
+      }
+    }
+  }, [booted])
 
   if (!booted) {
     return (
@@ -428,7 +527,7 @@ function Shell() {
 
 export default function App() {
   return (
-    <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spin size="large" /></div>}>
+    <Suspense fallback={<PageSkeleton />}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       {/* 036：公开表单提交页（匿名） */}
