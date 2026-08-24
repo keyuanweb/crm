@@ -29,6 +29,7 @@ export default function KnowledgeArticleListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<KnowledgeArticle | null>(null)
   const [form] = Form.useForm<FormValues>()
 
@@ -59,6 +60,7 @@ export default function KnowledgeArticleListPage() {
       content: values.content,
       keywords: values.keywords,
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateArticle(editing.id, { ...payload, version: editing.version })
@@ -71,6 +73,8 @@ export default function KnowledgeArticleListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -161,12 +165,14 @@ export default function KnowledgeArticleListPage() {
   return (
     <>
       <ProTable<KnowledgeArticle>
+        size="small"
         headerTitle="知识库"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchArticles({
             keyword: params.keyword,
@@ -188,6 +194,7 @@ export default function KnowledgeArticleListPage() {
         title={editing ? '编辑文章' : '新增文章'}
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose

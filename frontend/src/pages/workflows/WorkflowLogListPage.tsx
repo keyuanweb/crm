@@ -62,12 +62,14 @@ export default function WorkflowLogListPage() {
         </Button>
       </Link>
       <ProTable<ExecutionLog>
+        size="small"
         headerTitle="工作流执行日志"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchWorkflowLogs({
             ruleId: undefined,

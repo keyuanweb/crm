@@ -25,6 +25,7 @@ export default function SlaPolicyListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<SlaPolicy | null>(null)
   const [overview, setOverview] = useState<{ totalOpen: number; overdue: number } | null>(null)
   const [form] = Form.useForm<FormValues>()
@@ -70,6 +71,7 @@ export default function SlaPolicyListPage() {
       resolveHours: values.resolveHours,
       enabled: values.enabled ? 1 : 0,
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateSlaPolicy(editing.id, { ...payload, version: editing.version })
@@ -83,6 +85,8 @@ export default function SlaPolicyListPage() {
       void loadOverview()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -150,12 +154,14 @@ export default function SlaPolicyListPage() {
       </div>
 
       <ProTable<SlaPolicy>
+        size="small"
         headerTitle="SLA 策略"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={false}
         pagination={{ defaultPageSize: 10 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchSlaPolicies(params.current ?? 1, params.pageSize ?? 10)
           return { data: res.items, success: true, total: res.total }
@@ -171,6 +177,7 @@ export default function SlaPolicyListPage() {
         title={editing ? '编辑 SLA 策略' : '新增 SLA 策略'}
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose

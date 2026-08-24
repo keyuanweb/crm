@@ -12,7 +12,6 @@ import {
   Progress,
   Result,
   Select,
-  Space,
   Table,
   Tag,
   Typography,
@@ -219,7 +218,7 @@ export default function OrderDetailPage() {
       <Card
         title="应收账款台账"
         style={{ marginBottom: 16, borderRadius: 10 }}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 0 } }}
       >
         <Table<PaymentPlanItem>
           rowKey="id"
@@ -231,7 +230,7 @@ export default function OrderDetailPage() {
         />
       </Card>
 
-      <Card title="回款记录" style={{ borderRadius: 10 }} bodyStyle={{ padding: 0 }}>
+      <Card title="回款记录" style={{ borderRadius: 10 }} styles={{ body: { padding: 0 } }}>
         <Table
           rowKey="id"
           size="small"
@@ -260,9 +259,7 @@ export default function OrderDetailPage() {
                   label: `第 ${p.seqNo} 期（应收 ¥${(p.amount / 100).toLocaleString('zh-CN')}，未收 ¥${(p.unpaidAmount / 100).toLocaleString('zh-CN')}）`,
                 }))}
             />
-          </Form.Item>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item
+          </Form.Item>            <Form.Item
               name="amount"
               label="回款金额（元）"
               rules={[{ required: true, message: '请输入回款金额' }]}
@@ -278,7 +275,6 @@ export default function OrderDetailPage() {
             >
               <DatePicker style={{ width: '100%' }} />
             </Form.Item>
-          </Space>
           <Form.Item name="method" label="回款方式" rules={[{ required: true, message: '请选择方式' }]}>
             <Select options={Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({ value, label }))} />
           </Form.Item>

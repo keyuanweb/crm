@@ -35,18 +35,33 @@ export default function UserManagementPage() {
   const [permOpen, setPermOpen] = useState(false)
   const [permForm] = Form.useForm<{ departmentId?: number; dataScope?: DataScope }>()
   const [deptOptions, setDeptOptions] = useState<{ value: number; label: string }[]>([])
+  // 028：角色下拉来自角色列表
+  const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([])
   const currentUser = useAuthStore((s) => s.user)
 
   const reload = () => actionRef.current?.reload()
 
+  // 028：加载角色下拉（启用角色）
+  const loadRoles = async () => {
+    try {
+      const { fetchRoleOptions } = await import('../../services/roleService')
+      const roles = await fetchRoleOptions()
+      setRoleOptions(roles.map((r) => ({ value: r.code, label: r.name })))
+    } catch {
+      // 角色加载失败不阻塞
+    }
+  }
+
   const openCreate = () => {
     createForm.resetFields()
+    void loadRoles()
     setCreateOpen(true)
   }
 
   const openEdit = (row: User) => {
     setEditing(row)
     editForm.setFieldsValue({ displayName: row.displayName, role: row.role })
+    void loadRoles()
     setEditOpen(true)
   }
 
@@ -182,7 +197,7 @@ export default function UserManagementPage() {
     {
       title: '操作',
       valueType: 'option',
-      width: 200,
+      width: 280,
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>
           编辑
@@ -207,6 +222,7 @@ export default function UserManagementPage() {
   return (
     <>
       <ProTable<User>
+        size="small"
         headerTitle="用户管理"
         rowKey="id"
         actionRef={actionRef}
@@ -289,9 +305,7 @@ export default function UserManagementPage() {
             <Input />
           </Form.Item>
           <Form.Item name="role" label="角色" rules={[{ required: true, message: '请选择角色' }]}>
-            <Select
-              options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
-            />
+            <Select options={roleOptions} placeholder="选择角色" />
           </Form.Item>
         </Form>
       </Modal>

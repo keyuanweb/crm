@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space } from 'antd'
+import { App, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
@@ -13,11 +13,12 @@ import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { formatAmount, type Opportunity } from '../../types/opportunity'
 import { useQuery } from '@tanstack/react-query'
+import { extractCfParams, useCustomFieldFilterColumns } from '../../hooks/useCustomFieldFilters'
 import {
-  CustomFieldFormItems,
   fromCustomFieldValues,
   toCustomFieldPayload,
-} from '../../components/CustomFieldItems'
+} from '../../utils/customField'
+import { CustomFieldFormItems } from '../../components/CustomFieldItems'
 
 interface FormValues {
   customerId: number
@@ -30,9 +31,11 @@ interface FormValues {
 
 export default function OpportunityListPage() {
   const actionRef = useRef<ActionType>()
+  const customFieldFilterColumns = useCustomFieldFilterColumns('OPPORTUNITY')
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Opportunity | null>(null)
+  const [saving, setSaving] = useState(false)
   const [form] = Form.useForm<FormValues>()
 
   const customers = useQuery({
@@ -72,6 +75,7 @@ export default function OpportunityListPage() {
       remark: values.remark,
       customFieldValues: toCustomFieldPayload(values.customFieldValues as Record<string, unknown>),
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateOpportunity(editing.id, { ...payload, version: editing.version })
@@ -84,6 +88,8 @@ export default function OpportunityListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -138,10 +144,11 @@ export default function OpportunityListPage() {
   return (
     <>
       <ProTable<Opportunity>
+        size="small"
         headerTitle="商机管理"
         rowKey="id"
         actionRef={actionRef}
-        columns={columns}
+        columns={[...columns, ...customFieldFilterColumns]}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
         cardProps={{ style: { borderRadius: 10 } }}
@@ -151,6 +158,7 @@ export default function OpportunityListPage() {
             status: params.status,
             page: params.current ?? 1,
             pageSize: params.pageSize ?? 20,
+            ...extractCfParams(params as Record<string, unknown>),
           })
           return { data: res.items, success: true, total: res.total }
         }}
@@ -165,38 +173,64 @@ export default function OpportunityListPage() {
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存" destroyOnClose>
-        <Form form={form} name="opportunityForm" layout="vertical">
-          <Form.Item
-            name="customerId"
-            label="关联客户"
-            rules={[{ required: true, message: '请选择客户' }]}
-          >
-            <Select
-              showSearch
-              optionFilterProp="label"
-              options={(customers.data?.items ?? []).map((c) => ({
-                value: c.id,
-                label: `${c.name}（${c.company}）`,
-              }))}
-              placeholder="请选择客户"
-            />
-          </Form.Item>
-          <Form.Item name="name" label="商机名称" rules={[{ required: true, message: '请输入商机名称' }]}>
-            <Input />
-          </Form.Item>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="expectedAmountMin" label="预期金额下限（元）" style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="expectedAmountMax" label="预期金额上限（元）" style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-          </Space>
-          <CustomFieldFormItems entityType="OPPORTUNITY" />
-          <Form.Item name="remark" label="备注">
-            <Input.TextArea rows={2} />
-          </Form.Item>
+        okText="保存"
+        confirmLoading={saving}
+        destroyOnClose
+        width={640}
+      >
+        <Form
+          form={form}
+          name="opportunityForm"
+          layout="horizontal"
+          labelCol={{ flex: '100px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="customerId"
+                label="关联客户"
+                rules={[{ required: true, message: '请选择客户' }]}
+              >
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  options={(customers.data?.items ?? []).map((c) => ({
+                    value: c.id,
+                    label: `${c.name}（${c.company}）`,
+                  }))}
+                  placeholder="请选择客户"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="name"
+                label="商机名称"
+                rules={[{ required: true, message: '请输入商机名称' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="expectedAmountMin" label="预期金额下限">
+                <InputNumber min={0} suffix="元" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="expectedAmountMax" label="预期金额上限">
+                <InputNumber min={0} suffix="元" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <CustomFieldFormItems entityType="OPPORTUNITY" />
+            </Col>
+            <Col span={24}>
+              <Form.Item name="remark" label="备注">
+                <Input.TextArea rows={2} />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </>

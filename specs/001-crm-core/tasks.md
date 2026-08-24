@@ -199,6 +199,18 @@
 
 ---
 
+## Phase 10: 系统导航与布局（US7，FR-018~019）
+
+**Goal**: 顶栏固定（滚动可见）+ 左侧菜单按业务域分组（US7 验收场景）
+
+**Independent Test**: 任意页面滚动内容时顶栏保持固定；菜单分组展示且当前页高亮
+
+- [x] T058 [US7] 前端：`frontend/src/App.tsx` 外层 Layout 改为 `height:100vh` + `overflow:hidden`，Header 固定 56px，Content `overflow:auto` 独立滚动（FR-018 顶栏固定）
+- [x] T059 [US7] 前端：`frontend/src/App.tsx` 左侧 Menu 改为分组结构——客户管理（线索/客户/联系人）、销售管理（商机/销售机会/报价单）、交易管理（合同/订单）、基础资料（产品/任务）、营销与服务、数据分析、系统管理（仅 ADMIN），当前页高亮（FR-019）
+- [x] T060 [US7] 验证：`pnpm run typecheck/lint/test/build` 全绿，刷新验证顶栏固定与菜单分组
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

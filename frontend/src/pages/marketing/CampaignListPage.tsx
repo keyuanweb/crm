@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
-import { App, Button, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Select, Tag } from 'antd'
+import { App, Button, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import {
@@ -36,6 +36,7 @@ export default function CampaignListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<MarketingCampaign | null>(null)
   const [form] = Form.useForm<FormValues>()
 
@@ -70,6 +71,7 @@ export default function CampaignListPage() {
       startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : undefined,
       endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : undefined,
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateCampaign(editing.id, { ...payload, version: editing.version })
@@ -82,6 +84,8 @@ export default function CampaignListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -187,12 +191,14 @@ export default function CampaignListPage() {
   return (
     <>
       <ProTable<MarketingCampaign>
+        size="small"
         headerTitle="营销活动"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchCampaigns({
             keyword: params.keyword,
@@ -217,34 +223,51 @@ export default function CampaignListPage() {
         title={editing ? '编辑活动' : '新增活动'}
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose
-        width={620}
+        width={640}
       >
-        <Form form={form} name="campaignForm" layout="vertical">
-          <Form.Item name="name" label="活动名称" rules={[{ required: true, message: '请输入活动名称' }]}>
-            <Input maxLength={100} />
-          </Form.Item>
-          <Form.Item name="channel" label="渠道" rules={[{ required: true, message: '请选择渠道' }]}>
-            <Select options={Object.entries(CAMPAIGN_CHANNEL_LABELS).map(([value, label]) => ({ value, label }))} />
-          </Form.Item>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Form.Item name="budget" label="预算" style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="cost" label="成本" style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-          </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Form.Item name="startDate" label="开始日期" style={{ flex: 1 }}>
-              <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="endDate" label="结束日期" style={{ flex: 1 }}>
-              <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
-          </div>
+        <Form
+          form={form}
+          name="campaignForm"
+          layout="horizontal"
+          labelCol={{ flex: '100px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="name" label="活动名称" rules={[{ required: true, message: '请输入活动名称' }]}>
+                <Input maxLength={100} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="channel" label="渠道" rules={[{ required: true, message: '请选择渠道' }]}>
+                <Select options={Object.entries(CAMPAIGN_CHANNEL_LABELS).map(([value, label]) => ({ value, label }))} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="budget" label="预算">
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="cost" label="成本">
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="startDate" label="开始日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="endDate" label="结束日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </>

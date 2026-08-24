@@ -3,13 +3,14 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
+  Col,
   Form,
   Input,
   InputNumber,
   Modal,
   Popconfirm,
+  Row,
   Select,
-  Space,
   Tag,
 } from 'antd'
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
@@ -37,6 +38,7 @@ export default function ProductListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [form] = Form.useForm<FormValues>()
   const user = useAuthStore((s) => s.user)
@@ -73,6 +75,7 @@ export default function ProductListPage() {
       standardPrice: Math.round((values.standardPrice ?? 0) * 100),
       status: values.status,
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateProduct(editing.id, { ...payload, version: editing.version })
@@ -85,6 +88,8 @@ export default function ProductListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -143,12 +148,14 @@ export default function ProductListPage() {
   return (
     <>
       <ProTable<Product>
+        size="small"
         headerTitle="产品目录"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchProducts({
             keyword: params.keyword,
@@ -173,46 +180,60 @@ export default function ProductListPage() {
         title={editing ? '编辑产品' : '新增产品'}
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose
         width={560}
       >
-        <Form form={form} name="productForm" layout="vertical">
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="code" label="编码" rules={[{ required: true, message: '请输入编码' }]} style={{ flex: 1 }}>
-              <Input placeholder="如 CRM-STD" />
-            </Form.Item>
-            <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]} style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="spec" label="规格" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="unit" label="单位" style={{ flex: 1 }}>
-              <Input placeholder="个/套/月" />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item
-              name="standardPrice"
-              label="标准售价（元）"
-              rules={[{ required: true, message: '请输入标准售价' }]}
-              style={{ flex: 1 }}
-            >
-              <InputNumber min={0} precision={2} style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="status" label="状态" style={{ flex: 1 }}>
-              <Select
-                options={[
-                  { value: 'ACTIVE', label: '启用' },
-                  { value: 'INACTIVE', label: '停用' },
-                ]}
-              />
-            </Form.Item>
-          </Space>
+        <Form
+          form={form}
+          name="productForm"
+          layout="horizontal"
+          labelCol={{ flex: '110px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="code" label="编码" rules={[{ required: true, message: '请输入编码' }]}>
+                <Input placeholder="如 CRM-STD" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="spec" label="规格">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="unit" label="单位">
+                <Input placeholder="个/套/月" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="standardPrice"
+                label="标准售价（元）"
+                rules={[{ required: true, message: '请输入标准售价' }]}
+              >
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="status" label="状态">
+                <Select
+                  options={[
+                    { value: 'ACTIVE', label: '启用' },
+                    { value: 'INACTIVE', label: '停用' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </>

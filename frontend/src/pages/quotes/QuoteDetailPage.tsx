@@ -188,7 +188,7 @@ export default function QuoteDetailPage() {
       <Card
         title="产品明细"
         style={{ borderRadius: 10 }}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 0 } }}
       >
         <Table<QuoteItem>
           rowKey="id"

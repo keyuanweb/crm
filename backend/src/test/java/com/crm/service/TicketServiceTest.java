@@ -259,7 +259,7 @@ class TicketServiceTest {
         .thenReturn(new CrmPrincipal(2L, "sales1", "SALES"));
     when(customerMapper.selectList(any())).thenReturn(java.util.List.of());
 
-    var result = service.page(null, null, null, null, null, 1, 20);
+    var result = service.page(null, null, null, null, null, null, 1, 20);
 
     assertThat(result.getItems()).isEmpty();
     assertThat(result.getTotal()).isZero();

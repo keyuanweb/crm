@@ -83,6 +83,92 @@ class SystemEnhancementIT extends AbstractIntegrationTest {
   }
 
   @Test
+  @DisplayName("自定义字段列表筛选（FR-S03：cf_<fieldId> SELECT 精确 / 文本 LIKE）")
+  void customFieldListFilter() throws Exception {
+    String token = loginAndGetToken();
+
+    // 配置 LEAD SELECT 字段（选项 A/B）
+    String selectResp =
+        mockMvc
+            .perform(
+                post("/api/v1/custom-fields")
+                    .header("Authorization", bearer(token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"entityType\": \"LEAD\", \"name\": \"客户分级\", \"fieldType\": \"SELECT\", \"options\": \"A,B\"}"))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    long selectFieldId = objectMapper.readTree(selectResp).path("data").path("id").asLong();
+
+    // 两条线索分别携带不同选项
+    mockMvc
+        .perform(
+            post("/api/v1/leads")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    String.format(
+                        "{\"name\": \"筛选线索A\", \"company\": \"筛A\", \"customFieldValues\": [{\"fieldId\": %d, \"value\": \"A\"}]}",
+                        selectFieldId)))
+        .andExpect(status().isOk());
+    mockMvc
+        .perform(
+            post("/api/v1/leads")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    String.format(
+                        "{\"name\": \"筛选线索B\", \"company\": \"筛B\", \"customFieldValues\": [{\"fieldId\": %d, \"value\": \"B\"}]}",
+                        selectFieldId)))
+        .andExpect(status().isOk());
+
+    // SELECT 精确筛选 → 仅命中 A
+    mockMvc
+        .perform(
+            get("/api/v1/leads")
+                .header("Authorization", bearer(token))
+                .param("cf_" + selectFieldId, "A"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.total").value(1))
+        .andExpect(jsonPath("$.data.items[0].name").value("筛选线索A"));
+
+    // 文本类型 LIKE 筛选
+    String textResp =
+        mockMvc
+            .perform(
+                post("/api/v1/custom-fields")
+                    .header("Authorization", bearer(token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"entityType\": \"LEAD\", \"name\": \"行业\", \"fieldType\": \"TEXT\"}"))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    long textFieldId = objectMapper.readTree(textResp).path("data").path("id").asLong();
+    mockMvc
+        .perform(
+            post("/api/v1/leads")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    String.format(
+                        "{\"name\": \"行业线索\", \"company\": \"行\", \"customFieldValues\": [{\"fieldId\": %d, \"value\": \"制造业\"}]}",
+                        textFieldId)))
+        .andExpect(status().isOk());
+    mockMvc
+        .perform(
+            get("/api/v1/leads")
+                .header("Authorization", bearer(token))
+                .param("cf_" + textFieldId, "制造"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.total").value(1))
+        .andExpect(jsonPath("$.data.items[0].name").value("行业线索"));
+  }
+
+  @Test
   @DisplayName("通知中心：分配工单→通知→已读→未读计数")
   void notificationFlow() throws Exception {
     String token = loginAndGetToken();

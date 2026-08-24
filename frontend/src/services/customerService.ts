@@ -1,5 +1,5 @@
 import { apiClient, type PageResult } from './apiClient'
-import type { Customer, CustomerDetail } from '../types/customer'
+import type { Customer, CustomerDetail, CustomerHealthBrief } from '../types/customer'
 
 export interface CustomerPayload {
   name: string
@@ -32,6 +32,16 @@ export async function fetchCustomers(params: CustomerListParams): Promise<PageRe
 export async function fetchCustomer(id: number): Promise<CustomerDetail> {
   const { data } = await apiClient.get(`/customers/${id}`)
   return data.data as CustomerDetail
+}
+
+/** 客户流失预警列表（018-customer-360）。 */
+export async function fetchAtRiskCustomers(params: {
+  daysInactive?: number
+  page?: number
+  pageSize?: number
+}): Promise<PageResult<CustomerHealthBrief>> {
+  const { data } = await apiClient.get('/customers/health/at-risk', { params })
+  return data.data as PageResult<CustomerHealthBrief>
 }
 
 export async function createCustomer(payload: CustomerPayload): Promise<Customer> {

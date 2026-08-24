@@ -1,5 +1,6 @@
 import { apiClient, type PageResult } from './apiClient'
 import type { Lead, LeadDetail, LeadPayload, LeadListParams, ConvertPayload } from '../types/lead'
+import type { ImportResult } from '../types/importResult'
 
 export type { LeadPayload, ConvertPayload, LeadListParams }
 
@@ -40,4 +41,23 @@ export async function claimLead(id: number): Promise<Lead> {
 export async function convertLead(id: number, payload: ConvertPayload): Promise<LeadDetail> {
   const { data } = await apiClient.post(`/leads/${id}/convert`, payload)
   return data.data as LeadDetail
+}
+
+/** 批量导入线索（024）。 */
+export async function importLeads(file: File): Promise<ImportResult> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await apiClient.post('/leads/import', form)
+  return data.data as ImportResult
+}
+
+/** 下载线索导入模板（024）。 */
+export async function downloadLeadTemplate(): Promise<void> {
+  const resp = await apiClient.get('/leads/template', { responseType: 'blob' })
+  const url = URL.createObjectURL(resp.data as Blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'lead-import-template.xlsx'
+  a.click()
+  URL.revokeObjectURL(url)
 }

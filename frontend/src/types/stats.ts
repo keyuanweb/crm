@@ -38,6 +38,8 @@ export interface ForecastItem {
   amount: number
   probability: number
   weighted: number
+  /** 概率来源：HISTORICAL / DEFAULT / FIXED（019 预测校准）。 */
+  probabilitySource?: string
 }
 
 export interface DashboardForecast {
@@ -51,6 +53,8 @@ export interface DashboardPerformance {
   wonAmount?: number
   achievementRate?: number
   configured: boolean
+  /** 是否个人目标（020）。 */
+  personal?: boolean
 }
 
 export interface MethodStat {
@@ -96,6 +100,8 @@ export interface DashboardStats {
 export interface SalesTarget {
   month: string
   targetAmount?: number
+  /** 归属用户（undefined=全局目标，020）。 */
+  userId?: number
   createdBy?: number
   updatedAt?: string
 }
@@ -103,4 +109,19 @@ export interface SalesTarget {
 export interface SalesTargetPayload {
   month: string
   targetAmount: number
+  userId?: number
+}
+
+/** 团队排行项（020）。 */
+export interface LeaderboardItem {
+  userId: number
+  displayName: string
+  targetAmount?: number
+  wonAmount: number
+  achievementRate?: number
+}
+
+export interface LeaderboardResult {
+  items: LeaderboardItem[]
+  month: string
 }

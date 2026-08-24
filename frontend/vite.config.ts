@@ -12,6 +12,12 @@ export default defineConfig({
         target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:8081',
         changeOrigin: true,
       },
+      '/ws': {
+        // 026：WebSocket 通知实时推送代理
+        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:8081',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   test: {

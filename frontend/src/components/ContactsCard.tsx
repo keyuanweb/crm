@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { App, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag } from 'antd'
+import { App, Button, Card, Form, Input, Modal, Popconfirm, Select, Table, Tag } from 'antd'
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 import {
   createContact,
@@ -148,7 +148,7 @@ export default function ContactsCard({ customerId }: Props) {
       title="联系人"
       style={{ marginBottom: 16, borderRadius: 10 }}
       headStyle={{ borderBottom: '1px solid #f0f0f0' }}
-      bodyStyle={{ padding: 0 }}
+      styles={{ body: { padding: 0 } }}
       extra={
         <Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}>
           新增联系人
@@ -174,23 +174,17 @@ export default function ContactsCard({ customerId }: Props) {
         destroyOnClose
         width={560}
       >
-        <Form form={form} name="contactCardForm" layout="vertical">
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]} style={{ flex: 1 }}>
+        <Form form={form} name="contactCardForm" layout="vertical">            <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]} style={{ flex: 1 }}>
               <Input />
             </Form.Item>
             <Form.Item name="title" label="职位" style={{ flex: 1 }}>
               <Input />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="phone" label="电话" style={{ flex: 1 }}>
+            </Form.Item>            <Form.Item name="phone" label="电话" style={{ flex: 1 }}>
               <Input />
             </Form.Item>
             <Form.Item name="email" label="邮箱" style={{ flex: 1 }}>
               <Input />
             </Form.Item>
-          </Space>
           <Form.Item name="role" label="角色">
             <Select
               allowClear

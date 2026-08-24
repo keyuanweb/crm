@@ -31,6 +31,7 @@ export default function CustomFieldListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<CustomField | null>(null)
   const [fieldType, setFieldType] = useState<FieldType>('TEXT')
   const [form] = Form.useForm<FormValues>()
@@ -69,6 +70,7 @@ export default function CustomFieldListPage() {
       options: values.options,
       sortOrder: values.sortOrder,
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateCustomField(editing.id, { ...payload, version: editing.version })
@@ -81,6 +83,8 @@ export default function CustomFieldListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -146,12 +150,14 @@ export default function CustomFieldListPage() {
   return (
     <>
       <ProTable<CustomField>
+        size="small"
         headerTitle="自定义字段"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchCustomFields(params.entityType, params.current ?? 1, params.pageSize ?? 20)
           return { data: res.items, success: true, total: res.total }
@@ -167,6 +173,7 @@ export default function CustomFieldListPage() {
         title={editing ? '编辑自定义字段' : '新增自定义字段'}
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose

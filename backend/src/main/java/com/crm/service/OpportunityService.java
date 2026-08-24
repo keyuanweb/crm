@@ -53,8 +53,20 @@ public class OpportunityService {
   }
 
   public PageResult<OpportunityResponse> page(
-      String keyword, Long customerId, String status, long page, long pageSize) {
+      String keyword,
+      Long customerId,
+      String status,
+      List<Long> customFieldMatchedIds,
+      long page,
+      long pageSize) {
     LambdaQueryWrapper<Opportunity> qw = new LambdaQueryWrapper<>();
+    // 自定义字段筛选（FR-S03）
+    if (customFieldMatchedIds != null) {
+      if (customFieldMatchedIds.isEmpty()) {
+        return PageResult.of(List.of(), 0, page, pageSize);
+      }
+      qw.in(Opportunity::getId, customFieldMatchedIds);
+    }
     if (StringUtils.hasText(keyword)) {
       qw.like(Opportunity::getName, keyword.trim());
     }

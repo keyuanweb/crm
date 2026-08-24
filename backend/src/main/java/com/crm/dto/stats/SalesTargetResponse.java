@@ -13,6 +13,10 @@ public class SalesTargetResponse {
 
   private String month;
   private Long targetAmount;
+
+  /** 归属用户（NULL=全局目标，020）。 */
+  private Long userId;
+
   private Long createdBy;
   private LocalDateTime updatedAt;
 }

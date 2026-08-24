@@ -63,8 +63,8 @@ class UserContractTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("非法角色返回 400 且带 fieldErrors")
-  void invalidRoleReturns400WithFieldErrors() throws Exception {
+  @DisplayName("不存在的角色返回 400（角色须存在于角色表）")
+  void invalidRoleReturns400() throws Exception {
     String token = loginAndGetToken();
     String body =
         """
@@ -78,7 +78,7 @@ class UserContractTest extends AbstractIntegrationTest {
                 .content(body))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
-        .andExpect(jsonPath("$.error.fieldErrors").isArray());
+        .andExpect(jsonPath("$.error.message").value("角色不存在或已停用：BOSS"));
   }
 
   @Test

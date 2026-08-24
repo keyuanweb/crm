@@ -18,7 +18,7 @@ public class UserCreateRequest {
   private String displayName;
 
   @NotBlank(message = "角色不能为空")
-  @Pattern(regexp = "^(ADMIN|SALES|SUPPORT)$", message = "角色须为 ADMIN/SALES/SUPPORT")
+  @Pattern(regexp = "^[A-Z][A-Z0-9_]{0,49}$", message = "角色编码不合法")
   private String role;
 
   @NotBlank(message = "初始密码不能为空")

@@ -5,10 +5,13 @@ import com.crm.common.PageResult;
 import com.crm.dto.opportunity.OpportunityDetailResponse;
 import com.crm.dto.opportunity.OpportunityRequest;
 import com.crm.dto.opportunity.OpportunityResponse;
+import com.crm.service.CustomFieldFilterSupport;
 import com.crm.service.OpportunityService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,20 +33,28 @@ import org.springframework.web.bind.annotation.RestController;
 public class OpportunityController {
 
   private final OpportunityService opportunityService;
+  private final CustomFieldFilterSupport customFieldFilterSupport;
 
-  public OpportunityController(OpportunityService opportunityService) {
+  public OpportunityController(
+      OpportunityService opportunityService, CustomFieldFilterSupport customFieldFilterSupport) {
     this.opportunityService = opportunityService;
+    this.customFieldFilterSupport = customFieldFilterSupport;
   }
 
   @GetMapping
-  @Operation(summary = "分页查询商机列表")
+  @Operation(summary = "分页查询商机列表（支持 cf_<fieldId> 自定义字段筛选）")
   public ApiResponse<PageResult<OpportunityResponse>> page(
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) Long customerId,
       @RequestParam(required = false) String status,
       @RequestParam(defaultValue = "1") long page,
-      @RequestParam(defaultValue = "20") long pageSize) {
-    return ApiResponse.ok(opportunityService.page(keyword, customerId, status, page, pageSize));
+      @RequestParam(defaultValue = "20") long pageSize,
+      @RequestParam Map<String, String> params) {
+    List<Long> cfMatchedIds =
+        customFieldFilterSupport.matchEntityIds(
+            "OPPORTUNITY", customFieldFilterSupport.parseFilters(params));
+    return ApiResponse.ok(
+        opportunityService.page(keyword, customerId, status, cfMatchedIds, page, pageSize));
   }
 
   @GetMapping("/{id}")

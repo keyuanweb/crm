@@ -50,6 +50,7 @@ public class ContractService {
   private final CustomerMapper customerMapper;
   private final QuoteMapper quoteMapper;
   private final AuditService auditService;
+  private final ApprovalEngineService approvalEngineService;
 
   public ContractService(
       ContractMapper contractMapper,
@@ -57,13 +58,15 @@ public class ContractService {
       ContractTemplateMapper templateMapper,
       CustomerMapper customerMapper,
       QuoteMapper quoteMapper,
-      AuditService auditService) {
+      AuditService auditService,
+      ApprovalEngineService approvalEngineService) {
     this.contractMapper = contractMapper;
     this.attachmentMapper = attachmentMapper;
     this.templateMapper = templateMapper;
     this.customerMapper = customerMapper;
     this.quoteMapper = quoteMapper;
     this.auditService = auditService;
+    this.approvalEngineService = approvalEngineService;
   }
 
   public PageResult<ContractResponse> page(
@@ -176,6 +179,19 @@ public class ContractService {
             .eq(Contract::getId, id)
             .set(Contract::getStatus, STATUS_PENDING)
             .set(Contract::getRejectReason, null));
+    // 033：存在启用的合同审批流 → 自动发起审批实例（引擎审批；合同保持 PENDING）
+    try {
+      approvalEngineService.start(
+          "CONTRACT",
+          id,
+          "合同审批："
+              + contract.getContractNo()
+              + " "
+              + (contract.getTitle() == null ? "" : contract.getTitle()),
+          contract.getAmount() == null ? 0 : contract.getAmount());
+    } catch (BusinessException ex) {
+      // 未配置审批流时静默跳过（走原审批逻辑）
+    }
     auditService.record("SUBMIT", "CONTRACT", id, "提交审批：" + contract.getContractNo());
     return toResponse(contractMapper.selectById(id), true);
   }

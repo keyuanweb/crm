@@ -15,4 +15,7 @@ public class SalesTargetRequest {
 
   @Min(value = 0, message = "目标金额不能为负")
   private Long targetAmount;
+
+  /** 目标归属用户（空=全局目标；非空=个人目标，020）。 */
+  private Long userId;
 }

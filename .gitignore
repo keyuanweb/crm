@@ -39,3 +39,7 @@ login_screenshot*.png
 # Runtime attachments & exports (contract files etc.)
 backend/contract-files/
 contract-files/
+
+# Redis persistence & editor backups
+dump.rdb
+*.bak

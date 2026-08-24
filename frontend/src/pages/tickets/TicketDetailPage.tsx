@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { App, Button, Descriptions, Input, List, Modal, Select, Space, Spin, Tag, Timeline } from 'antd'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { App, Button, Card, Descriptions, Input, List, Modal, Select, Space, Tag, Timeline, Typography } from 'antd'
 import { ArrowLeftOutlined, CheckCircleOutlined, SendOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import {
@@ -117,11 +117,7 @@ export default function TicketDetailPage() {
   }
 
   if (loading && !ticket) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-        <Spin size="large" />
-      </div>
-    )
+    return <Card loading style={{ minHeight: 300 }} />
   }
 
   if (!ticket) return null
@@ -130,20 +126,35 @@ export default function TicketDetailPage() {
 
   return (
     <>
-      <Space style={{ marginBottom: 16 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/tickets')}>
-          返回
+      <Link to="/tickets" style={{ marginBottom: 16, display: 'inline-block' }}>
+        <Button type="link" icon={<ArrowLeftOutlined />}>
+          返回工单列表
         </Button>
-        <Button danger onClick={() => void onDelete()}>
-          删除工单
-        </Button>
-      </Space>
+      </Link>
 
-      <Descriptions
-        title={ticket.title}
-        bordered
-        size="small"
-        column={3}
+      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <Typography.Title level={4} style={{ marginBottom: 4 }}>
+            {ticket.title}
+          </Typography.Title>
+          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+            工单 #{ticket.id}
+            {ticket.customerName ? ` · 客户：${ticket.customerName}` : ''}
+          </Typography.Text>
+        </div>
+        <Space>
+          {ticket.status !== 'CLOSED' && (
+            <Button danger onClick={() => void onDelete()}>
+              删除工单
+            </Button>
+          )}
+        </Space>
+      </div>
+
+      <Card
+        title="工单信息"
+        style={{ marginBottom: 16, borderRadius: 10 }}
+        styles={{ header: { borderBottom: '1px solid #f0f0f0' } }}
         extra={
           <Space>
             <Button onClick={() => void openAssign()}>分配处理人</Button>
@@ -164,19 +175,19 @@ export default function TicketDetailPage() {
             )}
           </Space>
         }
-        style={{ marginBottom: 16 }}
       >
-        <Descriptions.Item label="客户">
-          {ticket.customerName ?? `#${ticket.customerId}`}
-        </Descriptions.Item>
-        <Descriptions.Item label="状态">
-          <Tag color={TICKET_STATUS_COLORS[ticket.status]}>{TICKET_STATUS_LABELS[ticket.status]}</Tag>
-        </Descriptions.Item>
-        <Descriptions.Item label="优先级">
-          <Tag color={TICKET_PRIORITY_COLORS[ticket.priority]}>
-            {TICKET_PRIORITY_LABELS[ticket.priority]}
-          </Tag>
-        </Descriptions.Item>
+        <Descriptions bordered size="small" column={2}>
+          <Descriptions.Item label="客户">
+            {ticket.customerName ?? `#${ticket.customerId}`}
+          </Descriptions.Item>
+          <Descriptions.Item label="状态">
+            <Tag color={TICKET_STATUS_COLORS[ticket.status]}>{TICKET_STATUS_LABELS[ticket.status]}</Tag>
+          </Descriptions.Item>
+          <Descriptions.Item label="优先级">
+            <Tag color={TICKET_PRIORITY_COLORS[ticket.priority]}>
+              {TICKET_PRIORITY_LABELS[ticket.priority]}
+            </Tag>
+          </Descriptions.Item>
         <Descriptions.Item label="处理人">{ticket.assigneeName ?? '未分配'}</Descriptions.Item>
         <Descriptions.Item label="SLA 状态">
           {ticket.slaStatus ? (
@@ -196,7 +207,7 @@ export default function TicketDetailPage() {
         </Descriptions.Item>
         <Descriptions.Item label="回复数">{ticket.replyCount ?? replies.length}</Descriptions.Item>
         {ticket.description && (
-          <Descriptions.Item label="问题描述" span={3}>
+          <Descriptions.Item label="问题描述" span={2}>
             {ticket.description}
           </Descriptions.Item>
         )}
@@ -205,36 +216,41 @@ export default function TicketDetailPage() {
             {cf.value || '-'}
           </Descriptions.Item>
         ))}
-      </Descriptions>
+        </Descriptions>
+      </Card>
 
-      <List
-        header={<b>处理时间线（{replies.length} 条回复）</b>}
-        bordered
-        dataSource={replies}
-        locale={{ emptyText: '暂无回复' }}
-        renderItem={(reply) => (
-          <List.Item>
-            <Timeline
-              items={[
-                {
-                  color: 'blue',
-                  children: (
-                    <>
-                      <div>
-                        <b>{reply.replierName ?? `用户#${reply.replierId}`}</b>
-                        <span style={{ color: '#8c8c8c', marginLeft: 12 }}>
-                          {reply.createdAt ? dayjs(reply.createdAt).format('YYYY-MM-DD HH:mm') : ''}
-                        </span>
-                      </div>
-                      <div style={{ marginTop: 4 }}>{reply.content}</div>
-                    </>
-                  ),
-                },
-              ]}
-            />
-          </List.Item>
-        )}
-      />
+      <Card
+        title="处理时间线"
+        style={{ marginBottom: 16, borderRadius: 10 }}
+        styles={{ header: { borderBottom: '1px solid #f0f0f0' }, body: { padding: 0 } }}
+      >
+        <List
+          dataSource={replies}
+          locale={{ emptyText: '暂无回复' }}
+          renderItem={(reply) => (
+            <List.Item style={{ padding: '12px 20px' }}>
+              <Timeline
+                items={[
+                  {
+                    color: 'blue',
+                    children: (
+                      <>
+                        <div>
+                          <b>{reply.replierName ?? `用户#${reply.replierId}`}</b>
+                          <span style={{ color: '#8c8c8c', marginLeft: 12 }}>
+                            {reply.createdAt ? dayjs(reply.createdAt).format('YYYY-MM-DD HH:mm') : ''}
+                          </span>
+                        </div>
+                        <div style={{ marginTop: 4 }}>{reply.content}</div>
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </List.Item>
+          )}
+        />
+      </Card>
 
       {canOperate && (
         <div style={{ marginTop: 16 }}>

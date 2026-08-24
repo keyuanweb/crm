@@ -104,7 +104,7 @@ public class TaskService {
     auditService.record("DELETE", "TASK", id, "逻辑删除任务：" + task.getTitle());
   }
 
-  /** 提醒汇总：逾期数/今日到期数（仅当前用户）。 */
+  /** 提醒汇总：逾期数/今日到期数/待办总数（仅当前用户）。 */
   public Map<String, Long> reminderSummary() {
     Long ownerId = SecurityUtil.currentUserId();
     List<TaskItem> todos =
@@ -125,7 +125,7 @@ public class TaskService {
         today++;
       }
     }
-    return Map.of("overdueCount", overdue, "todayCount", today);
+    return Map.of("overdueCount", overdue, "todayCount", today, "todoCount", (long) todos.size());
   }
 
   /** 按月日历数据：date → tasks（仅当前用户，含逾期标记）。 */

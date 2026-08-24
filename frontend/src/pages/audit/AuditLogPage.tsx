@@ -42,6 +42,7 @@ export default function AuditLogPage() {
 
   return (
     <ProTable<AuditLog>
+      size="small"
       headerTitle="审计日志"
       rowKey="id"
       columns={columns}

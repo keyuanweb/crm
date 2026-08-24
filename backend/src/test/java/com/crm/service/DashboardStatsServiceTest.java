@@ -41,6 +41,7 @@ class DashboardStatsServiceTest {
   private FollowUpMapper followUpMapper;
   private SalesTargetMapper targetMapper;
   private UserMapper userMapper;
+  private StageConversionService stageConversionService;
   private DashboardStatsService service;
 
   /** 纯 Mockito 测试无 Spring 上下文：注册实体 TableInfo，供 LambdaQueryWrapper 解析列名。 */
@@ -65,13 +66,34 @@ class DashboardStatsServiceTest {
     followUpMapper = mock(FollowUpMapper.class);
     targetMapper = mock(SalesTargetMapper.class);
     userMapper = mock(UserMapper.class);
+    stageConversionService = mock(StageConversionService.class);
     RedisTemplate<String, Object> redis = mock(RedisTemplate.class);
     ValueOperations<String, Object> ops = mock(ValueOperations.class);
     lenient().when(redis.opsForValue()).thenReturn(ops);
     lenient().when(ops.get("stats:dashboard")).thenReturn(null);
     service =
         new DashboardStatsService(
-            soMapper, oppMapper, customerMapper, followUpMapper, targetMapper, userMapper, redis);
+            soMapper,
+            oppMapper,
+            customerMapper,
+            followUpMapper,
+            targetMapper,
+            userMapper,
+            redis,
+            stageConversionService);
+    // 019：mock 预测校准返回默认概率（保持既有断言不变）
+    when(stageConversionService.probabilityFor(any()))
+        .thenAnswer(
+            inv -> {
+              String stage = inv.getArgument(0);
+              return switch (stage) {
+                case "INITIAL_CONTACT" -> 0.2;
+                case "NEGOTIATING" -> 0.5;
+                case "CLOSED_WON" -> 1.0;
+                default -> 0.0;
+              };
+            });
+    when(stageConversionService.isHistorical(any())).thenReturn(false);
     // 单元测试无 Spring 上下文，@Value 不注入：显式设置停滞阈值 7 天
     org.springframework.test.util.ReflectionTestUtils.setField(service, "stalledDays", 7);
   }

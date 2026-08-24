@@ -26,32 +26,33 @@ public class SalesTargetService {
     this.dashboardStatsService = dashboardStatsService;
   }
 
-  /** 查询某月目标；未设置时返回 targetAmount=null（非 404）。 */
-  public SalesTargetResponse get(String month) {
-    SalesTarget target = findByMonth(month);
+  /** 查询某月目标（userId 为空=全局目标）；未设置时返回 targetAmount=null（非 404）。 */
+  public SalesTargetResponse get(String month, Long userId) {
+    SalesTarget target = findByMonth(month, userId);
     if (target == null) {
-      return new SalesTargetResponse(month, null, null, null);
+      return new SalesTargetResponse(month, null, userId, null, null);
     }
     return new SalesTargetResponse(
         target.getTargetMonth(),
         target.getTargetAmount(),
+        target.getUserId(),
         target.getCreatedBy(),
         target.getUpdatedAt());
   }
 
-  /** 设置/更新某月目标（upsert：存在则更新金额，否则插入）。 */
+  /** 设置/更新某月目标（upsert：存在则更新金额，否则插入）。userId 为空=全局目标。 */
   @Transactional
   public SalesTargetResponse set(SalesTargetRequest request) {
     String month = request.getMonth();
-    SalesTarget existing = findByMonth(month);
-    Long userId = SecurityUtil.currentUserId();
+    Long userId = request.getUserId();
+    SalesTarget existing = findByMonth(month, userId);
     if (existing != null) {
       existing.setTargetAmount(request.getTargetAmount());
       existing.setVersion(existing.getVersion() == null ? 0 : existing.getVersion());
       int rows = salesTargetMapper.updateById(existing);
       if (rows == 0) {
         // 乐观锁冲突：重查一次并覆盖（目标为配置型数据，容忍并发覆盖）
-        SalesTarget fresh = findByMonth(month);
+        SalesTarget fresh = findByMonth(month, userId);
         if (fresh != null) {
           fresh.setTargetAmount(request.getTargetAmount());
           salesTargetMapper.updateById(fresh);
@@ -61,26 +62,41 @@ public class SalesTargetService {
           "UPDATE",
           "SALES_TARGET",
           existing.getId(),
-          "更新目标：" + month + "=" + request.getTargetAmount());
+          "更新目标："
+              + month
+              + "="
+              + request.getTargetAmount()
+              + (userId == null ? "" : "(用户" + userId + ")"));
       dashboardStatsService.evict();
-      return get(month);
+      return get(month, userId);
     }
     SalesTarget target = new SalesTarget();
     target.setTargetMonth(month);
     target.setTargetAmount(request.getTargetAmount());
-    target.setCreatedBy(userId);
+    target.setUserId(userId);
+    target.setCreatedBy(SecurityUtil.currentUserId());
     salesTargetMapper.insert(target);
     auditService.record(
         "CREATE",
         "SALES_TARGET",
         target.getId(),
-        "设置目标：" + month + "=" + request.getTargetAmount());
+        "设置目标："
+            + month
+            + "="
+            + request.getTargetAmount()
+            + (userId == null ? "" : "(用户" + userId + ")"));
     dashboardStatsService.evict();
-    return get(month);
+    return get(month, userId);
   }
 
-  private SalesTarget findByMonth(String month) {
-    return salesTargetMapper.selectOne(
-        new LambdaQueryWrapper<SalesTarget>().eq(SalesTarget::getTargetMonth, month));
+  private SalesTarget findByMonth(String month, Long userId) {
+    LambdaQueryWrapper<SalesTarget> qw =
+        new LambdaQueryWrapper<SalesTarget>().eq(SalesTarget::getTargetMonth, month);
+    if (userId == null) {
+      qw.isNull(SalesTarget::getUserId);
+    } else {
+      qw.eq(SalesTarget::getUserId, userId);
+    }
+    return salesTargetMapper.selectOne(qw);
   }
 }

@@ -49,7 +49,7 @@ class SalesTargetServiceTest {
   void getMissingReturnsNull() {
     when(targetMapper.selectOne(any())).thenReturn(null);
 
-    var resp = service.get("2026-08");
+    var resp = service.get("2026-08", null);
 
     assertThat(resp.getTargetAmount()).isNull();
     assertThat(resp.getMonth()).isEqualTo("2026-08");

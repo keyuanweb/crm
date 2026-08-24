@@ -24,6 +24,12 @@ jwt:
   access-token-ttl-seconds: 1800
   refresh-token-ttl-seconds: 604800
 
+# 测试环境默认关闭验证码，避免影响大量依赖 loginAndGetToken 的既有集成测试；
+# AuthCaptchaIT 通过 @TestPropertySource 单独启用验证码
+crm:
+  captcha:
+    enabled: false
+
 logging:
   level:
     com.crm: INFO

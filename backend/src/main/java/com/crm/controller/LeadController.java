@@ -7,11 +7,14 @@ import com.crm.dto.lead.ConvertRequest;
 import com.crm.dto.lead.LeadDetailResponse;
 import com.crm.dto.lead.LeadRequest;
 import com.crm.dto.lead.LeadResponse;
+import com.crm.service.CustomFieldFilterSupport;
 import com.crm.service.LeadExcelService;
 import com.crm.service.LeadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -34,14 +37,19 @@ public class LeadController {
 
   private final LeadService leadService;
   private final LeadExcelService leadExcelService;
+  private final CustomFieldFilterSupport customFieldFilterSupport;
 
-  public LeadController(LeadService leadService, LeadExcelService leadExcelService) {
+  public LeadController(
+      LeadService leadService,
+      LeadExcelService leadExcelService,
+      CustomFieldFilterSupport customFieldFilterSupport) {
     this.leadService = leadService;
     this.leadExcelService = leadExcelService;
+    this.customFieldFilterSupport = customFieldFilterSupport;
   }
 
   @GetMapping
-  @Operation(summary = "分页查询线索列表")
+  @Operation(summary = "分页查询线索列表（支持 cf_<fieldId> 自定义字段筛选）")
   public ApiResponse<PageResult<LeadResponse>> page(
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) String status,
@@ -49,9 +57,13 @@ public class LeadController {
       @RequestParam(required = false) Long ownerId,
       @RequestParam(defaultValue = "false") boolean poolOnly,
       @RequestParam(defaultValue = "1") long page,
-      @RequestParam(defaultValue = "20") long pageSize) {
+      @RequestParam(defaultValue = "20") long pageSize,
+      @RequestParam Map<String, String> params) {
+    List<Long> cfMatchedIds =
+        customFieldFilterSupport.matchEntityIds(
+            "LEAD", customFieldFilterSupport.parseFilters(params));
     return ApiResponse.ok(
-        leadService.page(keyword, status, source, ownerId, poolOnly, page, pageSize));
+        leadService.page(keyword, status, source, ownerId, poolOnly, cfMatchedIds, page, pageSize));
   }
 
   @GetMapping("/{id}")

@@ -80,6 +80,7 @@ export default function ChannelRoiPage() {
         </div>
       </ProCard>
       <Table<ChannelRoi>
+        size="small"
         rowKey="channel"
         columns={columns}
         dataSource={rows}

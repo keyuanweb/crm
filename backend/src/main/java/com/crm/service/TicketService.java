@@ -82,9 +82,17 @@ public class TicketService {
       String priority,
       Long assigneeId,
       Long customerId,
+      List<Long> customFieldMatchedIds,
       long page,
       long pageSize) {
     LambdaQueryWrapper<Ticket> qw = new LambdaQueryWrapper<>();
+    // 自定义字段筛选（FR-S03）
+    if (customFieldMatchedIds != null) {
+      if (customFieldMatchedIds.isEmpty()) {
+        return PageResult.of(List.of(), 0, page, pageSize);
+      }
+      qw.in(Ticket::getId, customFieldMatchedIds);
+    }
     if (StringUtils.hasText(keyword)) {
       qw.and(
           w ->

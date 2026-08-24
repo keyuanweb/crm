@@ -46,7 +46,7 @@ export default function ChangePasswordPage() {
           定期更换密码可提升账号安全性
         </Typography.Text>
       </div>
-      <Card style={{ borderRadius: 10 }} bodyStyle={{ padding: '24px 28px' }}>
+      <Card style={{ borderRadius: 10 }} styles={{ body: { padding: '24px 28px' } }}>
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 20 }} role="alert" />}
         <Form<FormValues> name="change-password" onFinish={onFinish} layout="vertical" requiredMark={false}>
           <Form.Item

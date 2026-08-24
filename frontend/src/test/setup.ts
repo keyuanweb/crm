@@ -55,3 +55,28 @@ class ResizeObserverMock {
   disconnect() {}
 }
 globalThis.ResizeObserver = ResizeObserverMock as never
+
+// antd rc-table 测量滚动条时调用 getComputedStyle(elt, pseudoElt)，jsdom 对伪元素参数未实现，
+// 这里忽略伪元素参数避免 "Not implemented: window.computedStyle" 报错。
+const baseGetComputedStyle = window.getComputedStyle.bind(window)
+window.getComputedStyle = ((elt: Element) => baseGetComputedStyle(elt)) as typeof window.getComputedStyle
+
+// 测试环境禁用真实网络：jsdom 的 XHR 真实连接会失败并产生未处理拒绝（AggregateError）噪音。
+// 所有被测试代码应通过 mock 服务层，未 mock 到的请求在此静默挂起而非抛错。
+class XhrNoop {
+  readyState = 0
+  status = 0
+  responseText = ''
+  onreadystatechange: ((this: XMLHttpRequest, ev: Event) => unknown) | null = null
+  open(): void {}
+  send(): void {}
+  setRequestHeader(): void {}
+  abort(): void {}
+  getAllResponseHeaders(): string {
+    return ''
+  }
+  getResponseHeader(): string | null {
+    return null
+  }
+}
+Object.defineProperty(window, 'XMLHttpRequest', { writable: true, value: XhrNoop })

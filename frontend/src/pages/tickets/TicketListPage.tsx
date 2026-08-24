@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
-import { App, Button, Form, Input, Modal, Select, Tag } from 'antd'
+import { App, Button, Col, Form, Input, Modal, Row, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   createTicket,
@@ -10,6 +10,7 @@ import {
 } from '../../services/ticketService'
 import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { extractCfParams, useCustomFieldFilterColumns } from '../../hooks/useCustomFieldFilters'
 import {
   TICKET_PRIORITY_COLORS,
   TICKET_PRIORITY_LABELS,
@@ -22,9 +23,9 @@ import {
   type TicketStatus,
 } from '../../types/ticket'
 import {
-  CustomFieldFormItems,
   toCustomFieldPayload,
-} from '../../components/CustomFieldItems'
+} from '../../utils/customField'
+import { CustomFieldFormItems } from '../../components/CustomFieldItems'
 
 interface FormValues {
   customerId: number
@@ -37,8 +38,10 @@ interface FormValues {
 
 export default function TicketListPage() {
   const actionRef = useRef<ActionType>()
+  const customFieldFilterColumns = useCustomFieldFilterColumns('TICKET')
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [customerOptions, setCustomerOptions] = useState<{ value: number; label: string }[]>([])
   const [form] = Form.useForm<FormValues>()
 
@@ -59,6 +62,7 @@ export default function TicketListPage() {
       remark: values.remark,
       customFieldValues: toCustomFieldPayload(values.customFieldValues as Record<string, unknown>),
     }
+    setSaving(true)
     try {
       await createTicket(payload)
       message.success('已创建')
@@ -66,6 +70,8 @@ export default function TicketListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '创建失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -135,12 +141,14 @@ export default function TicketListPage() {
   return (
     <>
       <ProTable<Ticket>
+        size="small"
         headerTitle="服务工单"
         rowKey="id"
         actionRef={actionRef}
-        columns={columns}
+        columns={[...columns, ...customFieldFilterColumns]}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchTickets({
             keyword: params.keyword,
@@ -148,6 +156,7 @@ export default function TicketListPage() {
             priority: params.priority,
             page: params.current ?? 1,
             pageSize: params.pageSize ?? 20,
+            ...extractCfParams(params as Record<string, unknown>),
           })
           return { data: res.items, success: true, total: res.total }
         }}
@@ -164,39 +173,60 @@ export default function TicketListPage() {
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
         okText="创建"
+        confirmLoading={saving}
         destroyOnClose
-        width={620}
+        width={640}
       >
-        <Form form={form} name="ticketForm" layout="vertical">
-          <Form.Item
-            name="customerId"
-            label="客户"
-            rules={[{ required: true, message: '请选择客户' }]}
-          >
-            <Select
-              showSearch
-              optionFilterProp="label"
-              placeholder="搜索并选择客户"
-              options={customerOptions}
-              onSearch={loadCustomers}
-              onFocus={() => void loadCustomers()}
-            />
-          </Form.Item>
-          <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
-            <Input maxLength={200} />
-          </Form.Item>
-          <Form.Item name="description" label="问题描述">
-            <Input.TextArea rows={4} />
-          </Form.Item>
-          <Form.Item name="priority" label="优先级" rules={[{ required: true, message: '请选择优先级' }]}>
-            <Select
-              options={Object.entries(TICKET_PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
-            />
-          </Form.Item>
-          <CustomFieldFormItems entityType="TICKET" />
-          <Form.Item name="remark" label="备注">
-            <Input.TextArea rows={2} />
-          </Form.Item>
+        <Form
+          form={form}
+          name="ticketForm"
+          layout="horizontal"
+          labelCol={{ flex: '100px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="customerId"
+                label="客户"
+                rules={[{ required: true, message: '请选择客户' }]}
+              >
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="搜索并选择客户"
+                  options={customerOptions}
+                  onSearch={loadCustomers}
+                  onFocus={() => void loadCustomers()}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
+                <Input maxLength={200} />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="description" label="问题描述">
+                <Input.TextArea rows={4} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="priority" label="优先级" rules={[{ required: true, message: '请选择优先级' }]}>
+                <Select
+                  options={Object.entries(TICKET_PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <CustomFieldFormItems entityType="TICKET" />
+            </Col>
+            <Col span={24}>
+              <Form.Item name="remark" label="备注">
+                <Input.TextArea rows={2} />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </>

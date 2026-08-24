@@ -52,6 +52,12 @@ public class GlobalExceptionHandler {
     return build(400, ErrorCode.BAD_REQUEST.getCode(), ex.getMessage(), null);
   }
 
+  @ExceptionHandler(com.crm.controller.EmailTrackController.RateLimitedException.class)
+  public ResponseEntity<ApiResponse<Void>> handleRateLimited(
+      com.crm.controller.EmailTrackController.RateLimitedException ex) {
+    return build(429, "TOO_MANY_REQUESTS", ex.getMessage(), null);
+  }
+
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiResponse<Void>> handleOther(Exception ex) {
     log.error("Unhandled exception", ex);

@@ -21,6 +21,7 @@ export default function DepartmentListPage() {
   const [tree, setTree] = useState<Department[]>([])
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<Department | null>(null)
   const [form] = Form.useForm<FormValues>()
   const [flatOptions, setFlatOptions] = useState<{ value: number; label: string }[]>([])
@@ -66,6 +67,7 @@ export default function DepartmentListPage() {
   const onSave = async () => {
     const values = await form.validateFields()
     const payload: DepartmentPayload = { name: values.name.trim(), parentId: values.parentId }
+    setSaving(true)
     try {
       if (editing) {
         await updateDepartment(editing.id, { ...payload, version: editing.version })
@@ -78,6 +80,8 @@ export default function DepartmentListPage() {
       void load()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -138,6 +142,7 @@ export default function DepartmentListPage() {
         title={editing ? '编辑部门' : '新增部门'}
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose

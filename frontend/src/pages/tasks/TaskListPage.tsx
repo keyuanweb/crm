@@ -13,7 +13,6 @@ import {
   Popconfirm,
   Row,
   Select,
-  Space,
   Statistic,
   Tag,
 } from 'antd'
@@ -55,6 +54,7 @@ export default function TaskListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<TaskItem | null>(null)
   const [form] = Form.useForm<FormValues>()
 
@@ -97,6 +97,7 @@ export default function TaskListPage() {
       linkedId: values.linkedId,
       remark: values.remark,
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateTask(editing.id, { ...payload, version: editing.version })
@@ -109,6 +110,8 @@ export default function TaskListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -209,12 +212,17 @@ export default function TaskListPage() {
   return (
     <>
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={12} md={6}>
+        <Col xs={8} md={8}>
+          <Card size="small">
+            <Statistic title="待办任务" value={summaryQuery.data?.todoCount ?? 0} valueStyle={{ color: '#1677ff' }} />
+          </Card>
+        </Col>
+        <Col xs={8} md={8}>
           <Card size="small">
             <Statistic title="逾期任务" value={summaryQuery.data?.overdueCount ?? 0} valueStyle={{ color: '#cf1322' }} />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={8} md={8}>
           <Card size="small">
             <Statistic title="今日到期" value={summaryQuery.data?.todayCount ?? 0} valueStyle={{ color: '#fa8c16' }} />
           </Card>
@@ -222,12 +230,14 @@ export default function TaskListPage() {
       </Row>
 
       <ProTable<TaskItem>
+        size="small"
         headerTitle="我的任务"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchTasks({
             keyword: params.keyword,
@@ -253,40 +263,57 @@ export default function TaskListPage() {
         title={editing ? '编辑任务' : '新建任务'}
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose
-        width={560}
+        width={640}
       >
-        <Form form={form} name="taskForm" layout="vertical">
-          <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
-            <Input />
-          </Form.Item>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="dueAt" label="截止时间" style={{ flex: 1 }}>
-              <DatePicker showTime style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="priority" label="优先级" style={{ flex: 1 }}>
-              <Select
-                options={Object.entries(PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
-              />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="linkedType" label="关联类型" style={{ flex: 1 }}>
-              <Select
-                allowClear
-                placeholder="可选"
-                options={Object.entries(LINKED_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
-              />
-            </Form.Item>
-            <Form.Item name="linkedId" label="关联 ID" style={{ flex: 1 }}>
-              <Input placeholder="可选" />
-            </Form.Item>
-          </Space>
-          <Form.Item name="remark" label="备注">
-            <Input.TextArea rows={2} />
-          </Form.Item>
+        <Form
+          form={form}
+          name="taskForm"
+          layout="horizontal"
+          labelCol={{ flex: '100px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="dueAt" label="截止时间">
+                <DatePicker showTime style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="priority" label="优先级">
+                <Select
+                  options={Object.entries(PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="linkedType" label="关联类型">
+                <Select
+                  allowClear
+                  placeholder="可选"
+                  options={Object.entries(LINKED_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="linkedId" label="关联 ID">
+                <Input placeholder="可选" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="remark" label="备注">
+                <Input.TextArea rows={2} />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </>

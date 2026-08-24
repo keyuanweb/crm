@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { App, Button, DatePicker, Form, InputNumber, Modal, Popconfirm, Select, Space, Tag } from 'antd'
+import { App, Button, Col, DatePicker, Form, InputNumber, Modal, Popconfirm, Row, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
@@ -31,6 +31,7 @@ export default function SalesOpportunityListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [form] = Form.useForm<FormValues>()
 
   const opportunities = useQuery({
@@ -53,6 +54,7 @@ export default function SalesOpportunityListPage() {
       stage: values.stage,
       expectedCloseDate: values.expectedCloseDate?.format('YYYY-MM-DD'),
     }
+    setSaving(true)
     try {
       await createSalesOpportunity(payload)
       message.success('已创建')
@@ -60,6 +62,8 @@ export default function SalesOpportunityListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '创建失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -123,6 +127,7 @@ export default function SalesOpportunityListPage() {
   return (
     <>
       <ProTable<SalesOpportunity>
+        size="small"
         headerTitle="销售机会管道"
         rowKey="id"
         actionRef={actionRef}
@@ -144,42 +149,55 @@ export default function SalesOpportunityListPage() {
           </Button>,
         ]}
       />
-      <Modal title="新增销售机会" open={modalOpen} onOk={() => void onSave()} onCancel={() => setModalOpen(false)} okText="创建" destroyOnClose>
-        <Form form={form} name="salesOpportunityForm" layout="vertical">
-          <Form.Item
-            name="opportunityId"
-            label="所属商机"
-            rules={[{ required: true, message: '请选择商机' }]}
-          >
-            <Select
-              showSearch
-              optionFilterProp="label"
-              options={(opportunities.data?.items ?? []).map((o) => ({
-                value: o.id,
-                label: `${o.name}（${o.customerName ?? o.customerId}）`,
-              }))}
-              placeholder="请选择商机"
-            />
-          </Form.Item>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="amount" label="金额（元）" style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item
-              name="stage"
-              label="阶段"
-              rules={[{ required: true, message: '请选择阶段' }]}
-              style={{ flex: 1 }}
-            >
-              <Select
-                options={ACTIVE_STAGES.map((s) => ({ value: s, label: STAGE_LABELS[s] }))}
-                placeholder="请选择阶段"
-              />
-            </Form.Item>
-          </Space>
-          <Form.Item name="expectedCloseDate" label="预计成交日期">
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
+      <Modal title="新增销售机会" open={modalOpen} onOk={() => void onSave()} onCancel={() => setModalOpen(false)} okText="创建" confirmLoading={saving} destroyOnClose width={640}>
+        <Form
+          form={form}
+          name="salesOpportunityForm"
+          layout="horizontal"
+          labelCol={{ flex: '100px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="opportunityId"
+                label="所属商机"
+                rules={[{ required: true, message: '请选择商机' }]}
+              >
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  options={(opportunities.data?.items ?? []).map((o) => ({
+                    value: o.id,
+                    label: `${o.name}（${o.customerName ?? o.customerId}）`,
+                  }))}
+                  placeholder="请选择商机"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="amount" label="金额（元）">
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="stage"
+                label="阶段"
+                rules={[{ required: true, message: '请选择阶段' }]}
+              >
+                <Select
+                  options={ACTIVE_STAGES.map((s) => ({ value: s, label: STAGE_LABELS[s] }))}
+                  placeholder="请选择阶段"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="expectedCloseDate" label="预计成交日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </>

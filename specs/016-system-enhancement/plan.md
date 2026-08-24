@@ -73,10 +73,22 @@ frontend/src/
 ├── pages/exports/ExportCenterPage.tsx（导出历史 + 下载）
 ├── 实体详情页/创建弹窗接入自定义字段（lead/customer/opportunity/ticket）
 ├── 移动端响应式优化（表单/列表窄屏布局）
-└── App.tsx（设置菜单 + 通知角标）
+├── App.tsx（左侧菜单 submenu 分组 + 默认收起 + 首页置顶 + 通知角标）
+└── pages/stats/DashboardPage.tsx（对称双列网格 + 间距统一 + 漏斗可视化）
 ```
 
 **Structure Decision**: 沿用既有前后端目录结构（Option 2 Web 应用）。自定义字段值为字符串存储（实体表不加列，避免迁移风暴）；通知统一表迁移 013 数据；导出任务同 JVM 线程池异步执行。
+
+## 系统布局与界面增强（Phase 7–8）
+
+本阶段为纯前端 UI/UX 增强，无后端改动，对应 spec FR-S14 ~ FR-S18。
+
+- **导航菜单（FR-S14）**：`App.tsx` 左侧菜单分组由 `type:'group'` 改为 `type:'submenu'`（带 key，支持收起/展开）；所有分组 `defaultOpenGroupKeys=[]` 默认收起；"首页"作为首位独立菜单项置顶（不归属任何分组，指向 `/stats`），根路由 `Navigate` 到 `/stats`。
+- **表格密度（FR-S15）**：全部 ProTable/统计 Table 显式 `size="small"`；移除 `ConfigProvider componentSize` 全局小号，表单输入控件恢复默认尺寸。
+- **加载反馈（FR-S16）**：DashboardPage「刷新」按钮 `loading={isFetching}`；各列表页弹窗保存 `confirmLoading`；客户页导入/导出/公海扫描/转移按钮 `loading`。
+- **表单布局（FR-S17）**：弹窗表单统一垂直布局；字段多的改 2 列（`Form layout="horizontal"` + `labelCol flex` + `Row gutter` + `Col span=12`），标签与输入跨列对齐。
+- **首页仪表盘布局（FR-S18）**：对称双列网格——第一行 `销售漏斗 | 销售预测+业绩达成`，第二行 `客户分析+跟进活动 | 最近跟进+停滞商机预警`，各卡片 `lg={12}`（占页面 50%）；销售漏斗行 `marginBottom:12`，统计卡行 `marginBottom:12`，生成时间段落 `marginTop:12`，全页垂直间距统一 12px（消除 antd Row vertical gutter 负 margin 导致的行间 gap=0）；销售漏斗由纯 Table 改为可视化漏斗视图（每阶段渐变进度条按金额占比 + 阶段标签/数量/金额/转化率/占比）。
+- **列表页视觉统一（FR-S19）**：全站 21 个列表页 ProTable 统一 `cardProps={{ style: { borderRadius: 10 } }}`（圆角 10px）；弹窗表单统一横向 2 列模板（`Form layout="horizontal"` + `labelCol={{flex:'100px'}}` + `wrapperCol={{flex:1}}` + `Row gutter={16}` + `Col span={12}`，长文本/明细表格/自定义字段用 `span={24}` 全宽）；Modal 宽度档位（短表单 560 / 常规 640 / 含明细 720~760）；清理无效 `style={{flex:1}}` 与混乱缩进。
 
 ## Complexity Tracking
 

@@ -69,7 +69,8 @@ class LeadServiceTest {
             userMapper,
             auditService,
             mock(WorkflowEventPublisher.class),
-            mock(CustomFieldService.class));
+            mock(CustomFieldService.class),
+            mock(LeadScoreService.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
   }
@@ -319,7 +320,7 @@ class LeadServiceTest {
     p.setTotal(0);
     when(leadMapper.selectPage(any(), any())).thenReturn(p);
 
-    var result = service.page(null, null, null, null, true, 1, 20);
+    var result = service.page(null, null, null, null, true, null, 1, 20);
 
     assertThat(result.getItems()).isEmpty();
     verify(leadMapper).selectPage(any(), any());

@@ -36,10 +36,13 @@ public class LeadExcelService {
 
   private final LeadMapper leadMapper;
   private final AuditService auditService;
+  private final LeadScoreService leadScoreService;
 
-  public LeadExcelService(LeadMapper leadMapper, AuditService auditService) {
+  public LeadExcelService(
+      LeadMapper leadMapper, AuditService auditService, LeadScoreService leadScoreService) {
     this.leadMapper = leadMapper;
     this.auditService = auditService;
+    this.leadScoreService = leadScoreService;
   }
 
   /** 导入：逐行校验（姓名/公司必填、电话邮箱格式、来源枚举、评分 0-100），按 500 行分批插入。 */
@@ -203,7 +206,8 @@ public class LeadExcelService {
     lead.setPhone(trimToNull(phone));
     lead.setEmail(trimToNull(email));
     lead.setSource(source);
-    lead.setScore(score);
+    // 019：有评分保留，无评分自动计算（来源/信息完整度/互动时效，跟进维度为 0）
+    lead.setScore(score != null ? score : leadScoreService.computeScore(lead));
     lead.setRemark(trimToNull(cellString(row, 7)));
     return lead;
   }

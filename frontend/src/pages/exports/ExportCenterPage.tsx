@@ -98,6 +98,7 @@ export default function ExportCenterPage() {
         </Button>
       </div>
       <ProTable<ExportJob>
+        size="small"
         headerTitle="导出记录"
         rowKey="id"
         actionRef={actionRef}

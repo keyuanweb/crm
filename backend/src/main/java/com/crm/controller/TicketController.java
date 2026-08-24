@@ -8,10 +8,13 @@ import com.crm.dto.ticket.TicketReplyResponse;
 import com.crm.dto.ticket.TicketRequest;
 import com.crm.dto.ticket.TicketResponse;
 import com.crm.dto.ticket.TicketTransitionRequest;
+import com.crm.service.CustomFieldFilterSupport;
 import com.crm.service.TicketService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -33,13 +36,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class TicketController {
 
   private final TicketService ticketService;
+  private final CustomFieldFilterSupport customFieldFilterSupport;
 
-  public TicketController(TicketService ticketService) {
+  public TicketController(
+      TicketService ticketService, CustomFieldFilterSupport customFieldFilterSupport) {
     this.ticketService = ticketService;
+    this.customFieldFilterSupport = customFieldFilterSupport;
   }
 
   @GetMapping
-  @Operation(summary = "工单分页列表（关键字/状态/优先级/处理人/客户筛选）")
+  @Operation(summary = "工单分页列表（关键字/状态/优先级/处理人/客户/自定义字段筛选）")
   public ApiResponse<PageResult<TicketResponse>> page(
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) String status,
@@ -47,9 +53,14 @@ public class TicketController {
       @RequestParam(required = false) Long assigneeId,
       @RequestParam(required = false) Long customerId,
       @RequestParam(defaultValue = "1") long page,
-      @RequestParam(defaultValue = "20") long pageSize) {
+      @RequestParam(defaultValue = "20") long pageSize,
+      @RequestParam Map<String, String> params) {
+    List<Long> cfMatchedIds =
+        customFieldFilterSupport.matchEntityIds(
+            "TICKET", customFieldFilterSupport.parseFilters(params));
     return ApiResponse.ok(
-        ticketService.page(keyword, status, priority, assigneeId, customerId, page, pageSize));
+        ticketService.page(
+            keyword, status, priority, assigneeId, customerId, cfMatchedIds, page, pageSize));
   }
 
   @GetMapping("/{id}")

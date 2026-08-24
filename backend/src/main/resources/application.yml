@@ -34,6 +34,8 @@ crm:
     storage-dir: ${CONTRACT_STORAGE_DIR:./contract-files}
   pool:
     stale-days: ${POOL_STALE_DAYS:30}
+  captcha:
+    enabled: ${CAPTCHA_ENABLED:true}
 
 # CORS：允许的前端 Origin（逗号分隔），生产环境通过环境变量覆盖
 cors:
@@ -62,6 +64,18 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
+
+# Actuator：健康检查（匿名可读）+ 应用信息；metrics 等仅内部
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
 
 logging:
   level:

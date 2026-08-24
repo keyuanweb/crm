@@ -37,6 +37,7 @@ public class UserService {
   private final AuditService auditService;
   private final UserStateCache userStateCache;
   private final DepartmentMapper departmentMapper;
+  private final RoleService roleService;
 
   public UserService(
       UserMapper userMapper,
@@ -44,13 +45,15 @@ public class UserService {
       RedisTemplate<String, Object> redisTemplate,
       AuditService auditService,
       UserStateCache userStateCache,
-      DepartmentMapper departmentMapper) {
+      DepartmentMapper departmentMapper,
+      RoleService roleService) {
     this.userMapper = userMapper;
     this.passwordEncoder = passwordEncoder;
     this.redisTemplate = redisTemplate;
     this.auditService = auditService;
     this.userStateCache = userStateCache;
     this.departmentMapper = departmentMapper;
+    this.roleService = roleService;
   }
 
   public PageResult<UserResponse> page(String keyword, String role, long page, long pageSize) {
@@ -73,6 +76,7 @@ public class UserService {
   }
 
   @Transactional
+  @com.crm.security.RequirePermission("user:manage")
   public UserResponse create(UserCreateRequest req) {
     Long exists =
         userMapper.selectCount(
@@ -81,6 +85,7 @@ public class UserService {
       throw new BusinessException(ErrorCode.USER_DUPLICATE);
     }
     validatePasswordStrength(req.getPassword());
+    validateRole(req.getRole());
     User user = new User();
     user.setUsername(req.getUsername().trim());
     user.setDisplayName(req.getDisplayName().trim());
@@ -94,6 +99,7 @@ public class UserService {
   }
 
   @Transactional
+  @com.crm.security.RequirePermission("user:manage")
   public UserResponse update(Long id, UserUpdateRequest req) {
     User user = require(id);
     Long currentUserId = SecurityUtil.currentUserId();
@@ -148,6 +154,7 @@ public class UserService {
 
   /** FR-005：管理员重置密码，旧令牌全部失效。 */
   @Transactional
+  @com.crm.security.RequirePermission("user:manage")
   public void resetPassword(Long id, ResetPasswordRequest req) {
     User user = require(id);
     validatePasswordStrength(req.getNewPassword());
@@ -227,5 +234,13 @@ public class UserService {
     resp.setVersion(user.getVersion());
     resp.setCreatedAt(user.getCreatedAt());
     return resp;
+  }
+
+  /** 028：校验角色存在于角色表（启用角色）。 */
+  private void validateRole(String role) {
+    boolean exists = roleService.options().stream().anyMatch(o -> o.getCode().equals(role));
+    if (!exists) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST, "角色不存在或已停用：" + role);
+    }
   }
 }

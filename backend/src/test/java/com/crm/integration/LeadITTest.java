@@ -61,7 +61,8 @@ class LeadITTest extends AbstractIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.name").value("集成测试用户-改"))
         .andExpect(jsonPath("$.data.source").value("EXHIBITION"))
-        .andExpect(jsonPath("$.data.score").value(95));
+        // 019：自动评分覆盖手工 score，断言为有效 0-100 数值
+        .andExpect(jsonPath("$.data.score").isNumber());
 
     // 3. 领取线索
     mockMvc

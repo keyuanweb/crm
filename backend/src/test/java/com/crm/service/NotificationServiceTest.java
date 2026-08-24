@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 class NotificationServiceTest {
 
   private NotificationMapper notificationMapper;
+  private com.crm.ws.NotificationWebSocketHandler webSocketHandler;
   private NotificationService service;
 
   @BeforeAll
@@ -33,7 +34,8 @@ class NotificationServiceTest {
   @BeforeEach
   void setUp() {
     notificationMapper = mock(NotificationMapper.class);
-    service = new NotificationService(notificationMapper);
+    webSocketHandler = mock(com.crm.ws.NotificationWebSocketHandler.class);
+    service = new NotificationService(notificationMapper, webSocketHandler);
   }
 
   @Test
@@ -50,11 +52,27 @@ class NotificationServiceTest {
   @DisplayName("写入通知：插入并清理旧记录")
   void notifyInserts() {
     when(notificationMapper.selectList(any())).thenReturn(List.of());
+    when(notificationMapper.selectCount(any())).thenReturn(1L);
 
     service.notify(2L, "TICKET_ASSIGN", "工单已分配", "TICKET", 5L);
 
     verify(notificationMapper).insert(any(Notification.class));
     verify(notificationMapper).selectList(any());
+  }
+
+  @Test
+  @DisplayName("写入通知后通过 WebSocket 实时推送（026）")
+  void notifyPushesViaWebSocket() {
+    when(notificationMapper.selectList(any())).thenReturn(List.of());
+    when(notificationMapper.selectCount(any())).thenReturn(1L);
+
+    service.notify(2L, "TICKET_ASSIGN", "工单已分配", "TICKET", 5L);
+
+    verify(webSocketHandler)
+        .notifyUser(
+            org.mockito.ArgumentMatchers.eq(2L),
+            org.mockito.ArgumentMatchers.argThat(
+                p -> p.getType().equals("TICKET_ASSIGN") && p.getUnreadCount() == 1L));
   }
 
   @Test

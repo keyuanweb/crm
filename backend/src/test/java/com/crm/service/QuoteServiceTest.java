@@ -134,7 +134,12 @@ class QuoteServiceTest {
     assertThat(resp.getStatus()).isEqualTo("DRAFT");
     assertThat(resp.getQuoteNo()).startsWith("Q-2026");
     verify(quoteMapper).insert(any(Quote.class));
-    verify(auditService).record("CREATE", "QUOTE", 1L, "创建报价单：Q-20260822-0001");
+    String todayNo =
+        "Q-"
+            + java.time.LocalDate.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
+            + "-0001";
+    verify(auditService).record("CREATE", "QUOTE", 1L, "创建报价单：" + todayNo);
   }
 
   @Test

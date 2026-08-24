@@ -35,6 +35,7 @@ class UserServiceTest {
   private RedisTemplate<String, Object> redisTemplate;
   private AuditService auditService;
   private UserStateCache userStateCache;
+  private RoleService roleService;
   private UserService service;
 
   @BeforeEach
@@ -43,6 +44,13 @@ class UserServiceTest {
     redisTemplate = mock(RedisTemplate.class);
     auditService = mock(AuditService.class);
     userStateCache = mock(UserStateCache.class);
+    roleService = mock(RoleService.class);
+    org.mockito.Mockito.lenient()
+        .when(roleService.options())
+        .thenReturn(
+            java.util.List.of(
+                new com.crm.dto.role.RoleOption(1L, "ADMIN", "系统管理员", "ALL"),
+                new com.crm.dto.role.RoleOption(2L, "SALES", "销售", "SELF")));
     service =
         new UserService(
             userMapper,
@@ -50,7 +58,8 @@ class UserServiceTest {
             redisTemplate,
             auditService,
             userStateCache,
-            mock(com.crm.repository.DepartmentMapper.class));
+            mock(com.crm.repository.DepartmentMapper.class),
+            roleService);
   }
 
   @AfterEach

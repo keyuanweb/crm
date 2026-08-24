@@ -4,14 +4,15 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
+  Col,
   DatePicker,
   Form,
   Input,
   InputNumber,
   Modal,
   Popconfirm,
+  Row,
   Select,
-  Space,
   Table,
   Tag,
 } from 'antd'
@@ -52,6 +53,7 @@ export default function OrderListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [form] = Form.useForm<FormValues>()
   const [planForm] = Form.useForm<PlanFormValues>()
   const [plans, setPlans] = useState<PlanItemPayload[]>([])
@@ -114,6 +116,7 @@ export default function OrderListPage() {
       description: values.description,
       plans,
     }
+    setSaving(true)
     try {
       await createOrder(payload)
       message.success('已创建')
@@ -121,6 +124,8 @@ export default function OrderListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '创建失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -212,12 +217,14 @@ export default function OrderListPage() {
   return (
     <>
       <ProTable<Order>
+        size="small"
         headerTitle="订单管理"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchOrders({
             keyword: params.keyword,
@@ -238,60 +245,73 @@ export default function OrderListPage() {
         title="新建订单"
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose
         width={720}
       >
-        <Form form={form} name="orderForm" layout="vertical">
-          <Form.Item name="title" label="订单标题" rules={[{ required: true, message: '请输入订单标题' }]}>
-            <Input />
-          </Form.Item>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item
-              name="customerId"
-              label="客户"
-              rules={[{ required: true, message: '请选择客户' }]}
-              style={{ flex: 1 }}
-            >
-              <Select
-                showSearch
-                placeholder="搜索并选择客户"
-                options={customerOptions}
-                filterOption={false}
-                onSearch={(kw) => void loadCustomers(kw)}
+        <Form
+          form={form}
+          name="orderForm"
+          layout="horizontal"
+          labelCol={{ flex: '100px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="title" label="订单标题" rules={[{ required: true, message: '请输入订单标题' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="customerId" label="客户" rules={[{ required: true, message: '请选择客户' }]}>
+                <Select
+                  showSearch
+                  placeholder="搜索并选择客户"
+                  options={customerOptions}
+                  filterOption={false}
+                  onSearch={(kw) => void loadCustomers(kw)}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="contractId" label="关联合同（生效中）">
+                <Select allowClear placeholder="可选，选择后自动带入金额" options={contractOptions} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="amount" label="订单金额（元）">
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder="选择合同后自动带入" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="description" label="说明">
+                <Input.TextArea rows={2} />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontWeight: 600 }}>回款计划（可选，留空自动一期）</span>
+                <Button size="small" icon={<PlusOutlined />} onClick={openAddPlan}>
+                  添加期次
+                </Button>
+              </div>
+              <Table<PlanItemPayload>
+                rowKey={(row, idx) => `${row.dueDate}-${idx}`}
+                size="small"
+                dataSource={plans}
+                columns={planColumns as never}
+                pagination={false}
+                locale={{ emptyText: '暂无期次（将自动生成一期）' }}
               />
-            </Form.Item>
-            <Form.Item name="contractId" label="关联合同（生效中）" style={{ flex: 1 }}>
-              <Select allowClear placeholder="可选，选择后自动带入金额" options={contractOptions} />
-            </Form.Item>
-          </Space>
-          <Form.Item name="amount" label="订单金额（元）">
-            <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder="选择合同后自动带入" />
-          </Form.Item>
-          <Form.Item name="description" label="说明">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontWeight: 600 }}>回款计划（可选，留空自动一期）</span>
-            <Button size="small" icon={<PlusOutlined />} onClick={openAddPlan}>
-              添加期次
-            </Button>
-          </div>
-          <Table<PlanItemPayload>
-            rowKey={(row, idx) => `${row.dueDate}-${idx}`}
-            size="small"
-            dataSource={plans}
-            columns={planColumns as never}
-            pagination={false}
-            locale={{ emptyText: '暂无期次（将自动生成一期）' }}
-          />
-          {plans.length > 0 && (
-            <div style={{ textAlign: 'right', marginTop: 8, fontWeight: 600 }}>
-              期次合计：¥ {(planSum / 100).toLocaleString('zh-CN')}
-            </div>
-          )}
+              {plans.length > 0 && (
+                <div style={{ textAlign: 'right', marginTop: 8, fontWeight: 600 }}>
+                  期次合计：¥ {(planSum / 100).toLocaleString('zh-CN')}
+                </div>
+              )}
+            </Col>
+          </Row>
         </Form>
       </Modal>
 
@@ -305,24 +325,12 @@ export default function OrderListPage() {
         width={480}
       >
         <Form form={planForm} name="orderPlanForm" layout="vertical">
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item
-              name="amount"
-              label="金额（元）"
-              rules={[{ required: true, message: '请输入金额' }]}
-              style={{ flex: 1 }}
-            >
-              <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item
-              name="dueDate"
-              label="计划回款日期"
-              rules={[{ required: true, message: '请选择日期' }]}
-              style={{ flex: 1 }}
-            >
-              <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
-          </Space>
+          <Form.Item name="amount" label="金额（元）" rules={[{ required: true, message: '请输入金额' }]}>
+            <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="dueDate" label="计划回款日期" rules={[{ required: true, message: '请选择日期' }]}>
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
           <Form.Item name="description" label="期次说明">
             <Input placeholder="如：首付/尾款" />
           </Form.Item>

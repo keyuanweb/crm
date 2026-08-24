@@ -49,6 +49,7 @@ public class LeadService {
   private final AuditService auditService;
   private final WorkflowEventPublisher workflowEventPublisher;
   private final CustomFieldService customFieldService;
+  private final LeadScoreService leadScoreService;
 
   public LeadService(
       LeadMapper leadMapper,
@@ -59,7 +60,8 @@ public class LeadService {
       UserMapper userMapper,
       AuditService auditService,
       WorkflowEventPublisher workflowEventPublisher,
-      CustomFieldService customFieldService) {
+      CustomFieldService customFieldService,
+      LeadScoreService leadScoreService) {
     this.leadMapper = leadMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
@@ -69,6 +71,7 @@ public class LeadService {
     this.auditService = auditService;
     this.workflowEventPublisher = workflowEventPublisher;
     this.customFieldService = customFieldService;
+    this.leadScoreService = leadScoreService;
   }
 
   public PageResult<LeadResponse> page(
@@ -77,9 +80,17 @@ public class LeadService {
       String source,
       Long ownerId,
       boolean poolOnly,
+      List<Long> customFieldMatchedIds,
       long page,
       long pageSize) {
     LambdaQueryWrapper<Lead> qw = new LambdaQueryWrapper<>();
+    // 自定义字段筛选（FR-S03）：匹配到的实体 id 集合为 null 表示不过滤
+    if (customFieldMatchedIds != null) {
+      if (customFieldMatchedIds.isEmpty()) {
+        return PageResult.of(List.of(), 0, page, pageSize);
+      }
+      qw.in(Lead::getId, customFieldMatchedIds);
+    }
     if (StringUtils.hasText(keyword)) {
       String kw = keyword.trim();
       qw.and(
@@ -105,7 +116,8 @@ public class LeadService {
     } else if (ownerId != null) {
       qw.eq(Lead::getOwnerId, ownerId);
     }
-    qw.orderByDesc(Lead::getId);
+    // 019：默认按评分降序（同分按 id 倒序），辅助优先处理高分线索
+    qw.orderByDesc(Lead::getScore).orderByDesc(Lead::getId);
     Page<Lead> p = leadMapper.selectPage(new Page<>(page, pageSize), qw);
     List<LeadResponse> items = toResponses(p.getRecords());
     fillCustomFields(items, p.getRecords().stream().map(Lead::getId).toList());
@@ -148,11 +160,11 @@ public class LeadService {
     if (!StringUtils.hasText(lead.getSource())) {
       lead.setSource("OTHER");
     }
-    if (lead.getScore() == null) {
-      lead.setScore(0);
-    }
     lead.setCreatedBy(SecurityUtil.currentUserId());
     leadMapper.insert(lead);
+    // 019：自动评分（需 lead.id 查跟进，故 insert 后计算写回）
+    leadScoreService.scoreAndUpdate(lead);
+    leadMapper.updateById(lead);
     if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
       customFieldService.saveValues("LEAD", lead.getId(), req.getCustomFieldValues());
     }
@@ -180,6 +192,9 @@ public class LeadService {
     if (rows == 0) {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
     }
+    // 019：更新后自动重算评分
+    leadScoreService.scoreAndUpdate(existing);
+    leadMapper.updateById(existing);
     if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
       customFieldService.saveValues("LEAD", id, req.getCustomFieldValues());
     }

@@ -42,6 +42,7 @@ class ContractServiceTest {
   private CustomerMapper customerMapper;
   private QuoteMapper quoteMapper;
   private AuditService auditService;
+  private ApprovalEngineService approvalEngineService;
   private ContractService service;
   private MockedStatic<SecurityUtil> securityUtilMock;
 
@@ -53,6 +54,7 @@ class ContractServiceTest {
     customerMapper = mock(CustomerMapper.class);
     quoteMapper = mock(QuoteMapper.class);
     auditService = mock(AuditService.class);
+    approvalEngineService = mock(ApprovalEngineService.class);
     service =
         new ContractService(
             contractMapper,
@@ -60,7 +62,8 @@ class ContractServiceTest {
             templateMapper,
             customerMapper,
             quoteMapper,
-            auditService);
+            auditService,
+            approvalEngineService);
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
   }
@@ -130,7 +133,12 @@ class ContractServiceTest {
     assertThat(resp.getStatus()).isEqualTo("DRAFT");
     assertThat(resp.getContractNo()).startsWith("HT-2026");
     verify(contractMapper).insert(any(Contract.class));
-    verify(auditService).record("CREATE", "CONTRACT", 1L, "创建合同：HT-20260822-0001");
+    String todayNo =
+        "HT-"
+            + java.time.LocalDate.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
+            + "-0001";
+    verify(auditService).record("CREATE", "CONTRACT", 1L, "创建合同：" + todayNo);
   }
 
   @Test
@@ -186,7 +194,12 @@ class ContractServiceTest {
     req.setTemplateId(1L);
     var resp = service.create(req);
 
-    assertThat(resp.getContent()).isEqualTo("甲方：测试客户，编号 HT-20260822-0001，金额 1,500.00 元");
+    String todayNo =
+        "HT-"
+            + java.time.LocalDate.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
+            + "-0001";
+    assertThat(resp.getContent()).isEqualTo("甲方：测试客户，编号 " + todayNo + "，金额 1,500.00 元");
   }
 
   @Test

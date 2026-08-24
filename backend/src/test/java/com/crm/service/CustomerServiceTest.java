@@ -74,7 +74,9 @@ class CustomerServiceTest {
             dataPermissionService,
             customerShareMapper,
             userMapper,
-            mock(CustomFieldService.class));
+            mock(com.crm.repository.SalesOrderMapper.class),
+            mock(CustomFieldService.class),
+            mock(Customer360Service.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     // 当前用户为管理员（数据权限 ALL），detail/update/delete 权限校验通过
@@ -199,7 +201,7 @@ class CustomerServiceTest {
     p.setTotal(1);
     when(customerMapper.selectPage(any(), any())).thenReturn(p);
 
-    var result = service.page(null, null, 1, 20);
+    var result = service.page(null, null, null, 1, 20);
     assertThat(result.getItems()).hasSize(1);
     assertThat(result.getItems().get(0).getPhone()).isEqualTo("138****5678");
     assertThat(result.getItems().get(0).getEmail()).isEqualTo("z***n@example.com");

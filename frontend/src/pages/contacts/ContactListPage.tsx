@@ -4,25 +4,31 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
+  Col,
   Form,
   Input,
   Modal,
   Popconfirm,
+  Row,
   Select,
-  Space,
+  Table,
   Tag,
+  Upload,
 } from 'antd'
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
+import { DeleteOutlined, DownloadOutlined, EditOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons'
 import {
   createContact,
   deleteContact,
+  downloadContactTemplate,
   fetchContacts,
+  importContacts,
   updateContact,
   type ContactPayload,
 } from '../../services/contactService'
 import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { ROLE_COLORS, ROLE_LABELS, type Contact, type ContactRole } from '../../types/contact'
+import type { ImportResult } from '../../types/importResult'
 
 interface FormValues {
   customerId: number
@@ -38,11 +44,30 @@ export default function ContactListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<Contact | null>(null)
   const [customerOptions, setCustomerOptions] = useState<{ value: number; label: string }[]>([])
   const [form] = Form.useForm<FormValues>()
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   const reload = () => actionRef.current?.reload()
+
+  const onImport = async (file: File) => {
+    setImporting(true)
+    try {
+      const res = await importContacts(file)
+      setImportResult(res)
+      setImportOpen(true)
+      reload()
+    } catch (err) {
+      message.error(extractErrorMessage(err, '导入失败'))
+    } finally {
+      setImporting(false)
+    }
+    return false
+  }
 
   const loadCustomers = async (keyword?: string) => {
     const res = await fetchCustomers({ keyword, page: 1, pageSize: 50 })
@@ -82,6 +107,7 @@ export default function ContactListPage() {
       role: values.role,
       remark: values.remark,
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateContact(editing.id, { ...payload, version: editing.version })
@@ -94,6 +120,8 @@ export default function ContactListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -153,12 +181,14 @@ export default function ContactListPage() {
   return (
     <>
       <ProTable<Contact>
+        size="small"
         headerTitle="联系人管理"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchContacts({
             keyword: params.keyword,
@@ -170,22 +200,60 @@ export default function ContactListPage() {
           return { data: res.items, success: true, total: res.total }
         }}
         toolBarRender={() => [
+          <Upload key="import" showUploadList={false} beforeUpload={(f) => onImport(f as unknown as File)} accept=".xlsx">
+            <Button icon={<UploadOutlined />} loading={importing}>导入</Button>
+          </Upload>,
+          <Button key="template" icon={<DownloadOutlined />} onClick={() => void downloadContactTemplate()}>
+            下载模板
+          </Button>,
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新增联系人
           </Button>,
         ]}
       />
 
+      {/* 导入结果反馈 */}
+      <Modal
+        title="导入结果"
+        open={importOpen}
+        footer={null}
+        onCancel={() => setImportOpen(false)}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <Tag color="green">成功 {importResult?.successCount ?? 0} 条</Tag>
+          <Tag color="red">失败 {importResult?.failureCount ?? 0} 条</Tag>
+        </div>
+        {(importResult?.failures ?? []).length > 0 && (
+          <Table
+            rowKey={(r, i) => `${(r as { row: number }).row}-${i}`}
+            size="small"
+            dataSource={importResult?.failures ?? []}
+            pagination={false}
+            columns={[
+              { title: '行号', dataIndex: 'row', width: 80 },
+              { title: '失败原因', dataIndex: 'message' },
+            ]}
+          />
+        )}
+      </Modal>
+
       <Modal
         title={editing ? '编辑联系人' : '新增联系人'}
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose
         width={640}
       >
-        <Form form={form} name="contactForm" layout="vertical">
+        <Form
+          form={form}
+          name="contactForm"
+          layout="horizontal"
+          labelCol={{ flex: '100px' }}
+          wrapperCol={{ flex: 1 }}
+        >
           <Form.Item
             name="customerId"
             label="所属客户"
@@ -199,29 +267,37 @@ export default function ContactListPage() {
               onSearch={(kw) => void loadCustomers(kw)}
             />
           </Form.Item>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]} style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="title" label="职位" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="phone" label="电话" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="email" label="邮箱" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-          </Space>
-          <Form.Item name="role" label="角色">
-            <Select
-              allowClear
-              placeholder="默认：其他"
-              options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
-            />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="title" label="职位">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="phone" label="电话">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="email" label="邮箱">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="role" label="角色">
+                <Select
+                  allowClear
+                  placeholder="默认：其他"
+                  options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item name="remark" label="备注">
             <Input.TextArea rows={2} />
           </Form.Item>

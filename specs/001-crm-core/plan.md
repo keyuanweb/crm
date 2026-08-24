@@ -97,6 +97,12 @@ frontend/
 
 **Structure Decision**: 采用 Option 2（Web 应用，前后端分离）——检测到 frontend + backend。`backend/` 与 `frontend/` 置于仓库根目录（本仓库即项目根，与背景文档的 crm-system/ 等价）；后端按章程原则二强制 Controller→Service→Repository 分层；前端组件保持表现层纯净，数据访问收敛到 `services/` 层。
 
+### 布局与导航设计（US7 / FR-018~019）
+
+- 外层 `Layout` 固定 `height: 100vh` 且 `overflow: hidden`；顶部 `Header`（56px）位于滚动区域之外，内容区 `Content` 独立 `overflow: auto` 滚动 → 顶栏滚动时始终固定可见。
+- 左侧 `Sider + Menu` 使用 antd Menu `type: 'group'` 分组：客户管理（线索/客户/联系人）、销售管理（商机/销售机会/报价单）、交易管理（合同/订单）、基础资料（产品/任务）、营销与服务（营销/客户服务/知识库）、数据分析（统计/导出中心），以及仅 ADMIN 可见的系统管理（用户管理/部门/工作流/SLA 策略/自定义字段/合同模板/审计日志）；`selectedKeys` 按当前路由前缀匹配高亮，移动端横向菜单拍平为普通项。
+- 该布局改动仅涉及前端 `App.tsx` 外壳组件，不改变任何后端契约。
+
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**

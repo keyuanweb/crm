@@ -53,6 +53,7 @@ public class DashboardStatsService {
   private final SalesTargetMapper salesTargetMapper;
   private final UserMapper userMapper;
   private final RedisTemplate<String, Object> redisTemplate;
+  private final StageConversionService stageConversionService;
 
   /** 停滞预警阈值（天），默认 7，可配置 crm.stats.stalled-days。 */
   @Value("${crm.stats.stalled-days:7}")
@@ -65,7 +66,8 @@ public class DashboardStatsService {
       FollowUpMapper followUpMapper,
       SalesTargetMapper salesTargetMapper,
       UserMapper userMapper,
-      RedisTemplate<String, Object> redisTemplate) {
+      RedisTemplate<String, Object> redisTemplate,
+      StageConversionService stageConversionService) {
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.opportunityMapper = opportunityMapper;
     this.customerMapper = customerMapper;
@@ -73,6 +75,7 @@ public class DashboardStatsService {
     this.salesTargetMapper = salesTargetMapper;
     this.userMapper = userMapper;
     this.redisTemplate = redisTemplate;
+    this.stageConversionService = stageConversionService;
   }
 
   @SuppressWarnings("unchecked")
@@ -191,23 +194,56 @@ public class DashboardStatsService {
     List<DashboardStats.ForecastItem> breakdown = new ArrayList<>();
     long weightedTotal = 0;
     for (SalesOpportunity so : allSo) {
-      double probability = STAGE_PROBABILITY.getOrDefault(so.getStage(), 0d);
+      // 019：用历史校准概率（样本不足回退默认），替代硬编码 STAGE_PROBABILITY
+      double probability = stageConversionService.probabilityFor(so.getStage());
+      String source = probabilitySourceOf(so.getStage());
       long amount = so.getAmount() == null ? 0L : so.getAmount();
       long weighted = Math.round(amount * probability);
       weightedTotal += weighted;
-      breakdown.add(new DashboardStats.ForecastItem(so.getStage(), amount, probability, weighted));
+      breakdown.add(
+          new DashboardStats.ForecastItem(so.getStage(), amount, probability, weighted, source));
     }
     return new DashboardStats.Forecast(weightedTotal, breakdown);
   }
 
+  /** 概率来源标注：CLOSED 终态 FIXED，其余由 StageConversionService 判定（HISTORICAL/DEFAULT）。 */
+  private String probabilitySourceOf(String stage) {
+    if ("CLOSED_WON".equals(stage) || "CLOSED_LOST".equals(stage)) {
+      return "FIXED";
+    }
+    return stageConversionService.isHistorical(stage) ? "HISTORICAL" : "DEFAULT";
+  }
+
   private DashboardStats.Performance computePerformance(YearMonth month) {
-    SalesTarget target =
-        salesTargetMapper.selectOne(
-            new LambdaQueryWrapper<SalesTarget>()
-                .eq(SalesTarget::getTargetMonth, month.toString()));
+    // 020：优先当前用户个人目标，未设置回退全局目标（user_id IS NULL）
+    Long currentUserId = null;
+    try {
+      currentUserId = com.crm.security.SecurityUtil.currentUserId();
+    } catch (Exception ex) {
+      log.debug("No authenticated user for personal target lookup: {}", ex.getMessage());
+    }
+    SalesTarget target = null;
+    boolean personal = false;
+    if (currentUserId != null) {
+      target =
+          salesTargetMapper.selectOne(
+              new LambdaQueryWrapper<SalesTarget>()
+                  .eq(SalesTarget::getTargetMonth, month.toString())
+                  .eq(SalesTarget::getUserId, currentUserId));
+      if (target != null) {
+        personal = true;
+      }
+    }
+    if (target == null) {
+      target =
+          salesTargetMapper.selectOne(
+              new LambdaQueryWrapper<SalesTarget>()
+                  .eq(SalesTarget::getTargetMonth, month.toString())
+                  .isNull(SalesTarget::getUserId));
+    }
     Long targetAmount = target == null ? null : target.getTargetAmount();
     if (targetAmount == null) {
-      return new DashboardStats.Performance(month.toString(), null, null, null, false);
+      return new DashboardStats.Performance(month.toString(), null, null, null, false, personal);
     }
     LocalDateTime monthStart = month.atDay(1).atStartOfDay();
     LocalDateTime monthEnd = month.atEndOfMonth().plusDays(1).atStartOfDay();
@@ -220,7 +256,8 @@ public class DashboardStatsService {
     long wonAmount =
         wonSo.stream().mapToLong(so -> so.getAmount() == null ? 0L : so.getAmount()).sum();
     double rate = targetAmount == 0 ? 0d : (double) wonAmount / targetAmount;
-    return new DashboardStats.Performance(month.toString(), targetAmount, wonAmount, rate, true);
+    return new DashboardStats.Performance(
+        month.toString(), targetAmount, wonAmount, rate, true, personal);
   }
 
   private DashboardStats.FollowUps computeFollowUps() {

@@ -71,6 +71,9 @@ public class DashboardStats {
     private long amount;
     private double probability;
     private long weighted;
+
+    /** 概率来源：HISTORICAL（历史校准）/ DEFAULT（样本不足回退）/ FIXED（终态固定）。 */
+    private String probabilitySource;
   }
 
   @Data
@@ -82,6 +85,9 @@ public class DashboardStats {
     private Long wonAmount;
     private Double achievementRate;
     private boolean configured;
+
+    /** 是否个人目标（020：true=个人目标，false=全局目标回退）。 */
+    private boolean personal;
   }
 
   @Data

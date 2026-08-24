@@ -32,9 +32,15 @@ export async function deleteTask(id: number): Promise<void> {
   await apiClient.delete(`/tasks/${id}`)
 }
 
-export async function fetchReminderSummary(): Promise<{ overdueCount: number; todayCount: number }> {
+export interface ReminderSummary {
+  overdueCount: number
+  todayCount: number
+  todoCount: number
+}
+
+export async function fetchReminderSummary(): Promise<ReminderSummary> {
   const { data } = await apiClient.get('/tasks/reminder-summary')
-  return data.data as { overdueCount: number; todayCount: number }
+  return data.data as ReminderSummary
 }
 
 export async function fetchTaskCalendar(month: string): Promise<CalendarResponse> {

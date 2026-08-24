@@ -59,7 +59,8 @@ class LeadContractTest extends AbstractIntegrationTest {
         .andExpect(jsonPath("$.data.company").value("测试科技"))
         .andExpect(jsonPath("$.data.status").value("NEW"))
         .andExpect(jsonPath("$.data.source").value("WEBSITE"))
-        .andExpect(jsonPath("$.data.score").value(85))
+        // 019：自动评分覆盖请求中的手工 score；WEBSITE(25)+信息完整(30)+互动(15)=70
+        .andExpect(jsonPath("$.data.score").value(70))
         .andExpect(jsonPath("$.data.version").isNumber());
   }
 

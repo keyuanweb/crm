@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
-import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Switch, Tag } from 'antd'
+import { App, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Switch, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   createWorkflowRule,
@@ -11,6 +11,7 @@ import {
   updateWorkflowRule,
   type WorkflowRulePayload,
 } from '../../services/workflowService'
+import { fetchUsers } from '../../services/userService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { ACTION_LABELS, EVENT_LABELS, type WorkflowActionType, type WorkflowEventType, type WorkflowRule } from '../../types/workflow'
 
@@ -31,9 +32,25 @@ export default function WorkflowRuleListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<WorkflowRule | null>(null)
   const [actionType, setActionType] = useState<WorkflowActionType>('ASSIGN')
+  const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
   const [form] = Form.useForm<FormValues>()
+
+  // 加载用户列表（动作=分配时选择目标用户，替代手输 ID）
+  const loadUsers = async () => {
+    try {
+      const res = await fetchUsers({ page: 1, pageSize: 100 })
+      setUserOptions(res.items.map((u) => ({ value: u.id, label: u.displayName || u.username })))
+    } catch {
+      setUserOptions([])
+    }
+  }
+
+  useEffect(() => {
+    void loadUsers()
+  }, [])
 
   const reload = () => actionRef.current?.reload()
 
@@ -83,6 +100,7 @@ export default function WorkflowRuleListPage() {
     if (values.conditionField && values.conditionValue) {
       payload.condition = { field: values.conditionField, value: values.conditionValue }
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateWorkflowRule(editing.id, { ...payload, version: editing.version })
@@ -95,6 +113,8 @@ export default function WorkflowRuleListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -167,12 +187,14 @@ export default function WorkflowRuleListPage() {
   return (
     <>
       <ProTable<WorkflowRule>
+        size="small"
         headerTitle="自动化规则"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchWorkflowRules({
             keyword: params.keyword,
@@ -196,85 +218,130 @@ export default function WorkflowRuleListPage() {
         title={editing ? '编辑规则' : '新增规则'}
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose
-        width={620}
+        width={640}
       >
-        <Form form={form} name="workflowRuleForm" layout="vertical">
-          <Form.Item name="name" label="规则名称" rules={[{ required: true, message: '请输入规则名称' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="eventType"
-            label="触发事件"
-            rules={[{ required: true, message: '请选择触发事件' }]}
-          >
-            <Select options={Object.entries(EVENT_LABELS).map(([value, label]) => ({ value, label }))} />
-          </Form.Item>
-          <Form.Item label="条件（可选）" style={{ marginBottom: 0 }}>
-            <Input.Group compact>
-              <Form.Item name="conditionField" noStyle style={{ width: '45%' }}>
+        <Form
+          form={form}
+          name="workflowRuleForm"
+          layout="horizontal"
+          labelCol={{ flex: '110px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item name="name" label="规则名称" rules={[{ required: true, message: '请输入规则名称' }]}>
+                <Input placeholder="如：商机进入谈判阶段自动分配" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                name="eventType"
+                label="触发事件"
+                rules={[{ required: true, message: '请选择触发事件' }]}
+              >
                 <Select
-                  placeholder="条件字段"
-                  allowClear
-                  options={[
-                    { value: 'stage', label: '阶段 stage' },
-                    { value: 'source', label: '来源 source' },
-                    { value: 'method', label: '方式 method' },
-                  ]}
+                  placeholder="选择触发事件"
+                  options={Object.entries(EVENT_LABELS).map(([value, label]) => ({ value, label }))}
                 />
               </Form.Item>
-              <Form.Item name="conditionValue" noStyle style={{ width: '45%' }}>
-                <Input placeholder="条件值，如 NEGOTIATING" />
+            </Col>
+            <Col span={24}>
+              <Form.Item label="条件（可选）" style={{ marginBottom: 0 }}>
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.Item name="conditionField">
+                      <Select
+                        placeholder="条件字段"
+                        allowClear
+                        options={[
+                          { value: 'stage', label: '阶段 stage' },
+                          { value: 'source', label: '来源 source' },
+                          { value: 'method', label: '方式 method' },
+                        ]}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="conditionValue">
+                      <Input placeholder="条件值，如 NEGOTIATING" />
+                    </Form.Item>
+                  </Col>
+                </Row>
               </Form.Item>
-            </Input.Group>
-          </Form.Item>
-          <Form.Item
-            name="actionType"
-            label="动作类型"
-            rules={[{ required: true, message: '请选择动作类型' }]}
-          >
-            <Select
-              options={Object.entries(ACTION_LABELS).map(([value, label]) => ({ value, label }))}
-              onChange={(v) => setActionType(v as WorkflowActionType)}
-            />
-          </Form.Item>
-          {actionType === 'ASSIGN' && (
-            <Form.Item
-              name="targetUserId"
-              label="目标用户 ID"
-              rules={[{ required: true, message: '请输入目标用户 ID' }]}
-            >
-              <InputNumber min={1} style={{ width: '100%' }} />
-            </Form.Item>
-          )}
-          {actionType === 'CREATE_TASK' && (
-            <>
+            </Col>
+            <Col span={24}>
               <Form.Item
-                name="titleTemplate"
-                label="任务标题模板（{name} 替换实体名）"
-                rules={[{ required: true, message: '请输入标题模板' }]}
+                name="actionType"
+                label="动作类型"
+                rules={[{ required: true, message: '请选择动作类型' }]}
               >
-                <Input placeholder="如：跟进{name}" />
+                <Select
+                  placeholder="选择动作类型"
+                  options={Object.entries(ACTION_LABELS).map(([value, label]) => ({ value, label }))}
+                  onChange={(v) => {
+                    // 切换动作类型时清除上一类型的参数残留
+                    form.setFieldsValue({ targetUserId: undefined, titleTemplate: undefined, dueDays: undefined, message: undefined })
+                    setActionType(v as WorkflowActionType)
+                  }}
+                />
               </Form.Item>
-              <Form.Item name="dueDays" label="截止天数（默认 3）">
-                <InputNumber min={1} style={{ width: '100%' }} />
+            </Col>
+            {actionType === 'ASSIGN' && (
+              <Col span={24}>
+                <Form.Item
+                  name="targetUserId"
+                  label="目标用户"
+                  rules={[{ required: true, message: '请选择目标用户' }]}
+                >
+                  <Select
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="选择目标用户"
+                    options={userOptions}
+                  />
+                </Form.Item>
+              </Col>
+            )}
+            {actionType === 'CREATE_TASK' && (
+              <>
+                <Col span={24}>
+                  <Form.Item
+                    name="titleTemplate"
+                    label="标题模板"
+                    rules={[{ required: true, message: '请输入标题模板' }]}
+                    extra="可用 {name} 替换实体名称，如：跟进{name}"
+                  >
+                    <Input placeholder="如：跟进{name}" />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item name="dueDays" label="截止天数" extra="默认 3 天">
+                    <InputNumber min={1} style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+              </>
+            )}
+            {actionType === 'NOTIFY' && (
+              <Col span={24}>
+                <Form.Item
+                  name="message"
+                  label="通知内容"
+                  rules={[{ required: true, message: '请输入通知内容' }]}
+                >
+                  <Input placeholder="如：客户{name}已进入谈判阶段" />
+                </Form.Item>
+              </Col>
+            )}
+            <Col span={24}>
+              <Form.Item name="enabled" label="启用" valuePropName="checked" initialValue={true}>
+                <Switch />
               </Form.Item>
-            </>
-          )}
-          {actionType === 'NOTIFY' && (
-            <Form.Item
-              name="message"
-              label="通知内容"
-              rules={[{ required: true, message: '请输入通知内容' }]}
-            >
-              <Input />
-            </Form.Item>
-          )}
-          <Form.Item name="enabled" label="启用" valuePropName="checked" initialValue={true}>
-            <Switch />
-          </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </>

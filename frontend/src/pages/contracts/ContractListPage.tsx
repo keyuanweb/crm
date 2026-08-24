@@ -4,13 +4,14 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
+  Col,
   DatePicker,
   Form,
   Input,
   InputNumber,
   Modal,
+  Row,
   Select,
-  Space,
   Tag,
 } from 'antd'
 import type { Dayjs } from 'dayjs'
@@ -45,6 +46,7 @@ export default function ContractListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [form] = Form.useForm<FormValues>()
   const [customerOptions, setCustomerOptions] = useState<{ value: number; label: string }[]>([])
   const [quoteOptions, setQuoteOptions] = useState<{ value: number; label: string }[]>([])
@@ -92,6 +94,7 @@ export default function ContractListPage() {
       templateId: values.templateId,
       remark: values.remark,
     }
+    setSaving(true)
     try {
       await createContract(payload)
       message.success('已创建（草稿）')
@@ -99,6 +102,8 @@ export default function ContractListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '创建失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -149,12 +154,14 @@ export default function ContractListPage() {
   return (
     <>
       <ProTable<Contract>
+        size="small"
         headerTitle="合同管理"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchContracts({
             keyword: params.keyword,
@@ -175,60 +182,74 @@ export default function ContractListPage() {
         title="新建合同"
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存草稿"
         destroyOnClose
-        width={680}
+        width={720}
       >
-        <Form form={form} name="contractForm" layout="vertical">
-          <Form.Item name="title" label="合同标题" rules={[{ required: true, message: '请输入合同标题' }]}>
-            <Input />
-          </Form.Item>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item
-              name="customerId"
-              label="客户"
-              rules={[{ required: true, message: '请选择客户' }]}
-              style={{ flex: 1 }}
-            >
-              <Select
-                showSearch
-                placeholder="搜索并选择客户"
-                options={customerOptions}
-                filterOption={false}
-                onSearch={(kw) => void loadCustomers(kw)}
-              />
-            </Form.Item>
-            <Form.Item name="quoteId" label="关联报价（已通过）" style={{ flex: 1 }}>
-              <Select
-                showSearch
-                allowClear
-                placeholder="可选，选择后自动带入金额"
-                options={quoteOptions}
-                filterOption={false}
-                onSearch={(kw) => void loadQuotes(kw)}
-              />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="amount" label="合同金额（元）" style={{ flex: 1 }}>
-              <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder="选择报价后自动带入" />
-            </Form.Item>
-            <Form.Item name="templateId" label="合同模板" style={{ flex: 1 }}>
-              <Select allowClear placeholder="可选，选择后生成正文" options={templateOptions} />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="startDate" label="生效日期" style={{ flex: 1 }}>
-              <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="endDate" label="结束日期" style={{ flex: 1 }}>
-              <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
-          </Space>
-          <Form.Item name="remark" label="备注">
-            <Input.TextArea rows={2} />
-          </Form.Item>
+        <Form
+          form={form}
+          name="contractForm"
+          layout="horizontal"
+          labelCol={{ flex: '100px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="title" label="合同标题" rules={[{ required: true, message: '请输入合同标题' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="customerId" label="客户" rules={[{ required: true, message: '请选择客户' }]}>
+                <Select
+                  showSearch
+                  placeholder="搜索并选择客户"
+                  options={customerOptions}
+                  filterOption={false}
+                  onSearch={(kw) => void loadCustomers(kw)}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="quoteId" label="关联报价（已通过）">
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="可选，选择后自动带入金额"
+                  options={quoteOptions}
+                  filterOption={false}
+                  onSearch={(kw) => void loadQuotes(kw)}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="amount" label="合同金额（元）">
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder="选择报价后自动带入" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="templateId" label="合同模板">
+                <Select allowClear placeholder="可选，选择后生成正文" options={templateOptions} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="startDate" label="生效日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="endDate" label="结束日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="remark" label="备注">
+                <Input.TextArea rows={2} />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </>

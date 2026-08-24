@@ -5,26 +5,31 @@ import {
   type ActionType,
   type ProColumns,
 } from '@ant-design/pro-components'
-import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Tag } from 'antd'
+import { App, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tag, Upload } from 'antd'
 import {
   DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
   PlusOutlined,
   UserAddOutlined,
   SwapOutlined,
+  UploadOutlined,
 } from '@ant-design/icons'
 import {
   assignLead,
   claimLead,
   createLead,
   deleteLead,
+  downloadLeadTemplate,
   fetchLeads,
+  importLeads,
   updateLead,
   type LeadPayload,
 } from '../../services/leadService'
 import { fetchCampaigns } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
+import type { ImportResult } from '../../types/importResult'
 import {
   SOURCE_LABELS,
   STATUS_COLORS,
@@ -34,11 +39,12 @@ import {
   type LeadStatus,
 } from '../../types/lead'
 import LeadConvertModal from '../../components/LeadConvertModal'
+import { extractCfParams, useCustomFieldFilterColumns } from '../../hooks/useCustomFieldFilters'
 import {
-  CustomFieldFormItems,
   fromCustomFieldValues,
   toCustomFieldPayload,
-} from '../../components/CustomFieldItems'
+} from '../../utils/customField'
+import { CustomFieldFormItems } from '../../components/CustomFieldItems'
 
 interface FormValues {
   name: string
@@ -64,8 +70,28 @@ export default function LeadListPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'pool'>('all')
   const [form] = Form.useForm<FormValues>()
   const [campaignOptions, setCampaignOptions] = useState<{ value: number; label: string }[]>([])
+  const [saving, setSaving] = useState(false)
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importing, setImporting] = useState(false)
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
+  const customFieldFilterColumns = useCustomFieldFilterColumns('LEAD')
+
+  const onImport = async (file: File) => {
+    setImporting(true)
+    try {
+      const res = await importLeads(file)
+      setImportResult(res)
+      setImportOpen(true)
+      reload()
+    } catch (err) {
+      message.error(extractErrorMessage(err, '导入失败'))
+    } finally {
+      setImporting(false)
+    }
+    return false
+  }
 
   useEffect(() => {
     void fetchCampaigns({ page: 1, pageSize: 100 }).then((res) =>
@@ -120,6 +146,7 @@ export default function LeadListPage() {
       remark: values.remark,
       customFieldValues: toCustomFieldPayload(values.customFieldValues as Record<string, unknown>),
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateLead(editing.id, { ...payload, version: editing.version })
@@ -132,6 +159,8 @@ export default function LeadListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -205,7 +234,7 @@ export default function LeadListPage() {
     {
       title: '操作',
       valueType: 'option',
-      width: 240,
+      width: 300,
       render: (_, row) => [
         canEdit(row) && (
           <a key="edit" onClick={() => openEdit(row)}>
@@ -250,12 +279,14 @@ export default function LeadListPage() {
       </Space>
 
       <ProTable<Lead>
+        size="small"
         headerTitle="线索管理"
         rowKey="id"
         actionRef={actionRef}
-        columns={columns}
+        columns={[...columns, ...customFieldFilterColumns]}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchLeads({
             keyword: params.keyword,
@@ -264,15 +295,47 @@ export default function LeadListPage() {
             poolOnly: activeTab === 'pool',
             page: params.current ?? 1,
             pageSize: params.pageSize ?? 20,
+            ...extractCfParams(params as Record<string, unknown>),
           })
           return { data: res.items, success: true, total: res.total }
         }}
         toolBarRender={() => [
+          <Upload key="import" showUploadList={false} beforeUpload={(f) => onImport(f as unknown as File)} accept=".xlsx">
+            <Button icon={<UploadOutlined />} loading={importing}>导入</Button>
+          </Upload>,
+          <Button key="template" icon={<DownloadOutlined />} onClick={() => void downloadLeadTemplate()}>
+            下载模板
+          </Button>,
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新增线索
           </Button>,
         ]}
       />
+
+      {/* 导入结果反馈 */}
+      <Modal
+        title="导入结果"
+        open={importOpen}
+        footer={null}
+        onCancel={() => setImportOpen(false)}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <Tag color="green">成功 {importResult?.successCount ?? 0} 条</Tag>
+          <Tag color="red">失败 {importResult?.failureCount ?? 0} 条</Tag>
+        </div>
+        {(importResult?.failures ?? []).length > 0 && (
+          <Table
+            rowKey={(r, i) => `${(r as { row: number }).row}-${i}`}
+            size="small"
+            dataSource={importResult?.failures ?? []}
+            pagination={false}
+            columns={[
+              { title: '行号', dataIndex: 'row', width: 80 },
+              { title: '失败原因', dataIndex: 'message' },
+            ]}
+          />
+        )}
+      </Modal>
 
       <Modal
         title={editing ? '编辑线索' : '新增线索'}
@@ -280,55 +343,73 @@ export default function LeadListPage() {
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
         okText="保存"
+        confirmLoading={saving}
         destroyOnClose
         width={640}
       >
-        <Form form={form} layout="vertical">
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]} style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="company" label="公司" rules={[{ required: true, message: '请输入公司' }]} style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="title" label="职位" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="phone" label="电话" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="email" label="邮箱" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="source" label="来源" style={{ flex: 1 }}>
-              <Select
-                options={Object.entries(SOURCE_LABELS).map(([value, label]) => ({ value, label }))}
-              />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="status" label="状态" style={{ flex: 1 }}>
-              <Select
-                options={Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))}
-              />
-            </Form.Item>
-            <Form.Item name="score" label="评分（0-100）" style={{ flex: 1 }}>
-              <InputNumber min={0} max={100} style={{ width: '100%' }} />
-            </Form.Item>
-          </Space>
-          <Form.Item name="campaignId" label="营销活动">
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              placeholder="选择来源活动（可选）"
-              options={campaignOptions}
-            />
-          </Form.Item>
+        <Form
+          form={form}
+          layout="horizontal"
+          labelCol={{ flex: '100px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="company" label="公司" rules={[{ required: true, message: '请输入公司' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="title" label="职位">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="phone" label="电话">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="email" label="邮箱">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="source" label="来源">
+                <Select
+                  options={Object.entries(SOURCE_LABELS).map(([value, label]) => ({ value, label }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="status" label="状态">
+                <Select
+                  options={Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="score" label="评分（0-100）">
+                <InputNumber min={0} max={100} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="campaignId" label="营销活动">
+                <Select
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="选择来源活动（可选）"
+                  options={campaignOptions}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
           <CustomFieldFormItems entityType="LEAD" />
           <Form.Item name="remark" label="备注">
             <Input.TextArea rows={2} />

@@ -30,6 +30,7 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<FollowUp | null>(null)
+  const [saving, setSaving] = useState(false)
   const [form] = Form.useForm<FormValues>()
   const user = useAuthStore((s) => s.user)
 
@@ -73,6 +74,7 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
       createTask: values.createTask ?? false,
       version: editing?.version,
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateFollowUp(editing.id, payload)
@@ -85,6 +87,8 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
       void load()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -136,7 +140,9 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存" destroyOnClose>
+        okText="保存"
+        confirmLoading={saving}
+        destroyOnClose>
         <Form form={form} name="followUpForm" layout="vertical">
           <Form.Item name="method" label="方式" rules={[{ required: true, message: '请选择方式' }]}>
             <Select

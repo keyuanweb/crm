@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
-import { App, Button, Form, Input, Modal, Popconfirm, Select, Space, Tag, Typography } from 'antd'
+import { App, Button, Form, Input, Modal, Popconfirm, Select, Tag, Typography } from 'antd'
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 import {
   createContractTemplate,
@@ -23,6 +23,7 @@ export default function ContractTemplateListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<ContractTemplate | null>(null)
   const [form] = Form.useForm<FormValues>()
   const user = useAuthStore((s) => s.user)
@@ -49,6 +50,7 @@ export default function ContractTemplateListPage() {
       content: values.content,
       status: values.status,
     }
+    setSaving(true)
     try {
       if (editing) {
         await updateContractTemplate(editing.id, { ...payload, version: editing.version })
@@ -61,6 +63,8 @@ export default function ContractTemplateListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -121,12 +125,14 @@ export default function ContractTemplateListPage() {
   return (
     <>
       <ProTable<ContractTemplate>
+        size="small"
         headerTitle="合同模板"
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
+        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchContractTemplates({
             keyword: params.keyword,
@@ -151,14 +157,13 @@ export default function ContractTemplateListPage() {
         title={editing ? '编辑模板' : '新增模板'}
         open={modalOpen}
         onOk={() => void onSave()}
+        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText="保存"
         destroyOnClose
         width={680}
       >
-        <Form form={form} name="contractTemplateForm" layout="vertical">
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="name" label="模板名称" rules={[{ required: true, message: '请输入模板名称' }]} style={{ flex: 1 }}>
+        <Form form={form} name="contractTemplateForm" layout="vertical">            <Form.Item name="name" label="模板名称" rules={[{ required: true, message: '请输入模板名称' }]} style={{ flex: 1 }}>
               <Input />
             </Form.Item>
             <Form.Item name="status" label="状态" style={{ flex: 1 }}>
@@ -169,7 +174,6 @@ export default function ContractTemplateListPage() {
                 ]}
               />
             </Form.Item>
-          </Space>
           <Form.Item
             name="content"
             label="模板正文"
