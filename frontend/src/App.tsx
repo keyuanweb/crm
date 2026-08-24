@@ -1,6 +1,6 @@
 import { Suspense, lazy, startTransition, useEffect, useState } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { Avatar, Button, Dropdown, Layout, Menu, Spin } from 'antd'
+import { Avatar, Button, Dropdown, Layout, Menu, Spin, type MenuProps } from 'antd'
 import {
   AlertOutlined,
   AuditOutlined,
@@ -94,6 +94,9 @@ const SlaPolicyListPage = lazy(() => import('./pages/sla/SlaPolicyListPage'))
 const CustomFieldListPage = lazy(() => import('./pages/settings/CustomFieldListPage'))
 const ExportCenterPage = lazy(() => import('./pages/exports/ExportCenterPage'))
 import NotificationCenter from './components/NotificationCenter'
+
+/** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
+type MenuItemLike = NonNullable<MenuProps['items']>[number]
 
 /**
  * 所有懒加载页面 chunk 的预加载函数。
@@ -193,6 +196,8 @@ function Shell() {
   const location = useLocation()
   const [booted, setBooted] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  // 041：系统管理二级子组展开状态（受控 openKeys）
+  const [openKeys, setOpenKeys] = useState<string[]>([])
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768)
@@ -217,6 +222,27 @@ function Shell() {
     if (!booted) return
     preloadPages()
   }, [booted])
+
+  // 042：进入系统管理/流程与配置/审计与维护一级分组页面时自动展开对应分组（受控 openKeys）
+  useEffect(() => {
+    const path = location.pathname
+    const next: string[] = []
+    if (path.startsWith('/users') || path.startsWith('/roles') || path.startsWith('/departments')) next.push('g-admin')
+    if (
+      path.startsWith('/workflows') ||
+      path.startsWith('/approval-flows') ||
+      path.startsWith('/settings/custom-fields') ||
+      path.startsWith('/contract-templates') ||
+      path.startsWith('/sla-policies')
+    ) {
+      next.push('g-config')
+    }
+    if (path.startsWith('/tags') || path.startsWith('/audit-logs') || path.startsWith('/recycle-bin')) next.push('g-audit')
+    if (next.length) {
+      setOpenKeys((prev) => Array.from(new Set([...prev, ...next])))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname])
 
   if (!booted) {
     return (
@@ -290,19 +316,25 @@ function Shell() {
   ]
   // 首页置顶（首位独立菜单项，指向统计仪表盘 /stats）
   const statsRoute = { path: '/stats', name: '首页', icon: <HomeOutlined /> }
-  const adminRoutes = [
+  // 041：系统管理二级子组（组织与权限/流程与配置/审计与维护）
+  const adminOrgRoutes = [
     { path: '/users', name: '用户管理', icon: <UserOutlined /> },
     { path: '/roles', name: '角色权限', icon: <SafetyCertificateOutlined /> },
-    { path: '/tags', name: '标签与细分', icon: <TagsOutlined /> },
     { path: '/departments', name: '部门', icon: <ApartmentOutlined /> },
+  ]
+  const adminConfigRoutes = [
     { path: '/workflows', name: '工作流', icon: <ThunderboltOutlined /> },
     { path: '/approval-flows', name: '审批流配置', icon: <AuditOutlined /> },
-    { path: '/settings/custom-fields', name: '自定义字段', icon: <SettingOutlined /> },
-    { path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> },
     { path: '/sla-policies', name: 'SLA 策略', icon: <AuditOutlined /> },
+    { path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> },
+    { path: '/settings/custom-fields', name: '自定义字段', icon: <SettingOutlined /> },
+  ]
+  const adminAuditRoutes = [
+    { path: '/tags', name: '标签与细分', icon: <TagsOutlined /> },
     { path: '/audit-logs', name: '审计日志', icon: <AuditOutlined /> },
     { path: '/recycle-bin', name: '回收站', icon: <DeleteOutlined /> },
   ]
+  const adminRoutes = [...adminOrgRoutes, ...adminConfigRoutes, ...adminAuditRoutes]
   const menuRoutes = [
     statsRoute,
     ...customerRoutes,
@@ -316,6 +348,14 @@ function Shell() {
   ]
   const toItems = (routes: typeof menuRoutes) =>
     routes.map((r) => ({ key: r.path, icon: r.icon, label: r.name }))
+  /** 递归拍平菜单项（移动端不支持分组/二级子组，全部拍平为普通项）。 */
+  const flattenMenuItems = (items: MenuItemLike[]): MenuItemLike[] =>
+    items.flatMap((item) => {
+      if (item && 'children' in item && Array.isArray(item.children)) {
+        return flattenMenuItems(item.children as MenuItemLike[])
+      }
+      return [item]
+    })
   const statsMenuItem = { key: statsRoute.path, icon: statsRoute.icon, label: statsRoute.name }
   // 028：按角色可见菜单过滤（ADMIN 全量；其他角色按 user.menus；path→menuKey 映射兼容多段路径）
   const visibleMenus = user?.role === 'ADMIN' ? undefined : new Set(user?.menus ?? [])
@@ -362,12 +402,7 @@ function Shell() {
   }
   const filterByMenus = (routes: typeof menuRoutes) =>
     visibleMenus ? routes.filter((r) => visibleMenus.has(menuKeyOf(r.path))) : routes
-  const groupedMenuItems: {
-    type: 'submenu'
-    key: string
-    label: string
-    children: { key: string; icon: React.ReactNode; label: string }[]
-  }[] = [
+  const groupedMenuItems: MenuItemLike[] = [
     ...(filterByMenus(customerRoutes).length
       ? [{ type: 'submenu' as const, key: 'g-customer', label: '客户管理', children: toItems(filterByMenus(customerRoutes)) }]
       : []),
@@ -389,15 +424,21 @@ function Shell() {
     ...(filterByMenus(dataRoutes).length
       ? [{ type: 'submenu' as const, key: 'g-data', label: '数据分析', children: toItems(filterByMenus(dataRoutes)) }]
       : []),
-    ...(filterByMenus(adminRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-admin', label: '系统管理', children: toItems(filterByMenus(adminRoutes)) }]
+    // 042：系统管理扁平化——三个一级分组（系统管理/流程与配置/审计与维护）
+    ...(filterByMenus(adminOrgRoutes).length
+      ? [{ type: 'submenu' as const, key: 'g-admin', label: '系统管理', children: toItems(filterByMenus(adminOrgRoutes)) }]
+      : []),
+    ...(filterByMenus(adminConfigRoutes).length
+      ? [{ type: 'submenu' as const, key: 'g-config', label: '流程与配置', children: toItems(filterByMenus(adminConfigRoutes)) }]
+      : []),
+    ...(filterByMenus(adminAuditRoutes).length
+      ? [{ type: 'submenu' as const, key: 'g-audit', label: '审计与维护', children: toItems(filterByMenus(adminAuditRoutes)) }]
       : []),
   ]
   // 所有分组默认收起（FR-S14 默认行为）；点击分组标签可收起/展开
-  const defaultOpenGroupKeys: string[] = []
-  // 统计分析置顶为独立菜单项；移动端横向菜单不支持分组，拍平为普通项
+  // 统计分析置顶为独立菜单项；移动端横向菜单不支持分组，递归拍平为普通项
   const menuItems = isMobile
-    ? [statsMenuItem, ...groupedMenuItems.flatMap((g) => g.children)]
+    ? [statsMenuItem, ...flattenMenuItems(groupedMenuItems)]
     : [statsMenuItem, ...groupedMenuItems]
   // 高亮当前页对应的菜单项（详情页按前缀匹配最长路径）
   const selectedKey =
@@ -405,7 +446,6 @@ function Shell() {
       .map((r) => r.path)
       .filter((p) => location.pathname === p || location.pathname.startsWith(p + '/'))
       .sort((a, b) => b.length - a.length)[0] ?? '/stats'
-
   const { Header, Sider, Content, Footer } = Layout
 
   return (
@@ -495,7 +535,8 @@ function Shell() {
             mode={isMobile ? 'horizontal' : 'inline'}
             style={{ height: '100%', borderInlineEnd: 'none', overflow: 'auto' }}
             items={menuItems}
-            defaultOpenKeys={isMobile ? undefined : defaultOpenGroupKeys}
+            openKeys={isMobile ? undefined : openKeys}
+            onOpenChange={(keys) => setOpenKeys(keys as string[])}
             selectedKeys={[selectedKey]}
             onClick={({ key }) => startTransition(() => navigate(key))}
           />
