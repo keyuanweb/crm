@@ -37,6 +37,7 @@ public class FollowUpService {
   private final DashboardStatsService dashboardStatsService;
   private final TaskService taskService;
   private final WorkflowEventPublisher workflowEventPublisher;
+  private final LeadScoreService leadScoreService;
 
   public FollowUpService(
       FollowUpMapper followUpMapper,
@@ -46,7 +47,8 @@ public class FollowUpService {
       LeadMapper leadMapper,
       DashboardStatsService dashboardStatsService,
       TaskService taskService,
-      WorkflowEventPublisher workflowEventPublisher) {
+      WorkflowEventPublisher workflowEventPublisher,
+      LeadScoreService leadScoreService) {
     this.followUpMapper = followUpMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
@@ -55,6 +57,7 @@ public class FollowUpService {
     this.dashboardStatsService = dashboardStatsService;
     this.taskService = taskService;
     this.workflowEventPublisher = workflowEventPublisher;
+    this.leadScoreService = leadScoreService;
   }
 
   public PageResult<FollowUpResponse> page(
@@ -87,6 +90,14 @@ public class FollowUpService {
     followUp.setFollowUpBy(SecurityUtil.currentUserId());
     followUpMapper.insert(followUp);
     dashboardStatsService.evict();
+    // 019：线索跟进后重算评分（跟进活跃度维度）
+    if (req.getLeadId() != null) {
+      Lead linkedLead = leadMapper.selectById(req.getLeadId());
+      if (linkedLead != null) {
+        leadScoreService.scoreAndUpdate(linkedLead);
+        leadMapper.updateById(linkedLead);
+      }
+    }
     maybeCreateFollowUpTask(req);
     // 013：跟进创建触发工作流
     workflowEventPublisher.followUpCreated(

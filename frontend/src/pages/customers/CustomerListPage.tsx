@@ -4,10 +4,12 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
+  Col,
   Form,
   Input,
   Modal,
   Popconfirm,
+  Row,
   Select,
   Space,
   Upload,
@@ -41,12 +43,11 @@ import { fetchUsers } from '../../services/userService'
 import { fetchCampaigns } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
+import { hasPerm } from '../../hooks/usePermission'
+import { extractCfParams, useCustomFieldFilterColumns } from '../../hooks/useCustomFieldFilters'
 import type { Customer } from '../../types/customer'
-import {
-  CustomFieldFormItems,
-  fromCustomFieldValues,
-  toCustomFieldPayload,
-} from '../../components/CustomFieldItems'
+import { fromCustomFieldValues, toCustomFieldPayload } from '../../utils/customField'
+import { CustomFieldFormItems } from '../../components/CustomFieldItems'
 
 interface FormValues {
   name: string
@@ -74,8 +75,16 @@ export default function CustomerListPage() {
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
   const [campaignOptions, setCampaignOptions] = useState<{ value: number; label: string }[]>([])
   const [transferForm] = Form.useForm<{ targetOwnerId: number }>()
+  const [saving, setSaving] = useState(false)
+  const [toolbarBusy, setToolbarBusy] = useState(false)
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
+  // 028：操作权限（ADMIN 恒真）
+  const canCreate = hasPerm('customer:create', user)
+  const canUpdate = hasPerm('customer:update', user)
+  const canDelete = hasPerm('customer:delete', user)
+  const canTransfer = hasPerm('customer:transfer', user)
+  const canImport = hasPerm('customer:import', user)
 
   useEffect(() => {
     void fetchCampaigns({ page: 1, pageSize: 100 }).then((res) =>
@@ -118,6 +127,7 @@ export default function CustomerListPage() {
     }
     const cf = toCustomFieldPayload(values.customFieldValues as Record<string, unknown>)
     if (cf) payload.customFieldValues = cf
+    setSaving(true)
     try {
       if (editing) {
         await updateCustomer(editing.id, { ...payload, version: editing.version })
@@ -130,6 +140,8 @@ export default function CustomerListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -154,12 +166,15 @@ export default function CustomerListPage() {
   }
 
   const onScan = async () => {
+    setToolbarBusy(true)
     try {
       const result = await scanPool()
       message.success(`扫描完成：${result.returnedCount} 个客户退回公海`)
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '扫描失败'))
+    } finally {
+      setToolbarBusy(false)
     }
   }
 
@@ -180,6 +195,7 @@ export default function CustomerListPage() {
 
   const onTransfer = async () => {
     const values = await transferForm.validateFields()
+    setToolbarBusy(true)
     try {
       const count = await batchTransferCustomers(selectedKeys as number[], values.targetOwnerId)
       message.success(`已转移 ${count} 个客户`)
@@ -188,19 +204,26 @@ export default function CustomerListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '转移失败'))
+    } finally {
+      setToolbarBusy(false)
     }
   }
 
   const onImport = async (file: File) => {
+    setToolbarBusy(true)
     try {
       const result: ImportResult = await importCustomers(file)
       message.success(`导入完成：成功 ${result.successCount} 条，失败 ${result.failureCount} 条`)
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, '导入失败'))
+    } finally {
+      setToolbarBusy(false)
     }
     return false
   }
+
+  const customFieldFilterColumns = useCustomFieldFilterColumns('CUSTOMER')
 
   const viewColumns: ProColumns<Customer>[] = [
     {
@@ -236,30 +259,39 @@ export default function CustomerListPage() {
           <a key="claim" onClick={() => onClaim(row)}>
             <UserAddOutlined /> 领取
           </a>
-        ) : (
+        ) : canUpdate ? (
           <a key="edit" onClick={() => openEdit(row)}>
             <EditOutlined /> 编辑
           </a>
-        ),
-        <Popconfirm
-          key="delete"
-          title={`确定删除客户「${row.name}」吗？（逻辑删除，可恢复）`}
-          onConfirm={() => onDelete(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>
-            <DeleteOutlined /> 删除
-          </a>
-        </Popconfirm>,
+        ) : null,
+        canDelete ? (
+          <Popconfirm
+            key="delete"
+            title={`确定删除客户「${row.name}」吗？（逻辑删除，可恢复）`}
+            onConfirm={() => onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>
+              <DeleteOutlined /> 删除
+            </a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]
 
-  const fetchByView = async (params: { keyword?: string; status?: string; current?: number; pageSize?: number }) => {
+  const fetchByView = async (params: {
+    keyword?: string
+    status?: string
+    current?: number
+    pageSize?: number
+    [k: string]: unknown
+  }) => {
     const common = {
       keyword: params.keyword,
       status: params.status,
       page: params.current ?? 1,
       pageSize: params.pageSize ?? 20,
+      ...extractCfParams(params),
     }
     const res =
       view === 'pool'
@@ -285,10 +317,11 @@ export default function CustomerListPage() {
       </Space>
 
       <ProTable<Customer>
+        size="small"
         headerTitle="客户管理"
         rowKey="id"
         actionRef={actionRef}
-        columns={viewColumns}
+        columns={[...viewColumns, ...customFieldFilterColumns]}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
         cardProps={{ style: { borderRadius: 10 } }}
@@ -299,33 +332,45 @@ export default function CustomerListPage() {
         }
         request={fetchByView}
         toolBarRender={() => [
-          ...(isAdmin
+          ...(canImport
             ? [
                 <Upload key="import" showUploadList={false} beforeUpload={(f) => onImport(f as unknown as File)} accept=".xlsx">
-                  <Button icon={<UploadOutlined />}>导入</Button>
+                  <Button icon={<UploadOutlined />} loading={toolbarBusy}>导入</Button>
                 </Upload>,
-                <Button key="template" icon={<DownloadOutlined />} onClick={() => void downloadTemplate()}>
+                <Button key="template" icon={<DownloadOutlined />} disabled={toolbarBusy} onClick={() => void downloadTemplate()}>
                   下载模板
                 </Button>,
-                <Button key="export" icon={<DownloadOutlined />} onClick={() => void exportCustomers({})}>
-                  导出
-                </Button>,
-                <Button key="scan" onClick={() => void onScan()}>
+              ]
+            : []),
+          <Button key="export" icon={<DownloadOutlined />} loading={toolbarBusy} onClick={() => void exportCustomers({})}>
+            导出
+          </Button>,
+          ...(isAdmin
+            ? [
+                <Button key="scan" loading={toolbarBusy} onClick={() => void onScan()}>
                   公海扫描
                 </Button>,
+              ]
+            : []),
+          ...(canTransfer
+            ? [
                 <Button
                   key="transfer"
                   icon={<SwapOutlined />}
-                  disabled={selectedKeys.length === 0}
+                  disabled={selectedKeys.length === 0 || toolbarBusy}
                   onClick={() => void openTransfer()}
                 >
                   批量转移
                 </Button>,
               ]
             : []),
-          <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增客户
-          </Button>,
+          ...(canCreate
+            ? [
+                <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                  新增客户
+                </Button>,
+              ]
+            : []),
         ]}
       />
 
@@ -335,40 +380,60 @@ export default function CustomerListPage() {
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
         okText="保存"
+        confirmLoading={saving}
         destroyOnClose
+        width={640}
       >
-        <Form form={form} name="customerForm" layout="vertical">
-          <Form.Item name="name" label="客户名称" rules={[{ required: true, message: '请输入客户名称' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="company" label="公司" rules={[{ required: true, message: '请输入公司' }]}>
-            <Input />
-          </Form.Item>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="contactPerson" label="联系人" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="phone" label="电话" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-          </Space>
-          <Space size="middle" style={{ display: 'flex' }} align="start">
-            <Form.Item name="email" label="邮箱" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="address" label="地址" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-          </Space>
-          <Form.Item name="campaignId" label="营销活动">
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              placeholder="选择来源活动（可选）"
-              options={campaignOptions}
-            />
-          </Form.Item>
+        <Form
+          form={form}
+          name="customerForm"
+          layout="horizontal"
+          labelCol={{ flex: '100px' }}
+          wrapperCol={{ flex: 1 }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="name" label="客户名称" rules={[{ required: true, message: '请输入客户名称' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="company" label="公司" rules={[{ required: true, message: '请输入公司' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="contactPerson" label="联系人">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="phone" label="电话">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="email" label="邮箱">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="address" label="地址">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="campaignId" label="营销活动">
+                <Select
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="选择来源活动（可选）"
+                  options={campaignOptions}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
           <CustomFieldFormItems entityType="CUSTOMER" />
           <Form.Item name="remark" label="备注">
             <Input.TextArea rows={2} />

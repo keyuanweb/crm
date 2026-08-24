@@ -1,9 +1,10 @@
 package com.crm.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,6 +12,8 @@ import org.springframework.stereotype.Component;
  *
  * <p>JwtAuthFilter 优先读缓存，未命中时查 DB 并回写；用户状态变更（停用/改密/重置密码） 时主动 evict。所有 Redis 操作 try-catch，Redis
  * 不可用时降级为直接查 DB（fail-open）。
+ *
+ * <p>使用专用 StringRedisTemplate（JSON 字符串存储），与全局对象序列化器解耦： 避免类型包装（WRAPPER_ARRAY）带来的格式脆弱性与旧数据不兼容。
  */
 @Component
 public class UserStateCache {
@@ -19,10 +22,11 @@ public class UserStateCache {
   private static final String KEY_PREFIX = "auth:user-state:";
   private static final Duration TTL = Duration.ofSeconds(30);
 
-  private final RedisTemplate<String, Object> redisTemplate;
+  private final StringRedisTemplate stringRedisTemplate;
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
-  public UserStateCache(RedisTemplate<String, Object> redisTemplate) {
-    this.redisTemplate = redisTemplate;
+  public UserStateCache(StringRedisTemplate stringRedisTemplate) {
+    this.stringRedisTemplate = stringRedisTemplate;
   }
 
   /** 从缓存读取用户状态；未命中或 Redis 异常返回 null。 */
@@ -31,11 +35,11 @@ public class UserStateCache {
       return null;
     }
     try {
-      Object value = redisTemplate.opsForValue().get(KEY_PREFIX + userId);
-      if (value instanceof UserState state) {
-        return state;
+      String json = stringRedisTemplate.opsForValue().get(KEY_PREFIX + userId);
+      if (json == null) {
+        return null;
       }
-      return null;
+      return objectMapper.readValue(json, UserState.class);
     } catch (Exception ex) {
       log.debug("Failed to read user state cache for userId={}: {}", userId, ex.getMessage());
       return null;
@@ -48,7 +52,8 @@ public class UserStateCache {
       return;
     }
     try {
-      redisTemplate.opsForValue().set(KEY_PREFIX + userId, state, TTL);
+      String json = objectMapper.writeValueAsString(state);
+      stringRedisTemplate.opsForValue().set(KEY_PREFIX + userId, json, TTL);
     } catch (Exception ex) {
       log.debug("Failed to write user state cache for userId={}: {}", userId, ex.getMessage());
     }
@@ -60,7 +65,7 @@ public class UserStateCache {
       return;
     }
     try {
-      redisTemplate.delete(KEY_PREFIX + userId);
+      stringRedisTemplate.delete(KEY_PREFIX + userId);
     } catch (Exception ex) {
       log.debug("Failed to evict user state cache for userId={}: {}", userId, ex.getMessage());
     }

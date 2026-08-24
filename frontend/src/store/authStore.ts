@@ -1,12 +1,16 @@
 import { create } from 'zustand'
 
-export type Role = 'ADMIN' | 'SALES' | 'SUPPORT'
+export type Role = 'ADMIN' | 'SALES' | 'SUPPORT' | string
 
 export interface UserInfo {
   id: number
   username: string
   displayName: string
   role: Role
+  /** 可见菜单 key（028 角色权限）。 */
+  menus?: string[]
+  /** 操作权限码（028 角色权限）。 */
+  permissions?: string[]
 }
 
 interface AuthState {

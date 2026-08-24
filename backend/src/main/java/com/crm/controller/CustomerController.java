@@ -6,11 +6,14 @@ import com.crm.dto.customer.CustomerDetailResponse;
 import com.crm.dto.customer.CustomerRequest;
 import com.crm.dto.customer.CustomerResponse;
 import com.crm.dto.customer.ImportResult;
+import com.crm.service.CustomFieldFilterSupport;
 import com.crm.service.CustomerExcelService;
 import com.crm.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -36,21 +39,38 @@ public class CustomerController {
 
   private final CustomerService customerService;
   private final CustomerExcelService customerExcelService;
+  private final CustomFieldFilterSupport customFieldFilterSupport;
 
   public CustomerController(
-      CustomerService customerService, CustomerExcelService customerExcelService) {
+      CustomerService customerService,
+      CustomerExcelService customerExcelService,
+      CustomFieldFilterSupport customFieldFilterSupport) {
     this.customerService = customerService;
     this.customerExcelService = customerExcelService;
+    this.customFieldFilterSupport = customFieldFilterSupport;
   }
 
   @GetMapping
-  @Operation(summary = "分页查询客户列表（关键字搜索/状态筛选）")
+  @Operation(summary = "分页查询客户列表（关键字搜索/状态/自定义字段筛选）")
   public ApiResponse<PageResult<CustomerResponse>> page(
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) String status,
       @RequestParam(defaultValue = "1") long page,
+      @RequestParam(defaultValue = "20") long pageSize,
+      @RequestParam Map<String, String> params) {
+    List<Long> cfMatchedIds =
+        customFieldFilterSupport.matchEntityIds(
+            "CUSTOMER", customFieldFilterSupport.parseFilters(params));
+    return ApiResponse.ok(customerService.page(keyword, status, cfMatchedIds, page, pageSize));
+  }
+
+  @GetMapping("/health/at-risk")
+  @Operation(summary = "客户流失预警列表（超过 N 天无跟进且无新订单，按健康度升序）")
+  public ApiResponse<PageResult<com.crm.dto.customer.CustomerHealthBrief>> atRisk(
+      @RequestParam(defaultValue = "45") int daysInactive,
+      @RequestParam(defaultValue = "1") long page,
       @RequestParam(defaultValue = "20") long pageSize) {
-    return ApiResponse.ok(customerService.page(keyword, status, page, pageSize));
+    return ApiResponse.ok(customerService.atRiskCustomers(daysInactive, page, pageSize));
   }
 
   @GetMapping("/{id}")

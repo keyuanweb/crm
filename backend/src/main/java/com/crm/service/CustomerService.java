@@ -16,6 +16,7 @@ import com.crm.entity.Customer;
 import com.crm.entity.FollowUp;
 import com.crm.entity.Opportunity;
 import com.crm.entity.SalesOpportunity;
+import com.crm.entity.SalesOrder;
 import com.crm.repository.ContactMapper;
 import com.crm.repository.CustomerMapper;
 import com.crm.repository.FollowUpMapper;
@@ -43,7 +44,9 @@ public class CustomerService {
   private final DataPermissionService dataPermissionService;
   private final com.crm.repository.CustomerShareMapper customerShareMapper;
   private final com.crm.repository.UserMapper userMapper;
+  private final com.crm.repository.SalesOrderMapper orderMapper;
   private final CustomFieldService customFieldService;
+  private final Customer360Service customer360Service;
 
   public CustomerService(
       CustomerMapper customerMapper,
@@ -56,7 +59,9 @@ public class CustomerService {
       DataPermissionService dataPermissionService,
       com.crm.repository.CustomerShareMapper customerShareMapper,
       com.crm.repository.UserMapper userMapper,
-      CustomFieldService customFieldService) {
+      com.crm.repository.SalesOrderMapper orderMapper,
+      CustomFieldService customFieldService,
+      Customer360Service customer360Service) {
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.followUpMapper = followUpMapper;
@@ -67,12 +72,21 @@ public class CustomerService {
     this.dataPermissionService = dataPermissionService;
     this.customerShareMapper = customerShareMapper;
     this.userMapper = userMapper;
+    this.orderMapper = orderMapper;
     this.customFieldService = customFieldService;
+    this.customer360Service = customer360Service;
   }
 
   public PageResult<CustomerResponse> page(
-      String keyword, String status, long page, long pageSize) {
+      String keyword, String status, List<Long> customFieldMatchedIds, long page, long pageSize) {
     LambdaQueryWrapper<Customer> qw = new LambdaQueryWrapper<>();
+    // 自定义字段筛选（FR-S03）
+    if (customFieldMatchedIds != null) {
+      if (customFieldMatchedIds.isEmpty()) {
+        return PageResult.of(List.of(), 0, page, pageSize);
+      }
+      qw.in(Customer::getId, customFieldMatchedIds);
+    }
     if (StringUtils.hasText(keyword)) {
       String kw = keyword.trim();
       qw.and(
@@ -193,7 +207,117 @@ public class CustomerService {
             .toList();
     resp.setContacts(contacts);
     resp.setCustomFieldValues(customFieldService.readValues("CUSTOMER", id));
+    // 018：客户 360 聚合（订单/回款/合同/工单 + 金额汇总 + 健康度）
+    resp.setCustomer360(customer360Service.aggregate(id));
     return resp;
+  }
+
+  /**
+   * 流失预警列表（018-customer-360，FR-005）：超过 N 天无跟进且无新订单的可见客户，按健康度升序。
+   *
+   * @param daysInactive 无活动阈值天数（>0；≤0 视为不启用预警）
+   */
+  public PageResult<com.crm.dto.customer.CustomerHealthBrief> atRiskCustomers(
+      int daysInactive, long page, long pageSize) {
+    if (daysInactive <= 0) {
+      return PageResult.of(List.of(), 0, page, pageSize);
+    }
+    LambdaQueryWrapper<Customer> qw = new LambdaQueryWrapper<>();
+    applyDataScopeFilter(qw);
+    qw.orderByDesc(Customer::getId);
+    List<Customer> customers = customerMapper.selectList(qw);
+    if (customers.isEmpty()) {
+      return PageResult.of(List.of(), 0, page, pageSize);
+    }
+
+    java.time.LocalDateTime now = java.time.LocalDateTime.now();
+    java.time.LocalDateTime cutoff = now.minusDays(daysInactive);
+    List<Long> ids = customers.stream().map(Customer::getId).toList();
+
+    // 最近跟进时间（按客户分组取 max）
+    Map<Long, java.time.LocalDateTime> lastFollowUp =
+        followUpMapper
+            .selectList(
+                new LambdaQueryWrapper<FollowUp>()
+                    .in(FollowUp::getCustomerId, ids)
+                    .select(FollowUp::getCustomerId, FollowUp::getCreatedAt))
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    FollowUp::getCustomerId,
+                    FollowUp::getCreatedAt,
+                    (a, b) -> a.isAfter(b) ? a : b));
+    // 最近订单时间（按客户分组取 max）
+    Map<Long, java.time.LocalDateTime> lastOrder =
+        orderMapper
+            .selectList(
+                new LambdaQueryWrapper<SalesOrder>()
+                    .in(SalesOrder::getCustomerId, ids)
+                    .select(SalesOrder::getCustomerId, SalesOrder::getUpdatedAt))
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    SalesOrder::getCustomerId,
+                    SalesOrder::getUpdatedAt,
+                    (a, b) -> a.isAfter(b) ? a : b));
+
+    List<Long> ownerIds =
+        customers.stream()
+            .map(Customer::getOwnerId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+    Map<Long, com.crm.entity.User> owners =
+        ownerIds.isEmpty()
+            ? Map.of()
+            : userMapper.selectBatchIds(ownerIds).stream()
+                .collect(Collectors.toMap(com.crm.entity.User::getId, u -> u));
+
+    List<com.crm.dto.customer.CustomerHealthBrief> all =
+        customers.stream()
+            .filter(c -> !lastFollowUp.containsKey(c.getId()))
+            .filter(c -> !lastOrder.containsKey(c.getId()))
+            .filter(
+                c -> {
+                  // 无跟进且无订单 → 无活动天数即客户创建至今
+                  return c.getCreatedAt() != null && c.getCreatedAt().isBefore(cutoff);
+                })
+            .map(
+                c -> {
+                  com.crm.dto.customer.CustomerHealthBrief b =
+                      new com.crm.dto.customer.CustomerHealthBrief();
+                  b.setId(c.getId());
+                  b.setName(c.getName());
+                  b.setCompany(c.getCompany());
+                  b.setLastFollowUpAt(null);
+                  b.setLastOrderAt(null);
+                  int inactive =
+                      c.getCreatedAt() == null
+                          ? daysInactive
+                          : (int)
+                              Math.max(
+                                  0,
+                                  java.time.temporal.ChronoUnit.DAYS.between(
+                                      c.getCreatedAt(), now));
+                  b.setDaysInactive(inactive);
+                  com.crm.entity.User owner =
+                      c.getOwnerId() == null ? null : owners.get(c.getOwnerId());
+                  b.setOwnerName(owner == null ? null : owner.getDisplayName());
+                  // 健康度：基于 360 聚合计算（复用评分逻辑）
+                  com.crm.dto.customer.HealthScoreDTO health =
+                      customer360Service.aggregate(c.getId()).getHealth();
+                  b.setHealthScore(health == null ? 0 : health.getScore());
+                  return b;
+                })
+            .sorted(
+                java.util.Comparator.comparingInt(
+                    com.crm.dto.customer.CustomerHealthBrief::getHealthScore))
+            .toList();
+
+    long total = all.size();
+    int from = (int) Math.min(all.size(), (page - 1) * pageSize);
+    int to = (int) Math.min(all.size(), page * pageSize);
+    return PageResult.of(from >= to ? List.of() : all.subList(from, to), total, page, pageSize);
   }
 
   @Transactional
@@ -234,6 +358,7 @@ public class CustomerService {
   }
 
   @Transactional
+  @com.crm.security.RequirePermission("customer:delete")
   public void delete(Long id) {
     Customer customer = require(id);
     checkWritePermission(customer);

@@ -4,10 +4,11 @@ import { Alert, Button, Form, Input, Typography } from 'antd'
 import {
   CheckCircleOutlined,
   LockOutlined,
+  SafetyOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { login } from '../services/authService'
+import { fetchCaptcha, login } from '../services/authService'
 import { extractErrorMessage } from '../services/apiClient'
 import { useAuthStore } from '../store/authStore'
 
@@ -16,6 +17,7 @@ const { Title, Paragraph, Text } = Typography
 interface LoginValues {
   username: string
   password: string
+  captchaCode: string
 }
 
 const features = [
@@ -28,9 +30,24 @@ const features = [
 export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captchaId, setCaptchaId] = useState('')
+  const [captchaImg, setCaptchaImg] = useState('')
   const navigate = useNavigate()
   const setTokens = useAuthStore((s) => s.setTokens)
   const setUser = useAuthStore((s) => s.setUser)
+  const [form] = Form.useForm<LoginValues>()
+
+  const refreshCaptcha = async () => {
+    try {
+      const captcha = await fetchCaptcha()
+      setCaptchaId(captcha.captchaId)
+      setCaptchaImg(captcha.imageBase64)
+      form.setFieldValue('captchaCode', '')
+    } catch {
+      // 验证码拉取失败不阻断登录表单展示，用户可点击重试
+      setCaptchaImg('')
+    }
+  }
 
   // 登录页禁止页面滚动条，离开时恢复
   useEffect(() => {
@@ -50,16 +67,22 @@ export default function LoginPage() {
     }
   }, [])
 
+  useEffect(() => {
+    void refreshCaptcha()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const onFinish = async (values: LoginValues) => {
     setError('')
     setLoading(true)
     try {
-      const res = await login(values.username, values.password)
+      const res = await login(values.username, values.password, captchaId, values.captchaCode)
       setTokens(res.accessToken, res.refreshToken)
       setUser(res.user)
       navigate('/', { replace: true })
     } catch (err) {
       setError(extractErrorMessage(err, '登录失败，请检查用户名与密码'))
+      void refreshCaptcha()
     } finally {
       setLoading(false)
     }
@@ -211,6 +234,51 @@ export default function LoginPage() {
                 aria-label="密码"
                 autoComplete="current-password"
               />
+            </Form.Item>
+            <Form.Item
+              name="captchaCode"
+              rules={[{ required: true, message: '请输入验证码' }]}
+            >
+              <div style={{ display: 'flex', gap: 12 }}>
+                <Input
+                  prefix={<SafetyOutlined style={{ color: '#bfbfbf' }} />}
+                  placeholder="验证码"
+                  aria-label="验证码"
+                  autoComplete="off"
+                  maxLength={6}
+                  style={{ flex: 1 }}
+                />
+                <div
+                  style={{
+                    width: 120,
+                    height: 40,
+                    flexShrink: 0,
+                    cursor: 'pointer',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    background: '#fafafa',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onClick={() => void refreshCaptcha()}
+                  title="点击刷新验证码"
+                >
+                  {captchaImg ? (
+                    <img
+                      src={captchaImg}
+                      alt="验证码"
+                      aria-label="验证码图片"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      点击获取
+                    </Text>
+                  )}
+                </div>
+              </div>
             </Form.Item>
             <Form.Item style={{ marginBottom: 16 }}>
               <Button
