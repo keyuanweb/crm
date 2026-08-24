@@ -25,16 +25,19 @@ public class TagService {
   private final CustomerTagMapper customerTagMapper;
   private final CustomerMapper customerMapper;
   private final AuditService auditService;
+  private final WorkflowEventPublisher workflowEventPublisher;
 
   public TagService(
       TagMapper tagMapper,
       CustomerTagMapper customerTagMapper,
       CustomerMapper customerMapper,
-      AuditService auditService) {
+      AuditService auditService,
+      WorkflowEventPublisher workflowEventPublisher) {
     this.tagMapper = tagMapper;
     this.customerTagMapper = customerTagMapper;
     this.customerMapper = customerMapper;
     this.auditService = auditService;
+    this.workflowEventPublisher = workflowEventPublisher;
   }
 
   /** 标签列表（按实体类型）。 */
@@ -112,6 +115,12 @@ public class TagService {
       }
     }
     auditService.record("UPDATE", "CUSTOMER", customerId, "更新客户标签");
+    // 049：标签变更发布营销事件
+    List<String> names =
+        tagIds == null || tagIds.isEmpty()
+            ? java.util.List.of()
+            : tagMapper.selectBatchIds(tagIds).stream().map(Tag::getName).toList();
+    workflowEventPublisher.tagChanged(customerId, java.util.Map.of("tags", String.join(",", names)));
   }
 
   /** 客户标签列表。 */

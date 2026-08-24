@@ -1,4 +1,4 @@
-# Tasks: 营销自动化模块
+﻿# Tasks: 营销自动化模块
 
 **Input**: Design documents from `/specs/049-marketing-automation/`
 
@@ -19,10 +19,10 @@
 
 ### 实现
 
-- [ ] T001 [P] [US1] WorkflowEngine 增加营销事件常量与数值条件匹配（score >= 阈值）in `backend/src/main/java/com/crm/service/WorkflowEngine.java`
-- [ ] T002 [P] [US1] WorkflowEventPublisher 增加 leadScoreThreshold/tagChanged 发布方法 in `backend/src/main/java/com/crm/service/WorkflowEventPublisher.java`
-- [ ] T003 [US1] LeadScoringService 评分重算后发布 LEAD_SCORE_THRESHOLD in `backend/src/main/java/com/crm/service/LeadScoringService.java`
-- [ ] T004 [US1] 标签服务打标后发布 TAG_CHANGED in `backend/src/main/java/com/crm/service/`（TagService/CustomerTagService）
+- [x] T001 [P] [US1] WorkflowEngine 增加营销事件常量与数值条件匹配（score >= 阈值）in `backend/src/main/java/com/crm/service/WorkflowEngine.java`
+- [x] T002 [P] [US1] WorkflowEventPublisher 增加 leadScoreThreshold/tagChanged 发布方法 in `backend/src/main/java/com/crm/service/WorkflowEventPublisher.java`
+- [x] T003 [US1] LeadScoringService 评分重算后发布 LEAD_SCORE_THRESHOLD in `backend/src/main/java/com/crm/service/LeadScoringService.java`
+- [x] T004 [US1] 标签服务打标后发布 TAG_CHANGED in `backend/src/main/java/com/crm/service/`（TagService/CustomerTagService）
 
 **Checkpoint**: US1 可用——营销事件触发
 
@@ -36,12 +36,12 @@
 
 ### 实现
 
-- [ ] T005 [P] [US2] WorkflowEngine execute 增加 SEND_EMAIL（发模板邮件给线索邮箱）in `backend/src/main/java/com/crm/service/WorkflowEngine.java`
-- [ ] T006 [P] [US2] WorkflowEngine execute 增加 ADD_TAG（为线索添加标签）in `backend/src/main/java/com/crm/service/WorkflowEngine.java`
-- [ ] T007 [US2] WorkflowRuleService 事件/动作类型校验扩展（营销选项）in `backend/src/main/java/com/crm/service/WorkflowRuleService.java`
-- [ ] T008 [US2] 创建 MarketingAutomationServiceTest 单元测试 in `backend/src/test/java/com/crm/service/MarketingAutomationServiceTest.java`
-- [ ] T009 [US2] 创建 MarketingAutomationIT 集成测试 in `backend/src/test/java/com/crm/integration/MarketingAutomationIT.java`
-- [ ] T010 [US2] 前端规则配置页事件/动作下拉扩展营销选项 in `frontend/src/pages/workflows/WorkflowRulePage.tsx`
+- [x] T005 [P] [US2] WorkflowEngine execute 增加 SEND_EMAIL（发模板邮件给线索邮箱）in `backend/src/main/java/com/crm/service/WorkflowEngine.java`
+- [x] T006 [P] [US2] WorkflowEngine execute 增加 ADD_TAG（为线索添加标签）in `backend/src/main/java/com/crm/service/WorkflowEngine.java`
+- [x] T007 [US2] WorkflowRuleService 事件/动作类型校验扩展（营销选项）in `backend/src/main/java/com/crm/service/WorkflowRuleService.java`
+- [x] T008 [US2] 创建 MarketingAutomationServiceTest 单元测试 in `backend/src/test/java/com/crm/service/MarketingAutomationServiceTest.java`
+- [x] T009 [US2] 创建 MarketingAutomationIT 集成测试 in `backend/src/test/java/com/crm/integration/MarketingAutomationIT.java`
+- [x] T010 [US2] 前端规则配置页事件/动作下拉扩展营销选项 in `frontend/src/pages/workflows/WorkflowRulePage.tsx`
 
 **Checkpoint**: US2 可用——营销动作执行
 
@@ -49,11 +49,11 @@
 
 ## Phase 3: 收尾与验证
 
-- [ ] T011 Backend `mvn verify` 通过（含新增测试、spotless、JaCoCo）
-- [ ] T012 单独运行 `mvn test "-Dtest=MarketingAutomationIT"` 通过
-- [ ] T013 Frontend typecheck / lint / build 通过
-- [ ] T014 线上端点验证（评分规则触发→邮件/任务；标签规则→加标签）
-- [ ] T015 更新 roadmap 049 标记 `[x]`
+- [x] T011 Backend `mvn verify` 通过（含新增测试、spotless、JaCoCo）
+- [x] T012 单独运行 `mvn test "-Dtest=MarketingAutomationIT"` 通过
+- [x] T013 Frontend typecheck / lint / build 通过
+- [x] T014 线上端点验证（评分规则触发→邮件/任务；标签规则→加标签）
+- [x] T015 更新 roadmap 049 标记 `[x]`
 
 **Checkpoint**: 模块完整可用
 

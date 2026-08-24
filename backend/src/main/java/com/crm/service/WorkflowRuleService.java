@@ -136,6 +136,16 @@ public class WorkflowRuleService {
           throw new BusinessException(ErrorCode.WORKFLOW_INVALID_ACTION);
         }
       }
+      case "SEND_EMAIL" -> {
+        if (action.get("templateId") == null) {
+          throw new BusinessException(ErrorCode.WORKFLOW_INVALID_ACTION);
+        }
+      }
+      case "ADD_TAG" -> {
+        if (action.get("tag") == null) {
+          throw new BusinessException(ErrorCode.WORKFLOW_INVALID_ACTION);
+        }
+      }
       default -> throw new BusinessException(ErrorCode.WORKFLOW_INVALID_ACTION);
     }
   }

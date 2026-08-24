@@ -122,7 +122,43 @@ public class EmailCampaignService {
     return campaign;
   }
 
-  /** 异步发送：有 SMTP 逐封发，无 SMTP 日志模拟。 */
+  /** 营销自动化单发（049）：按模板发单封邮件，记录 EmailSendLog（campaignId=null 标记自动化）。 */
+  @Transactional
+  public void sendAutomationEmail(Long templateId, String toEmail) {
+    if (toEmail == null || toEmail.isBlank()) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST, "收件人邮箱为空");
+    }
+    EmailTemplate template = templateService.require(templateId);
+    EmailSendLog l = new EmailSendLog();
+    l.setCampaignId(null);
+    l.setCustomerId(null);
+    l.setEmail(toEmail);
+    l.setSubject(template.getSubject());
+    l.setContent(template.getContent());
+    l.setStatus("SENT");
+    l.setCreatedAt(java.time.LocalDateTime.now());
+    sendLogMapper.insert(l);
+    try {
+      if (mailSender != null) {
+        SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setTo(toEmail);
+        msg.setSubject(template.getSubject());
+        msg.setText(stripHtml(template.getContent()));
+        mailSender.send(msg);
+      } else {
+        log.debug("No mail sender configured, simulated automation email to {}", toEmail);
+      }
+    } catch (Exception ex) {
+      log.warn("Automation email send failed to {}: {}", toEmail, ex.getMessage());
+      l.setStatus("FAILED");
+      l.setErrorMessage(ex.getMessage());
+      sendLogMapper.updateById(l);
+    }
+    auditService.record(
+        "SEND", "EMAIL_CAMPAIGN", l.getId(), "自动化邮件（模板 " + templateId + " → " + toEmail + "）");
+  }
+
+  /** 营销自动化异步发送：有 SMTP 逐封发，无 SMTP 日志模拟。 */
   @Async
   public void sendAsync(Long campaignId, List<EmailSendLog> logs, EmailTemplate template) {
     for (EmailSendLog sendLog : logs) {

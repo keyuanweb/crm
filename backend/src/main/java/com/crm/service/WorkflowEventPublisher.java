@@ -32,4 +32,17 @@ public class WorkflowEventPublisher {
   public void paymentRecorded(Long orderId, Map<String, String> context) {
     workflowEngine.fire(WorkflowEngine.EVENT_PAYMENT_RECORDED, "SALES_ORDER", orderId, context);
   }
+
+  // ===== 049：营销自动化事件 =====
+
+  /** 线索评分达阈值（评分重算后发布）。 */
+  public void leadScoreThreshold(Long leadId, Map<String, String> context) {
+    workflowEngine.fire(
+        WorkflowEngine.EVENT_LEAD_SCORE_THRESHOLD, "LEAD", leadId, context);
+  }
+
+  /** 标签变更（客户打标后发布）。 */
+  public void tagChanged(Long customerId, Map<String, String> context) {
+    workflowEngine.fire(WorkflowEngine.EVENT_TAG_CHANGED, "CUSTOMER", customerId, context);
+  }
 }

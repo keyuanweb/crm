@@ -25,6 +25,8 @@ interface FormValues {
   titleTemplate?: string
   dueDays?: number
   message?: string
+  templateId?: number
+  tag?: string
   enabled: boolean
 }
 
@@ -74,6 +76,8 @@ export default function WorkflowRuleListPage() {
       titleTemplate: row.action.titleTemplate as string | undefined,
       dueDays: row.action.dueDays as number | undefined,
       message: row.action.message as string | undefined,
+      templateId: row.action.templateId as number | undefined,
+      tag: row.action.tag as string | undefined,
       enabled: row.enabled,
     })
     setModalOpen(true)
@@ -87,8 +91,12 @@ export default function WorkflowRuleListPage() {
     } else if (values.actionType === 'CREATE_TASK') {
       action.titleTemplate = values.titleTemplate
       action.dueDays = values.dueDays ?? 3
-    } else {
+    } else if (values.actionType === 'NOTIFY') {
       action.message = values.message
+    } else if (values.actionType === 'SEND_EMAIL') {
+      action.templateId = values.templateId
+    } else if (values.actionType === 'ADD_TAG') {
+      action.tag = values.tag
     }
     const payload: WorkflowRulePayload = {
       name: values.name.trim(),
@@ -333,6 +341,30 @@ export default function WorkflowRuleListPage() {
                   rules={[{ required: true, message: '请输入通知内容' }]}
                 >
                   <Input placeholder="如：客户{name}已进入谈判阶段" />
+                </Form.Item>
+              </Col>
+            )}
+            {actionType === 'SEND_EMAIL' && (
+              <Col span={24}>
+                <Form.Item
+                  name="templateId"
+                  label="邮件模板 ID"
+                  rules={[{ required: true, message: '请输入邮件模板 ID' }]}
+                  extra="发送模板邮件给线索邮箱（收件人取线索 email 字段）"
+                >
+                  <InputNumber min={1} style={{ width: '100%' }} placeholder="如：1" />
+                </Form.Item>
+              </Col>
+            )}
+            {actionType === 'ADD_TAG' && (
+              <Col span={24}>
+                <Form.Item
+                  name="tag"
+                  label="标签名称"
+                  rules={[{ required: true, message: '请输入标签名称' }]}
+                  extra="为客户实体添加标签（需标签已存在）"
+                >
+                  <Input placeholder="如：重点客户" />
                 </Form.Item>
               </Col>
             )}

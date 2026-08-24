@@ -53,7 +53,13 @@ class TagServiceTest {
     customerTagMapper = mock(CustomerTagMapper.class);
     customerMapper = mock(CustomerMapper.class);
     auditService = mock(AuditService.class);
-    service = new TagService(tagMapper, customerTagMapper, customerMapper, auditService);
+    service =
+        new TagService(
+            tagMapper,
+            customerTagMapper,
+            customerMapper,
+            auditService,
+            mock(WorkflowEventPublisher.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock

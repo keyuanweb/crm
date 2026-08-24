@@ -195,6 +195,13 @@ public class LeadService {
     // 019：更新后自动重算评分
     leadScoreService.scoreAndUpdate(existing);
     leadMapper.updateById(existing);
+    // 049：评分变化发布营销事件（评分阈值规则）
+    workflowEventPublisher.leadScoreThreshold(
+        id,
+        java.util.Map.of(
+            "score", String.valueOf(existing.getScore()),
+            "name", existing.getName() == null ? "" : existing.getName(),
+            "email", existing.getEmail() == null ? "" : existing.getEmail()));
     if (req.getCustomFieldValues() != null && !req.getCustomFieldValues().isEmpty()) {
       customFieldService.saveValues("LEAD", id, req.getCustomFieldValues());
     }

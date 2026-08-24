@@ -17,7 +17,9 @@ public class WorkflowRuleRequest {
 
   @NotBlank(message = "触发事件不能为空")
   @Pattern(
-      regexp = "^(LEAD_CREATED|OPPORTUNITY_STAGE_CHANGED|FOLLOW_UP_CREATED|PAYMENT_RECORDED)$",
+      regexp =
+          "^(LEAD_CREATED|OPPORTUNITY_STAGE_CHANGED|FOLLOW_UP_CREATED|PAYMENT_RECORDED|"
+              + "LEAD_SCORE_THRESHOLD|TAG_CHANGED)$",
       message = "触发事件不合法")
   private String eventType;
 
@@ -25,7 +27,7 @@ public class WorkflowRuleRequest {
   private Map<String, String> condition;
 
   @NotBlank(message = "动作类型不能为空")
-  @Pattern(regexp = "^(CREATE_TASK|ASSIGN|NOTIFY)$", message = "动作类型不合法")
+  @Pattern(regexp = "^(CREATE_TASK|ASSIGN|NOTIFY|SEND_EMAIL|ADD_TAG)$", message = "动作类型不合法")
   private String actionType;
 
   @NotNull(message = "动作配置不能为空")
