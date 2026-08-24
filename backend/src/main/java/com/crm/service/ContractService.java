@@ -25,6 +25,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -32,6 +34,8 @@ import org.springframework.util.StringUtils;
 /** 合同服务（008-contract-management，FR-CT01~CT06）：状态机/基于报价创建/审批/生效。 */
 @Service
 public class ContractService {
+
+  private static final Logger log = LoggerFactory.getLogger(ContractService.class);
 
   public static final String STATUS_DRAFT = "DRAFT";
   public static final String STATUS_PENDING = "PENDING_APPROVAL";
@@ -51,6 +55,7 @@ public class ContractService {
   private final QuoteMapper quoteMapper;
   private final AuditService auditService;
   private final ApprovalEngineService approvalEngineService;
+  private final ApprovalLaunchDelegate approvalLaunchDelegate;
 
   public ContractService(
       ContractMapper contractMapper,
@@ -59,7 +64,8 @@ public class ContractService {
       CustomerMapper customerMapper,
       QuoteMapper quoteMapper,
       AuditService auditService,
-      ApprovalEngineService approvalEngineService) {
+      ApprovalEngineService approvalEngineService,
+      ApprovalLaunchDelegate approvalLaunchDelegate) {
     this.contractMapper = contractMapper;
     this.attachmentMapper = attachmentMapper;
     this.templateMapper = templateMapper;
@@ -67,6 +73,7 @@ public class ContractService {
     this.quoteMapper = quoteMapper;
     this.auditService = auditService;
     this.approvalEngineService = approvalEngineService;
+    this.approvalLaunchDelegate = approvalLaunchDelegate;
   }
 
   public PageResult<ContractResponse> page(
@@ -116,6 +123,7 @@ public class ContractService {
       amount = quote.getTotalAmount();
     }
     validateDates(req.getStartDate(), req.getEndDate());
+    validateRenewedFrom(req.getRenewedFromId());
 
     Contract contract = new Contract();
     contract.setContractNo(nextContractNo(LocalDate.now()));
@@ -128,6 +136,7 @@ public class ContractService {
     contract.setContent(buildContent(req, contract));
     contract.setStatus(STATUS_DRAFT);
     contract.setRemark(req.getRemark());
+    contract.setRenewedFromId(req.getRenewedFromId());
     contract.setCreatedBy(SecurityUtil.currentUserId());
     contractMapper.insert(contract);
     auditService.record("CREATE", "CONTRACT", contract.getId(), "创建合同：" + contract.getContractNo());
@@ -146,6 +155,7 @@ public class ContractService {
       throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND);
     }
     validateDates(req.getStartDate(), req.getEndDate());
+    validateRenewedFrom(req.getRenewedFromId());
 
     existing.setTitle(req.getTitle().trim());
     existing.setCustomerId(req.getCustomerId());
@@ -157,6 +167,7 @@ public class ContractService {
       existing.setContent(req.getContent());
     }
     existing.setRemark(req.getRemark());
+    existing.setRenewedFromId(req.getRenewedFromId());
     existing.setVersion(req.getVersion());
     int rows = contractMapper.updateById(existing);
     if (rows == 0) {
@@ -179,9 +190,9 @@ public class ContractService {
             .eq(Contract::getId, id)
             .set(Contract::getStatus, STATUS_PENDING)
             .set(Contract::getRejectReason, null));
-    // 033：存在启用的合同审批流 → 自动发起审批实例（引擎审批；合同保持 PENDING）
+    // 033：存在启用的合同审批流 → 自动发起审批实例（独立事务，失败不污染主事务）
     try {
-      approvalEngineService.start(
+      approvalLaunchDelegate.launchQuietly(
           "CONTRACT",
           id,
           "合同审批："
@@ -189,8 +200,9 @@ public class ContractService {
               + " "
               + (contract.getTitle() == null ? "" : contract.getTitle()),
           contract.getAmount() == null ? 0 : contract.getAmount());
-    } catch (BusinessException ex) {
-      // 未配置审批流时静默跳过（走原审批逻辑）
+    } catch (RuntimeException ex) {
+      // 审批发起失败不影响合同提交（原审批逻辑兜底）
+      log.warn("合同审批流启动失败（{}）: {}", id, ex.getMessage());
     }
     auditService.record("SUBMIT", "CONTRACT", id, "提交审批：" + contract.getContractNo());
     return toResponse(contractMapper.selectById(id), true);
@@ -325,6 +337,13 @@ public class ContractService {
   }
 
   /** 单条/列表装配（详情含附件列表）。 */
+  /** 续约来源合同校验（046）：存在即可。 */
+  private void validateRenewedFrom(Long renewedFromId) {
+    if (renewedFromId != null && contractMapper.selectById(renewedFromId) == null) {
+      throw new BusinessException(ErrorCode.CONTRACT_NOT_FOUND);
+    }
+  }
+
   private ContractResponse toResponse(Contract contract, boolean withAttachments) {
     ContractResponse resp = new ContractResponse();
     resp.setId(contract.getId());
@@ -345,6 +364,28 @@ public class ContractService {
     resp.setEffectiveAt(contract.getEffectiveAt());
     resp.setTerminatedReason(contract.getTerminatedReason());
     resp.setRemark(contract.getRemark());
+    // 046：续约来源与去向
+    resp.setRenewedFromId(contract.getRenewedFromId());
+    if (contract.getRenewedFromId() != null) {
+      Contract from = contractMapper.selectById(contract.getRenewedFromId());
+      resp.setRenewedFromNo(from == null ? null : from.getContractNo());
+    }
+    List<Contract> renewedBy =
+        contractMapper.selectList(
+            new LambdaQueryWrapper<Contract>()
+                .eq(Contract::getRenewedFromId, contract.getId())
+                .orderByAsc(Contract::getId));
+    resp.setRenewedBy(
+        renewedBy.stream()
+            .map(
+                c -> {
+                  ContractResponse.RenewalTarget t = new ContractResponse.RenewalTarget();
+                  t.setId(c.getId());
+                  t.setContractNo(c.getContractNo());
+                  t.setTitle(c.getTitle());
+                  return t;
+                })
+            .toList());
     resp.setVersion(contract.getVersion());
     resp.setCreatedAt(contract.getCreatedAt());
     if (withAttachments) {

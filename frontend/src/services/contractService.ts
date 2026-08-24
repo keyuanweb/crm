@@ -5,9 +5,10 @@ import type {
   ContractPayload,
   ContractTemplate,
   ContractTemplatePayload,
+  RenewalGroup,
 } from '../types/contract'
 
-export type { ContractListParams, ContractPayload, ContractTemplatePayload }
+export type { ContractListParams, ContractPayload, ContractTemplatePayload, RenewalGroup }
 
 export async function fetchContracts(params: ContractListParams): Promise<PageResult<Contract>> {
   const { data } = await apiClient.get('/contracts', { params })
@@ -121,4 +122,18 @@ export async function updateContractTemplate(
 
 export async function deleteContractTemplate(id: number): Promise<void> {
   await apiClient.delete(`/contract-templates/${id}`)
+}
+
+// ===== 046 续约管理 =====
+
+export async function fetchRenewalOverview(
+  group: RenewalGroup,
+  keyword?: string,
+  page = 1,
+  pageSize = 20,
+): Promise<PageResult<Contract>> {
+  const { data } = await apiClient.get('/contracts/renewal-overview', {
+    params: { group, keyword, page, pageSize },
+  })
+  return data.data as PageResult<Contract>
 }

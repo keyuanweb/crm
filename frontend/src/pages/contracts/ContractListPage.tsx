@@ -39,6 +39,8 @@ interface FormValues {
   startDate?: Dayjs
   endDate?: Dayjs
   templateId?: number
+  /** 续约来源合同（046）。 */
+  renewedFromId?: number
   remark?: string
 }
 
@@ -51,6 +53,7 @@ export default function ContractListPage() {
   const [customerOptions, setCustomerOptions] = useState<{ value: number; label: string }[]>([])
   const [quoteOptions, setQuoteOptions] = useState<{ value: number; label: string }[]>([])
   const [templateOptions, setTemplateOptions] = useState<{ value: number; label: string }[]>([])
+  const [renewalOptions, setRenewalOptions] = useState<{ value: number; label: string }[]>([])
 
   const reload = () => actionRef.current?.reload()
 
@@ -74,11 +77,19 @@ export default function ContractListPage() {
     setTemplateOptions(res.items.map((t) => ({ value: t.id, label: t.name })))
   }
 
+  const loadRenewalSources = async () => {
+    const res = await fetchContracts({ status: 'EFFECTIVE', page: 1, pageSize: 100 })
+    setRenewalOptions(
+      res.items.map((c) => ({ value: c.id, label: `${c.contractNo}（${c.title ?? '-'}）` })),
+    )
+  }
+
   const openCreate = () => {
     form.resetFields()
     void loadCustomers()
     void loadQuotes()
     void loadTemplates()
+    void loadRenewalSources()
     setModalOpen(true)
   }
 
@@ -92,6 +103,7 @@ export default function ContractListPage() {
       startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : undefined,
       endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : undefined,
       templateId: values.templateId,
+      renewedFromId: values.renewedFromId,
       remark: values.remark,
     }
     setSaving(true)
@@ -242,6 +254,17 @@ export default function ContractListPage() {
             <Col span={12}>
               <Form.Item name="endDate" label="结束日期">
                 <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="renewedFromId" label="续约自（可选）">
+                <Select
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="选择被续约的生效合同"
+                  options={renewalOptions}
+                />
               </Form.Item>
             </Col>
             <Col span={24}>

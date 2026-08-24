@@ -94,6 +94,7 @@ const SlaPolicyListPage = lazy(() => import('./pages/sla/SlaPolicyListPage'))
 const CustomFieldListPage = lazy(() => import('./pages/settings/CustomFieldListPage'))
 const ExportCenterPage = lazy(() => import('./pages/exports/ExportCenterPage'))
 const StageActionTemplatePage = lazy(() => import('./pages/playbook/StageActionTemplatePage'))
+const ContractRenewalPage = lazy(() => import('./pages/contracts/ContractRenewalPage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -115,6 +116,7 @@ const PRELOAD_PAGES: Array<() => Promise<unknown>> = [
   () => import('./pages/opportunities/OpportunityListPage'),
   () => import('./pages/sales-opportunities/SalesOpportunityListPage'),
   () => import('./pages/playbook/StageActionTemplatePage'),
+  () => import('./pages/contracts/ContractRenewalPage'),
   () => import('./pages/stats/DashboardPage'),
   () => import('./pages/stats/TeamLeaderboardPage'),
   () => import('./pages/reports/ReportCenterPage'),
@@ -282,7 +284,6 @@ function Shell() {
     { path: '/contacts', name: '联系人', icon: <IdcardOutlined /> },
     { path: '/customer-merge', name: '查重合并', icon: <TeamOutlined /> },
     { path: '/customers/at-risk', name: '流失预警', icon: <AlertOutlined /> },
-    { path: '/planned/renewal', name: '续约管理', icon: <FileTextOutlined />, planned: true },
   ]
   const salesRoutes = [
     { path: '/opportunities', name: '商机', icon: <FundOutlined /> },
@@ -295,6 +296,7 @@ function Shell() {
   ]
   const dealRoutes = [
     { path: '/contracts', name: '合同', icon: <FileProtectOutlined /> },
+    { path: '/contract-renewal', name: '续约管理', icon: <FileTextOutlined /> },
     { path: '/orders', name: '订单', icon: <ProfileOutlined /> },
     { path: '/invoices', name: '发票', icon: <FileTextOutlined /> },
   ]
@@ -620,6 +622,7 @@ export default function App() {
         <Route path="quotes" element={<QuoteListPage />} />
         <Route path="quotes/:id" element={<QuoteDetailPage />} />
         <Route path="contracts" element={<ContractListPage />} />
+        <Route path="contract-renewal" element={<ContractRenewalPage />} />
         <Route path="contracts/:id" element={<ContractDetailPage />} />
         <Route path="contract-templates" element={<ContractTemplateListPage />} />
         <Route path="orders" element={<OrderListPage />} />

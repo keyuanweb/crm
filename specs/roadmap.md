@@ -197,3 +197,4 @@
 - [x] 043-crm-gap-analysis（对标成熟 CRM 差距分析与补齐方案评审稿）
 - [x] 044-menu-crm-alignment（菜单对标调整 + 未实现模块规划中占位）
 - [x] 045-sales-playbook（销售 Playbook：阶段动作模板/机会动作引导/必做校验）
+- [x] 046-contract-renewal（合同续约：到期提醒/续约链/漏斗视图）

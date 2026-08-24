@@ -63,7 +63,8 @@ class ContractServiceTest {
             customerMapper,
             quoteMapper,
             auditService,
-            approvalEngineService);
+            approvalEngineService,
+            mock(ApprovalLaunchDelegate.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
   }

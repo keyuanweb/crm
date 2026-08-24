@@ -26,7 +26,23 @@ public class ContractResponse {
   private LocalDateTime effectiveAt;
   private String terminatedReason;
   private String remark;
+
+  /** 续约来源合同 id/号（046）。 */
+  private Long renewedFromId;
+
+  private String renewedFromNo;
+
+  /** 续约去向列表（046，新合同引用本合同的记录）。 */
+  private List<RenewalTarget> renewedBy;
+
   private List<AttachmentResponse> attachments;
   private Integer version;
   private LocalDateTime createdAt;
+
+  @Data
+  public static class RenewalTarget {
+    private Long id;
+    private String contractNo;
+    private String title;
+  }
 }

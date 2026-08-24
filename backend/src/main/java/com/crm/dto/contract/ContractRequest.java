@@ -36,5 +36,8 @@ public class ContractRequest {
   @Size(max = 500, message = "备注不能超过 500 字")
   private String remark;
 
+  /** 续约来源合同 id（046，可选）。 */
+  private Long renewedFromId;
+
   private Integer version;
 }

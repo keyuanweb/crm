@@ -33,5 +33,9 @@ public class Contract extends BaseEntity {
   private LocalDateTime effectiveAt;
   private String terminatedReason;
   private String remark;
+
+  /** 续约来源合同 id（046，自引用）。 */
+  private Long renewedFromId;
+
   private Long createdBy;
 }
