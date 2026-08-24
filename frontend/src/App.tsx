@@ -247,42 +247,46 @@ function Shell() {
   }
 
   const isAdmin = user?.role === 'ADMIN'
-  // 左侧菜单按业务域分组（FR-019），业务管理进一步细分为客户/销售/交易/基础资料
+  // 040：左侧菜单按业务域分组（8 组 + 首页置顶），每组 2~5 项
   const customerRoutes = [
     { path: '/leads', name: '线索', icon: <ContactsOutlined /> },
     { path: '/customers', name: '客户', icon: <TeamOutlined /> },
     { path: '/contacts', name: '联系人', icon: <IdcardOutlined /> },
     { path: '/customer-merge', name: '查重合并', icon: <TeamOutlined /> },
+    { path: '/customers/at-risk', name: '流失预警', icon: <AlertOutlined /> },
   ]
   const salesRoutes = [
     { path: '/opportunities', name: '商机', icon: <FundOutlined /> },
     { path: '/sales-opportunities', name: '销售机会', icon: <DeploymentUnitOutlined /> },
     { path: '/quotes', name: '报价单', icon: <FileTextOutlined /> },
     { path: '/visits', name: '外勤拜访', icon: <EnvironmentOutlined /> },
+    { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
   ]
   const dealRoutes = [
     { path: '/contracts', name: '合同', icon: <FileProtectOutlined /> },
     { path: '/orders', name: '订单', icon: <ProfileOutlined /> },
     { path: '/invoices', name: '发票', icon: <FileTextOutlined /> },
   ]
-  const baseRoutes = [
-    { path: '/tasks', name: '任务', icon: <CalendarOutlined /> },
-    { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
-  ]
-  const serviceRoutes = [
-    { path: '/marketing', name: '营销', icon: <NotificationOutlined /> },
+  const marketingRoutes = [
+    { path: '/marketing', name: '营销活动', icon: <NotificationOutlined /> },
     { path: '/marketing/email', name: '邮件营销', icon: <MailOutlined /> },
     { path: '/online-forms', name: '在线表单', icon: <FormOutlined /> },
+  ]
+  const serviceRoutes = [
     { path: '/tickets', name: '客户服务', icon: <CustomerServiceOutlined /> },
     { path: '/knowledge', name: '知识库', icon: <FileTextOutlined /> },
+    { path: '/announcements', name: '公告管理', icon: <NotificationOutlined /> },
+    { path: '/approvals', name: '我的审批', icon: <AuditOutlined /> },
   ]
-  const dataRoutes = [
-    { path: '/exports', name: '导出中心', icon: <DownloadOutlined /> },
-    { path: '/customers/at-risk', name: '流失预警', icon: <AlertOutlined /> },
-    { path: '/stats/leaderboard', name: '团队排行', icon: <RiseOutlined /> },
-    { path: '/reports', name: '自定义报表', icon: <BarChartOutlined /> },
+  const workbenchRoutes = [
+    { path: '/tasks', name: '任务', icon: <CalendarOutlined /> },
     { path: '/suggestions', name: '智能建议', icon: <BulbOutlined /> },
     { path: '/board', name: '数据大屏', icon: <FundProjectionScreenOutlined /> },
+  ]
+  const dataRoutes = [
+    { path: '/reports', name: '自定义报表', icon: <BarChartOutlined /> },
+    { path: '/stats/leaderboard', name: '团队排行', icon: <RiseOutlined /> },
+    { path: '/exports', name: '导出中心', icon: <DownloadOutlined /> },
   ]
   // 首页置顶（首位独立菜单项，指向统计仪表盘 /stats）
   const statsRoute = { path: '/stats', name: '首页', icon: <HomeOutlined /> }
@@ -292,13 +296,11 @@ function Shell() {
     { path: '/tags', name: '标签与细分', icon: <TagsOutlined /> },
     { path: '/departments', name: '部门', icon: <ApartmentOutlined /> },
     { path: '/workflows', name: '工作流', icon: <ThunderboltOutlined /> },
-    { path: '/approvals', name: '我的审批', icon: <AuditOutlined /> },
-    { path: '/sla-policies', name: 'SLA 策略', icon: <AuditOutlined /> },
+    { path: '/approval-flows', name: '审批流配置', icon: <AuditOutlined /> },
     { path: '/settings/custom-fields', name: '自定义字段', icon: <SettingOutlined /> },
     { path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> },
+    { path: '/sla-policies', name: 'SLA 策略', icon: <AuditOutlined /> },
     { path: '/audit-logs', name: '审计日志', icon: <AuditOutlined /> },
-    { path: '/announcements', name: '公告管理', icon: <NotificationOutlined /> },
-    { path: '/approval-flows', name: '审批流配置', icon: <AuditOutlined /> },
     { path: '/recycle-bin', name: '回收站', icon: <DeleteOutlined /> },
   ]
   const menuRoutes = [
@@ -306,8 +308,9 @@ function Shell() {
     ...customerRoutes,
     ...salesRoutes,
     ...dealRoutes,
-    ...baseRoutes,
+    ...marketingRoutes,
     ...serviceRoutes,
+    ...workbenchRoutes,
     ...dataRoutes,
     ...(isAdmin ? adminRoutes : []),
   ]
@@ -374,11 +377,14 @@ function Shell() {
     ...(filterByMenus(dealRoutes).length
       ? [{ type: 'submenu' as const, key: 'g-deal', label: '交易管理', children: toItems(filterByMenus(dealRoutes)) }]
       : []),
-    ...(filterByMenus(baseRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-base', label: '基础资料', children: toItems(filterByMenus(baseRoutes)) }]
+    ...(filterByMenus(marketingRoutes).length
+      ? [{ type: 'submenu' as const, key: 'g-marketing', label: '营销中心', children: toItems(filterByMenus(marketingRoutes)) }]
       : []),
     ...(filterByMenus(serviceRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-service', label: '营销与服务', children: toItems(filterByMenus(serviceRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-service', label: '服务协作', children: toItems(filterByMenus(serviceRoutes)) }]
+      : []),
+    ...(filterByMenus(workbenchRoutes).length
+      ? [{ type: 'submenu' as const, key: 'g-workbench', label: '工作台', children: toItems(filterByMenus(workbenchRoutes)) }]
       : []),
     ...(filterByMenus(dataRoutes).length
       ? [{ type: 'submenu' as const, key: 'g-data', label: '数据分析', children: toItems(filterByMenus(dataRoutes)) }]
