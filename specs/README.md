@@ -82,6 +82,7 @@
 | 050 | 客户自助门户（知识库浏览/在线提单/进度查询） | P1 | ✅ | [目录](./050-customer-portal/) | portal |
 | 052 | 邮件高级能力（退订管理/送达统计/A-B 主题测试） | P1 | ✅ | [目录](./052-email-advanced/) | email |
 | 054 | SLA 工作时间与节假日日历 | P1 | ✅ | [目录](./054-sla-calendar/) | sla-calendar |
+| 053 | 托管落地页 + UTM 跟踪归因 | P1 | ✅ | [目录](./053-landing-page/) | landing-pages |
 
 > 阶段：P0=核心销售链路补全；P1=成交链路延伸 / 效率与自动化；P2=扩展模块；
 > P3=智能化与平台增强；P4=营销闭环与协作扩展（批次建议见 [roadmap-p0p1.md](./roadmap-p0p1.md)）；

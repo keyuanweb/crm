@@ -99,6 +99,8 @@ const SatisfactionStatsPage = lazy(() => import('./pages/surveys/SatisfactionSta
 const CustomerPortalPage = lazy(() => import('./pages/portal/CustomerPortalPage'))
 const EmailUnsubscribePage = lazy(() => import('./pages/email/EmailUnsubscribePage'))
 const SlaCalendarPage = lazy(() => import('./pages/sla/SlaCalendarPage'))
+const LandingPageListPage = lazy(() => import('./pages/landing/LandingPageListPage'))
+const LandingPageView = lazy(() => import('./pages/landing/LandingPageView'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -310,7 +312,7 @@ function Shell() {
     { path: '/email-unsubscribes', name: '邮件退订', icon: <MailOutlined /> },
     { path: '/online-forms', name: '在线表单', icon: <FormOutlined /> },
     { path: '/planned/marketing-auto', name: '营销自动化', icon: <ThunderboltOutlined />, planned: true },
-    { path: '/planned/landing', name: '落地页', icon: <FormOutlined />, planned: true },
+    { path: '/landing-pages', name: '落地页', icon: <FormOutlined /> },
   ]
   const serviceRoutes = [
     { path: '/tickets', name: '客户服务', icon: <CustomerServiceOutlined /> },
@@ -608,6 +610,8 @@ export default function App() {
       <Route path="/f/:id" element={<PublicFormPage />} />
       {/* 050：客户自助门户（公开，无需登录） */}
       <Route path="/portal" element={<CustomerPortalPage />} />
+      {/* 053：托管落地页公开渲染（无需登录） */}
+      <Route path="/lp/:id" element={<LandingPageView />} />
       <Route
         path="/"
         element={
@@ -642,6 +646,7 @@ export default function App() {
         <Route path="customer-merge" element={<DuplicateMergePage />} />
         <Route path="visits" element={<VisitListPage />} />
         <Route path="online-forms" element={<OnlineFormPage />} />
+        <Route path="landing-pages" element={<LandingPageListPage />} />
         <Route path="announcements" element={<AnnouncementPage />} />
         <Route path="invoices" element={<InvoiceListPage />} />
         <Route path="tasks/calendar" element={<TaskCalendarPage />} />

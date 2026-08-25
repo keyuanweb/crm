@@ -202,6 +202,8 @@ public class FormService {
     submission.setPayload(toJson(values));
     submission.setClientIp(ip);
     submission.setLeadId(lead.getId());
+    // 053：UTM 归因参数（从请求查询字符串捕获）
+    applyUtm(submission, request);
     submission.setCreatedAt(LocalDateTime.now());
     submissionMapper.insert(submission);
     // 计数
@@ -327,5 +329,22 @@ public class FormService {
     r.setLeadId(s.getLeadId());
     r.setCreatedAt(s.getCreatedAt());
     return r;
+  }
+
+  /** 053：从请求查询字符串捕获 UTM 归因参数（可空）。 */
+  private void applyUtm(FormSubmission submission, HttpServletRequest request) {
+    if (request == null) {
+      return;
+    }
+    submission.setUtmSource(utmParam(request, "utm_source"));
+    submission.setUtmMedium(utmParam(request, "utm_medium"));
+    submission.setUtmCampaign(utmParam(request, "utm_campaign"));
+    submission.setUtmTerm(utmParam(request, "utm_term"));
+    submission.setUtmContent(utmParam(request, "utm_content"));
+  }
+
+  private String utmParam(HttpServletRequest request, String name) {
+    String v = request.getParameter(name);
+    return v == null ? null : v.trim();
   }
 }

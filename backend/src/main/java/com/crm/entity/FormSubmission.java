@@ -15,5 +15,13 @@ public class FormSubmission {
   private String payload;
   private String clientIp;
   private Long leadId;
+
+  /** 053：UTM 归因参数（可空）。 */
+  private String utmSource;
+  private String utmMedium;
+  private String utmCampaign;
+  private String utmTerm;
+  private String utmContent;
+
   private java.time.LocalDateTime createdAt;
 }
