@@ -111,6 +111,7 @@ const IntegrationHubPage = lazy(() => import('./pages/settings/IntegrationHubPag
 const CustomObjectListPage = lazy(() => import('./pages/custom-object/CustomObjectListPage'))
 const CustomObjectRecordPage = lazy(() => import('./pages/custom-object/CustomObjectRecordPage'))
 const CallRecordPage = lazy(() => import('./pages/calls/CallRecordPage'))
+const MailSyncPage = lazy(() => import('./pages/mail/MailSyncPage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -147,6 +148,7 @@ const MENU_I18N_KEYS: Record<string, string> = {
   '/tasks': 'tasks',
   '/suggestions': 'suggestions',
   '/call-records': 'callRecords',
+  '/mail-sync': 'mailSync',
   '/board': 'board',
   '/reports': 'reports',
   '/stats/leaderboard': 'leaderboard',
@@ -399,6 +401,7 @@ function Shell() {
     { path: '/suggestions', name: '智能建议', icon: <BulbOutlined /> },
     { path: '/board', name: '数据大屏', icon: <FundProjectionScreenOutlined /> },
     { path: '/call-records', name: '通话记录', icon: <PhoneOutlined /> },
+    { path: '/mail-sync', name: '邮件同步', icon: <MailOutlined /> },
   ]
   const dataRoutes = [
     { path: '/reports', name: '自定义报表', icon: <BarChartOutlined /> },
@@ -774,6 +777,7 @@ export default function App() {
         <Route path="suggestions" element={<SuggestionCenterPage />} />
         <Route path="board" element={<KpiBoardPage />} />
         <Route path="call-records" element={<CallRecordPage />} />
+        <Route path="mail-sync" element={<MailSyncPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="roles" element={<RoleListPage />} />
         <Route path="tags" element={<TagSegmentPage />} />

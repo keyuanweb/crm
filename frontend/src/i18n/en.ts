@@ -50,6 +50,7 @@ const en = {
     tasks: 'Tasks',
     suggestions: 'AI Suggestions',
     callRecords: 'Call Records',
+    mailSync: 'Mail Sync',
     board: 'Dashboard Board',
     reports: 'Custom Reports',
     leaderboard: 'Leaderboard',
