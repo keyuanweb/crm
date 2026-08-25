@@ -101,6 +101,7 @@ const EmailUnsubscribePage = lazy(() => import('./pages/email/EmailUnsubscribePa
 const SlaCalendarPage = lazy(() => import('./pages/sla/SlaCalendarPage'))
 const LandingPageListPage = lazy(() => import('./pages/landing/LandingPageListPage'))
 const LandingPageView = lazy(() => import('./pages/landing/LandingPageView'))
+const OpenPlatformPage = lazy(() => import('./pages/open/OpenPlatformPage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -349,7 +350,7 @@ function Shell() {
     { path: '/sla-policies', name: 'SLA 策略', icon: <AuditOutlined /> },
     { path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> },
     { path: '/settings/custom-fields', name: '自定义字段', icon: <SettingOutlined /> },
-    { path: '/planned/open-api', name: '开放平台', icon: <ApartmentOutlined />, planned: true },
+    { path: '/open-platform', name: '开放平台', icon: <ApartmentOutlined /> },
     { path: '/planned/integration', name: '集成中心', icon: <ApartmentOutlined />, planned: true },
   ]
   const adminAuditRoutes = [
@@ -661,6 +662,7 @@ export default function App() {
         <Route path="knowledge" element={<KnowledgeArticleListPage />} />
         <Route path="sla-policies" element={<SlaPolicyListPage />} />
         <Route path="sla-calendar" element={<SlaCalendarPage />} />
+        <Route path="open-platform" element={<OpenPlatformPage />} />
         <Route path="exports" element={<ExportCenterPage />} />
         <Route path="settings/custom-fields" element={<CustomFieldListPage />} />
         <Route path="stats" element={<DashboardPage />} />

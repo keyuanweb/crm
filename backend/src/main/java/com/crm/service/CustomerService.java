@@ -47,6 +47,7 @@ public class CustomerService {
   private final com.crm.repository.SalesOrderMapper orderMapper;
   private final CustomFieldService customFieldService;
   private final Customer360Service customer360Service;
+  private final WebhookService webhookService;
 
   public CustomerService(
       CustomerMapper customerMapper,
@@ -61,7 +62,8 @@ public class CustomerService {
       com.crm.repository.UserMapper userMapper,
       com.crm.repository.SalesOrderMapper orderMapper,
       CustomFieldService customFieldService,
-      Customer360Service customer360Service) {
+      Customer360Service customer360Service,
+      WebhookService webhookService) {
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.followUpMapper = followUpMapper;
@@ -75,6 +77,7 @@ public class CustomerService {
     this.orderMapper = orderMapper;
     this.customFieldService = customFieldService;
     this.customer360Service = customer360Service;
+    this.webhookService = webhookService;
   }
 
   public PageResult<CustomerResponse> page(
@@ -335,6 +338,12 @@ public class CustomerService {
     }
     dashboardStatsService.evict();
     auditService.record("CREATE", "CUSTOMER", customer.getId(), "创建客户：" + customer.getName());
+    // 055：Webhook 事件（客户创建）
+    java.util.Map<String, Object> payload = new java.util.HashMap<>();
+    payload.put("id", customer.getId());
+    payload.put("name", customer.getName() == null ? "" : customer.getName());
+    webhookService.publish(
+        WebhookService.EVENT_CUSTOMER_CREATED, "CUSTOMER", customer.getId(), payload);
     return toResponse(customer);
   }
 

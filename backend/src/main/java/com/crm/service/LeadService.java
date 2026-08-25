@@ -50,6 +50,7 @@ public class LeadService {
   private final WorkflowEventPublisher workflowEventPublisher;
   private final CustomFieldService customFieldService;
   private final LeadScoreService leadScoreService;
+  private final WebhookService webhookService;
 
   public LeadService(
       LeadMapper leadMapper,
@@ -61,7 +62,8 @@ public class LeadService {
       AuditService auditService,
       WorkflowEventPublisher workflowEventPublisher,
       CustomFieldService customFieldService,
-      LeadScoreService leadScoreService) {
+      LeadScoreService leadScoreService,
+      WebhookService webhookService) {
     this.leadMapper = leadMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
@@ -72,6 +74,7 @@ public class LeadService {
     this.workflowEventPublisher = workflowEventPublisher;
     this.customFieldService = customFieldService;
     this.leadScoreService = leadScoreService;
+    this.webhookService = webhookService;
   }
 
   public PageResult<LeadResponse> page(
@@ -175,6 +178,16 @@ public class LeadService {
         java.util.Map.of(
             "name", lead.getName() == null ? "" : lead.getName(),
             "source", lead.getSource() == null ? "" : lead.getSource()));
+    // 055：Webhook 事件（线索创建）
+    webhookService.publish(
+        WebhookService.EVENT_LEAD_CREATED,
+        "LEAD",
+        lead.getId(),
+        java.util.Map.of(
+            "id", lead.getId(),
+            "name", lead.getName() == null ? "" : lead.getName(),
+            "company", lead.getCompany() == null ? "" : lead.getCompany(),
+            "email", lead.getEmail() == null ? "" : lead.getEmail()));
     // 工作流可能更新了 ownerId：返回 DB 最新数据
     return toResponse(leadMapper.selectById(lead.getId()));
   }
@@ -206,6 +219,15 @@ public class LeadService {
       customFieldService.saveValues("LEAD", id, req.getCustomFieldValues());
     }
     auditService.record("UPDATE", "LEAD", id, "编辑线索：" + existing.getName());
+    // 055：Webhook 事件（线索更新）
+    webhookService.publish(
+        WebhookService.EVENT_LEAD_UPDATED,
+        "LEAD",
+        id,
+        java.util.Map.of(
+            "id", id,
+            "name", existing.getName() == null ? "" : existing.getName(),
+            "score", existing.getScore() == null ? 0 : existing.getScore()));
     return toResponse(leadMapper.selectById(id));
   }
 

@@ -1,6 +1,8 @@
 package com.crm.config;
 
+import com.crm.security.ApiKeyAuthFilter;
 import com.crm.security.JwtAuthFilter;
+import com.crm.service.ApiKeyService;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,12 +30,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
   private final JwtAuthFilter jwtAuthFilter;
+  private final ApiKeyAuthFilter apiKeyAuthFilter;
   private final String allowedOrigins;
 
   public SecurityConfig(
       JwtAuthFilter jwtAuthFilter,
+      ApiKeyService apiKeyService,
       @Value("${cors.allowed-origins:http://localhost:5173}") String allowedOrigins) {
     this.jwtAuthFilter = jwtAuthFilter;
+    this.apiKeyAuthFilter = new ApiKeyAuthFilter(apiKeyService);
     this.allowedOrigins = allowedOrigins;
   }
 
@@ -80,6 +85,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/api/v1/public/**")
                     .permitAll()
+                    .requestMatchers("/api/v1/open/**")
+                    .hasRole("OPEN_API")
                     .requestMatchers("/ws/**")
                     .permitAll()
                     .requestMatchers("/actuator/health", "/actuator/health/**")
@@ -90,6 +97,8 @@ public class SecurityConfig {
                     .permitAll()
                     .anyRequest()
                     .authenticated())
+        // 055：API Key 鉴权先于 JWT（/api/v1/open/** 走 X-API-Key）
+        .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
     return http.build();
   }
