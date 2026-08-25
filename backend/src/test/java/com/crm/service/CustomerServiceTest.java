@@ -187,8 +187,8 @@ class CustomerServiceTest {
   }
 
   @Test
-  @DisplayName("列表响应电话/邮箱脱敏（FR-016）")
-  void pageMasksSensitiveFields() {
+  @DisplayName("列表响应电话/邮箱完整显示（用户要求显示全部；脱敏仅保留在导出路径）")
+  void pageShowsFullSensitiveFields() {
     Customer c = new Customer();
     c.setId(1L);
     c.setName("张三");
@@ -204,8 +204,8 @@ class CustomerServiceTest {
 
     var result = service.page(null, null, null, 1, 20);
     assertThat(result.getItems()).hasSize(1);
-    assertThat(result.getItems().get(0).getPhone()).isEqualTo("138****5678");
-    assertThat(result.getItems().get(0).getEmail()).isEqualTo("z***n@example.com");
+    assertThat(result.getItems().get(0).getPhone()).isEqualTo("13812345678");
+    assertThat(result.getItems().get(0).getEmail()).isEqualTo("zhangsan@example.com");
   }
 
   @Test

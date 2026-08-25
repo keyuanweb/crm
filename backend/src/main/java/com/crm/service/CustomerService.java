@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
-import com.crm.common.MaskingUtil;
 import com.crm.common.PageResult;
 import com.crm.dto.customer.CustomerDetailResponse;
 import com.crm.dto.customer.CustomerRequest;
@@ -109,17 +108,8 @@ public class CustomerService {
     applyDataScopeFilter(qw);
     qw.orderByDesc(Customer::getId);
     Page<Customer> p = customerMapper.selectPage(new Page<>(page, pageSize), qw);
-    // FR-016：列表/搜索结果敏感字段脱敏，详情保持完整
-    List<CustomerResponse> items =
-        p.getRecords().stream()
-            .map(this::toResponse)
-            .map(
-                resp -> {
-                  resp.setPhone(MaskingUtil.maskPhone(resp.getPhone()));
-                  resp.setEmail(MaskingUtil.maskEmail(resp.getEmail()));
-                  return resp;
-                })
-            .toList();
+    // 列表直接返回完整号码/邮箱（用户要求显示全部；导出路径仍按 063 对非管理员脱敏）
+    List<CustomerResponse> items = p.getRecords().stream().map(this::toResponse).toList();
     // 016：批量回填自定义字段值
     List<Long> ids = p.getRecords().stream().map(Customer::getId).toList();
     if (!ids.isEmpty()) {
