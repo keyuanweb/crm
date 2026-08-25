@@ -20,6 +20,9 @@ public class EmailSendLog {
   /** SENT / FAILED。 */
   private String status;
 
+  /** 052：该封邮件所属变体（A/B）。 */
+  private String variant;
+
   private String errorMessage;
   private java.time.LocalDateTime createdAt;
 }

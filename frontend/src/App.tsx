@@ -97,6 +97,7 @@ const StageActionTemplatePage = lazy(() => import('./pages/playbook/StageActionT
 const ContractRenewalPage = lazy(() => import('./pages/contracts/ContractRenewalPage'))
 const SatisfactionStatsPage = lazy(() => import('./pages/surveys/SatisfactionStatsPage'))
 const CustomerPortalPage = lazy(() => import('./pages/portal/CustomerPortalPage'))
+const EmailUnsubscribePage = lazy(() => import('./pages/email/EmailUnsubscribePage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -305,6 +306,7 @@ function Shell() {
   const marketingRoutes = [
     { path: '/marketing', name: '营销活动', icon: <NotificationOutlined /> },
     { path: '/marketing/email', name: '邮件营销', icon: <MailOutlined /> },
+    { path: '/email-unsubscribes', name: '邮件退订', icon: <MailOutlined /> },
     { path: '/online-forms', name: '在线表单', icon: <FormOutlined /> },
     { path: '/planned/marketing-auto', name: '营销自动化', icon: <ThunderboltOutlined />, planned: true },
     { path: '/planned/landing', name: '落地页', icon: <FormOutlined />, planned: true },
@@ -645,6 +647,7 @@ export default function App() {
         <Route path="products" element={<ProductListPage />} />
         <Route path="marketing" element={<CampaignListPage />} />
         <Route path="marketing/email" element={<EmailMarketingPage />} />
+        <Route path="email-unsubscribes" element={<EmailUnsubscribePage />} />
         <Route path="marketing/roi" element={<ChannelRoiPage />} />
         <Route path="tickets" element={<TicketListPage />} />
         <Route path="satisfaction" element={<SatisfactionStatsPage />} />

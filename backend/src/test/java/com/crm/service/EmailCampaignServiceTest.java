@@ -50,6 +50,7 @@ class EmailCampaignServiceTest {
   private SegmentService segmentService;
   private CustomerMapper customerMapper;
   private AuditService auditService;
+  private EmailUnsubscribeService unsubscribeService;
   private EmailCampaignService service;
   private MockedStatic<SecurityUtil> securityUtilMock;
 
@@ -62,6 +63,7 @@ class EmailCampaignServiceTest {
     segmentService = mock(SegmentService.class);
     customerMapper = mock(CustomerMapper.class);
     auditService = mock(AuditService.class);
+    unsubscribeService = mock(EmailUnsubscribeService.class);
     service =
         new EmailCampaignService(
             campaignMapper,
@@ -71,6 +73,7 @@ class EmailCampaignServiceTest {
             segmentService,
             customerMapper,
             auditService,
+            unsubscribeService,
             null); // 无 SMTP → 模拟
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);

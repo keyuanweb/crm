@@ -7,9 +7,11 @@ import com.crm.dto.email.EmailTemplateRequest;
 import com.crm.dto.email.EmailTemplateResponse;
 import com.crm.entity.EmailCampaign;
 import com.crm.entity.EmailSendLog;
+import com.crm.entity.EmailUnsubscribe;
 import com.crm.security.RequirePermission;
 import com.crm.service.EmailCampaignService;
 import com.crm.service.EmailTemplateService;
+import com.crm.service.EmailUnsubscribeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
@@ -32,11 +34,15 @@ public class EmailController {
 
   private final EmailTemplateService templateService;
   private final EmailCampaignService campaignService;
+  private final EmailUnsubscribeService unsubscribeService;
 
   public EmailController(
-      EmailTemplateService templateService, EmailCampaignService campaignService) {
+      EmailTemplateService templateService,
+      EmailCampaignService campaignService,
+      EmailUnsubscribeService unsubscribeService) {
     this.templateService = templateService;
     this.campaignService = campaignService;
+    this.unsubscribeService = unsubscribeService;
   }
 
   // ---------- 模板 ----------
@@ -105,5 +111,32 @@ public class EmailController {
       @RequestParam(defaultValue = "1") long page,
       @RequestParam(defaultValue = "20") long pageSize) {
     return ApiResponse.ok(campaignService.detail(id, page, pageSize));
+  }
+
+  // ---------- 052：统计与退订 ----------
+
+  @GetMapping("/email-campaigns/{id}/stats")
+  @RequirePermission("email:manage")
+  @Operation(summary = "群发统计（送达/打开/点击率 + A/B）")
+  public ApiResponse<Map<String, Object>> campaignStats(@PathVariable Long id) {
+    return ApiResponse.ok(campaignService.stats(id));
+  }
+
+  @GetMapping("/email/unsubscribes")
+  @RequirePermission("email:manage")
+  @Operation(summary = "退订名单")
+  public ApiResponse<PageResult<EmailUnsubscribe>> unsubscribes(
+      @RequestParam(required = false) String keyword,
+      @RequestParam(defaultValue = "1") long page,
+      @RequestParam(defaultValue = "20") long pageSize) {
+    return ApiResponse.ok(unsubscribeService.page(keyword, page, pageSize));
+  }
+
+  @DeleteMapping("/email/unsubscribes/{id}")
+  @RequirePermission("email:manage")
+  @Operation(summary = "恢复（取消退订）")
+  public ApiResponse<Void> restoreUnsubscribe(@PathVariable Long id) {
+    unsubscribeService.restore(id);
+    return ApiResponse.ok(null);
   }
 }

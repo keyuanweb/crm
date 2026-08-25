@@ -203,3 +203,4 @@
 - [x] 049-marketing-automation（营销自动化：评分阈值/标签变更事件 + 邮件/标签/任务动作）
 - [x] 051-csat-nps（工单满意度调查：CSAT/NPS 统计）
 - [x] 050-customer-portal（客户自助门户：知识库浏览/在线提单/进度查询）
+- [x] 052-email-advanced（邮件高级能力：退订管理/送达统计/A-B 主题测试）

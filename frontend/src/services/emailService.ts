@@ -29,6 +29,8 @@ export async function createEmailCampaign(payload: {
   sourceType: string
   segmentId?: number
   customerIds?: number[]
+  variant?: string
+  subjectB?: string
 }): Promise<EmailCampaign> {
   const { data } = await apiClient.post('/email-campaigns', payload)
   return data.data as EmailCampaign
@@ -49,4 +51,45 @@ export async function fetchCampaignDetail(
 ): Promise<PageResult<EmailSendLog>> {
   const { data } = await apiClient.get(`/email-campaigns/${id}`, { params })
   return data.data as PageResult<EmailSendLog>
+}
+
+// ===== 052：退订与统计 =====
+
+export interface EmailUnsubscribe {
+  id: number
+  email: string
+  campaignId?: number
+  unsubscribedAt: string
+}
+
+export interface CampaignStats {
+  campaignId: number
+  total: number
+  sent: number
+  failed: number
+  openCount: number
+  clickCount: number
+  openRate: number
+  clickRate: number
+  variant: string
+  winner?: string
+  variantStats?: { variant: string; sent: number; openCount: number; openRate: number }[]
+}
+
+export async function fetchUnsubscribes(
+  keyword?: string,
+  page = 1,
+  pageSize = 20,
+): Promise<PageResult<EmailUnsubscribe>> {
+  const { data } = await apiClient.get('/email/unsubscribes', { params: { keyword, page, pageSize } })
+  return data.data as PageResult<EmailUnsubscribe>
+}
+
+export async function restoreUnsubscribe(id: number): Promise<void> {
+  await apiClient.delete(`/email/unsubscribes/${id}`)
+}
+
+export async function fetchCampaignStats(id: number): Promise<CampaignStats> {
+  const { data } = await apiClient.get(`/email-campaigns/${id}/stats`)
+  return data.data as CampaignStats
 }

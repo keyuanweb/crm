@@ -18,4 +18,10 @@ public class CampaignRequest {
 
   /** CUSTOMER_IDS 时：客户 id 列表。 */
   private List<Long> customerIds;
+
+  /** 052：A/B 测试（NONE/AB）。 */
+  private String variant;
+
+  /** 052：B 变体主题（variant=AB 时必填）。 */
+  private String subjectB;
 }

@@ -26,5 +26,10 @@ public class EmailCampaign extends BaseEntity {
   /** PENDING / RUNNING / DONE / FAILED。 */
   private String status;
 
+  /** 052：A/B 测试（NONE/A/B）+ B 主题 + 更优者标记。 */
+  private String variant;
+  private String subjectB;
+  private String winner;
+
   private Long createdBy;
 }
