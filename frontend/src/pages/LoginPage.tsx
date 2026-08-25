@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Alert, Button, Form, Input, Typography } from 'antd'
 import {
   CheckCircleOutlined,
@@ -28,6 +29,7 @@ const features = [
 ]
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [captchaId, setCaptchaId] = useState('')
@@ -189,10 +191,10 @@ export default function LoginPage() {
         <div style={{ width: '100%', maxWidth: 360 }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <Title level={3} style={{ marginBottom: 8, fontWeight: 600 }}>
-              欢迎登录
+              {t('login.title')}
             </Title>
             <Text type="secondary" style={{ fontSize: 14 }}>
-              请输入您的账号信息
+              {t('login.subtitle')}
             </Text>
           </div>
 
@@ -215,35 +217,35 @@ export default function LoginPage() {
           >
             <Form.Item
               name="username"
-              rules={[{ required: true, message: '请输入用户名' }]}
+              rules={[{ required: true, message: t('login.usernameRequired') }]}
             >
               <Input
                 prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
-                placeholder="用户名"
-                aria-label="用户名"
+                placeholder={t('login.username')}
+                aria-label={t('login.username')}
                 autoComplete="username"
               />
             </Form.Item>
             <Form.Item
               name="password"
-              rules={[{ required: true, message: '请输入密码' }]}
+              rules={[{ required: true, message: t('login.passwordRequired') }]}
             >
               <Input.Password
                 prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-                placeholder="密码"
-                aria-label="密码"
+                placeholder={t('login.password')}
+                aria-label={t('login.password')}
                 autoComplete="current-password"
               />
             </Form.Item>
             <Form.Item
               name="captchaCode"
-              rules={[{ required: true, message: '请输入验证码' }]}
+              rules={[{ required: true, message: t('login.captchaRequired') }]}
             >
               <div style={{ display: 'flex', gap: 12 }}>
                 <Input
                   prefix={<SafetyOutlined style={{ color: '#bfbfbf' }} />}
-                  placeholder="验证码"
-                  aria-label="验证码"
+                  placeholder={t('login.captcha')}
+                  aria-label={t('login.captcha')}
                   autoComplete="off"
                   maxLength={6}
                   style={{ flex: 1 }}
@@ -288,7 +290,7 @@ export default function LoginPage() {
                 loading={loading}
                 style={{ height: 44, fontWeight: 500 }}
               >
-                登 录
+                {t('login.submit')}
               </Button>
             </Form.Item>
           </Form>

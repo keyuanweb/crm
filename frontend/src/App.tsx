@@ -1,5 +1,6 @@
 import { Suspense, lazy, startTransition, useEffect, useState } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Dropdown, Layout, Menu, Spin, type MenuProps } from 'antd'
 import {
   AlertOutlined,
@@ -20,6 +21,7 @@ import {
   FileTextOutlined,
   FormOutlined,
   FundOutlined,
+  GlobalOutlined,
   HomeOutlined,
   IdcardOutlined,
   KeyOutlined,
@@ -111,6 +113,59 @@ import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
 type MenuItemLike = NonNullable<MenuProps['items']>[number]
+
+/** 060：菜单路径 → i18n key 映射（资源 menu.*）。 */
+const MENU_I18N_KEYS: Record<string, string> = {
+  '/stats': 'home',
+  '/leads': 'leads',
+  '/customers': 'customers',
+  '/contacts': 'contacts',
+  '/customer-merge': 'merge',
+  '/customers/at-risk': 'atRisk',
+  '/opportunities': 'opportunities',
+  '/sales-opportunities': 'salesOpportunities',
+  '/quotes': 'quotes',
+  '/visits': 'visits',
+  '/products': 'products',
+  '/playbook': 'playbook',
+  '/contracts': 'contracts',
+  '/contract-renewal': 'renewal',
+  '/orders': 'orders',
+  '/invoices': 'invoices',
+  '/marketing': 'marketingActivity',
+  '/marketing/email': 'emailMarketing',
+  '/email-unsubscribes': 'unsubscribe',
+  '/online-forms': 'onlineForms',
+  '/landing-pages': 'landingPages',
+  '/tickets': 'tickets',
+  '/knowledge': 'knowledge',
+  '/announcements': 'announcements',
+  '/approvals': 'approvals',
+  '/satisfaction': 'satisfaction',
+  '/tasks': 'tasks',
+  '/suggestions': 'suggestions',
+  '/board': 'board',
+  '/reports': 'reports',
+  '/stats/leaderboard': 'leaderboard',
+  '/exports': 'exports',
+  '/users': 'users',
+  '/roles': 'roles',
+  '/departments': 'departments',
+  '/field-permissions': 'fieldPermissions',
+  '/currencies': 'currencies',
+  '/workflows': 'workflows',
+  '/approval-flows': 'approvalFlows',
+  '/sla-policies': 'slaPolicies',
+  '/sla-calendar': 'slaCalendar',
+  '/contract-templates': 'contractTemplates',
+  '/settings/custom-fields': 'customFields',
+  '/custom-objects': 'customObjects',
+  '/open-platform': 'openPlatform',
+  '/integration-hub': 'integrationHub',
+  '/tags': 'tags',
+  '/audit-logs': 'auditLogs',
+  '/recycle-bin': 'recycleBin',
+}
 
 /**
  * 所有懒加载页面 chunk 的预加载函数。
@@ -208,6 +263,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 function Shell() {
+  const { t, i18n } = useTranslation()
   const { user, setUser, clear, getAccessToken } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
@@ -287,6 +343,12 @@ function Shell() {
     }
     clear()
     navigate('/login', { replace: true })
+  }
+
+  // 060：切换语言并持久化
+  const changeLanguage = async (lang: string) => {
+    await i18n.changeLanguage(lang)
+    localStorage.setItem('app_lang', lang)
   }
 
   const isAdmin = user?.role === 'ADMIN'
@@ -382,7 +444,11 @@ function Shell() {
       const item: MenuItemLike = {
         key: r.path,
         icon: r.icon,
-        label: 'planned' in r && r.planned ? `${r.name}（规划中）` : r.name,
+        // 060：菜单文案 i18n key 驱动（未映射回退中文 name）
+        label:
+          'planned' in r && r.planned
+            ? `${t(`menu.${MENU_I18N_KEYS[r.path] ?? r.name}`)}${t('menu.planned')}`
+            : t(`menu.${MENU_I18N_KEYS[r.path] ?? r.name}`),
       }
       if ('planned' in r && r.planned) {
         item.disabled = true
@@ -447,35 +513,35 @@ function Shell() {
       : routes
   const groupedMenuItems: MenuItemLike[] = [
     ...(filterByMenus(customerRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-customer', label: '客户管理', children: toItems(filterByMenus(customerRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-customer', label: t('menu.customer'), children: toItems(filterByMenus(customerRoutes)) }]
       : []),
     ...(filterByMenus(salesRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-sales', label: '销售管理', children: toItems(filterByMenus(salesRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-sales', label: t('menu.sales'), children: toItems(filterByMenus(salesRoutes)) }]
       : []),
     ...(filterByMenus(dealRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-deal', label: '交易管理', children: toItems(filterByMenus(dealRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-deal', label: t('menu.deal'), children: toItems(filterByMenus(dealRoutes)) }]
       : []),
     ...(filterByMenus(marketingRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-marketing', label: '营销中心', children: toItems(filterByMenus(marketingRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-marketing', label: t('menu.marketing'), children: toItems(filterByMenus(marketingRoutes)) }]
       : []),
     ...(filterByMenus(serviceRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-service', label: '服务协作', children: toItems(filterByMenus(serviceRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-service', label: t('menu.service'), children: toItems(filterByMenus(serviceRoutes)) }]
       : []),
     ...(filterByMenus(workbenchRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-workbench', label: '工作台', children: toItems(filterByMenus(workbenchRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-workbench', label: t('menu.workbench'), children: toItems(filterByMenus(workbenchRoutes)) }]
       : []),
     ...(filterByMenus(dataRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-data', label: '数据分析', children: toItems(filterByMenus(dataRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-data', label: t('menu.data'), children: toItems(filterByMenus(dataRoutes)) }]
       : []),
     // 042：系统管理扁平化——三个一级分组（系统管理/流程与配置/审计与维护）
     ...(filterByMenus(adminOrgRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-admin', label: '系统管理', children: toItems(filterByMenus(adminOrgRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-admin', label: t('menu.admin'), children: toItems(filterByMenus(adminOrgRoutes)) }]
       : []),
     ...(filterByMenus(adminConfigRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-config', label: '流程与配置', children: toItems(filterByMenus(adminConfigRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-config', label: t('menu.config'), children: toItems(filterByMenus(adminConfigRoutes)) }]
       : []),
     ...(filterByMenus(adminAuditRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-audit', label: '审计与维护', children: toItems(filterByMenus(adminAuditRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-audit', label: t('menu.audit'), children: toItems(filterByMenus(adminAuditRoutes)) }]
       : []),
   ]
   // 所有分组默认收起（FR-S14 默认行为）；点击分组标签可收起/展开
@@ -518,15 +584,37 @@ function Shell() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <TeamOutlined style={{ fontSize: 22, color: '#1677ff' }} />
             <span style={{ fontSize: 17, fontWeight: 600, color: '#1f1f1f' }}>
-              CRM 客户关系管理系统
+              {t('app.title')}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {/* 060：语言切换 */}
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'zh-CN',
+                    label: '中文',
+                    onClick: () => void changeLanguage('zh-CN'),
+                  },
+                  {
+                    key: 'en',
+                    label: 'English',
+                    onClick: () => void changeLanguage('en'),
+                  },
+                ],
+                selectedKeys: [i18n.language.startsWith('en') ? 'en' : 'zh-CN'],
+              }}
+            >
+              <Button type="text" icon={<GlobalOutlined />}>
+                {i18n.language.startsWith('en') ? 'EN' : '中'}
+              </Button>
+            </Dropdown>
             {/* 032：全局搜索框 */}
             <GlobalSearch />
             {/* 029：右上角使用地图快捷入口 */}
             <Button type="text" icon={<CompassOutlined style={{ fontSize: 17 }} />} onClick={() => navigate('/usage-map')}>
-              使用地图
+              {t('app.usageMap')}
             </Button>
             <NotificationCenter />
             <Dropdown
@@ -535,14 +623,14 @@ function Shell() {
                 {
                   key: 'password',
                   icon: <KeyOutlined />,
-                  label: '修改密码',
+                  label: t('app.changePassword'),
                   onClick: () => navigate('/account/password'),
                 },
                 { type: 'divider' },
                 {
                   key: 'logout',
                   icon: <LogoutOutlined />,
-                  label: '退出登录',
+                  label: t('app.logout'),
                   onClick: onLogout,
                 },
               ],
@@ -600,7 +688,7 @@ function Shell() {
               fontSize: 13,
             }}
           >
-            CRM 客户关系管理系统 © {new Date().getFullYear()}
+            {t('app.footer', { year: new Date().getFullYear() })}
           </Footer>
         </Layout>
       </Layout>

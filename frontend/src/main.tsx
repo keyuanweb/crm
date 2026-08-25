@@ -8,6 +8,7 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import ErrorBoundary from './components/ErrorBoundary'
 import App from './App'
+import './i18n'
 import './index.css'
 
 // 027：生产环境注册 Service Worker（PWA 离线应用外壳）

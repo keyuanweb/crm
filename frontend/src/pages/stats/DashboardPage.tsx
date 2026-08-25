@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   App,
@@ -63,6 +64,7 @@ const pct = (v?: number) => (v === undefined || v === null ? '-' : `${Math.round
 const cardShadow = '0 1px 2px rgba(0,0,0,0.04), 0 2px 8px -2px rgba(0,0,0,0.06)'
 
 export default function DashboardPage() {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -205,10 +207,10 @@ export default function DashboardPage() {
       >
         <div>
           <Title level={3} style={{ marginBottom: 4, fontWeight: 600 }}>
-            你好，{user?.displayName ?? user?.username} 👋
+            {t('home.greeting', { name: user?.displayName ?? user?.username })}
           </Title>
           <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 13 }}>
-            {dayjs().format('YYYY 年 M 月 D 日 · dddd')} · 今日销售概览
+            {dayjs().format('YYYY 年 M 月 D 日 · dddd')} · {t('home.today')}
           </Paragraph>
         </div>
         <Space>
