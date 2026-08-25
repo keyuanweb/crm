@@ -703,7 +703,7 @@ function Shell() {
           <Content
             ref={contentRef}
             className="page-scroll"
-            style={{ background: '#f0f2f5', padding: isMobile ? 8 : '16px 20px', overflow: 'auto' }}
+            style={{ background: '#f0f2f5', padding: isMobile ? 8 : '16px 12px', overflow: 'auto' }}
           >
             <div className="page-container" style={{ minHeight: 'calc(100vh - 56px - 64px)' }}>
               <div style={{ marginBottom: 12 }}>
