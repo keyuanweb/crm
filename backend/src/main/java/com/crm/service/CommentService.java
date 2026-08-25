@@ -31,17 +31,45 @@ public class CommentService {
   private final CommentMapper commentMapper;
   private final UserMapper userMapper;
   private final NotificationService notificationService;
+  private final EntityAccessService entityAccessService;
 
   public CommentService(
-      CommentMapper commentMapper, UserMapper userMapper, NotificationService notificationService) {
+      CommentMapper commentMapper,
+      UserMapper userMapper,
+      NotificationService notificationService,
+      EntityAccessService entityAccessService) {
     this.commentMapper = commentMapper;
     this.userMapper = userMapper;
     this.notificationService = notificationService;
+    this.entityAccessService = entityAccessService;
+  }
+
+  /** 063(安全加固)：评论关联实体须对当前用户可见（TICKET 由工单体系管控，跳过行级）。 */
+  private void checkEntityVisible(String entityType, Long entityId) {
+    Long userId = SecurityUtil.currentUserId();
+    if (userId == null) {
+      return;
+    }
+    var principal = SecurityUtil.currentPrincipal();
+    if (principal != null && "ADMIN".equals(principal.role())) {
+      return;
+    }
+    boolean visible =
+        switch (entityType) {
+          case "CUSTOMER" -> entityAccessService.canViewCustomer(userId, entityId);
+          case "LEAD" -> entityAccessService.canViewLead(userId, entityId);
+          case "OPPORTUNITY" -> entityAccessService.canViewOpportunity(userId, entityId);
+          default -> true; // TICKET 等
+        };
+    if (!visible) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
   }
 
   /** 评论列表（时间正序）。 */
   public PageResult<CommentResponse> list(
       String entityType, Long entityId, long page, long pageSize) {
+    checkEntityVisible(entityType, entityId);
     com.baomidou.mybatisplus.extension.plugins.pagination.Page<Comment> p =
         commentMapper.selectPage(
             new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, pageSize),
@@ -65,6 +93,7 @@ public class CommentService {
     if (req.getContent().length() > 1000) {
       throw new BusinessException(ErrorCode.BAD_REQUEST, "评论过长");
     }
+    checkEntityVisible(req.getEntityType(), req.getEntityId());
     Long author = SecurityUtil.currentUserId();
     Comment comment = new Comment();
     comment.setEntityType(req.getEntityType());

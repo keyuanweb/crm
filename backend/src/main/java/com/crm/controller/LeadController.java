@@ -26,11 +26,13 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /** 线索接口（contracts/leads.md）。 */
 @RestController
+@PreAuthorize("hasAnyRole('ADMIN','SALES','SUPPORT')")
 @RequestMapping("/api/v1/leads")
 @Tag(name = "线索管理")
 public class LeadController {

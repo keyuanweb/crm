@@ -52,6 +52,7 @@ public class LeadService {
   private final LeadScoreService leadScoreService;
   private final WebhookService webhookService;
   private final IntegrationChannelService integrationChannelService;
+  private final DataPermissionService dataPermissionService;
 
   public LeadService(
       LeadMapper leadMapper,
@@ -65,7 +66,8 @@ public class LeadService {
       CustomFieldService customFieldService,
       LeadScoreService leadScoreService,
       WebhookService webhookService,
-      IntegrationChannelService integrationChannelService) {
+      IntegrationChannelService integrationChannelService,
+      DataPermissionService dataPermissionService) {
     this.leadMapper = leadMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
@@ -78,6 +80,7 @@ public class LeadService {
     this.leadScoreService = leadScoreService;
     this.webhookService = webhookService;
     this.integrationChannelService = integrationChannelService;
+    this.dataPermissionService = dataPermissionService;
   }
 
   public PageResult<LeadResponse> page(
@@ -122,6 +125,14 @@ public class LeadService {
     } else if (ownerId != null) {
       qw.eq(Lead::getOwnerId, ownerId);
     }
+    // 063(安全加固)：非 ADMIN 按行级数据权限过滤（owner ∈ 可见集；线索池线索对非 ADMIN 不可见）
+    List<Long> visibleOwners = visibleOwnerFilter();
+    if (visibleOwners != null) {
+      if (visibleOwners.isEmpty()) {
+        return PageResult.of(List.of(), 0, page, pageSize);
+      }
+      qw.in(Lead::getOwnerId, visibleOwners);
+    }
     // 019：默认按评分降序（同分按 id 倒序），辅助优先处理高分线索
     qw.orderByDesc(Lead::getScore).orderByDesc(Lead::getId);
     Page<Lead> p = leadMapper.selectPage(new Page<>(page, pageSize), qw);
@@ -132,6 +143,7 @@ public class LeadService {
 
   public LeadDetailResponse detail(Long id) {
     Lead lead = require(id);
+    checkLeadPermission(lead);
     LeadDetailResponse resp = new LeadDetailResponse();
     copyToResponse(lead, resp);
     List<FollowUpBrief> followUps =
@@ -201,6 +213,7 @@ public class LeadService {
   @Transactional
   public LeadResponse update(Long id, LeadRequest req) {
     Lead existing = require(id);
+    checkLeadPermission(existing);
     if (STATUS_QUALIFIED.equals(existing.getStatus())
         || STATUS_DISQUALIFIED.equals(existing.getStatus())) {
       throw new BusinessException(ErrorCode.LEAD_INVALID_STATE, "已转化或无效线索不可编辑");
@@ -240,6 +253,7 @@ public class LeadService {
   @Transactional
   public void delete(Long id) {
     Lead lead = require(id);
+    checkLeadPermission(lead);
     if (STATUS_QUALIFIED.equals(lead.getStatus())) {
       throw new BusinessException(ErrorCode.LEAD_ALREADY_CONVERTED, "已转化线索不可删除");
     }
@@ -250,6 +264,7 @@ public class LeadService {
   @Transactional
   public LeadResponse assign(Long id, Long ownerId) {
     Lead lead = require(id);
+    checkLeadPermission(lead);
     User owner = userMapper.selectById(ownerId);
     if (owner == null) {
       throw new BusinessException(ErrorCode.USER_NOT_FOUND);
@@ -283,6 +298,7 @@ public class LeadService {
   @Transactional
   public LeadDetailResponse convert(Long id, ConvertRequest req) {
     Lead lead = require(id);
+    checkLeadPermission(lead);
     if (!STATUS_WORKING.equals(lead.getStatus()) && !STATUS_NEW.equals(lead.getStatus())) {
       throw new BusinessException(ErrorCode.LEAD_INVALID_STATE, "仅跟进中或新线索可转化");
     }
@@ -338,6 +354,35 @@ public class LeadService {
         "转化线索：" + lead.getName() + " → 客户#" + customer.getId() + " 商机#" + opportunity.getId());
 
     return detail(id);
+  }
+
+  /** 063(安全加固)：非 ADMIN 的可见 owner 集合；ADMIN/ALL 返回 null（不过滤）；空列表=无可见。 */
+  private List<Long> visibleOwnerFilter() {
+    var principal = SecurityUtil.currentPrincipal();
+    if (principal == null || "ADMIN".equals(principal.role())) {
+      return null;
+    }
+    return dataPermissionService.resolveVisibleOwnerIds(principal.userId());
+  }
+
+  /** 063(安全加固)：行级读/写校验——owner 必须在可见集，否则 403。 */
+  private void checkLeadPermission(Lead lead) {
+    var principal = SecurityUtil.currentPrincipal();
+    if (principal == null || "ADMIN".equals(principal.role())) {
+      return;
+    }
+    // 线索池/无主线索：非 ADMIN 一律不可见（防无主数据泄露）
+    if (lead.getOwnerId() == null) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
+    if (lead.getOwnerId().equals(principal.userId())) {
+      return;
+    }
+    List<Long> visibleOwners = visibleOwnerFilter();
+    if (visibleOwners == null || visibleOwners.contains(lead.getOwnerId())) {
+      return;
+    }
+    throw new BusinessException(ErrorCode.FORBIDDEN);
   }
 
   public Lead require(Long id) {

@@ -42,6 +42,7 @@ public class ExportExecutor {
   private final OpportunityMapper opportunityMapper;
   private final TicketMapper ticketMapper;
   private final CustomFieldService customFieldService;
+  private final DataPermissionService dataPermissionService;
   private final String exportDir;
 
   public ExportExecutor(
@@ -50,14 +51,37 @@ public class ExportExecutor {
       CustomerMapper customerMapper,
       OpportunityMapper opportunityMapper,
       TicketMapper ticketMapper,
-      CustomFieldService customFieldService) {
+      CustomFieldService customFieldService,
+      DataPermissionService dataPermissionService) {
     this.exportJobMapper = exportJobMapper;
     this.leadMapper = leadMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.ticketMapper = ticketMapper;
     this.customFieldService = customFieldService;
+    this.dataPermissionService = dataPermissionService;
     this.exportDir = System.getProperty("user.dir") + "/backend/contract-files/exports";
+  }
+
+  /** 063(安全加固)：非 ADMIN 的可见 owner 集（null=不过滤）。 */
+  private List<Long> visibleOwnersOrNull() {
+    var principal = com.crm.security.SecurityUtil.currentPrincipal();
+    if (principal == null || "ADMIN".equals(principal.role())) {
+      return null;
+    }
+    return dataPermissionService.resolveVisibleOwnerIds(principal.userId());
+  }
+
+  /** 063(安全加固)：非 ADMIN 脱敏手机/邮箱。 */
+  private String mask(String phoneOrEmail) {
+    var principal = com.crm.security.SecurityUtil.currentPrincipal();
+    if (principal != null && !"ADMIN".equals(principal.role())) {
+      if (phoneOrEmail != null && phoneOrEmail.contains("@")) {
+        return com.crm.common.MaskingUtil.maskEmail(phoneOrEmail);
+      }
+      return com.crm.common.MaskingUtil.maskPhone(phoneOrEmail);
+    }
+    return phoneOrEmail;
   }
 
   /** 执行导出任务（异步线程池调用）。 */
@@ -120,9 +144,15 @@ public class ExportExecutor {
   }
 
   private void writeLeads(Sheet sheet, ExportJob job) {
-    List<Lead> leads =
-        leadMapper.selectList(
-            new LambdaQueryWrapper<Lead>().orderByDesc(Lead::getId).last("LIMIT 5000"));
+    LambdaQueryWrapper<Lead> qw = new LambdaQueryWrapper<Lead>().orderByDesc(Lead::getId).last("LIMIT 5000");
+    List<Long> visibleOwners = visibleOwnersOrNull();
+    if (visibleOwners != null) {
+      if (visibleOwners.isEmpty()) {
+        return; // 无可见数据
+      }
+      qw.in(Lead::getOwnerId, visibleOwners);
+    }
+    List<Lead> leads = leadMapper.selectList(qw);
     List<com.crm.dto.customfield.CustomFieldResponse> cfDefs =
         customFieldService.listByEntity("LEAD");
     int colCount = writeHeader(sheet, LEAD_HEADERS, cfDefs);
@@ -132,8 +162,8 @@ public class ExportExecutor {
       row.createCell(0).setCellValue(nvl(lead.getName()));
       row.createCell(1).setCellValue(nvl(lead.getCompany()));
       row.createCell(2).setCellValue(nvl(lead.getTitle()));
-      row.createCell(3).setCellValue(nvl(lead.getPhone()));
-      row.createCell(4).setCellValue(nvl(lead.getEmail()));
+      row.createCell(3).setCellValue(nvl(mask(lead.getPhone())));
+      row.createCell(4).setCellValue(nvl(mask(lead.getEmail())));
       row.createCell(5).setCellValue(nvl(lead.getSource()));
       row.createCell(6).setCellValue(lead.getScore() == null ? 0 : lead.getScore());
       row.createCell(7).setCellValue(nvl(lead.getStatus()));
@@ -142,9 +172,16 @@ public class ExportExecutor {
   }
 
   private void writeCustomers(Sheet sheet, ExportJob job) {
-    List<Customer> customers =
-        customerMapper.selectList(
-            new LambdaQueryWrapper<Customer>().orderByDesc(Customer::getId).last("LIMIT 5000"));
+    LambdaQueryWrapper<Customer> qw =
+        new LambdaQueryWrapper<Customer>().orderByDesc(Customer::getId).last("LIMIT 5000");
+    List<Long> visibleOwners = visibleOwnersOrNull();
+    if (visibleOwners != null) {
+      if (visibleOwners.isEmpty()) {
+        return;
+      }
+      qw.in(Customer::getOwnerId, visibleOwners);
+    }
+    List<Customer> customers = customerMapper.selectList(qw);
     List<com.crm.dto.customfield.CustomFieldResponse> cfDefs =
         customFieldService.listByEntity("CUSTOMER");
     int colCount = writeHeader(sheet, CUSTOMER_HEADERS, cfDefs);
@@ -154,8 +191,8 @@ public class ExportExecutor {
       row.createCell(0).setCellValue(nvl(c.getName()));
       row.createCell(1).setCellValue(nvl(c.getCompany()));
       row.createCell(2).setCellValue(nvl(c.getContactPerson()));
-      row.createCell(3).setCellValue(nvl(c.getPhone()));
-      row.createCell(4).setCellValue(nvl(c.getEmail()));
+      row.createCell(3).setCellValue(nvl(mask(c.getPhone())));
+      row.createCell(4).setCellValue(nvl(mask(c.getEmail())));
       row.createCell(5).setCellValue(nvl(c.getAddress()));
       row.createCell(6).setCellValue(nvl(c.getStatus()));
       writeCustomFields(row, colCount, "CUSTOMER", c.getId(), cfDefs);

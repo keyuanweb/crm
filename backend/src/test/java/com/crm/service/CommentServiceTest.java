@@ -50,7 +50,7 @@ class CommentServiceTest {
     commentMapper = mock(CommentMapper.class);
     userMapper = mock(UserMapper.class);
     notificationService = mock(NotificationService.class);
-    service = new CommentService(commentMapper, userMapper, notificationService);
+    service = new CommentService(commentMapper, userMapper, notificationService, mock(EntityAccessService.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock

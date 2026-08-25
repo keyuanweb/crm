@@ -49,7 +49,53 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
-    return build(400, ErrorCode.BAD_REQUEST.getCode(), ex.getMessage(), null);
+    // 063(安全加固)：不把内部异常消息直接回传前端（防细节泄露），统一 400 文案
+    return build(400, ErrorCode.BAD_REQUEST.getCode(), ErrorCode.BAD_REQUEST.getMessage(), null);
+  }
+
+  /** 063：请求体坏 JSON → 400。 */
+  @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+  public ResponseEntity<ApiResponse<Void>> handleUnreadable(
+      org.springframework.http.converter.HttpMessageNotReadableException ex) {
+    return build(400, ErrorCode.BAD_REQUEST.getCode(), "请求体格式错误", null);
+  }
+
+  /** 063：路径/查询参数类型错误 → 400。 */
+  @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(
+      org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+    return build(400, ErrorCode.BAD_REQUEST.getCode(), "参数类型错误", null);
+  }
+
+  /** 063：缺必需请求参数 → 400。 */
+  @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+  public ResponseEntity<ApiResponse<Void>> handleMissingParam(
+      org.springframework.web.bind.MissingServletRequestParameterException ex) {
+    return build(400, ErrorCode.BAD_REQUEST.getCode(), "缺少必需参数", null);
+  }
+
+  /** 063：请求方法不支持 → 405。 */
+  @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+  public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(
+      org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+    return build(405, "METHOD_NOT_ALLOWED", "请求方法不支持", null);
+  }
+
+  /** 063：资源路径不存在 → 404。 */
+  @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+  public ResponseEntity<ApiResponse<Void>> handleNoResource(
+      org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+    return build(404, "NOT_FOUND", "资源不存在", null);
+  }
+
+  /** 063：唯一键冲突 → 409。 */
+  @ExceptionHandler({
+    org.springframework.dao.DuplicateKeyException.class,
+    org.springframework.dao.DataIntegrityViolationException.class
+  })
+  public ResponseEntity<ApiResponse<Void>> handleDuplicate(
+      org.springframework.dao.DataIntegrityViolationException ex) {
+    return build(409, "DUPLICATE_KEY", "数据已存在或违反唯一约束", null);
   }
 
   @ExceptionHandler(com.crm.controller.EmailTrackController.RateLimitedException.class)

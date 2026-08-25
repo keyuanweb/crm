@@ -28,12 +28,20 @@ public class ContactService {
   private final ContactMapper contactMapper;
   private final CustomerMapper customerMapper;
   private final AuditService auditService;
+  private final DataPermissionService dataPermissionService;
+  private final com.crm.repository.CustomerShareMapper customerShareMapper;
 
   public ContactService(
-      ContactMapper contactMapper, CustomerMapper customerMapper, AuditService auditService) {
+      ContactMapper contactMapper,
+      CustomerMapper customerMapper,
+      AuditService auditService,
+      DataPermissionService dataPermissionService,
+      com.crm.repository.CustomerShareMapper customerShareMapper) {
     this.contactMapper = contactMapper;
     this.customerMapper = customerMapper;
     this.auditService = auditService;
+    this.dataPermissionService = dataPermissionService;
+    this.customerShareMapper = customerShareMapper;
   }
 
   public PageResult<ContactResponse> page(
@@ -55,13 +63,23 @@ public class ContactService {
     if (StringUtils.hasText(role)) {
       qw.eq(Contact::getRole, role.trim());
     }
+    // 063(安全加固)：非 ADMIN 仅可见自己负责/共享客户的联系人
+    List<Long> visibleCustomerIds = visibleCustomerIds();
+    if (visibleCustomerIds != null) {
+      if (visibleCustomerIds.isEmpty()) {
+        return PageResult.of(List.of(), 0, page, pageSize);
+      }
+      qw.in(Contact::getCustomerId, visibleCustomerIds);
+    }
     qw.orderByDesc(Contact::getId);
     Page<Contact> p = contactMapper.selectPage(new Page<>(page, pageSize), qw);
     return PageResult.of(toResponses(p.getRecords()), p.getTotal(), page, pageSize);
   }
 
   public ContactResponse detail(Long id) {
-    return toResponse(require(id));
+    Contact contact = require(id);
+    checkContactPermission(contact);
+    return toResponse(contact);
   }
 
   @Transactional
@@ -82,6 +100,7 @@ public class ContactService {
   @Transactional
   public ContactResponse update(Long id, ContactRequest req) {
     Contact existing = require(id);
+    checkContactPermission(existing);
     Customer customer = customerMapper.selectById(req.getCustomerId());
     if (customer == null) {
       throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND);
@@ -100,8 +119,57 @@ public class ContactService {
   @Transactional
   public void delete(Long id) {
     Contact contact = require(id);
+    checkContactPermission(contact);
     contactMapper.deleteById(id);
     auditService.record("DELETE", "CONTACT", id, "删除联系人：" + contact.getName());
+  }
+
+  /**
+   * 063(安全加固)：非 ADMIN 的可见客户 id 集（owner ∈ 可见集 或 共享给我）。
+   * 返回 null 表示不过滤（ADMIN/ALL）；返回空列表表示无任何可见客户。
+   */
+  private List<Long> visibleCustomerIds() {
+    var principal = SecurityUtil.currentPrincipal();
+    if (principal == null || "ADMIN".equals(principal.role())) {
+      return null;
+    }
+    List<Long> visibleOwners = dataPermissionService.resolveVisibleOwnerIds(principal.userId());
+    java.util.Set<Long> ids = new java.util.HashSet<>();
+    if (visibleOwners.isEmpty()) {
+      return List.of(); // ALL/ADMIN 已在上面返回；此处为 DEPT 无成员 → 无可见
+    }
+    ids.addAll(
+        customerMapper
+            .selectList(
+                new LambdaQueryWrapper<Customer>()
+                    .select(Customer::getId)
+                    .in(Customer::getOwnerId, visibleOwners))
+            .stream()
+            .map(Customer::getId)
+            .toList());
+    ids.addAll(
+        customerShareMapper
+            .selectList(
+                new LambdaQueryWrapper<com.crm.entity.CustomerShare>()
+                    .select(com.crm.entity.CustomerShare::getCustomerId)
+                    .eq(com.crm.entity.CustomerShare::getSharedToUserId, principal.userId()))
+            .stream()
+            .map(com.crm.entity.CustomerShare::getCustomerId)
+            .toList());
+    return new java.util.ArrayList<>(ids);
+  }
+
+  /** 063(安全加固)：联系人所属客户必须可见，否则 403。 */
+  private void checkContactPermission(Contact contact) {
+    var principal = SecurityUtil.currentPrincipal();
+    if (principal == null || "ADMIN".equals(principal.role())) {
+      return;
+    }
+    List<Long> visible = visibleCustomerIds();
+    if (visible == null || visible.contains(contact.getCustomerId())) {
+      return;
+    }
+    throw new BusinessException(ErrorCode.FORBIDDEN);
   }
 
   public Contact require(Long id) {

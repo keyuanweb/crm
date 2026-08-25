@@ -38,6 +38,7 @@ public class FollowUpService {
   private final TaskService taskService;
   private final WorkflowEventPublisher workflowEventPublisher;
   private final LeadScoreService leadScoreService;
+  private final EntityAccessService entityAccessService;
 
   public FollowUpService(
       FollowUpMapper followUpMapper,
@@ -48,7 +49,8 @@ public class FollowUpService {
       DashboardStatsService dashboardStatsService,
       TaskService taskService,
       WorkflowEventPublisher workflowEventPublisher,
-      LeadScoreService leadScoreService) {
+      LeadScoreService leadScoreService,
+      EntityAccessService entityAccessService) {
     this.followUpMapper = followUpMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
@@ -58,10 +60,22 @@ public class FollowUpService {
     this.taskService = taskService;
     this.workflowEventPublisher = workflowEventPublisher;
     this.leadScoreService = leadScoreService;
+    this.entityAccessService = entityAccessService;
   }
 
   public PageResult<FollowUpResponse> page(
       Long customerId, Long leadId, Long opportunityId, long page, long pageSize) {
+    // 063(安全加固)：按关联实体行级可见性校验（不可见 → 403）
+    Long userId = SecurityUtil.currentUserId();
+    if (customerId != null && !entityAccessService.canViewCustomer(userId, customerId)) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
+    if (leadId != null && !entityAccessService.canViewLead(userId, leadId)) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
+    if (opportunityId != null && !entityAccessService.canViewOpportunity(userId, opportunityId)) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
     LambdaQueryWrapper<FollowUp> qw = new LambdaQueryWrapper<>();
     if (customerId != null) {
       qw.eq(FollowUp::getCustomerId, customerId);
@@ -80,6 +94,18 @@ public class FollowUpService {
   @Transactional
   public FollowUpResponse create(FollowUpRequest req) {
     validateLinkage(req.getCustomerId(), req.getLeadId(), req.getOpportunityId());
+    // 063(安全加固)：关联实体须对当前用户可见
+    Long userId = SecurityUtil.currentUserId();
+    if (req.getCustomerId() != null && !entityAccessService.canViewCustomer(userId, req.getCustomerId())) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
+    if (req.getLeadId() != null && !entityAccessService.canViewLead(userId, req.getLeadId())) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
+    if (req.getOpportunityId() != null
+        && !entityAccessService.canViewOpportunity(userId, req.getOpportunityId())) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
     FollowUp followUp = new FollowUp();
     followUp.setCustomerId(req.getCustomerId());
     followUp.setLeadId(req.getLeadId());
@@ -142,6 +168,18 @@ public class FollowUpService {
       throw new BusinessException(ErrorCode.FORBIDDEN);
     }
     validateLinkage(req.getCustomerId(), req.getLeadId(), req.getOpportunityId());
+    // 063(安全加固)：新关联实体须对当前用户可见
+    Long uid = SecurityUtil.currentUserId();
+    if (req.getCustomerId() != null && !entityAccessService.canViewCustomer(uid, req.getCustomerId())) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
+    if (req.getLeadId() != null && !entityAccessService.canViewLead(uid, req.getLeadId())) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
+    if (req.getOpportunityId() != null
+        && !entityAccessService.canViewOpportunity(uid, req.getOpportunityId())) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
     existing.setCustomerId(req.getCustomerId());
     existing.setLeadId(req.getLeadId());
     existing.setOpportunityId(req.getOpportunityId());

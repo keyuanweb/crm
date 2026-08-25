@@ -17,10 +17,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 /** 跟进记录接口（contracts/follow-ups.md，FR-015）。 */
 @RestController
+@PreAuthorize("hasAnyRole('ADMIN','SALES','SUPPORT')")
 @RequestMapping("/api/v1/follow-ups")
 @Tag(name = "跟进记录")
 public class FollowUpController {
