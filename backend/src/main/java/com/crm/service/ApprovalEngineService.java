@@ -41,6 +41,8 @@ public class ApprovalEngineService {
   private final NotificationService notificationService;
   private final com.crm.repository.ContractMapper contractMapper;
   private final com.crm.repository.QuoteMapper quoteMapper;
+  private final org.springframework.beans.factory.ObjectProvider<IntegrationChannelService>
+      integrationChannelProvider;
 
   public ApprovalEngineService(
       ApprovalInstanceMapper instanceMapper,
@@ -50,7 +52,9 @@ public class ApprovalEngineService {
       UserMapper userMapper,
       NotificationService notificationService,
       com.crm.repository.ContractMapper contractMapper,
-      com.crm.repository.QuoteMapper quoteMapper) {
+      com.crm.repository.QuoteMapper quoteMapper,
+      org.springframework.beans.factory.ObjectProvider<IntegrationChannelService>
+          integrationChannelProvider) {
     this.instanceMapper = instanceMapper;
     this.taskMapper = taskMapper;
     this.logMapper = logMapper;
@@ -59,6 +63,7 @@ public class ApprovalEngineService {
     this.notificationService = notificationService;
     this.contractMapper = contractMapper;
     this.quoteMapper = quoteMapper;
+    this.integrationChannelProvider = integrationChannelProvider;
   }
 
   /** 发起审批：取启用流程 → 解析节点 → 建实例 + 首任务 → 通知审批人。 */
@@ -111,6 +116,11 @@ public class ApprovalEngineService {
     notifyApprover(approver, instance);
 
     recordLog(instance.getId(), first.getId(), "SUBMIT", initiator, "提交审批");
+    // 058：集成通道推送（审批待办）
+    IntegrationChannelService channelService = integrationChannelProvider.getIfAvailable();
+    if (channelService != null) {
+      channelService.publish("APPROVAL_PENDING", title + "（审批 #" + instance.getId() + "）");
+    }
     return instance;
   }
 

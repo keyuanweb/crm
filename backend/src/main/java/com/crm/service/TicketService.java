@@ -57,6 +57,7 @@ public class TicketService {
   private final CustomFieldService customFieldService;
   private final NotificationService notificationService;
   private final SlaCalendarService slaCalendarService;
+  private final IntegrationChannelService integrationChannelService;
 
   public TicketService(
       TicketMapper ticketMapper,
@@ -67,7 +68,8 @@ public class TicketService {
       AuditService auditService,
       CustomFieldService customFieldService,
       NotificationService notificationService,
-      SlaCalendarService slaCalendarService) {
+      SlaCalendarService slaCalendarService,
+      IntegrationChannelService integrationChannelService) {
     this.ticketMapper = ticketMapper;
     this.replyMapper = replyMapper;
     this.customerMapper = customerMapper;
@@ -77,6 +79,7 @@ public class TicketService {
     this.customFieldService = customFieldService;
     this.notificationService = notificationService;
     this.slaCalendarService = slaCalendarService;
+    this.integrationChannelService = integrationChannelService;
   }
 
   public PageResult<TicketResponse> page(
@@ -201,6 +204,9 @@ public class TicketService {
           "TICKET",
           id);
     }
+    // 058：集成通道推送（工单分配）
+    integrationChannelService.publish(
+        "TICKET_ASSIGNED", "工单 #" + id + "「" + ticket.getTitle() + "」已分配给 " + user.getDisplayName());
     return toResponse(ticketMapper.selectById(id));
   }
 

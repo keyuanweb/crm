@@ -76,7 +76,8 @@ class TicketServiceTest {
             auditService,
             mock(CustomFieldService.class),
             mock(NotificationService.class),
-            mock(SlaCalendarService.class));
+            mock(SlaCalendarService.class),
+            mock(IntegrationChannelService.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock

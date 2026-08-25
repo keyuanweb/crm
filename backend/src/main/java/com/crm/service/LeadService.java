@@ -51,6 +51,7 @@ public class LeadService {
   private final CustomFieldService customFieldService;
   private final LeadScoreService leadScoreService;
   private final WebhookService webhookService;
+  private final IntegrationChannelService integrationChannelService;
 
   public LeadService(
       LeadMapper leadMapper,
@@ -63,7 +64,8 @@ public class LeadService {
       WorkflowEventPublisher workflowEventPublisher,
       CustomFieldService customFieldService,
       LeadScoreService leadScoreService,
-      WebhookService webhookService) {
+      WebhookService webhookService,
+      IntegrationChannelService integrationChannelService) {
     this.leadMapper = leadMapper;
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
@@ -75,6 +77,7 @@ public class LeadService {
     this.customFieldService = customFieldService;
     this.leadScoreService = leadScoreService;
     this.webhookService = webhookService;
+    this.integrationChannelService = integrationChannelService;
   }
 
   public PageResult<LeadResponse> page(
@@ -188,6 +191,9 @@ public class LeadService {
             "name", lead.getName() == null ? "" : lead.getName(),
             "company", lead.getCompany() == null ? "" : lead.getCompany(),
             "email", lead.getEmail() == null ? "" : lead.getEmail()));
+    // 058：集成通道推送（线索创建）
+    integrationChannelService.publish(
+        "LEAD_CREATED", "新线索「" + lead.getName() + "」已创建（#" + lead.getId() + "）");
     // 工作流可能更新了 ownerId：返回 DB 最新数据
     return toResponse(leadMapper.selectById(lead.getId()));
   }

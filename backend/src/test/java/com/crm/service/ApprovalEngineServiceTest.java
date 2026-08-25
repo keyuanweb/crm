@@ -67,7 +67,8 @@ class ApprovalEngineServiceTest {
             userMapper,
             notificationService,
             mock(com.crm.repository.ContractMapper.class),
-            mock(com.crm.repository.QuoteMapper.class));
+            mock(com.crm.repository.QuoteMapper.class),
+            mock(org.springframework.beans.factory.ObjectProvider.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock

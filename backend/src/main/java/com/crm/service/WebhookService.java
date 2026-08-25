@@ -141,10 +141,40 @@ public class WebhookService {
     }
   }
 
+  /** 058：直接推送到指定 URL（集成通道用，不经订阅表），复用重试/记录机制。 */
+  public void publishToUrl(
+      Long subscriptionId,
+      String eventType,
+      String entityType,
+      Long entityId,
+      Map<String, Object> payload,
+      String url,
+      String name) {
+    String body;
+    try {
+      Map<String, Object> envelope = new java.util.LinkedHashMap<>();
+      envelope.put("event", eventType);
+      envelope.put("entityType", entityType);
+      envelope.put("entityId", entityId);
+      envelope.put("timestamp", LocalDateTime.now().toString());
+      envelope.put("data", payload);
+      body = MAPPER.writeValueAsString(envelope);
+    } catch (Exception ex) {
+      log.warn("Webhook payload serialize failed: {}", ex.getMessage());
+      return;
+    }
+    WebhookSubscription sub = new WebhookSubscription();
+    sub.setId(subscriptionId);
+    sub.setEventType(eventType);
+    sub.setCallbackUrl(url);
+    sub.setSecret(name == null ? "integration" : name);
+    sub.setEnabled(1);
+    deliverAsync(sub, eventType, entityType, entityId, body);
+  }
+
   @Async
   public void deliverAsync(
-      WebhookSubscription sub, String eventType, String entityType, Long entityId, String body) {
-    String signature = sign(sub.getSecret(), body);
+      WebhookSubscription sub, String eventType, String entityType, Long entityId, String body) {    String signature = sign(sub.getSecret(), body);
     boolean success = false;
     String error = null;
     Integer httpStatus = null;

@@ -71,7 +71,8 @@ class LeadServiceTest {
             mock(WorkflowEventPublisher.class),
             mock(CustomFieldService.class),
             mock(LeadScoreService.class),
-            mock(WebhookService.class));
+            mock(WebhookService.class),
+            mock(IntegrationChannelService.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
   }

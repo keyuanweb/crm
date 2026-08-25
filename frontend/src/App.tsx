@@ -104,6 +104,7 @@ const LandingPageView = lazy(() => import('./pages/landing/LandingPageView'))
 const OpenPlatformPage = lazy(() => import('./pages/open/OpenPlatformPage'))
 const FieldPermissionPage = lazy(() => import('./pages/settings/FieldPermissionPage'))
 const CurrencyRatePage = lazy(() => import('./pages/settings/CurrencyRatePage'))
+const IntegrationHubPage = lazy(() => import('./pages/settings/IntegrationHubPage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -353,7 +354,7 @@ function Shell() {
     { path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> },
     { path: '/settings/custom-fields', name: '自定义字段', icon: <SettingOutlined /> },
     { path: '/open-platform', name: '开放平台', icon: <ApartmentOutlined /> },
-    { path: '/planned/integration', name: '集成中心', icon: <ApartmentOutlined />, planned: true },
+    { path: '/integration-hub', name: '集成中心', icon: <ApartmentOutlined /> },
   ]
   const adminAuditRoutes = [
     { path: '/tags', name: '标签与细分', icon: <TagsOutlined /> },
@@ -667,6 +668,7 @@ export default function App() {
         <Route path="open-platform" element={<OpenPlatformPage />} />
         <Route path="field-permissions" element={<FieldPermissionPage />} />
         <Route path="currencies" element={<CurrencyRatePage />} />
+        <Route path="integration-hub" element={<IntegrationHubPage />} />
         <Route path="exports" element={<ExportCenterPage />} />
         <Route path="settings/custom-fields" element={<CustomFieldListPage />} />
         <Route path="stats" element={<DashboardPage />} />
