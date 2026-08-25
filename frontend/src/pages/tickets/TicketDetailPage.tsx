@@ -13,6 +13,7 @@ import {
 } from '../../services/ticketService'
 import { fetchUsers } from '../../services/userService'
 import { extractErrorMessage } from '../../services/apiClient'
+import SurveyBlock from '../../components/SurveyBlock'
 import {
   TICKET_PRIORITY_COLORS,
   TICKET_PRIORITY_LABELS,
@@ -218,6 +219,12 @@ export default function TicketDetailPage() {
         ))}
         </Descriptions>
       </Card>
+
+      <SurveyBlock
+        ticketId={ticket.id}
+        isClosed={ticket.status === 'CLOSED'}
+        onSubmitted={() => void load()}
+      />
 
       <Card
         title="处理时间线"

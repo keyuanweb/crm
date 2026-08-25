@@ -95,6 +95,7 @@ const CustomFieldListPage = lazy(() => import('./pages/settings/CustomFieldListP
 const ExportCenterPage = lazy(() => import('./pages/exports/ExportCenterPage'))
 const StageActionTemplatePage = lazy(() => import('./pages/playbook/StageActionTemplatePage'))
 const ContractRenewalPage = lazy(() => import('./pages/contracts/ContractRenewalPage'))
+const SatisfactionStatsPage = lazy(() => import('./pages/surveys/SatisfactionStatsPage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -117,6 +118,7 @@ const PRELOAD_PAGES: Array<() => Promise<unknown>> = [
   () => import('./pages/sales-opportunities/SalesOpportunityListPage'),
   () => import('./pages/playbook/StageActionTemplatePage'),
   () => import('./pages/contracts/ContractRenewalPage'),
+  () => import('./pages/surveys/SatisfactionStatsPage'),
   () => import('./pages/stats/DashboardPage'),
   () => import('./pages/stats/TeamLeaderboardPage'),
   () => import('./pages/reports/ReportCenterPage'),
@@ -312,7 +314,7 @@ function Shell() {
     { path: '/announcements', name: '公告管理', icon: <NotificationOutlined /> },
     { path: '/approvals', name: '我的审批', icon: <AuditOutlined /> },
     { path: '/planned/portal', name: '客户门户', icon: <CustomerServiceOutlined />, planned: true },
-    { path: '/planned/csat', name: '满意度调查', icon: <AuditOutlined />, planned: true },
+    { path: '/satisfaction', name: '满意度调查', icon: <AuditOutlined /> },
     { path: '/planned/sla-calendar', name: 'SLA日历', icon: <CalendarOutlined />, planned: true },
   ]
   const workbenchRoutes = [
@@ -642,6 +644,7 @@ export default function App() {
         <Route path="marketing/email" element={<EmailMarketingPage />} />
         <Route path="marketing/roi" element={<ChannelRoiPage />} />
         <Route path="tickets" element={<TicketListPage />} />
+        <Route path="satisfaction" element={<SatisfactionStatsPage />} />
         <Route path="tickets/:id" element={<TicketDetailPage />} />
         <Route path="knowledge" element={<KnowledgeArticleListPage />} />
         <Route path="sla-policies" element={<SlaPolicyListPage />} />
