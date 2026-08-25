@@ -27,18 +27,24 @@ public class CustomFieldService {
   private final CustomFieldMapper fieldMapper;
   private final CustomFieldValueMapper valueMapper;
   private final AuditService auditService;
+  private final FieldPermissionService fieldPermissionService;
 
   public CustomFieldService(
       CustomFieldMapper fieldMapper,
       CustomFieldValueMapper valueMapper,
-      AuditService auditService) {
+      AuditService auditService,
+      FieldPermissionService fieldPermissionService) {
     this.fieldMapper = fieldMapper;
     this.valueMapper = valueMapper;
     this.auditService = auditService;
+    this.fieldPermissionService = fieldPermissionService;
   }
 
-  /** 某实体的启用字段定义（按 sort_order 排序）。 */
+  /** 某实体的启用字段定义（按 sort_order 排序，含当前角色权限标记）。 */
   public List<CustomFieldResponse> listByEntity(String entityType) {
+    String roleCode = currentRoleCode();
+    java.util.Map<Long, String> perms =
+        fieldPermissionService.permissionsForRole(roleCode, entityType);
     return fieldMapper
         .selectList(
             new LambdaQueryWrapper<CustomField>()
@@ -47,8 +53,19 @@ public class CustomFieldService {
                 .orderByAsc(CustomField::getSortOrder)
                 .orderByAsc(CustomField::getId))
         .stream()
-        .map(this::toResponse)
+        .map(
+            f -> {
+              CustomFieldResponse resp = toResponse(f);
+              String p = perms.getOrDefault(f.getId(), FieldPermissionService.PERM_EDITABLE);
+              resp.setPermission(com.crm.dto.field.FieldPermissionView.of(p));
+              return resp;
+            })
         .toList();
+  }
+
+  private String currentRoleCode() {
+    var principal = SecurityUtil.currentPrincipal();
+    return principal == null ? "ADMIN" : principal.role();
   }
 
   public PageResult<CustomFieldResponse> page(String entityType, long page, long pageSize) {
@@ -186,6 +203,16 @@ public class CustomFieldService {
         }
       }
     }
+    // 056：字段权限校验（HIDDEN 拒绝写入 / READ_ONLY 拒绝修改；ADMIN 豁免）
+    String roleCode = currentRoleCode();
+    java.util.Map<Long, String> existing =
+        readValues(entityType, entityId).stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    com.crm.dto.customfield.CustomFieldValueDTO::getFieldId,
+                    com.crm.dto.customfield.CustomFieldValueDTO::getValue));
+    fieldPermissionService.validateWrite(roleCode, entityType, values, existing);
+
     // 先删后插
     valueMapper.delete(
         new LambdaQueryWrapper<CustomFieldValue>()

@@ -1,5 +1,6 @@
 package com.crm.dto.customfield;
 
+import com.crm.dto.field.FieldPermissionView;
 import java.time.LocalDateTime;
 import lombok.Data;
 
@@ -17,4 +18,7 @@ public class CustomFieldResponse {
   private Integer sortOrder;
   private Integer version;
   private LocalDateTime createdAt;
+
+  /** 056：当前角色字段权限（hidden/readOnly）。 */
+  private FieldPermissionView permission;
 }

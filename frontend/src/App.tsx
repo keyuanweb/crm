@@ -102,6 +102,7 @@ const SlaCalendarPage = lazy(() => import('./pages/sla/SlaCalendarPage'))
 const LandingPageListPage = lazy(() => import('./pages/landing/LandingPageListPage'))
 const LandingPageView = lazy(() => import('./pages/landing/LandingPageView'))
 const OpenPlatformPage = lazy(() => import('./pages/open/OpenPlatformPage'))
+const FieldPermissionPage = lazy(() => import('./pages/settings/FieldPermissionPage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -341,7 +342,7 @@ function Shell() {
     { path: '/users', name: '用户管理', icon: <UserOutlined /> },
     { path: '/roles', name: '角色权限', icon: <SafetyCertificateOutlined /> },
     { path: '/departments', name: '部门', icon: <ApartmentOutlined /> },
-    { path: '/planned/field-perm', name: '字段权限', icon: <SafetyCertificateOutlined />, planned: true },
+    { path: '/field-permissions', name: '字段权限', icon: <SafetyCertificateOutlined /> },
     { path: '/planned/currency', name: '多币种', icon: <FundOutlined />, planned: true },
   ]
   const adminConfigRoutes = [
@@ -663,6 +664,7 @@ export default function App() {
         <Route path="sla-policies" element={<SlaPolicyListPage />} />
         <Route path="sla-calendar" element={<SlaCalendarPage />} />
         <Route path="open-platform" element={<OpenPlatformPage />} />
+        <Route path="field-permissions" element={<FieldPermissionPage />} />
         <Route path="exports" element={<ExportCenterPage />} />
         <Route path="settings/custom-fields" element={<CustomFieldListPage />} />
         <Route path="stats" element={<DashboardPage />} />

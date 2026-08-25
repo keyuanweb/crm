@@ -52,7 +52,9 @@ class CustomFieldServiceTest {
     fieldMapper = mock(CustomFieldMapper.class);
     valueMapper = mock(CustomFieldValueMapper.class);
     auditService = mock(AuditService.class);
-    service = new CustomFieldService(fieldMapper, valueMapper, auditService);
+    service =
+        new CustomFieldService(
+            fieldMapper, valueMapper, auditService, mock(FieldPermissionService.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock

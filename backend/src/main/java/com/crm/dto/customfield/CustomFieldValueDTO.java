@@ -6,7 +6,7 @@ import lombok.Data;
 
 /** 自定义字段值（请求/响应通用）。 */
 @Data
-public class CustomFieldValueDTO {
+public class CustomFieldValueDTO implements com.crm.dto.field.FieldValueLike {
 
   @NotNull(message = "字段 id 不能为空")
   private Long fieldId;

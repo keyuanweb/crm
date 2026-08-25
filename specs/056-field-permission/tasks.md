@@ -1,4 +1,4 @@
-# Tasks: 字段级读写权限模块
+﻿# Tasks: 字段级读写权限模块
 
 **Input**: Design documents from `/specs/056-field-permission/`
 
@@ -13,11 +13,11 @@
 
 ## Phase 1: 数据模型与基础
 
-- [ ] T001 [P] 创建 Flyway 迁移 V64 in `backend/src/main/resources/db/migration/V64__field_permission.sql`（field_permission 表 + uk_field_perm 唯一）
-- [ ] T002 [P] H2 测试 schema 同步 in `backend/src/test/resources/schema-h2.sql`
-- [ ] T003 [P] 创建 FieldPermission 实体 + Mapper in `backend/src/main/java/com/crm/entity/` + `backend/src/main/java/com/crm/repository/`
-- [ ] T004 [P] ErrorCode 新增 FIELD_* 错误码 in `backend/src/main/java/com/crm/common/ErrorCode.java`
-- [ ] T005 [P] 创建 FieldPermissionRequest/Response/FieldPermissionView DTO in `backend/src/main/java/com/crm/dto/field/`
+- [x] T001 [P] 创建 Flyway 迁移 V64 in `backend/src/main/resources/db/migration/V64__field_permission.sql`（field_permission 表 + uk_field_perm 唯一）
+- [x] T002 [P] H2 测试 schema 同步 in `backend/src/test/resources/schema-h2.sql`
+- [x] T003 [P] 创建 FieldPermission 实体 + Mapper in `backend/src/main/java/com/crm/entity/` + `backend/src/main/java/com/crm/repository/`
+- [x] T004 [P] ErrorCode 新增 FIELD_* 错误码 in `backend/src/main/java/com/crm/common/ErrorCode.java`
+- [x] T005 [P] 创建 FieldPermissionRequest/Response/FieldPermissionView DTO in `backend/src/main/java/com/crm/dto/field/`
 
 **Checkpoint**: 数据模型就绪
 
@@ -31,9 +31,9 @@
 
 ### 实现
 
-- [ ] T006 [P] [US1] 创建 FieldPermissionService（CRUD/upsert/校验）in `backend/src/main/java/com/crm/service/FieldPermissionService.java`
-- [ ] T007 [US1] 创建 FieldPermissionController（/field-permissions，仅 ADMIN）in `backend/src/main/java/com/crm/controller/FieldPermissionController.java`
-- [ ] T008 [US1] 创建 FieldPermissionServiceTest 单元测试 in `backend/src/test/java/com/crm/service/FieldPermissionServiceTest.java`
+- [x] T006 [P] [US1] 创建 FieldPermissionService（CRUD/upsert/校验）in `backend/src/main/java/com/crm/service/FieldPermissionService.java`
+- [x] T007 [US1] 创建 FieldPermissionController（/field-permissions，仅 ADMIN）in `backend/src/main/java/com/crm/controller/FieldPermissionController.java`
+- [x] T008 [US1] 创建 FieldPermissionServiceTest 单元测试 in `backend/src/test/java/com/crm/service/FieldPermissionServiceTest.java`
 
 **Checkpoint**: US1 可用——配置
 
@@ -47,13 +47,13 @@
 
 ### 实现
 
-- [ ] T009 [P] [US2] FieldPermissionService 增加 permissionFor(role, entity, field) + 校验方法 in `backend/src/main/java/com/crm/service/FieldPermissionService.java`
-- [ ] T010 [US2] CustomFieldService 字段列表加权限标记 in `backend/src/main/java/com/crm/service/CustomFieldService.java`
-- [ ] T011 [US2] CustomFieldService.saveValues 校验（HIDDEN/READ_ONLY 拦截）in `backend/src/main/java/com/crm/service/CustomFieldService.java`
-- [ ] T012 [US2] 创建 FieldPermissionIT 集成测试 in `backend/src/test/java/com/crm/integration/FieldPermissionIT.java`
-- [ ] T013 [US2] 前端类型/服务 in `frontend/src/types/fieldPermission.ts` + `frontend/src/services/fieldPermissionService.ts`
-- [ ] T014 [US2] 配置页 in `frontend/src/pages/settings/FieldPermissionPage.tsx`（角色×实体×字段 矩阵）
-- [ ] T015 [US2] 自定义字段表单接入权限（隐藏/禁用）in `frontend/src/components/`（CustomFieldForm）
+- [x] T009 [P] [US2] FieldPermissionService 增加 permissionFor(role, entity, field) + 校验方法 in `backend/src/main/java/com/crm/service/FieldPermissionService.java`
+- [x] T010 [US2] CustomFieldService 字段列表加权限标记 in `backend/src/main/java/com/crm/service/CustomFieldService.java`
+- [x] T011 [US2] CustomFieldService.saveValues 校验（HIDDEN/READ_ONLY 拦截）in `backend/src/main/java/com/crm/service/CustomFieldService.java`
+- [x] T012 [US2] 创建 FieldPermissionIT 集成测试 in `backend/src/test/java/com/crm/integration/FieldPermissionIT.java`
+- [x] T013 [US2] 前端类型/服务 in `frontend/src/types/fieldPermission.ts` + `frontend/src/services/fieldPermissionService.ts`
+- [x] T014 [US2] 配置页 in `frontend/src/pages/settings/FieldPermissionPage.tsx`（角色×实体×字段 矩阵）
+- [x] T015 [US2] 自定义字段表单接入权限（隐藏/禁用）in `frontend/src/components/`（CustomFieldForm）
 
 **Checkpoint**: US2 可用——权限应用
 
@@ -61,12 +61,12 @@
 
 ## Phase 4: 收尾与验证
 
-- [ ] T016 App.tsx 点亮"字段权限"占位项为路由 in `frontend/src/App.tsx`（/field-permissions）
-- [ ] T017 Backend `mvn verify` 通过（含新增测试、spotless、JaCoCo）
-- [ ] T018 单独运行 `mvn test "-Dtest=FieldPermissionIT"` 通过
-- [ ] T019 Frontend typecheck / lint / test / build 通过
-- [ ] T020 线上端点验证（配置→字段标记→只读保存 422→ADMIN 豁免）
-- [ ] T021 更新契约文档（按实现校正）与 roadmap 056 标记 `[x]`
+- [x] T016 App.tsx 点亮"字段权限"占位项为路由 in `frontend/src/App.tsx`（/field-permissions）
+- [x] T017 Backend `mvn verify` 通过（含新增测试、spotless、JaCoCo）
+- [x] T018 单独运行 `mvn test "-Dtest=FieldPermissionIT"` 通过
+- [x] T019 Frontend typecheck / lint / test / build 通过
+- [x] T020 线上端点验证（配置→字段标记→只读保存 422→ADMIN 豁免）
+- [x] T021 更新契约文档（按实现校正）与 roadmap 056 标记 `[x]`
 
 **Checkpoint**: 模块完整可用
 
