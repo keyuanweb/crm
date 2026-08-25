@@ -210,3 +210,4 @@
 - [x] 056-field-permission（字段级读写权限：隐藏/只读/可编辑按角色）
 - [x] 057-multi-currency（多币种：汇率管理/产品多币种价格/折算）
 - [x] 058-integration-hub（集成中心：第三方通知通道/事件推送）
+- [x] 059-custom-object（自定义对象：低代码元数据驱动建模）
