@@ -28,6 +28,8 @@ import {
   KeyOutlined,
   LogoutOutlined,
   MailOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
   NotificationOutlined,
   ProfileOutlined,
   RiseOutlined,
@@ -271,6 +273,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function Shell() {
   const { t, i18n } = useTranslation()
   const { user, setUser, clear, getAccessToken } = useAuthStore()
+  const [siderCollapsed, setSiderCollapsed] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const [booted, setBooted] = useState(false)
@@ -589,6 +592,15 @@ function Shell() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* 布局优化：桌面端侧栏折叠开关 */}
+            {!isMobile && (
+              <Button
+                type="text"
+                icon={siderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                onClick={() => setSiderCollapsed((c) => !c)}
+                aria-label="折叠/展开菜单"
+              />
+            )}
             <TeamOutlined style={{ fontSize: 22, color: '#1677ff' }} />
             <span style={{ fontSize: 17, fontWeight: 600, color: '#1f1f1f' }}>
               {t('app.title')}
@@ -661,8 +673,8 @@ function Shell() {
         <Sider
           width={isMobile ? undefined : 200}
           theme="light"
-          collapsed={isMobile}
-          collapsedWidth={isMobile ? '100%' : undefined}
+          collapsed={isMobile ? false : siderCollapsed}
+          collapsedWidth={isMobile ? undefined : 64}
           style={{
             background: '#fff',
             borderRight: '1px solid #f0f0f0',
@@ -680,9 +692,14 @@ function Shell() {
           />
         </Sider>
         <Layout style={{ flexDirection: 'column' }}>
-          <Content style={{ background: '#f0f2f5', padding: isMobile ? 8 : 16, overflow: 'auto' }}>
-            <div style={{ minHeight: 'calc(100vh - 56px - 64px)' }}>
-              <BreadcrumbNav />
+          <Content
+            className="page-scroll"
+            style={{ background: '#f0f2f5', padding: isMobile ? 8 : '16px 20px', overflow: 'auto' }}
+          >
+            <div className="page-container" style={{ minHeight: 'calc(100vh - 56px - 64px)' }}>
+              <div style={{ marginBottom: 12 }}>
+                <BreadcrumbNav />
+              </div>
               <Outlet />
             </div>
           </Content>

@@ -26,3 +26,31 @@ body {
     display: flex;
   }
 }
+
+/* 布局优化：内容区统一容器（大屏限宽居中，行宽可控） */
+.page-container {
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* 布局优化：内容区滚动条美化（薄滚动条，浅色轨道） */
+.page-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.page-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.page-scroll::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 4px;
+}
+.page-scroll::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+/* 布局优化：页面卡片统一底部间距（避免各页 12/16/20 混用） */
+.page-container > .ant-card,
+.page-container > div > .ant-card {
+  margin-bottom: 16px;
+}
