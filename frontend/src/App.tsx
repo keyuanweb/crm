@@ -96,6 +96,7 @@ const ExportCenterPage = lazy(() => import('./pages/exports/ExportCenterPage'))
 const StageActionTemplatePage = lazy(() => import('./pages/playbook/StageActionTemplatePage'))
 const ContractRenewalPage = lazy(() => import('./pages/contracts/ContractRenewalPage'))
 const SatisfactionStatsPage = lazy(() => import('./pages/surveys/SatisfactionStatsPage'))
+const CustomerPortalPage = lazy(() => import('./pages/portal/CustomerPortalPage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -602,6 +603,8 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       {/* 036：公开表单提交页（匿名） */}
       <Route path="/f/:id" element={<PublicFormPage />} />
+      {/* 050：客户自助门户（公开，无需登录） */}
+      <Route path="/portal" element={<CustomerPortalPage />} />
       <Route
         path="/"
         element={

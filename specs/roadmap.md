@@ -202,3 +202,4 @@
 - [x] 048-captcha-toggle（登录验证码默认关闭，环境变量可恢复）
 - [x] 049-marketing-automation（营销自动化：评分阈值/标签变更事件 + 邮件/标签/任务动作）
 - [x] 051-csat-nps（工单满意度调查：CSAT/NPS 统计）
+- [x] 050-customer-portal（客户自助门户：知识库浏览/在线提单/进度查询）

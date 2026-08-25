@@ -1,4 +1,4 @@
-# Tasks: 客户自助门户模块
+﻿# Tasks: 客户自助门户模块
 
 **Input**: Design documents from `/specs/050-customer-portal/`
 
@@ -19,11 +19,11 @@
 
 ### 实现
 
-- [ ] T001 [P] [US1] 创建 PortalArticleResponse DTO in `backend/src/main/java/com/crm/dto/portal/`
-- [ ] T002 [US1] 创建 CustomerPortalService（文章列表/详情，仅 PUBLISHED）in `backend/src/main/java/com/crm/service/CustomerPortalService.java`
-- [ ] T003 [US1] 创建 CustomerPortalController（/portal/articles）in `backend/src/main/java/com/crm/controller/CustomerPortalController.java`
-- [ ] T004 [US1] ErrorCode 新增 PORTAL_* 错误码 in `backend/src/main/java/com/crm/common/ErrorCode.java`
-- [ ] T005 [US1] SecurityConfig 白名单加 /api/v1/portal/** in `backend/src/main/java/com/crm/config/SecurityConfig.java`
+- [x] T001 [P] [US1] 创建 PortalArticleResponse DTO in `backend/src/main/java/com/crm/dto/portal/`
+- [x] T002 [US1] 创建 CustomerPortalService（文章列表/详情，仅 PUBLISHED）in `backend/src/main/java/com/crm/service/CustomerPortalService.java`
+- [x] T003 [US1] 创建 CustomerPortalController（/portal/articles）in `backend/src/main/java/com/crm/controller/CustomerPortalController.java`
+- [x] T004 [US1] ErrorCode 新增 PORTAL_* 错误码 in `backend/src/main/java/com/crm/common/ErrorCode.java`
+- [x] T005 [US1] SecurityConfig 白名单加 /api/v1/portal/** in `backend/src/main/java/com/crm/config/SecurityConfig.java`
 
 **Checkpoint**: US1 可用——知识库门户
 
@@ -37,15 +37,15 @@
 
 ### 实现
 
-- [ ] T006 [P] [US2] 创建 PortalTicketRequest/PortalTicketStatusResponse DTO in `backend/src/main/java/com/crm/dto/portal/`
-- [ ] T007 [US2] CustomerPortalService 提单（手机/邮箱识别联系人→customerId→TicketService.create）in `backend/src/main/java/com/crm/service/CustomerPortalService.java`
-- [ ] T008 [US2] CustomerPortalService 进度查询（工单号+联系人验证→状态/回复）in `backend/src/main/java/com/crm/service/CustomerPortalService.java`
-- [ ] T009 [US2] CustomerPortalController（/portal/tickets + /portal/tickets/status）in `backend/src/main/java/com/crm/controller/CustomerPortalController.java`
-- [ ] T010 [US2] 创建 CustomerPortalServiceTest 单元测试 in `backend/src/test/java/com/crm/service/CustomerPortalServiceTest.java`
-- [ ] T011 [US2] 创建 CustomerPortalIT 集成测试 in `backend/src/test/java/com/crm/integration/CustomerPortalIT.java`
-- [ ] T012 [US2] 前端类型/服务 in `frontend/src/types/portal.ts` + `frontend/src/services/customerPortalService.ts`
-- [ ] T013 [US2] 门户页（知识库浏览/提单/进度查询）in `frontend/src/pages/portal/`
-- [ ] T014 [US2] App.tsx 公开路由 /portal（绕过 RequireAuth）in `frontend/src/App.tsx`
+- [x] T006 [P] [US2] 创建 PortalTicketRequest/PortalTicketStatusResponse DTO in `backend/src/main/java/com/crm/dto/portal/`
+- [x] T007 [US2] CustomerPortalService 提单（手机/邮箱识别联系人→customerId→TicketService.create）in `backend/src/main/java/com/crm/service/CustomerPortalService.java`
+- [x] T008 [US2] CustomerPortalService 进度查询（工单号+联系人验证→状态/回复）in `backend/src/main/java/com/crm/service/CustomerPortalService.java`
+- [x] T009 [US2] CustomerPortalController（/portal/tickets + /portal/tickets/status）in `backend/src/main/java/com/crm/controller/CustomerPortalController.java`
+- [x] T010 [US2] 创建 CustomerPortalServiceTest 单元测试 in `backend/src/test/java/com/crm/service/CustomerPortalServiceTest.java`
+- [x] T011 [US2] 创建 CustomerPortalIT 集成测试 in `backend/src/test/java/com/crm/integration/CustomerPortalIT.java`
+- [x] T012 [US2] 前端类型/服务 in `frontend/src/types/portal.ts` + `frontend/src/services/customerPortalService.ts`
+- [x] T013 [US2] 门户页（知识库浏览/提单/进度查询）in `frontend/src/pages/portal/`
+- [x] T014 [US2] App.tsx 公开路由 /portal（绕过 RequireAuth）in `frontend/src/App.tsx`
 
 **Checkpoint**: US2 可用——提单与进度
 
@@ -53,11 +53,11 @@
 
 ## Phase 3: 收尾与验证
 
-- [ ] T015 Backend `mvn verify` 通过（含新增测试、spotless、JaCoCo）
-- [ ] T016 单独运行 `mvn test "-Dtest=CustomerPortalIT"` 通过
-- [ ] T017 Frontend typecheck / lint / test / build 通过
-- [ ] T018 公开端点验证（无需 token 浏览/提单/查进度/不匹配 404）
-- [ ] T019 更新契约文档（按实现校正）与 roadmap 050 标记 `[x]`
+- [x] T015 Backend `mvn verify` 通过（含新增测试、spotless、JaCoCo）
+- [x] T016 单独运行 `mvn test "-Dtest=CustomerPortalIT"` 通过
+- [x] T017 Frontend typecheck / lint / test / build 通过
+- [x] T018 公开端点验证（无需 token 浏览/提单/查进度/不匹配 404）
+- [x] T019 更新契约文档（按实现校正）与 roadmap 050 标记 `[x]`
 
 **Checkpoint**: 模块完整可用
 
