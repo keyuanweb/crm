@@ -61,7 +61,8 @@ public class GlobalExceptionHandler {
   }
 
   /** 063：路径/查询参数类型错误 → 400。 */
-  @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+  @ExceptionHandler(
+      org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
   public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(
       org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
     return build(400, ErrorCode.BAD_REQUEST.getCode(), "参数类型错误", null);

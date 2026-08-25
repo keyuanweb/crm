@@ -80,6 +80,7 @@ public class CustomerService {
     this.webhookService = webhookService;
   }
 
+  @Transactional(readOnly = true)
   public PageResult<CustomerResponse> page(
       String keyword, String status, List<Long> customFieldMatchedIds, long page, long pageSize) {
     LambdaQueryWrapper<Customer> qw = new LambdaQueryWrapper<>();
@@ -129,6 +130,7 @@ public class CustomerService {
     return PageResult.of(items, p.getTotal(), page, pageSize);
   }
 
+  @Transactional(readOnly = true)
   public CustomerDetailResponse detail(Long id) {
     Customer customer = require(id);
     checkViewPermission(customer);
@@ -276,7 +278,8 @@ public class CustomerService {
             : userMapper.selectBatchIds(ownerIds).stream()
                 .collect(Collectors.toMap(com.crm.entity.User::getId, u -> u));
 
-    List<com.crm.dto.customer.CustomerHealthBrief> all =
+    // 候选集：无跟进且无订单的可见客户（创建早于 cutoff）
+    java.util.List<Customer> candidates =
         customers.stream()
             .filter(c -> !lastFollowUp.containsKey(c.getId()))
             .filter(c -> !lastOrder.containsKey(c.getId()))
@@ -285,6 +288,17 @@ public class CustomerService {
                   // 无跟进且无订单 → 无活动天数即客户创建至今
                   return c.getCreatedAt() != null && c.getCreatedAt().isBefore(cutoff);
                 })
+            .toList();
+
+    // 064(性能修复)：批量健康评分（复用批量聚合，消除逐客户 aggregate 的 N+1）
+    Map<Long, Integer> healthScores =
+        candidates.isEmpty()
+            ? Map.of()
+            : customer360Service.healthScoresBatch(
+                candidates.stream().map(Customer::getId).toList());
+
+    List<com.crm.dto.customer.CustomerHealthBrief> all =
+        candidates.stream()
             .map(
                 c -> {
                   com.crm.dto.customer.CustomerHealthBrief b =
@@ -306,10 +320,7 @@ public class CustomerService {
                   com.crm.entity.User owner =
                       c.getOwnerId() == null ? null : owners.get(c.getOwnerId());
                   b.setOwnerName(owner == null ? null : owner.getDisplayName());
-                  // 健康度：基于 360 聚合计算（复用评分逻辑）
-                  com.crm.dto.customer.HealthScoreDTO health =
-                      customer360Service.aggregate(c.getId()).getHealth();
-                  b.setHealthScore(health == null ? 0 : health.getScore());
+                  b.setHealthScore(healthScores.getOrDefault(c.getId(), 0));
                   return b;
                 })
             .sorted(
@@ -330,6 +341,14 @@ public class CustomerService {
     apply(req, customer);
     if (!StringUtils.hasText(customer.getStatus())) {
       customer.setStatus("ACTIVE");
+    }
+    // 064(数据完整性)：非 ADMIN 创建未指定 owner 时默认负责人=当前用户（消除无主数据）；
+    // ADMIN 创建不设 owner（池子/分配场景）
+    if (customer.getOwnerId() == null) {
+      var principal = SecurityUtil.currentPrincipal();
+      if (principal == null || !"ADMIN".equals(principal.role())) {
+        customer.setOwnerId(SecurityUtil.currentUserId());
+      }
     }
     customer.setCreatedBy(SecurityUtil.currentUserId());
     customerMapper.insert(customer);
@@ -476,6 +495,7 @@ public class CustomerService {
     resp.setAddress(customer.getAddress());
     resp.setRemark(customer.getRemark());
     resp.setStatus(customer.getStatus());
+    resp.setOwnerId(customer.getOwnerId());
     resp.setCampaignId(customer.getCampaignId());
     resp.setVersion(customer.getVersion());
     resp.setCreatedAt(customer.getCreatedAt());

@@ -96,7 +96,8 @@ public class FollowUpService {
     validateLinkage(req.getCustomerId(), req.getLeadId(), req.getOpportunityId());
     // 063(安全加固)：关联实体须对当前用户可见
     Long userId = SecurityUtil.currentUserId();
-    if (req.getCustomerId() != null && !entityAccessService.canViewCustomer(userId, req.getCustomerId())) {
+    if (req.getCustomerId() != null
+        && !entityAccessService.canViewCustomer(userId, req.getCustomerId())) {
       throw new BusinessException(ErrorCode.FORBIDDEN);
     }
     if (req.getLeadId() != null && !entityAccessService.canViewLead(userId, req.getLeadId())) {
@@ -170,7 +171,8 @@ public class FollowUpService {
     validateLinkage(req.getCustomerId(), req.getLeadId(), req.getOpportunityId());
     // 063(安全加固)：新关联实体须对当前用户可见
     Long uid = SecurityUtil.currentUserId();
-    if (req.getCustomerId() != null && !entityAccessService.canViewCustomer(uid, req.getCustomerId())) {
+    if (req.getCustomerId() != null
+        && !entityAccessService.canViewCustomer(uid, req.getCustomerId())) {
       throw new BusinessException(ErrorCode.FORBIDDEN);
     }
     if (req.getLeadId() != null && !entityAccessService.canViewLead(uid, req.getLeadId())) {

@@ -16,8 +16,8 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
- * 实体行级可见性判定（063-security-hardening 抽取，供 FollowUp/Comment 等复用）。
- * 语义与 CustomerService.checkViewPermission / LeadService.checkLeadPermission 对齐。
+ * 实体行级可见性判定（063-security-hardening 抽取，供 FollowUp/Comment 等复用）。 语义与
+ * CustomerService.checkViewPermission / LeadService.checkLeadPermission 对齐。
  */
 @Service
 public class EntityAccessService {

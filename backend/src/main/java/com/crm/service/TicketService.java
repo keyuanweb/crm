@@ -82,6 +82,7 @@ public class TicketService {
     this.integrationChannelService = integrationChannelService;
   }
 
+  @Transactional(readOnly = true)
   public PageResult<TicketResponse> page(
       String keyword,
       String status,
@@ -271,6 +272,7 @@ public class TicketService {
   }
 
   /** 工单详情（含回复时间线，SLA 状态落库刷新一次）。 */
+  @Transactional(readOnly = true)
   public TicketResponse detail(Long id) {
     Ticket ticket = require(id);
     refreshSla(ticket);

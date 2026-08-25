@@ -52,6 +52,7 @@ public class OpportunityService {
     this.customFieldService = customFieldService;
   }
 
+  @Transactional(readOnly = true)
   public PageResult<OpportunityResponse> page(
       String keyword,
       Long customerId,
@@ -89,6 +90,7 @@ public class OpportunityService {
     return PageResult.of(items, p.getTotal(), page, pageSize);
   }
 
+  @Transactional(readOnly = true)
   public OpportunityDetailResponse detail(Long id) {
     Opportunity opportunity = require(id);
     OpportunityDetailResponse resp = new OpportunityDetailResponse();

@@ -252,6 +252,30 @@ public class Customer360Service {
    * health.level。
    */
   public Map<Long, String> healthLevelsBatch(List<Long> customerIds) {
+    return healthDTOsBatch(customerIds).entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                e -> {
+                  com.crm.dto.customer.HealthScoreDTO dto = e.getValue();
+                  return dto == null ? "RED" : dto.getLevel();
+                }));
+  }
+
+  /** 064(性能修复)：批量健康评分，返回 customerId → score（供流失预警按分过滤）。 */
+  public Map<Long, Integer> healthScoresBatch(List<Long> customerIds) {
+    return healthDTOsBatch(customerIds).entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                e -> {
+                  com.crm.dto.customer.HealthScoreDTO dto = e.getValue();
+                  return dto == null ? 0 : dto.getScore();
+                }));
+  }
+
+  /** 批量健康评估（DTO），一次装配多个客户，避免 N+1。 */
+  private Map<Long, com.crm.dto.customer.HealthScoreDTO> healthDTOsBatch(List<Long> customerIds) {
     if (customerIds == null || customerIds.isEmpty()) {
       return Map.of();
     }
@@ -318,7 +342,7 @@ public class Customer360Service {
                 .eq(HealthScoreConfig::getEnabled, 1)
                 .orderByAsc(HealthScoreConfig::getSortOrder));
 
-    Map<Long, String> result = new java.util.HashMap<>();
+    Map<Long, com.crm.dto.customer.HealthScoreDTO> result = new java.util.HashMap<>();
     for (Long customerId : customerIds) {
       List<SalesOrder> orders = ordersByCustomer.getOrDefault(customerId, List.of());
       List<Ticket> tickets = ticketsByCustomer.getOrDefault(customerId, List.of());
@@ -378,7 +402,7 @@ public class Customer360Service {
               .totalOrderAmount(totalOrder)
               .lastActivityDays(lastActivityDays)
               .build();
-      result.put(customerId, healthScoreService.score(input, configs).getLevel());
+      result.put(customerId, healthScoreService.score(input, configs));
     }
     return result;
   }

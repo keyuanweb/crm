@@ -83,6 +83,7 @@ public class LeadService {
     this.dataPermissionService = dataPermissionService;
   }
 
+  @Transactional(readOnly = true)
   public PageResult<LeadResponse> page(
       String keyword,
       String status,
@@ -141,6 +142,7 @@ public class LeadService {
     return PageResult.of(items, p.getTotal(), page, pageSize);
   }
 
+  @Transactional(readOnly = true)
   public LeadDetailResponse detail(Long id) {
     Lead lead = require(id);
     checkLeadPermission(lead);
@@ -177,6 +179,14 @@ public class LeadService {
     }
     if (!StringUtils.hasText(lead.getSource())) {
       lead.setSource("OTHER");
+    }
+    // 064(数据完整性)：非 ADMIN 创建未指定 owner 时默认负责人=当前用户（消除无主数据）；
+    // ADMIN 创建不设 owner（线索池/分配场景，claim 流程保留）
+    if (lead.getOwnerId() == null) {
+      var principal = SecurityUtil.currentPrincipal();
+      if (principal == null || !"ADMIN".equals(principal.role())) {
+        lead.setOwnerId(SecurityUtil.currentUserId());
+      }
     }
     lead.setCreatedBy(SecurityUtil.currentUserId());
     leadMapper.insert(lead);

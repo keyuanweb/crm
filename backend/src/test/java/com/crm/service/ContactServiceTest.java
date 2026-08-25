@@ -42,7 +42,13 @@ class ContactServiceTest {
     contactMapper = mock(ContactMapper.class);
     customerMapper = mock(CustomerMapper.class);
     auditService = mock(AuditService.class);
-    service = new ContactService(contactMapper, customerMapper, auditService, mock(DataPermissionService.class), mock(com.crm.repository.CustomerShareMapper.class));
+    service =
+        new ContactService(
+            contactMapper,
+            customerMapper,
+            auditService,
+            mock(DataPermissionService.class),
+            mock(com.crm.repository.CustomerShareMapper.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
   }

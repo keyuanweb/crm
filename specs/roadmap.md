@@ -215,3 +215,4 @@
 - [x] 061-call-center（通话记录管理：CTI 数据模型/接口就绪）
 - [x] 062-email-sync（邮件账户配置/同步记录框架：模拟同步验证链路）
 - [x] 063-security-hardening（权限体系加固：行级数据权限/导出安全/异常处理）
+- [x] 064-performance-integrity（性能与数据完整性：预警批量聚合/默认负责人/只读事务）

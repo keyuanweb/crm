@@ -1,4 +1,4 @@
-# Tasks: 性能与数据完整性模块
+﻿# Tasks: 性能与数据完整性模块
 
 **Input**: Design documents from `/specs/064-performance-integrity/`
 
@@ -19,9 +19,9 @@
 
 ### 实现
 
-- [ ] T001 [P] Customer360Service 增加 healthScoresBatch(customerIds)（返回 Map<Long,Integer>）
-- [ ] T002 [P] CustomerService.atRiskCustomers 改为分页候选 + 批量取分过滤
-- [ ] T003 [P] CustomerServiceTest 扩展（批量聚合调用断言/判定一致）
+- [x] T001 [P] Customer360Service 增加 healthScoresBatch(customerIds)（返回 Map<Long,Integer>）
+- [x] T002 [P] CustomerService.atRiskCustomers 改为分页候选 + 批量取分过滤
+- [x] T003 [P] CustomerServiceTest 扩展（批量聚合调用断言/判定一致）
 
 **Checkpoint**: US1 可用——预警性能
 
@@ -35,9 +35,9 @@
 
 ### 实现
 
-- [ ] T004 [P] CustomerService.create：未指定 owner 且非 ADMIN → owner=当前用户
-- [ ] T005 [P] LeadService.create：未指定 owner 且非 ADMIN → owner=当前用户
-- [ ] T006 [P] CustomerServiceTest/LeadServiceTest 扩展（owner 断言）
+- [x] T004 [P] CustomerService.create：未指定 owner 且非 ADMIN → owner=当前用户
+- [x] T005 [P] LeadService.create：未指定 owner 且非 ADMIN → owner=当前用户
+- [x] T006 [P] CustomerServiceTest/LeadServiceTest 扩展（owner 断言）
 
 **Checkpoint**: US2 可用——默认负责人
 
@@ -51,7 +51,7 @@
 
 ### 实现
 
-- [ ] T007 [P] 主要只读方法（Customer/Lead/Contact/Opportunity/Ticket 的 page/detail/stats）补 @Transactional(readOnly = true)
+- [x] T007 [P] 主要只读方法（Customer/Lead/Contact/Opportunity/Ticket 的 page/detail/stats）补 @Transactional(readOnly = true)
 
 **Checkpoint**: US3 可用——只读事务
 
@@ -59,10 +59,10 @@
 
 ## Phase 4: 验证与收尾
 
-- [ ] T008 创建 CustomerAtRiskIT（预警分页 + 判定一致 + owner 默认）in `backend/src/test/java/com/crm/integration/CustomerAtRiskIT.java`
-- [ ] T009 Backend `mvn verify` 通过（含既有测试无回归、spotless、JaCoCo）
-- [ ] T010 线上端点验证（预警分页/owner 默认）
-- [ ] T011 更新契约文档（按实现校正）与 roadmap 064 标记 `[x]`
+- [x] T008 创建 CustomerAtRiskIT（预警分页 + 判定一致 + owner 默认）in `backend/src/test/java/com/crm/integration/CustomerAtRiskIT.java`
+- [x] T009 Backend `mvn verify` 通过（含既有测试无回归、spotless、JaCoCo）
+- [x] T010 线上端点验证（预警分页/owner 默认）
+- [x] T011 更新契约文档（按实现校正）与 roadmap 064 标记 `[x]`
 
 **Checkpoint**: 模块完整可用
 

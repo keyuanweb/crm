@@ -44,6 +44,7 @@ public class ContactService {
     this.customerShareMapper = customerShareMapper;
   }
 
+  @Transactional(readOnly = true)
   public PageResult<ContactResponse> page(
       String keyword, Long customerId, String role, long page, long pageSize) {
     LambdaQueryWrapper<Contact> qw = new LambdaQueryWrapper<>();
@@ -76,6 +77,7 @@ public class ContactService {
     return PageResult.of(toResponses(p.getRecords()), p.getTotal(), page, pageSize);
   }
 
+  @Transactional(readOnly = true)
   public ContactResponse detail(Long id) {
     Contact contact = require(id);
     checkContactPermission(contact);
@@ -124,10 +126,7 @@ public class ContactService {
     auditService.record("DELETE", "CONTACT", id, "删除联系人：" + contact.getName());
   }
 
-  /**
-   * 063(安全加固)：非 ADMIN 的可见客户 id 集（owner ∈ 可见集 或 共享给我）。
-   * 返回 null 表示不过滤（ADMIN/ALL）；返回空列表表示无任何可见客户。
-   */
+  /** 063(安全加固)：非 ADMIN 的可见客户 id 集（owner ∈ 可见集 或 共享给我）。 返回 null 表示不过滤（ADMIN/ALL）；返回空列表表示无任何可见客户。 */
   private List<Long> visibleCustomerIds() {
     var principal = SecurityUtil.currentPrincipal();
     if (principal == null || "ADMIN".equals(principal.role())) {

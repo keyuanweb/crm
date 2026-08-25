@@ -144,7 +144,8 @@ public class ExportExecutor {
   }
 
   private void writeLeads(Sheet sheet, ExportJob job) {
-    LambdaQueryWrapper<Lead> qw = new LambdaQueryWrapper<Lead>().orderByDesc(Lead::getId).last("LIMIT 5000");
+    LambdaQueryWrapper<Lead> qw =
+        new LambdaQueryWrapper<Lead>().orderByDesc(Lead::getId).last("LIMIT 5000");
     List<Long> visibleOwners = visibleOwnersOrNull();
     if (visibleOwners != null) {
       if (visibleOwners.isEmpty()) {
