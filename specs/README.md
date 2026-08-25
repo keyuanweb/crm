@@ -85,6 +85,7 @@
 | 053 | 托管落地页 + UTM 跟踪归因 | P1 | ✅ | [目录](./053-landing-page/) | landing-pages |
 | 055 | 开放平台（API Key 管理 + Webhook 事件订阅） | P2 | ✅ | [目录](./055-open-platform/) | platform |
 | 056 | 字段级读写权限（隐藏/只读/可编辑按角色） | P2 | ✅ | [目录](./056-field-permission/) | field-permissions |
+| 057 | 多币种（汇率管理/产品多币种价格/折算） | P2 | ✅ | [目录](./057-multi-currency/) | currencies |
 
 > 阶段：P0=核心销售链路补全；P1=成交链路延伸 / 效率与自动化；P2=扩展模块；
 > P3=智能化与平台增强；P4=营销闭环与协作扩展（批次建议见 [roadmap-p0p1.md](./roadmap-p0p1.md)）；

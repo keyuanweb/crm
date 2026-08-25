@@ -1,4 +1,4 @@
-# Tasks: 多币种模块
+﻿# Tasks: 多币种模块
 
 **Input**: Design documents from `/specs/057-multi-currency/`
 
@@ -13,11 +13,11 @@
 
 ## Phase 1: 数据模型与基础
 
-- [ ] T001 [P] 创建 Flyway 迁移 V65 in `backend/src/main/resources/db/migration/V65__multi_currency.sql`（currency_rate + product_price 表 + 唯一约束）
-- [ ] T002 [P] H2 测试 schema 同步 in `backend/src/test/resources/schema-h2.sql`
-- [ ] T003 [P] 创建 CurrencyRate/ProductPrice 实体 + 2 Mapper in `backend/src/main/java/com/crm/entity/` + `backend/src/main/java/com/crm/repository/`
-- [ ] T004 [P] ErrorCode 新增 CURRENCY_* 错误码 in `backend/src/main/java/com/crm/common/ErrorCode.java`
-- [ ] T005 [P] 创建 DTO in `backend/src/main/java/com/crm/dto/currency/`
+- [x] T001 [P] 创建 Flyway 迁移 V65 in `backend/src/main/resources/db/migration/V65__multi_currency.sql`（currency_rate + product_price 表 + 唯一约束）
+- [x] T002 [P] H2 测试 schema 同步 in `backend/src/test/resources/schema-h2.sql`
+- [x] T003 [P] 创建 CurrencyRate/ProductPrice 实体 + 2 Mapper in `backend/src/main/java/com/crm/entity/` + `backend/src/main/java/com/crm/repository/`
+- [x] T004 [P] ErrorCode 新增 CURRENCY_* 错误码 in `backend/src/main/java/com/crm/common/ErrorCode.java`
+- [x] T005 [P] 创建 DTO in `backend/src/main/java/com/crm/dto/currency/`
 
 **Checkpoint**: 数据模型就绪
 
@@ -31,9 +31,9 @@
 
 ### 实现
 
-- [ ] T006 [P] [US1] 创建 CurrencyRateService（CRUD/基准保护/汇率缓存/convert）in `backend/src/main/java/com/crm/service/CurrencyRateService.java`
-- [ ] T007 [US1] 创建 CurrencyRateController（/currencies + /currencies/convert，仅 ADMIN 管理）in `backend/src/main/java/com/crm/controller/CurrencyRateController.java`
-- [ ] T008 [US1] 创建 CurrencyRateServiceTest 单元测试 in `backend/src/test/java/com/crm/service/CurrencyRateServiceTest.java`
+- [x] T006 [P] [US1] 创建 CurrencyRateService（CRUD/基准保护/汇率缓存/convert）in `backend/src/main/java/com/crm/service/CurrencyRateService.java`
+- [x] T007 [US1] 创建 CurrencyRateController（/currencies + /currencies/convert，仅 ADMIN 管理）in `backend/src/main/java/com/crm/controller/CurrencyRateController.java`
+- [x] T008 [US1] 创建 CurrencyRateServiceTest 单元测试 in `backend/src/test/java/com/crm/service/CurrencyRateServiceTest.java`
 
 **Checkpoint**: US1 可用——汇率管理
 
@@ -47,13 +47,13 @@
 
 ### 实现
 
-- [ ] T009 [P] [US2] 创建 ProductPriceService（CRUD/价格视图：配置价优先/未配置折算）in `backend/src/main/java/com/crm/service/ProductPriceService.java`
-- [ ] T010 [US2] 创建 ProductPriceController（/products/{id}/prices）in `backend/src/main/java/com/crm/controller/ProductPriceController.java`
-- [ ] T011 [US2] 创建 ProductPriceServiceTest 单元测试 in `backend/src/test/java/com/crm/service/ProductPriceServiceTest.java`
-- [ ] T012 [US2] 创建 MultiCurrencyIT 集成测试 in `backend/src/test/java/com/crm/integration/MultiCurrencyIT.java`
-- [ ] T013 [US2] 前端类型/服务 in `frontend/src/types/currency.ts` + `frontend/src/services/currencyService.ts`
-- [ ] T014 [US2] 汇率管理页 in `frontend/src/pages/settings/CurrencyRatePage.tsx`
-- [ ] T015 [US2] 产品编辑多币种价 + 报价金额折算展示 in `frontend/src/pages/products/` + `frontend/src/pages/quotes/`
+- [x] T009 [P] [US2] 创建 ProductPriceService（CRUD/价格视图：配置价优先/未配置折算）in `backend/src/main/java/com/crm/service/ProductPriceService.java`
+- [x] T010 [US2] 创建 ProductPriceController（/products/{id}/prices）in `backend/src/main/java/com/crm/controller/ProductPriceController.java`
+- [x] T011 [US2] 创建 ProductPriceServiceTest 单元测试 in `backend/src/test/java/com/crm/service/ProductPriceServiceTest.java`
+- [x] T012 [US2] 创建 MultiCurrencyIT 集成测试 in `backend/src/test/java/com/crm/integration/MultiCurrencyIT.java`
+- [x] T013 [US2] 前端类型/服务 in `frontend/src/types/currency.ts` + `frontend/src/services/currencyService.ts`
+- [x] T014 [US2] 汇率管理页 in `frontend/src/pages/settings/CurrencyRatePage.tsx`
+- [x] T015 [US2] 产品编辑多币种价 + 报价金额折算展示 in `frontend/src/pages/products/` + `frontend/src/pages/quotes/`
 
 **Checkpoint**: US2 可用——产品多币种价
 
@@ -61,12 +61,12 @@
 
 ## Phase 4: 收尾与验证
 
-- [ ] T016 App.tsx 点亮"多币种"占位项为路由 in `frontend/src/App.tsx`（/currencies）
-- [ ] T017 Backend `mvn verify` 通过（含新增测试、spotless、JaCoCo）
-- [ ] T018 单独运行 `mvn test "-Dtest=MultiCurrencyIT"` 通过
-- [ ] T019 Frontend typecheck / lint / test / build 通过
-- [ ] T020 线上端点验证（汇率 CRUD→折算→产品价→基准保护）
-- [ ] T021 更新契约文档（按实现校正）与 roadmap 057 标记 `[x]`
+- [x] T016 App.tsx 点亮"多币种"占位项为路由 in `frontend/src/App.tsx`（/currencies）
+- [x] T017 Backend `mvn verify` 通过（含新增测试、spotless、JaCoCo）
+- [x] T018 单独运行 `mvn test "-Dtest=MultiCurrencyIT"` 通过
+- [x] T019 Frontend typecheck / lint / test / build 通过
+- [x] T020 线上端点验证（汇率 CRUD→折算→产品价→基准保护）
+- [x] T021 更新契约文档（按实现校正）与 roadmap 057 标记 `[x]`
 
 **Checkpoint**: 模块完整可用
 

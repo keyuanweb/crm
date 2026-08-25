@@ -208,3 +208,4 @@
 - [x] 053-landing-page（托管落地页 + UTM 跟踪归因）
 - [x] 055-open-platform（开放平台：API Key 管理 + Webhook 事件订阅）
 - [x] 056-field-permission（字段级读写权限：隐藏/只读/可编辑按角色）
+- [x] 057-multi-currency（多币种：汇率管理/产品多币种价格/折算）
