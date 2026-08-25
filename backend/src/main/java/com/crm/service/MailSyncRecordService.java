@@ -10,7 +10,6 @@ import com.crm.entity.MailAccount;
 import com.crm.entity.MailSyncRecord;
 import com.crm.repository.MailSyncRecordMapper;
 import java.time.LocalDateTime;
-import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +26,8 @@ public class MailSyncRecordService {
     this.accountService = accountService;
   }
 
-  public PageResult<MailSyncRecordResponse> page(Long accountId, String direction, long page, long pageSize) {
+  public PageResult<MailSyncRecordResponse> page(
+      Long accountId, String direction, long page, long pageSize) {
     LambdaQueryWrapper<MailSyncRecord> qw =
         new LambdaQueryWrapper<MailSyncRecord>().eq(MailSyncRecord::getAccountId, accountId);
     if (direction != null && !direction.isBlank()) {

@@ -12,6 +12,7 @@ public class SurveyStatsResponse {
 
   /** NPS 分档（推荐者 5 / 中立者 4 / 贬损者 1-3）。 */
   private Bucket promoter;
+
   private Bucket passive;
   private Bucket detractor;
 

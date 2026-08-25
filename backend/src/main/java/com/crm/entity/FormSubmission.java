@@ -18,6 +18,7 @@ public class FormSubmission {
 
   /** 053：UTM 归因参数（可空）。 */
   private String utmSource;
+
   private String utmMedium;
   private String utmCampaign;
   private String utmTerm;

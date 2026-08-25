@@ -72,7 +72,8 @@ class SlaCalendarIT extends AbstractIntegrationTest {
             put("/api/v1/sla-calendar")
                 .header("Authorization", bearer(supportToken))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"workSlots\":[{\"start\":\"09:00\",\"end\":\"18:00\"}],\"enabled\":true}"))
+                .content(
+                    "{\"workSlots\":[{\"start\":\"09:00\",\"end\":\"18:00\"}],\"enabled\":true}"))
         .andExpect(status().isForbidden());
   }
 }

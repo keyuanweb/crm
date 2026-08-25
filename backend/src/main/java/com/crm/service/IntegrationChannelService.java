@@ -104,16 +104,12 @@ public class IntegrationChannelService {
   public void publish(String eventType, String title) {
     List<IntegrationChannel> channels =
         channelMapper.selectList(
-            new LambdaQueryWrapper<IntegrationChannel>()
-                .eq(IntegrationChannel::getEnabled, 1));
+            new LambdaQueryWrapper<IntegrationChannel>().eq(IntegrationChannel::getEnabled, 1));
     if (channels.isEmpty()) {
       return;
     }
     String content = "【" + eventType + "】" + title;
-    Map<String, Object> payload =
-        Map.of(
-            "msgtype", "text",
-            "text", Map.of("content", content));
+    Map<String, Object> payload = Map.of("msgtype", "text", "text", Map.of("content", content));
     for (IntegrationChannel channel : channels) {
       // 复用 055 WebhookService：构造临时订阅语义推送（subscriptionId=channelId 用于记录关联）
       webhookService.publishToUrl(

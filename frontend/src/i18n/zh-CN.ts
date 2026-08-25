@@ -46,6 +46,7 @@ const zhCN = {
     knowledge: '知识库',
     announcements: '公告管理',
     approvals: '我的审批',
+    portal: '客户门户',
     satisfaction: '满意度调查',
     tasks: '任务',
     suggestions: '智能建议',

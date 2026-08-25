@@ -24,7 +24,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -49,6 +48,7 @@ public class EmailCampaignService {
   private final AuditService auditService;
   private final EmailUnsubscribeService unsubscribeService;
   private final JavaMailSender mailSender;
+  private final EmailSenderService emailSender;
 
   public EmailCampaignService(
       EmailCampaignMapper campaignMapper,
@@ -60,7 +60,8 @@ public class EmailCampaignService {
       AuditService auditService,
       EmailUnsubscribeService unsubscribeService,
       @org.springframework.beans.factory.annotation.Autowired(required = false)
-          JavaMailSender mailSender) {
+          JavaMailSender mailSender,
+      EmailSenderService emailSender) {
     this.campaignMapper = campaignMapper;
     this.sendLogMapper = sendLogMapper;
     this.trackMapper = trackMapper;
@@ -70,6 +71,7 @@ public class EmailCampaignService {
     this.auditService = auditService;
     this.unsubscribeService = unsubscribeService;
     this.mailSender = mailSender;
+    this.emailSender = emailSender;
   }
 
   /** 创建并异步发送群发批次。 */
@@ -131,7 +133,7 @@ public class EmailCampaignService {
       logs.add(l);
     }
     // 异步真正发送（无 SMTP 时仅日志，状态已 SENT）；subject 已按变体写入 sendLog
-    sendAsync(campaign.getId(), logs, template);
+    emailSender.sendAsync(campaign.getId(), logs, template);
     campaign.setSentCount(logs.size());
     campaign.setStatus("DONE");
     campaignMapper.updateById(campaign);
@@ -139,8 +141,7 @@ public class EmailCampaignService {
         "SEND",
         "EMAIL_CAMPAIGN",
         campaign.getId(),
-        "邮件群发：" + campaign.getName() + " 共 " + logs.size() + " 封"
-            + (abTest ? "（A/B 测试）" : ""));
+        "邮件群发：" + campaign.getName() + " 共 " + logs.size() + " 封" + (abTest ? "（A/B 测试）" : ""));
     return campaign;
   }
 
@@ -182,32 +183,6 @@ public class EmailCampaignService {
     }
     auditService.record(
         "SEND", "EMAIL_CAMPAIGN", l.getId(), "自动化邮件（模板 " + templateId + " → " + toEmail + "）");
-  }
-
-  /** 营销自动化异步发送：有 SMTP 逐封发，无 SMTP 日志模拟。 */
-  @Async
-  public void sendAsync(Long campaignId, List<EmailSendLog> logs, EmailTemplate template) {
-    for (EmailSendLog sendLog : logs) {
-      try {
-        if (mailSender != null) {
-          SimpleMailMessage msg = new SimpleMailMessage();
-          msg.setTo(sendLog.getEmail());
-          msg.setSubject(sendLog.getSubject());
-          msg.setText(stripHtml(sendLog.getContent()));
-          mailSender.send(msg);
-        } else {
-          log.debug(
-              "Mail simulated (no SMTP): to={} subject={}",
-              sendLog.getEmail(),
-              sendLog.getSubject());
-        }
-      } catch (Exception ex) {
-        log.warn("Mail send failed to {}: {}", sendLog.getEmail(), ex.getMessage());
-        sendLog.setStatus("FAILED");
-        sendLog.setErrorMessage(ex.getMessage());
-        sendLogMapper.updateById(sendLog);
-      }
-    }
   }
 
   /** 打开追踪：返回 1x1 透明 GIF，记录 OPEN（防重复）。 */
@@ -323,8 +298,7 @@ public class EmailCampaignService {
     }
     List<EmailSendLog> logs =
         sendLogMapper.selectList(
-            new LambdaQueryWrapper<EmailSendLog>()
-                .eq(EmailSendLog::getCampaignId, campaignId));
+            new LambdaQueryWrapper<EmailSendLog>().eq(EmailSendLog::getCampaignId, campaignId));
     long sent = logs.stream().filter(l -> "SENT".equals(l.getStatus())).count();
     long failed = logs.stream().filter(l -> "FAILED".equals(l.getStatus())).count();
     Long openCount = 0L;
@@ -334,16 +308,12 @@ public class EmailCampaignService {
           trackMapper.selectCount(
               new LambdaQueryWrapper<EmailTrack>()
                   .eq(EmailTrack::getTrackType, "OPEN")
-                  .in(
-                      EmailTrack::getSendLogId,
-                      logs.stream().map(EmailSendLog::getId).toList()));
+                  .in(EmailTrack::getSendLogId, logs.stream().map(EmailSendLog::getId).toList()));
       clickCount =
           trackMapper.selectCount(
               new LambdaQueryWrapper<EmailTrack>()
                   .eq(EmailTrack::getTrackType, "CLICK")
-                  .in(
-                      EmailTrack::getSendLogId,
-                      logs.stream().map(EmailSendLog::getId).toList()));
+                  .in(EmailTrack::getSendLogId, logs.stream().map(EmailSendLog::getId).toList()));
     }
     long open = openCount == null ? 0 : openCount;
     long click = clickCount == null ? 0 : clickCount;
@@ -388,10 +358,8 @@ public class EmailCampaignService {
       }
       resp.put("variantStats", variantStats);
       // 标记更优者（打开率）
-      double rateA =
-          ((Number) variantStats.get(0).get("openRate")).doubleValue();
-      double rateB =
-          ((Number) variantStats.get(1).get("openRate")).doubleValue();
+      double rateA = ((Number) variantStats.get(0).get("openRate")).doubleValue();
+      double rateB = ((Number) variantStats.get(1).get("openRate")).doubleValue();
       String winner = rateA == rateB ? "NONE" : (rateA > rateB ? "A" : "B");
       resp.put("winner", winner);
     }

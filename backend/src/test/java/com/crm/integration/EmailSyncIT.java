@@ -61,18 +61,24 @@ class EmailSyncIT extends AbstractIntegrationTest {
     mockMvc
         .perform(get("/api/v1/mail-accounts").header("Authorization", bearer(token)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data[?(@.id == " + accountA + ")].isDefaultSender").value(org.hamcrest.Matchers.hasSize(1)));
+        .andExpect(
+            jsonPath("$.data[?(@.id == " + accountA + ")].isDefaultSender")
+                .value(org.hamcrest.Matchers.hasSize(1)));
 
     // 模拟同步账户 B
     mockMvc
-        .perform(post("/api/v1/mail-accounts/{id}/sync", accountB).header("Authorization", bearer(token)))
+        .perform(
+            post("/api/v1/mail-accounts/{id}/sync", accountB)
+                .header("Authorization", bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.direction").value("INBOUND"))
         .andExpect(jsonPath("$.data.syncStatus").value("SYNCED"));
 
     // 同步记录列表
     mockMvc
-        .perform(get("/api/v1/mail-accounts/{id}/records", accountB).header("Authorization", bearer(token)))
+        .perform(
+            get("/api/v1/mail-accounts/{id}/records", accountB)
+                .header("Authorization", bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.total").value(1))
         .andExpect(jsonPath("$.data.items[0].subject").value("模拟同步邮件"));

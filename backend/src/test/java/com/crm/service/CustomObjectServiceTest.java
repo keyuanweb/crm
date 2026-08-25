@@ -84,7 +84,8 @@ class CustomObjectServiceTest {
     stored.setId(1L);
     stored.setName("项目");
     stored.setCode("PROJECT");
-    stored.setFields("[{\"field\":\"name\",\"label\":\"项目名称\",\"type\":\"TEXT\",\"required\":true}]");
+    stored.setFields(
+        "[{\"field\":\"name\",\"label\":\"项目名称\",\"type\":\"TEXT\",\"required\":true}]");
     stored.setEnabled(1);
     stored.setVersion(0);
     when(objectMapper.selectById(1L)).thenReturn(stored);

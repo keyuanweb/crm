@@ -116,11 +116,7 @@ public class FieldPermissionService {
 
   // ===== 保存校验（服务端强制） =====
 
-  /**
-   * 保存自定义字段值前校验权限：
-   * - HIDDEN 字段提交 → 422 FIELD_HIDDEN
-   * - READ_ONLY 字段修改已有值 → 422 FIELD_READ_ONLY
-   */
+  /** 保存自定义字段值前校验权限： - HIDDEN 字段提交 → 422 FIELD_HIDDEN - READ_ONLY 字段修改已有值 → 422 FIELD_READ_ONLY */
   public void validateWrite(
       String roleCode,
       String entityType,

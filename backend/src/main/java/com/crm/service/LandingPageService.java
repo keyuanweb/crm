@@ -101,7 +101,10 @@ public class LandingPageService {
   public LandingPagePublicResponse publicView(Long id) {
     LandingPage lp = require(id);
     Form form = formMapper.selectById(lp.getFormId());
-    if (lp.getEnabled() == null || lp.getEnabled() != 1 || form == null || !"ENABLED".equals(form.getStatus())) {
+    if (lp.getEnabled() == null
+        || lp.getEnabled() != 1
+        || form == null
+        || !"ENABLED".equals(form.getStatus())) {
       throw new BusinessException(ErrorCode.LANDING_PAGE_UNAVAILABLE);
     }
     LandingPagePublicResponse resp = new LandingPagePublicResponse();

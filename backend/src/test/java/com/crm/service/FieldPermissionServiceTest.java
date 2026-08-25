@@ -119,19 +119,19 @@ class FieldPermissionServiceTest {
   @DisplayName("保存校验：HIDDEN 字段写入 → 422")
   void hiddenFieldRejected() {
     when(permissionMapper.selectOne(any())).thenReturn(permission("SALES", "HIDDEN"));
-    FieldValueLike v = new FieldValueLike() {
-      @Override
-      public Long getFieldId() {
-        return 5L;
-      }
+    FieldValueLike v =
+        new FieldValueLike() {
+          @Override
+          public Long getFieldId() {
+            return 5L;
+          }
 
-      @Override
-      public String getValue() {
-        return "x";
-      }
-    };
-    assertThatThrownBy(
-            () -> service.validateWrite("SALES", "CUSTOMER", List.of(v), Map.of()))
+          @Override
+          public String getValue() {
+            return "x";
+          }
+        };
+    assertThatThrownBy(() -> service.validateWrite("SALES", "CUSTOMER", List.of(v), Map.of()))
         .isInstanceOf(BusinessException.class)
         .extracting(e -> ((BusinessException) e).getErrorCode())
         .isEqualTo(ErrorCode.FIELD_HIDDEN);
@@ -141,17 +141,18 @@ class FieldPermissionServiceTest {
   @DisplayName("保存校验：READ_ONLY 字段修改已有值 → 422；相同值幂等放行")
   void readOnlyFieldRejected() {
     when(permissionMapper.selectOne(any())).thenReturn(permission("SALES", "READ_ONLY"));
-    FieldValueLike changed = new FieldValueLike() {
-      @Override
-      public Long getFieldId() {
-        return 5L;
-      }
+    FieldValueLike changed =
+        new FieldValueLike() {
+          @Override
+          public Long getFieldId() {
+            return 5L;
+          }
 
-      @Override
-      public String getValue() {
-        return "new";
-      }
-    };
+          @Override
+          public String getValue() {
+            return "new";
+          }
+        };
     assertThatThrownBy(
             () -> service.validateWrite("SALES", "CUSTOMER", List.of(changed), Map.of(5L, "old")))
         .isInstanceOf(BusinessException.class)
@@ -159,17 +160,18 @@ class FieldPermissionServiceTest {
         .isEqualTo(ErrorCode.FIELD_READ_ONLY);
 
     // 相同值幂等
-    FieldValueLike same = new FieldValueLike() {
-      @Override
-      public Long getFieldId() {
-        return 5L;
-      }
+    FieldValueLike same =
+        new FieldValueLike() {
+          @Override
+          public Long getFieldId() {
+            return 5L;
+          }
 
-      @Override
-      public String getValue() {
-        return "old";
-      }
-    };
+          @Override
+          public String getValue() {
+            return "old";
+          }
+        };
     service.validateWrite("SALES", "CUSTOMER", List.of(same), Map.of(5L, "old"));
   }
 }

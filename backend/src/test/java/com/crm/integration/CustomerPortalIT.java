@@ -22,8 +22,7 @@ class CustomerPortalIT extends AbstractIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         String.format(
-                            "{\"name\": \"门户客户%d\", \"company\": \"门户公司\"}",
-                            System.nanoTime())))
+                            "{\"name\": \"门户客户%d\", \"company\": \"门户公司\"}", System.nanoTime())))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()
@@ -71,9 +70,7 @@ class CustomerPortalIT extends AbstractIntegrationTest {
         .perform(
             post("/api/v1/public/portal/tickets/status")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    String.format(
-                        "{\"ticketId\": %d, \"phone\": \"%s\"}", ticketId, phone)))
+                .content(String.format("{\"ticketId\": %d, \"phone\": \"%s\"}", ticketId, phone)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.status").value("OPEN"));
   }
@@ -101,9 +98,7 @@ class CustomerPortalIT extends AbstractIntegrationTest {
             .perform(
                 post("/api/v1/public/portal/tickets")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(
-                        String.format(
-                            "{\"phone\": \"%s\", \"title\": \"守卫测试\"}", phone)))
+                    .content(String.format("{\"phone\": \"%s\", \"title\": \"守卫测试\"}", phone)))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()
@@ -140,7 +135,8 @@ class CustomerPortalIT extends AbstractIntegrationTest {
                 post("/api/v1/knowledge")
                     .header("Authorization", bearer(token))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"title\": \"门户草稿\", \"content\": \"草稿内容\", \"category\": \"OTHER\"}"))
+                    .content(
+                        "{\"title\": \"门户草稿\", \"content\": \"草稿内容\", \"category\": \"OTHER\"}"))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()

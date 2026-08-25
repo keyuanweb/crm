@@ -62,8 +62,7 @@ class SlaCalendarServiceTest {
   void withinWorkHours() {
     when(configMapper.selectOne(any())).thenReturn(week9to18());
     LocalDateTime from = LocalDateTime.of(2026, 8, 25, 10, 0); // 周二
-    assertThat(service.advanceWorkingTime(from, 2))
-        .isEqualTo(LocalDateTime.of(2026, 8, 25, 12, 0));
+    assertThat(service.advanceWorkingTime(from, 2)).isEqualTo(LocalDateTime.of(2026, 8, 25, 12, 0));
   }
 
   @Test
@@ -72,8 +71,7 @@ class SlaCalendarServiceTest {
     when(configMapper.selectOne(any())).thenReturn(week9to18());
     LocalDateTime from = LocalDateTime.of(2026, 8, 25, 17, 0); // 周二 17:00
     // 17:00-18:00 消耗 1h，剩 1h → 周三 09:00 起再 1h = 10:00
-    assertThat(service.advanceWorkingTime(from, 2))
-        .isEqualTo(LocalDateTime.of(2026, 8, 26, 10, 0));
+    assertThat(service.advanceWorkingTime(from, 2)).isEqualTo(LocalDateTime.of(2026, 8, 26, 10, 0));
   }
 
   @Test
@@ -82,8 +80,7 @@ class SlaCalendarServiceTest {
     when(configMapper.selectOne(any())).thenReturn(week9to18());
     LocalDateTime from = LocalDateTime.of(2026, 8, 28, 17, 0); // 周五 17:00
     // 周五 17:00-18:00 消耗 1h，剩 1h → 周一 09:00 起 1h = 10:00
-    assertThat(service.advanceWorkingTime(from, 2))
-        .isEqualTo(LocalDateTime.of(2026, 8, 31, 10, 0));
+    assertThat(service.advanceWorkingTime(from, 2)).isEqualTo(LocalDateTime.of(2026, 8, 31, 10, 0));
   }
 
   @Test
@@ -94,8 +91,7 @@ class SlaCalendarServiceTest {
     when(configMapper.selectOne(any())).thenReturn(c);
     // 9/30（周三）17:00 + 4h：17:00-18:00 消耗 1h，剩 3h → 10/1 假日跳过 → 10/2（周五）09:00 起 3h = 12:00
     LocalDateTime from = LocalDateTime.of(2026, 9, 30, 17, 0);
-    assertThat(service.advanceWorkingTime(from, 4))
-        .isEqualTo(LocalDateTime.of(2026, 10, 2, 12, 0));
+    assertThat(service.advanceWorkingTime(from, 4)).isEqualTo(LocalDateTime.of(2026, 10, 2, 12, 0));
   }
 
   @Test

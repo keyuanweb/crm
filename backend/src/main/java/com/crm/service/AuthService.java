@@ -196,7 +196,13 @@ public class AuthService {
     if (user == null) {
       throw new BusinessException(ErrorCode.USER_NOT_FOUND);
     }
+    // S5(安全审计)：refresh token 必须携带与当前 tokenVersion 一致的 tv，改密/重置后旧 refresh 立即失效
     int tokenVersion = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
+    Integer tvClaim = claims.get("tv") instanceof Number n ? n.intValue() : null;
+    if (tvClaim == null || tvClaim != tokenVersion) {
+      redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
+      throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
+    }
     String newAccess =
         jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), tokenVersion);
     return new AuthResponse(newAccess, request.getRefreshToken(), toUserInfo(user));

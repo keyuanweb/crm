@@ -52,12 +52,8 @@ public class TicketSurveyController {
   @GetMapping("/surveys/stats")
   @Operation(summary = "满意度统计（CSAT 均值 + NPS 分布）")
   public ApiResponse<SurveyStatsResponse> stats(
-      @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate from,
-      @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate to) {
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
     LocalDateTime fromTime = from == null ? null : from.atStartOfDay();
     LocalDateTime toTime = to == null ? null : to.plusDays(1).atStartOfDay();
     return ApiResponse.ok(surveyService.stats(fromTime, toTime));

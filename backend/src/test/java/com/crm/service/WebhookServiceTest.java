@@ -46,7 +46,9 @@ class WebhookServiceTest {
     subscriptionMapper = mock(WebhookSubscriptionMapper.class);
     deliveryMapper = mock(WebhookDeliveryMapper.class);
     restTemplate = mock(org.springframework.web.client.RestTemplate.class);
-    service = new WebhookService(subscriptionMapper, deliveryMapper, restTemplate);
+    service =
+        new WebhookService(
+            subscriptionMapper, deliveryMapper, restTemplate, mock(WebhookDeliverer.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock
         .when(SecurityUtil::currentPrincipal)

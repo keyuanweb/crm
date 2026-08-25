@@ -133,6 +133,7 @@ public class OpenPlatformController {
     requireScope(authentication, "customer:read");
     return ApiResponse.ok(customerService.page(keyword, null, null, page, pageSize));
   }
+
   @GetMapping("/open/leads")
   @Operation(summary = "开放：线索只读列表（X-API-Key）")
   public ApiResponse<PageResult<?>> openLeads(
@@ -140,8 +141,7 @@ public class OpenPlatformController {
       @RequestParam(defaultValue = "1") long page,
       @RequestParam(defaultValue = "20") long pageSize) {
     requireScope(authentication, "lead:read");
-    return ApiResponse.ok(
-        leadService.page(null, null, null, null, false, null, page, pageSize));
+    return ApiResponse.ok(leadService.page(null, null, null, null, false, null, page, pageSize));
   }
 
   @PostMapping("/open/leads")

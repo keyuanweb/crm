@@ -74,7 +74,8 @@ class EmailCampaignServiceTest {
             customerMapper,
             auditService,
             unsubscribeService,
-            null); // 无 SMTP → 模拟
+            null, // 无 SMTP → 模拟
+            mock(EmailSenderService.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock

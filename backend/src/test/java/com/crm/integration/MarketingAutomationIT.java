@@ -23,8 +23,7 @@ class MarketingAutomationIT extends AbstractIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         String.format(
-                            "{\"name\": \"营销客户%d\", \"company\": \"营销公司\"}",
-                            System.nanoTime())))
+                            "{\"name\": \"营销客户%d\", \"company\": \"营销公司\"}", System.nanoTime())))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()

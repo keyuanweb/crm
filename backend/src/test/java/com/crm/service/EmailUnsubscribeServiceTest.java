@@ -15,8 +15,6 @@ import com.crm.common.ErrorCode;
 import com.crm.entity.EmailUnsubscribe;
 import com.crm.repository.EmailSendLogMapper;
 import com.crm.repository.EmailUnsubscribeMapper;
-import java.util.List;
-import java.util.Map;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;

@@ -70,8 +70,7 @@ class CustomerPortalServiceTest {
     a.setTitle("草稿");
     when(articleMapper.selectById(1L)).thenReturn(a);
 
-    assertThatThrownBy(() -> service.article(1L))
-        .isInstanceOf(BusinessException.class);
+    assertThatThrownBy(() -> service.article(1L)).isInstanceOf(BusinessException.class);
   }
 
   @Test

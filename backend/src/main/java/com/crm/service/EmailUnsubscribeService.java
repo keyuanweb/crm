@@ -6,8 +6,8 @@ import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
 import com.crm.common.PageResult;
 import com.crm.entity.EmailUnsubscribe;
-import com.crm.repository.EmailUnsubscribeMapper;
 import com.crm.repository.EmailSendLogMapper;
+import com.crm.repository.EmailUnsubscribeMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -72,7 +72,8 @@ public class EmailUnsubscribeService {
     }
     Long count =
         unsubscribeMapper.selectCount(
-            new LambdaQueryWrapper<EmailUnsubscribe>().eq(EmailUnsubscribe::getEmail, email.trim()));
+            new LambdaQueryWrapper<EmailUnsubscribe>()
+                .eq(EmailUnsubscribe::getEmail, email.trim()));
     return count != null && count > 0;
   }
 

@@ -37,8 +37,7 @@ public class WorkflowEventPublisher {
 
   /** 线索评分达阈值（评分重算后发布）。 */
   public void leadScoreThreshold(Long leadId, Map<String, String> context) {
-    workflowEngine.fire(
-        WorkflowEngine.EVENT_LEAD_SCORE_THRESHOLD, "LEAD", leadId, context);
+    workflowEngine.fire(WorkflowEngine.EVENT_LEAD_SCORE_THRESHOLD, "LEAD", leadId, context);
   }
 
   /** 标签变更（客户打标后发布）。 */

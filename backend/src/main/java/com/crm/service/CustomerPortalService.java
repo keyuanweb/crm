@@ -57,10 +57,7 @@ public class CustomerPortalService {
     if (StringUtils.hasText(keyword)) {
       String kw = keyword.trim();
       qw.and(
-          w ->
-              w.like(KnowledgeArticle::getTitle, kw)
-                  .or()
-                  .like(KnowledgeArticle::getKeywords, kw));
+          w -> w.like(KnowledgeArticle::getTitle, kw).or().like(KnowledgeArticle::getKeywords, kw));
     }
     qw.orderByDesc(KnowledgeArticle::getId);
     com.baomidou.mybatisplus.extension.plugins.pagination.Page<KnowledgeArticle> p =
@@ -85,8 +82,7 @@ public class CustomerPortalService {
   /** 公开文章详情（仅 PUBLISHED）。 */
   public PortalArticleResponse article(Long id) {
     KnowledgeArticle a = articleMapper.selectById(id);
-    if (a == null
-        || !KnowledgeArticleService.STATUS_PUBLISHED.equals(a.getStatus())) {
+    if (a == null || !KnowledgeArticleService.STATUS_PUBLISHED.equals(a.getStatus())) {
       throw new BusinessException(ErrorCode.BAD_REQUEST, "文章不可见");
     }
     PortalArticleResponse r = new PortalArticleResponse();
@@ -142,9 +138,7 @@ public class CustomerPortalService {
     }
     if (StringUtils.hasText(email)) {
       return contactMapper.selectOne(
-          new LambdaQueryWrapper<Contact>()
-              .eq(Contact::getEmail, email.trim())
-              .last("LIMIT 1"));
+          new LambdaQueryWrapper<Contact>().eq(Contact::getEmail, email.trim()).last("LIMIT 1"));
     }
     return null;
   }

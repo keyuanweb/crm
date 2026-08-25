@@ -68,7 +68,8 @@ class MultiCurrencyIT extends AbstractIntegrationTest {
             post("/api/v1/currencies/convert")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"amount\": 100000, \"fromCurrency\": \"CNY\", \"toCurrency\": \"USD\"}"))
+                .content(
+                    "{\"amount\": 100000, \"fromCurrency\": \"CNY\", \"toCurrency\": \"USD\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.convertedAmount").value(13889));
 
@@ -94,7 +95,8 @@ class MultiCurrencyIT extends AbstractIntegrationTest {
 
     // 产品价格视图：配置价优先
     mockMvc
-        .perform(get("/api/v1/products/{id}/prices", productId).header("Authorization", bearer(token)))
+        .perform(
+            get("/api/v1/products/{id}/prices", productId).header("Authorization", bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.basePrice").value(100000))
         .andExpect(jsonPath("$.data.prices[0].currencyCode").value("USD"))
@@ -108,7 +110,8 @@ class MultiCurrencyIT extends AbstractIntegrationTest {
                 .header("Authorization", bearer(token)))
         .andExpect(status().isOk());
     mockMvc
-        .perform(get("/api/v1/products/{id}/prices", productId).header("Authorization", bearer(token)))
+        .perform(
+            get("/api/v1/products/{id}/prices", productId).header("Authorization", bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.prices[0].configured").value(false));
   }

@@ -16,7 +16,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -91,7 +90,8 @@ public class CustomObjectRecordService {
   private void validateRequired(CustomObject obj, Map<String, Object> values) {
     for (CustomObjectRequest.FieldDef f : objectService.fieldsOf(obj)) {
       if (Boolean.TRUE.equals(f.getRequired())
-          && (values.get(f.getField()) == null || String.valueOf(values.get(f.getField())).isBlank())) {
+          && (values.get(f.getField()) == null
+              || String.valueOf(values.get(f.getField())).isBlank())) {
         throw new BusinessException(ErrorCode.OBJECT_FIELD_REQUIRED);
       }
     }

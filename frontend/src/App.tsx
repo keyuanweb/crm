@@ -144,6 +144,7 @@ const MENU_I18N_KEYS: Record<string, string> = {
   '/knowledge': 'knowledge',
   '/announcements': 'announcements',
   '/approvals': 'approvals',
+  '/portal': 'portal',
   '/satisfaction': 'satisfaction',
   '/tasks': 'tasks',
   '/suggestions': 'suggestions',
@@ -384,7 +385,6 @@ function Shell() {
     { path: '/marketing/email', name: '邮件营销', icon: <MailOutlined /> },
     { path: '/email-unsubscribes', name: '邮件退订', icon: <MailOutlined /> },
     { path: '/online-forms', name: '在线表单', icon: <FormOutlined /> },
-    { path: '/planned/marketing-auto', name: '营销自动化', icon: <ThunderboltOutlined />, planned: true },
     { path: '/landing-pages', name: '落地页', icon: <FormOutlined /> },
   ]
   const serviceRoutes = [
@@ -392,7 +392,7 @@ function Shell() {
     { path: '/knowledge', name: '知识库', icon: <FileTextOutlined /> },
     { path: '/announcements', name: '公告管理', icon: <NotificationOutlined /> },
     { path: '/approvals', name: '我的审批', icon: <AuditOutlined /> },
-    { path: '/planned/portal', name: '客户门户', icon: <CustomerServiceOutlined />, planned: true },
+    { path: '/portal', name: '客户门户', icon: <CustomerServiceOutlined /> },
     { path: '/satisfaction', name: '满意度调查', icon: <AuditOutlined /> },
     { path: '/sla-calendar', name: 'SLA日历', icon: <CalendarOutlined /> },
   ]

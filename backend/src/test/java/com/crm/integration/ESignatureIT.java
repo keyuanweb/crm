@@ -25,8 +25,7 @@ class ESignatureIT extends AbstractIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         String.format(
-                            "{\"name\": \"签名客户%d\", \"company\": \"签名公司\"}",
-                            System.nanoTime())))
+                            "{\"name\": \"签名客户%d\", \"company\": \"签名公司\"}", System.nanoTime())))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()
@@ -69,7 +68,8 @@ class ESignatureIT extends AbstractIntegrationTest {
         .perform(post("/api/v1/quotes/{id}/submit", quoteId).header("Authorization", bearer(token)))
         .andExpect(status().isOk());
     mockMvc
-        .perform(post("/api/v1/quotes/{id}/approve", quoteId).header("Authorization", bearer(token)))
+        .perform(
+            post("/api/v1/quotes/{id}/approve", quoteId).header("Authorization", bearer(token)))
         .andExpect(status().isOk());
     return quoteId;
   }
@@ -125,7 +125,8 @@ class ESignatureIT extends AbstractIntegrationTest {
         .andExpect(jsonPath("$.error.code").value("SIGNATURE_ALREADY_SIGNED"));
 
     mockMvc
-        .perform(get("/api/v1/quotes/{id}/signature", quoteId).header("Authorization", bearer(token)))
+        .perform(
+            get("/api/v1/quotes/{id}/signature", quoteId).header("Authorization", bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.signerName").isNotEmpty());
   }

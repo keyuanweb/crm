@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Select } from 'antd'
@@ -24,12 +24,17 @@ export default function CustomObjectRecordPage() {
   const [editing, setEditing] = useState<ObjectRecord | null>(null)
   const [form] = Form.useForm()
 
-  // 加载对象定义
-  if (!object) {
+  // F1(前端审计修复)：改用 useEffect 加载对象定义（原 render 内 fetch 会重复请求/可能死循环）
+  useEffect(() => {
+    if (!Number.isFinite(objectId)) return
+    let alive = true
     void fetchCustomObjects(undefined, 1, 100).then((res) => {
-      setObject(res.items.find((o) => o.id === objectId) ?? null)
+      if (alive) setObject(res.items.find((o) => o.id === objectId) ?? null)
     })
-  }
+    return () => {
+      alive = false
+    }
+  }, [objectId])
 
   const openCreate = () => {
     setEditing(null)

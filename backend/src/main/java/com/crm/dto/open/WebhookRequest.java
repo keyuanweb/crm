@@ -10,9 +10,7 @@ import lombok.Data;
 public class WebhookRequest {
 
   @NotBlank(message = "事件类型不能为空")
-  @Pattern(
-      regexp = "^(LEAD_CREATED|LEAD_UPDATED|CUSTOMER_CREATED)$",
-      message = "事件类型不合法")
+  @Pattern(regexp = "^(LEAD_CREATED|LEAD_UPDATED|CUSTOMER_CREATED)$", message = "事件类型不合法")
   private String eventType;
 
   @NotBlank(message = "回调 URL 不能为空")

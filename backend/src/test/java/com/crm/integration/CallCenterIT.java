@@ -22,8 +22,7 @@ class CallCenterIT extends AbstractIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         String.format(
-                            "{\"name\": \"通话客户%d\", \"company\": \"通话公司\"}",
-                            System.nanoTime())))
+                            "{\"name\": \"通话客户%d\", \"company\": \"通话公司\"}", System.nanoTime())))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()
@@ -36,9 +35,7 @@ class CallCenterIT extends AbstractIntegrationTest {
                     .header("Authorization", bearer(token))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
-                        String.format(
-                            "{\"customerId\": %d, \"name\": \"通话联系人\"}",
-                            customerId)))
+                        String.format("{\"customerId\": %d, \"name\": \"通话联系人\"}", customerId)))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()
@@ -95,8 +92,7 @@ class CallCenterIT extends AbstractIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         String.format(
-                            "{\"name\": \"其他客户%d\", \"company\": \"其他公司\"}",
-                            System.nanoTime())))
+                            "{\"name\": \"其他客户%d\", \"company\": \"其他公司\"}", System.nanoTime())))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()

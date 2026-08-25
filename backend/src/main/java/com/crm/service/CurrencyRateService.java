@@ -3,7 +3,6 @@ package com.crm.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
-import com.crm.common.PageResult;
 import com.crm.dto.currency.CurrencyRateRequest;
 import com.crm.dto.currency.CurrencyRateResponse;
 import com.crm.entity.CurrencyRate;
@@ -14,7 +13,6 @@ import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,7 +47,8 @@ public class CurrencyRateService {
   public CurrencyRateResponse create(CurrencyRateRequest req) {
     Long exists =
         currencyMapper.selectCount(
-            new LambdaQueryWrapper<CurrencyRate>().eq(CurrencyRate::getCode, req.getCode().trim().toUpperCase()));
+            new LambdaQueryWrapper<CurrencyRate>()
+                .eq(CurrencyRate::getCode, req.getCode().trim().toUpperCase()));
     if (exists != null && exists > 0) {
       throw new BusinessException(ErrorCode.CURRENCY_CODE_DUPLICATE);
     }

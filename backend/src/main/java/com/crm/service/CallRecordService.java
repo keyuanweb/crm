@@ -15,7 +15,6 @@ import com.crm.repository.CallRecordMapper;
 import com.crm.repository.ContactMapper;
 import com.crm.repository.CustomerMapper;
 import com.crm.security.SecurityUtil;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,8 +40,13 @@ public class CallRecordService {
   }
 
   public PageResult<CallRecordResponse> page(
-      String keyword, String direction, Long customerId, LocalDateTime from, LocalDateTime to,
-      long page, long pageSize) {
+      String keyword,
+      String direction,
+      Long customerId,
+      LocalDateTime from,
+      LocalDateTime to,
+      long page,
+      long pageSize) {
     LambdaQueryWrapper<CallRecord> qw = new LambdaQueryWrapper<>();
     if (StringUtils.hasText(direction)) {
       qw.eq(CallRecord::getDirection, direction.trim());
@@ -121,11 +125,15 @@ public class CallRecordService {
       records = records.stream().filter(r -> direction.equals(r.getDirection())).toList();
     }
     long totalCount = records.size();
-    long totalDuration = records.stream().mapToLong(r -> r.getDurationSeconds() == null ? 0 : r.getDurationSeconds()).sum();
+    long totalDuration =
+        records.stream()
+            .mapToLong(r -> r.getDurationSeconds() == null ? 0 : r.getDurationSeconds())
+            .sum();
     long avg = totalCount == 0 ? 0 : totalDuration / totalCount;
 
     Map<String, Long> byDir =
-        records.stream().collect(Collectors.groupingBy(CallRecord::getDirection, Collectors.counting()));
+        records.stream()
+            .collect(Collectors.groupingBy(CallRecord::getDirection, Collectors.counting()));
 
     CallStatsResponse resp = new CallStatsResponse();
     resp.setTotalCount(totalCount);
@@ -146,7 +154,8 @@ public class CallRecordService {
   private void validateContactBelongs(CallRecordRequest req) {
     if (req.getContactId() != null) {
       Contact contact = contactMapper.selectById(req.getContactId());
-      if (contact == null || !java.util.Objects.equals(contact.getCustomerId(), req.getCustomerId())) {
+      if (contact == null
+          || !java.util.Objects.equals(contact.getCustomerId(), req.getCustomerId())) {
         throw new BusinessException(ErrorCode.CALL_CONTACT_MISMATCH);
       }
     }
@@ -173,13 +182,23 @@ public class CallRecordService {
     if (records.isEmpty()) {
       return List.of();
     }
-    List<Long> customerIds = records.stream().map(CallRecord::getCustomerId).filter(java.util.Objects::nonNull).distinct().toList();
+    List<Long> customerIds =
+        records.stream()
+            .map(CallRecord::getCustomerId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
     Map<Long, String> customerNames =
         customerIds.isEmpty()
             ? Map.of()
             : customerMapper.selectBatchIds(customerIds).stream()
                 .collect(Collectors.toMap(Customer::getId, Customer::getName));
-    List<Long> contactIds = records.stream().map(CallRecord::getContactId).filter(java.util.Objects::nonNull).distinct().toList();
+    List<Long> contactIds =
+        records.stream()
+            .map(CallRecord::getContactId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
     Map<Long, String> contactNames =
         contactIds.isEmpty()
             ? Map.of()
@@ -191,9 +210,11 @@ public class CallRecordService {
               CallRecordResponse resp = new CallRecordResponse();
               resp.setId(r.getId());
               resp.setCustomerId(r.getCustomerId());
-              resp.setCustomerName(r.getCustomerId() == null ? null : customerNames.get(r.getCustomerId()));
+              resp.setCustomerName(
+                  r.getCustomerId() == null ? null : customerNames.get(r.getCustomerId()));
               resp.setContactId(r.getContactId());
-              resp.setContactName(r.getContactId() == null ? null : contactNames.get(r.getContactId()));
+              resp.setContactName(
+                  r.getContactId() == null ? null : contactNames.get(r.getContactId()));
               resp.setDirection(r.getDirection());
               resp.setDurationSeconds(r.getDurationSeconds());
               resp.setResult(r.getResult());

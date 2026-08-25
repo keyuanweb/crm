@@ -149,4 +149,20 @@ class ApprovalEngineServiceTest {
 
     assertThatThrownBy(() -> service.renew(1L)).isInstanceOf(BusinessException.class);
   }
+
+  @Test
+  @DisplayName("S2：approverId 为 NULL 的任务拒绝处理（防止审批链绕过）")
+  void nullApproverRejected() {
+    ApprovalTask task = new ApprovalTask();
+    task.setId(9L);
+    task.setInstanceId(1L);
+    task.setStatus("PENDING");
+    task.setApproverId(null); // 未指派审批人
+    when(taskMapper.selectById(9L)).thenReturn(task);
+
+    assertThatThrownBy(() -> service.approve(9L, new TaskActionRequest()))
+        .isInstanceOf(BusinessException.class)
+        .extracting(e -> ((BusinessException) e).getErrorCode())
+        .isEqualTo(com.crm.common.ErrorCode.FORBIDDEN);
+  }
 }

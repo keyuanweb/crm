@@ -36,9 +36,7 @@ class OpenPlatformIT extends AbstractIntegrationTest {
     long keyId = objectMapper.readTree(keyResp).path("data").path("id").asLong();
 
     // 无 Key → 401
-    mockMvc
-        .perform(get("/api/v1/open/customers"))
-        .andExpect(status().isUnauthorized());
+    mockMvc.perform(get("/api/v1/open/customers")).andExpect(status().isUnauthorized());
 
     // 有效 Key → 200（customer:read 有权限）
     mockMvc
@@ -96,7 +94,8 @@ class OpenPlatformIT extends AbstractIntegrationTest {
                 post("/api/v1/platform/webhooks")
                     .header("Authorization", bearer(token))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"eventType\": \"LEAD_CREATED\", \"callbackUrl\": \"http://localhost:9999/hook\"}"))
+                    .content(
+                        "{\"eventType\": \"LEAD_CREATED\", \"callbackUrl\": \"http://localhost:9999/hook\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.secret").isNotEmpty())
             .andReturn()

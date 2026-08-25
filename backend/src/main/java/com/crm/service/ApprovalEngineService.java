@@ -321,8 +321,12 @@ public class ApprovalEngineService {
   }
 
   private void checkApprover(ApprovalTask task) {
+    // S2(安全审计)：approverId 为 NULL 的任务不得被任意用户处理（防止审批链绕过）
     Long current = SecurityUtil.currentUserId();
-    if (task.getApproverId() != null && !task.getApproverId().equals(current)) {
+    if (task.getApproverId() == null) {
+      throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
+    if (!task.getApproverId().equals(current)) {
       throw new BusinessException(ErrorCode.FORBIDDEN);
     }
   }

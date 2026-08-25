@@ -9,7 +9,6 @@ import com.crm.entity.SlaCalendarConfig;
 import com.crm.repository.SlaCalendarConfigMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -95,7 +94,9 @@ public class SlaCalendarService {
 
   private SlaCalendarConfig load() {
     return configMapper.selectOne(
-        new LambdaQueryWrapper<SlaCalendarConfig>().orderByAsc(SlaCalendarConfig::getId).last("LIMIT 1"));
+        new LambdaQueryWrapper<SlaCalendarConfig>()
+            .orderByAsc(SlaCalendarConfig::getId)
+            .last("LIMIT 1"));
   }
 
   private String writeJson(Object value) {
@@ -133,10 +134,7 @@ public class SlaCalendarService {
 
   // ===== 工作时间推进（纯函数） =====
 
-  /**
-   * 按工作日历推进 SLA 时长：仅在 工作时段 ∩ 工作日 ∩ 非节假日 内消耗。
-   * 未启用配置 → 直接 plusHours（回退旧行为）。
-   */
+  /** 按工作日历推进 SLA 时长：仅在 工作时段 ∩ 工作日 ∩ 非节假日 内消耗。 未启用配置 → 直接 plusHours（回退旧行为）。 */
   public LocalDateTime advanceWorkingTime(LocalDateTime from, double hours) {
     SlaCalendarConfig config = load();
     if (config == null || config.getEnabled() == null || config.getEnabled() != 1) {
@@ -206,7 +204,8 @@ public class SlaCalendarService {
     return cursor;
   }
 
-  private LocalTime nextSlotStart(LocalDateTime cursor, List<SlaCalendarConfigRequest.WorkSlot> slots) {
+  private LocalTime nextSlotStart(
+      LocalDateTime cursor, List<SlaCalendarConfigRequest.WorkSlot> slots) {
     LocalTime time = cursor.toLocalTime();
     LocalTime earliest = null;
     for (SlaCalendarConfigRequest.WorkSlot slot : slots) {

@@ -54,8 +54,7 @@ public class LandingPageController {
   @ResponseStatus(HttpStatus.CREATED)
   @RequirePermission("marketing:manage")
   @Operation(summary = "创建落地页")
-  public ApiResponse<LandingPageResponse> create(
-      @Valid @RequestBody LandingPageRequest request) {
+  public ApiResponse<LandingPageResponse> create(@Valid @RequestBody LandingPageRequest request) {
     return ApiResponse.ok(landingPageService.create(request));
   }
 
@@ -80,12 +79,8 @@ public class LandingPageController {
   @Operation(summary = "落地页 UTM 归因统计")
   public ApiResponse<UtmStatsResponse> stats(
       @PathVariable Long id,
-      @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate from,
-      @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate to) {
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
     LocalDateTime fromTime = from == null ? null : from.atStartOfDay();
     LocalDateTime toTime = to == null ? null : to.plusDays(1).atStartOfDay();
     return ApiResponse.ok(landingPageService.stats(id, fromTime, toTime));

@@ -54,8 +54,7 @@ public class TicketSurveyService {
     survey.setCreatedBy(SecurityUtil.currentUserId());
     survey.setCreatedAt(LocalDateTime.now());
     surveyMapper.insert(survey);
-    auditService.record(
-        "SURVEY", "TICKET", ticketId, "工单满意度评分：" + req.getRating() + " 分");
+    auditService.record("SURVEY", "TICKET", ticketId, "工单满意度评分：" + req.getRating() + " 分");
     return toResponse(survey);
   }
 
@@ -80,12 +79,13 @@ public class TicketSurveyService {
     long total = all.size();
     long promoter = all.stream().filter(s -> s.getRating() != null && s.getRating() == 5).count();
     long passive = all.stream().filter(s -> s.getRating() != null && s.getRating() == 4).count();
-    long detractor =
-        all.stream().filter(s -> s.getRating() != null && s.getRating() <= 3).count();
+    long detractor = all.stream().filter(s -> s.getRating() != null && s.getRating() <= 3).count();
     double avg =
         total == 0
             ? 0
-            : all.stream().mapToInt(s -> s.getRating() == null ? 0 : s.getRating()).average()
+            : all.stream()
+                .mapToInt(s -> s.getRating() == null ? 0 : s.getRating())
+                .average()
                 .orElse(0);
 
     SurveyStatsResponse resp = new SurveyStatsResponse();
@@ -94,7 +94,8 @@ public class TicketSurveyService {
     resp.setPromoter(bucket(promoter, total));
     resp.setPassive(bucket(passive, total));
     resp.setDetractor(bucket(detractor, total));
-    resp.setNpsScore(total == 0 ? 0 : (int) Math.round(promoter * 100.0 / total - detractor * 100.0 / total));
+    resp.setNpsScore(
+        total == 0 ? 0 : (int) Math.round(promoter * 100.0 / total - detractor * 100.0 / total));
     return resp;
   }
 

@@ -87,8 +87,7 @@ class EmailAdvancedIT extends AbstractIntegrationTest {
     long id = objectMapper.readTree(list).path("data").path("items").get(0).path("id").asLong();
     mockMvc
         .perform(
-            delete("/api/v1/email/unsubscribes/{id}", id)
-                .header("Authorization", bearer(token)))
+            delete("/api/v1/email/unsubscribes/{id}", id).header("Authorization", bearer(token)))
         .andExpect(status().isOk());
 
     // 恢复后名单为空

@@ -44,12 +44,8 @@ public class CallRecordController {
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) String direction,
       @RequestParam(required = false) Long customerId,
-      @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate from,
-      @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate to,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
       @RequestParam(defaultValue = "1") long page,
       @RequestParam(defaultValue = "20") long pageSize) {
     LocalDateTime fromTime = from == null ? null : from.atStartOfDay();
@@ -88,12 +84,8 @@ public class CallRecordController {
   @GetMapping("/stats")
   @Operation(summary = "通话统计")
   public ApiResponse<CallStatsResponse> stats(
-      @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate from,
-      @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate to,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
       @RequestParam(required = false) String direction) {
     LocalDateTime fromTime = from == null ? null : from.atStartOfDay();
     LocalDateTime toTime = to == null ? null : to.plusDays(1).atStartOfDay();

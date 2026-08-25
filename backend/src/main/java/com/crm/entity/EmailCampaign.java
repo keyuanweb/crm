@@ -28,6 +28,7 @@ public class EmailCampaign extends BaseEntity {
 
   /** 052：A/B 测试（NONE/A/B）+ B 主题 + 更优者标记。 */
   private String variant;
+
   private String subjectB;
   private String winner;
 

@@ -22,8 +22,7 @@ class TicketSurveyIT extends AbstractIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         String.format(
-                            "{\"name\": \"满意度客户%d\", \"company\": \"满意度公司\"}",
-                            System.nanoTime())))
+                            "{\"name\": \"满意度客户%d\", \"company\": \"满意度公司\"}", System.nanoTime())))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()
@@ -99,7 +98,8 @@ class TicketSurveyIT extends AbstractIntegrationTest {
 
     // 记录可查
     mockMvc
-        .perform(get("/api/v1/tickets/{id}/survey", ticketId).header("Authorization", bearer(token)))
+        .perform(
+            get("/api/v1/tickets/{id}/survey", ticketId).header("Authorization", bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.comment").value("处理及时"));
 

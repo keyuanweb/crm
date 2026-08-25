@@ -55,8 +55,7 @@ public class CustomObjectController {
   @ResponseStatus(HttpStatus.CREATED)
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "创建对象")
-  public ApiResponse<CustomObjectResponse> create(
-      @Valid @RequestBody CustomObjectRequest request) {
+  public ApiResponse<CustomObjectResponse> create(@Valid @RequestBody CustomObjectRequest request) {
     return ApiResponse.ok(objectService.create(request));
   }
 
@@ -99,7 +98,8 @@ public class CustomObjectController {
   @GetMapping("/{id}/records/{recordId}")
   @PreAuthorize("hasAnyRole('ADMIN','SALES')")
   @Operation(summary = "记录详情")
-  public ApiResponse<RecordResponse> recordDetail(@PathVariable Long id, @PathVariable Long recordId) {
+  public ApiResponse<RecordResponse> recordDetail(
+      @PathVariable Long id, @PathVariable Long recordId) {
     return ApiResponse.ok(recordService.detail(id, recordId));
   }
 

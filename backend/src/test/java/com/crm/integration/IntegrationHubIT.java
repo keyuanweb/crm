@@ -6,7 +6,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crm.AbstractIntegrationTest;
-import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -26,7 +25,8 @@ class IntegrationHubIT extends AbstractIntegrationTest {
                 post("/api/v1/integration-channels")
                     .header("Authorization", bearer(token))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"channelType\": \"CUSTOM\", \"name\": \"测试通道\", \"webhookUrl\": \"http://localhost:9999/hook\"}"))
+                    .content(
+                        "{\"channelType\": \"CUSTOM\", \"name\": \"测试通道\", \"webhookUrl\": \"http://localhost:9999/hook\"}"))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()
@@ -42,8 +42,7 @@ class IntegrationHubIT extends AbstractIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         String.format(
-                            "{\"name\": \"集成客户%d\", \"company\": \"集成公司\"}",
-                            System.nanoTime())))
+                            "{\"name\": \"集成客户%d\", \"company\": \"集成公司\"}", System.nanoTime())))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()
@@ -93,7 +92,8 @@ class IntegrationHubIT extends AbstractIntegrationTest {
             post("/api/v1/integration-channels")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"channelType\": \"DINGTALK\", \"name\": \"钉钉群\", \"webhookUrl\": \"ftp://bad\"}"))
+                .content(
+                    "{\"channelType\": \"DINGTALK\", \"name\": \"钉钉群\", \"webhookUrl\": \"ftp://bad\"}"))
         .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.error.code").value("INTEGRATION_URL_INVALID"));
 
@@ -103,7 +103,8 @@ class IntegrationHubIT extends AbstractIntegrationTest {
                 post("/api/v1/integration-channels")
                     .header("Authorization", bearer(token))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"channelType\": \"WECHAT_WORK\", \"name\": \"企微群\", \"webhookUrl\": \"https://qyapi.weixin.qq.com/x\"}"))
+                    .content(
+                        "{\"channelType\": \"WECHAT_WORK\", \"name\": \"企微群\", \"webhookUrl\": \"https://qyapi.weixin.qq.com/x\"}"))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()

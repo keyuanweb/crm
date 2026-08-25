@@ -13,33 +13,23 @@ import com.crm.repository.WebhookDeliveryMapper;
 import com.crm.repository.WebhookSubscriptionMapper;
 import com.crm.security.SecurityUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-/** Webhook 服务（055，FR-O05~O08）：订阅/异步推送 HMAC/重试/记录。 */
+/** Webhook 服务（055，FR-O05~O08）：订阅/异步推送 HMAC/重试/记录（异步投递拆至 WebhookDeliverer）。 */
 @Service
 public class WebhookService {
 
   private static final Logger log = LoggerFactory.getLogger(WebhookService.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final SecureRandom RANDOM = new SecureRandom();
-  private static final int MAX_RETRIES = 3;
-  private static final long[] RETRY_DELAYS_MS = {1000, 5000, 30000};
 
   public static final String EVENT_LEAD_CREATED = "LEAD_CREATED";
   public static final String EVENT_LEAD_UPDATED = "LEAD_UPDATED";
@@ -48,14 +38,17 @@ public class WebhookService {
   private final WebhookSubscriptionMapper subscriptionMapper;
   private final WebhookDeliveryMapper deliveryMapper;
   private final RestTemplate restTemplate;
+  private final WebhookDeliverer deliverer;
 
   public WebhookService(
       WebhookSubscriptionMapper subscriptionMapper,
       WebhookDeliveryMapper deliveryMapper,
-      RestTemplate restTemplate) {
+      RestTemplate restTemplate,
+      WebhookDeliverer deliverer) {
     this.subscriptionMapper = subscriptionMapper;
     this.deliveryMapper = deliveryMapper;
     this.restTemplate = restTemplate;
+    this.deliverer = deliverer;
   }
 
   // ===== 订阅管理 =====
@@ -114,7 +107,8 @@ public class WebhookService {
   // ===== 事件发布 =====
 
   /** 发布业务事件：匹配订阅并异步推送（失败重试 ≤3 次退避）。 */
-  public void publish(String eventType, String entityType, Long entityId, Map<String, Object> payload) {
+  public void publish(
+      String eventType, String entityType, Long entityId, Map<String, Object> payload) {
     List<WebhookSubscription> subs =
         subscriptionMapper.selectList(
             new LambdaQueryWrapper<WebhookSubscription>()
@@ -137,7 +131,7 @@ public class WebhookService {
       return;
     }
     for (WebhookSubscription sub : subs) {
-      deliverAsync(sub, eventType, entityType, entityId, body);
+      deliverer.deliverAsync(sub, eventType, entityType, entityId, body);
     }
   }
 
@@ -169,84 +163,7 @@ public class WebhookService {
     sub.setCallbackUrl(url);
     sub.setSecret(name == null ? "integration" : name);
     sub.setEnabled(1);
-    deliverAsync(sub, eventType, entityType, entityId, body);
-  }
-
-  @Async
-  public void deliverAsync(
-      WebhookSubscription sub, String eventType, String entityType, Long entityId, String body) {    String signature = sign(sub.getSecret(), body);
-    boolean success = false;
-    String error = null;
-    Integer httpStatus = null;
-    int retries = 0;
-    for (int attempt = 0; attempt <= MAX_RETRIES && !success; attempt++) {
-      if (attempt > 0) {
-        retries = attempt;
-        try {
-          Thread.sleep(RETRY_DELAYS_MS[Math.min(attempt - 1, RETRY_DELAYS_MS.length - 1)]);
-        } catch (InterruptedException ie) {
-          Thread.currentThread().interrupt();
-          break;
-        }
-      }
-      try {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Signature", signature);
-        headers.set("X-Event", eventType);
-        ResponseEntity<String> resp =
-            restTemplate.postForEntity(
-                sub.getCallbackUrl(), new HttpEntity<>(body, headers), String.class);
-        httpStatus = resp.getStatusCode().value();
-        success = httpStatus >= 200 && httpStatus < 300;
-        if (!success) {
-          error = "回调返回非 2xx: " + httpStatus;
-        }
-      } catch (Exception ex) {
-        error = ex.getMessage();
-        log.warn("Webhook deliver failed to {} (attempt {}): {}", sub.getCallbackUrl(), attempt + 1, ex.getMessage());
-      }
-    }
-    record(sub, eventType, entityType, entityId, body, success, httpStatus, error, retries);
-  }
-
-  private void record(
-      WebhookSubscription sub,
-      String eventType,
-      String entityType,
-      Long entityId,
-      String body,
-      boolean success,
-      Integer httpStatus,
-      String error,
-      int retries) {
-    try {
-      WebhookDelivery d = new WebhookDelivery();
-      d.setSubscriptionId(sub.getId());
-      d.setEventType(eventType);
-      d.setEntityType(entityType);
-      d.setEntityId(entityId);
-      d.setPayload(body.length() > 4000 ? body.substring(0, 4000) : body);
-      d.setStatus(success ? "SUCCESS" : "FAILED");
-      d.setHttpStatus(httpStatus);
-      d.setError(error != null && error.length() > 500 ? error.substring(0, 500) : error);
-      d.setRetryCount(retries);
-      d.setCreatedAt(LocalDateTime.now());
-      deliveryMapper.insert(d);
-    } catch (Exception ex) {
-      log.warn("Webhook record failed: {}", ex.getMessage());
-    }
-  }
-
-  private String sign(String secret, String body) {
-    try {
-      Mac mac = Mac.getInstance("HmacSHA256");
-      mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-      byte[] bytes = mac.doFinal(body.getBytes(StandardCharsets.UTF_8));
-      return java.util.HexFormat.of().formatHex(bytes);
-    } catch (Exception ex) {
-      throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-    }
+    deliverer.deliverAsync(sub, eventType, entityType, entityId, body);
   }
 
   private String randomSecret() {

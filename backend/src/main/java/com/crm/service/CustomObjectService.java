@@ -97,7 +97,8 @@ public class CustomObjectService {
       return List.of();
     }
     try {
-      return MAPPER.readValue(obj.getFields(), new TypeReference<List<CustomObjectRequest.FieldDef>>() {});
+      return MAPPER.readValue(
+          obj.getFields(), new TypeReference<List<CustomObjectRequest.FieldDef>>() {});
     } catch (Exception ex) {
       return List.of();
     }
@@ -116,7 +117,10 @@ public class CustomObjectService {
       throw new BusinessException(ErrorCode.OBJECT_FIELD_INVALID);
     }
     for (CustomObjectRequest.FieldDef f : fields) {
-      if (f.getField() == null || f.getField().isBlank() || f.getLabel() == null || f.getLabel().isBlank()) {
+      if (f.getField() == null
+          || f.getField().isBlank()
+          || f.getLabel() == null
+          || f.getLabel().isBlank()) {
         throw new BusinessException(ErrorCode.OBJECT_FIELD_INVALID);
       }
       if (f.getType() == null || !FIELD_TYPES.contains(f.getType())) {

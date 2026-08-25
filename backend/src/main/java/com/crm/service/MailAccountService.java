@@ -3,7 +3,6 @@ package com.crm.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
-import com.crm.common.PageResult;
 import com.crm.dto.mail.MailAccountRequest;
 import com.crm.dto.mail.MailAccountResponse;
 import com.crm.entity.MailAccount;
@@ -88,7 +87,9 @@ public class MailAccountService {
   private void clearDefaultSender() {
     MailAccount def =
         accountMapper.selectOne(
-            new LambdaQueryWrapper<MailAccount>().eq(MailAccount::getIsDefaultSender, 1).last("LIMIT 1"));
+            new LambdaQueryWrapper<MailAccount>()
+                .eq(MailAccount::getIsDefaultSender, 1)
+                .last("LIMIT 1"));
     if (def != null) {
       def.setIsDefaultSender(0);
       accountMapper.updateById(def);

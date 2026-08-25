@@ -71,8 +71,7 @@ class LandingPageIT extends AbstractIntegrationTest {
     // UTM 统计
     mockMvc
         .perform(
-            get("/api/v1/landing-pages/{id}/stats", lpId)
-                .header("Authorization", bearer(token)))
+            get("/api/v1/landing-pages/{id}/stats", lpId).header("Authorization", bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.total").value(1))
         .andExpect(jsonPath("$.data.bySource[0].dimension").value("facebook"))
@@ -92,8 +91,7 @@ class LandingPageIT extends AbstractIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         String.format(
-                            "{\"title\": \"停用落地页\", \"formId\": %d, \"enabled\": false}",
-                            formId)))
+                            "{\"title\": \"停用落地页\", \"formId\": %d, \"enabled\": false}", formId)))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()

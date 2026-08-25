@@ -41,10 +41,13 @@ class WorkflowEngineTest {
   private CustomerMapper customerMapper;
   private EmailCampaignService emailCampaignService;
   private TagService tagService;
+
   @SuppressWarnings("rawtypes")
   private org.springframework.beans.factory.ObjectProvider emailProvider;
+
   @SuppressWarnings("rawtypes")
   private org.springframework.beans.factory.ObjectProvider tagProvider;
+
   private WorkflowEngine engine;
   private MockedStatic<SecurityUtil> securityUtilMock;
 
@@ -222,8 +225,7 @@ class WorkflowEngineTest {
     rule.setActionJson("{\"templateId\":1}");
     when(ruleService.enabledRulesFor("LEAD_SCORE_THRESHOLD")).thenReturn(List.of(rule));
 
-    engine.fire(
-        "LEAD_SCORE_THRESHOLD", "LEAD", 10L, Map.of("score", "60", "email", "a@b.com"));
+    engine.fire("LEAD_SCORE_THRESHOLD", "LEAD", 10L, Map.of("score", "60", "email", "a@b.com"));
 
     verify(emailCampaignService, never()).sendAutomationEmail(any(), any());
     verify(logMapper).insert(any(WorkflowExecutionLog.class));

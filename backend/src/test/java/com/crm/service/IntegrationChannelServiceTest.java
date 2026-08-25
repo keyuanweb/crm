@@ -126,6 +126,13 @@ class IntegrationChannelServiceTest {
     service.publish("TICKET_ASSIGNED", "工单 #1 已分配");
 
     verify(webhookService)
-        .publishToUrl(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("TICKET_ASSIGNED"), any(), any(), any(), any(), any());
+        .publishToUrl(
+            org.mockito.ArgumentMatchers.eq(1L),
+            org.mockito.ArgumentMatchers.eq("TICKET_ASSIGNED"),
+            any(),
+            any(),
+            any(),
+            any(),
+            any());
   }
 }

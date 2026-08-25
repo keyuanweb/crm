@@ -206,7 +206,8 @@ public class TicketService {
     }
     // 058：集成通道推送（工单分配）
     integrationChannelService.publish(
-        "TICKET_ASSIGNED", "工单 #" + id + "「" + ticket.getTitle() + "」已分配给 " + user.getDisplayName());
+        "TICKET_ASSIGNED",
+        "工单 #" + id + "「" + ticket.getTitle() + "」已分配给 " + user.getDisplayName());
     return toResponse(ticketMapper.selectById(id));
   }
 

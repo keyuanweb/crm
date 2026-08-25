@@ -25,8 +25,7 @@ public class EmailUnsubscribeController {
 
   @PostMapping("/unsubscribe")
   @Operation(summary = "邮件退订（公开，幂等）")
-  public ApiResponse<EmailUnsubscribe> unsubscribe(
-      @RequestBody Map<String, String> body) {
+  public ApiResponse<EmailUnsubscribe> unsubscribe(@RequestBody Map<String, String> body) {
     EmailUnsubscribe record = unsubscribeService.unsubscribe(body.get("email"), null);
     return ApiResponse.ok(record);
   }

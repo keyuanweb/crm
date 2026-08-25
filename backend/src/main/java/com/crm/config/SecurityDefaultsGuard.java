@@ -25,9 +25,14 @@ public class SecurityDefaultsGuard implements ApplicationRunner {
   public void run(ApplicationArguments args) {
     boolean dev = activeProfiles.toLowerCase().contains("dev");
     if (!dev && DEFAULT_DEV_SECRET.equals(jwtSecret)) {
-      log.warn(
-          "SECURITY: 当前环境为 [{}]，但 JWT 密钥仍是开发默认值。生产环境必须通过环境变量 " + "JWT_SECRET 覆盖，否则令牌可被伪造。",
-          activeProfiles);
+      // S1(安全审计)：非 dev 环境使用默认 JWT 密钥 → fail-fast，防止令牌伪造接管
+      throw new IllegalStateException(
+          "SECURITY: 当前环境为 ["
+              + activeProfiles
+              + "] 但仍在使用开发默认 JWT 密钥。必须通过环境变量 JWT_SECRET 设置强随机密钥后启动。");
+    }
+    if (dev && DEFAULT_DEV_SECRET.equals(jwtSecret)) {
+      log.warn("SECURITY: dev 环境使用默认 JWT 密钥，仅限本地开发。");
     }
   }
 }

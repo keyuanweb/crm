@@ -46,6 +46,7 @@ const en = {
     knowledge: 'Knowledge Base',
     announcements: 'Announcements',
     approvals: 'My Approvals',
+    portal: 'Customer Portal',
     satisfaction: 'Satisfaction',
     tasks: 'Tasks',
     suggestions: 'AI Suggestions',

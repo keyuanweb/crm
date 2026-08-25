@@ -120,7 +120,8 @@ public class TagService {
         tagIds == null || tagIds.isEmpty()
             ? java.util.List.of()
             : tagMapper.selectBatchIds(tagIds).stream().map(Tag::getName).toList();
-    workflowEventPublisher.tagChanged(customerId, java.util.Map.of("tags", String.join(",", names)));
+    workflowEventPublisher.tagChanged(
+        customerId, java.util.Map.of("tags", String.join(",", names)));
   }
 
   /** 客户标签列表。 */
