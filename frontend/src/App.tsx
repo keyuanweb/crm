@@ -98,6 +98,7 @@ const ContractRenewalPage = lazy(() => import('./pages/contracts/ContractRenewal
 const SatisfactionStatsPage = lazy(() => import('./pages/surveys/SatisfactionStatsPage'))
 const CustomerPortalPage = lazy(() => import('./pages/portal/CustomerPortalPage'))
 const EmailUnsubscribePage = lazy(() => import('./pages/email/EmailUnsubscribePage'))
+const SlaCalendarPage = lazy(() => import('./pages/sla/SlaCalendarPage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -318,7 +319,7 @@ function Shell() {
     { path: '/approvals', name: '我的审批', icon: <AuditOutlined /> },
     { path: '/planned/portal', name: '客户门户', icon: <CustomerServiceOutlined />, planned: true },
     { path: '/satisfaction', name: '满意度调查', icon: <AuditOutlined /> },
-    { path: '/planned/sla-calendar', name: 'SLA日历', icon: <CalendarOutlined />, planned: true },
+    { path: '/sla-calendar', name: 'SLA日历', icon: <CalendarOutlined /> },
   ]
   const workbenchRoutes = [
     { path: '/tasks', name: '任务', icon: <CalendarOutlined /> },
@@ -654,6 +655,7 @@ export default function App() {
         <Route path="tickets/:id" element={<TicketDetailPage />} />
         <Route path="knowledge" element={<KnowledgeArticleListPage />} />
         <Route path="sla-policies" element={<SlaPolicyListPage />} />
+        <Route path="sla-calendar" element={<SlaCalendarPage />} />
         <Route path="exports" element={<ExportCenterPage />} />
         <Route path="settings/custom-fields" element={<CustomFieldListPage />} />
         <Route path="stats" element={<DashboardPage />} />

@@ -75,7 +75,8 @@ class TicketServiceTest {
             userMapper,
             auditService,
             mock(CustomFieldService.class),
-            mock(NotificationService.class));
+            mock(NotificationService.class),
+            mock(SlaCalendarService.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock

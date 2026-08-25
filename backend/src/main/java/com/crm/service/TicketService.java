@@ -56,6 +56,7 @@ public class TicketService {
   private final AuditService auditService;
   private final CustomFieldService customFieldService;
   private final NotificationService notificationService;
+  private final SlaCalendarService slaCalendarService;
 
   public TicketService(
       TicketMapper ticketMapper,
@@ -65,7 +66,8 @@ public class TicketService {
       UserMapper userMapper,
       AuditService auditService,
       CustomFieldService customFieldService,
-      NotificationService notificationService) {
+      NotificationService notificationService,
+      SlaCalendarService slaCalendarService) {
     this.ticketMapper = ticketMapper;
     this.replyMapper = replyMapper;
     this.customerMapper = customerMapper;
@@ -74,6 +76,7 @@ public class TicketService {
     this.auditService = auditService;
     this.customFieldService = customFieldService;
     this.notificationService = notificationService;
+    this.slaCalendarService = slaCalendarService;
   }
 
   public PageResult<TicketResponse> page(
@@ -313,12 +316,15 @@ public class TicketService {
       return;
     }
     if (policy.getRespondHours() != null) {
-      ticket.setSlaRespondDeadline(now.plusHours(policy.getRespondHours()));
+      // 054：按工作日历计算（无配置回退旧行为）
+      ticket.setSlaRespondDeadline(
+          slaCalendarService.advanceWorkingTime(now, policy.getRespondHours()));
     } else {
       ticket.setSlaRespondDeadline(null);
     }
     if (policy.getResolveHours() != null) {
-      ticket.setSlaResolveDeadline(now.plusHours(policy.getResolveHours()));
+      ticket.setSlaResolveDeadline(
+          slaCalendarService.advanceWorkingTime(now, policy.getResolveHours()));
     } else {
       ticket.setSlaResolveDeadline(null);
     }
