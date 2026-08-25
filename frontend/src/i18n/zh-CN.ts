@@ -2,7 +2,7 @@
 const zhCN = {
   app: {
     title: 'CRM 客户关系管理系统',
-    footer: 'CRM 客户关系管理系统 © {year}',
+    footer: 'CRM 客户关系管理系统 © {{year}}',
     usageMap: '使用地图',
     logout: '退出登录',
     changePassword: '修改密码',
@@ -88,7 +88,7 @@ const zhCN = {
     captchaRequired: '请输入验证码',
   },
   home: {
-    greeting: '你好，{name} 👋',
+    greeting: '你好，{{name}} 👋',
     today: '今日销售概览',
     kpiTitle: '销售关键指标',
   },

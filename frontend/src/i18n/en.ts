@@ -2,7 +2,7 @@
 const en = {
   app: {
     title: 'CRM System',
-    footer: 'CRM System © {year}',
+    footer: 'CRM System © {{year}}',
     usageMap: 'Usage Map',
     logout: 'Logout',
     changePassword: 'Change Password',
@@ -88,7 +88,7 @@ const en = {
     captchaRequired: 'Please enter captcha',
   },
   home: {
-    greeting: 'Hello, {name} 👋',
+    greeting: 'Hello, {{name}} 👋',
     today: "Today's Sales Overview",
     kpiTitle: 'Key Sales Metrics',
   },
