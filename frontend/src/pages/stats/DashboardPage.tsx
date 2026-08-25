@@ -44,6 +44,24 @@ import type { StalledOpportunity } from '../../types/stats'
 
 const { Title, Paragraph, Text } = Typography
 
+/**
+ * 前端兜底：销售预测按阶段聚合（防后端逐商机明细导致同阶段重复行）。
+ * 同阶段 amount/weighted 求和，probability/source 取首个（阶段级一致）。
+ */
+function aggregateForecast(items: import('../../types/stats').ForecastItem[]) {
+  const map = new Map<string, import('../../types/stats').ForecastItem>()
+  for (const item of items ?? []) {
+    const prev = map.get(item.stage)
+    if (!prev) {
+      map.set(item.stage, { ...item })
+    } else {
+      prev.amount += item.amount
+      prev.weighted += item.weighted
+    }
+  }
+  return Array.from(map.values())
+}
+
 const METHOD_LABELS: Record<string, string> = {
   PHONE: '电话',
   EMAIL: '邮件',
@@ -96,7 +114,8 @@ export default function DashboardPage() {
   }
   const fc = {
     weightedAmount: data?.forecast?.weightedAmount,
-    breakdown: data?.forecast?.breakdown ?? [],
+    // 前端兜底：按阶段聚合（防后端逐商机明细导致同阶段重复行）
+    breakdown: aggregateForecast(data?.forecast?.breakdown ?? []),
   }
   const perf = data?.performance
   const funnel = data?.funnel
