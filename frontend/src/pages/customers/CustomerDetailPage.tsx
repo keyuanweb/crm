@@ -6,20 +6,24 @@ import {
   Card,
   Descriptions,
   Form,
+  Input,
   Modal,
   Progress,
   Result,
   Select,
+  Space,
   Statistic,
   Table,
   Tabs,
   Tag,
   Typography,
 } from 'antd'
-import { ArrowLeftOutlined, ShareAltOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, EditOutlined, MailOutlined, PhoneOutlined, ShareAltOutlined } from '@ant-design/icons'
+import { useQueryClient } from '@tanstack/react-query'
 import { useCustomerDetail } from '../../hooks/useCustomers'
 import { shareCustomer } from '../../services/customerShareService'
 import { fetchUsers } from '../../services/userService'
+import { updateCustomer, type CustomerPayload } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { formatAmount } from '../../types/opportunity'
 import { useAuthStore } from '../../store/authStore'
@@ -38,11 +42,16 @@ export default function CustomerDetailPage() {
   const { id } = useParams()
   const customerId = Number(id)
   const { message } = App.useApp()
+  const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
   const [shareOpen, setShareOpen] = useState(false)
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
   const [shareForm] = Form.useForm<{ sharedToUserId: number }>()
+  // 编辑客户
+  const [editOpen, setEditOpen] = useState(false)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editForm] = Form.useForm<CustomerPayload>()
   // 031：客户标签
   const [customerTags, setCustomerTags] = useState<{ id: number; name: string; color?: string }[]>([])
   const [tagOpen, setTagOpen] = useState(false)
@@ -61,6 +70,44 @@ export default function CustomerDetailPage() {
     )
     shareForm.resetFields()
     setShareOpen(true)
+  }
+
+  // 优化：详情页编辑客户（核心字段）
+  const openEdit = () => {
+    if (!data) return
+    editForm.setFieldsValue({
+      name: data.name,
+      company: data.company,
+      contactPerson: data.contactPerson,
+      phone: data.phone,
+      email: data.email,
+      address: data.address,
+      status: data.status,
+      remark: data.remark,
+    })
+    setEditOpen(true)
+  }
+
+  const onSaveEdit = async () => {
+    const values = await editForm.validateFields()
+    const payload: CustomerPayload = { name: values.name, company: values.company }
+    for (const [key, value] of Object.entries(values)) {
+      if (key !== 'name' && key !== 'company' && value !== undefined && value !== '') {
+        payload[key as keyof CustomerPayload] = value as never
+      }
+    }
+    setEditSaving(true)
+    try {
+      await updateCustomer(customerId, { ...payload, version: data?.version })
+      message.success('已保存')
+      setEditOpen(false)
+      await queryClient.invalidateQueries({ queryKey: ['customer', customerId] })
+      void queryClient.invalidateQueries({ queryKey: ['customers'] })
+    } catch (err) {
+      message.error(extractErrorMessage(err, '保存失败'))
+    } finally {
+      setEditSaving(false)
+    }
   }
 
   // 031：加载客户标签
@@ -239,21 +286,51 @@ export default function CustomerDetailPage() {
         </Button>
       </Link>
 
-      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
+      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0 }}>
           <Typography.Title level={4} style={{ marginBottom: 4 }}>
-            {data.name}
+            {data.name} <Typography.Text type="secondary" style={{ fontSize: 13 }}>#{data.id}</Typography.Text>
           </Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 13 }}>
             {data.company} · {data.status === 'ACTIVE' ? '启用中' : '已停用'}
             {data.ownerName ? ` · 归属：${data.ownerName}` : ' · 公海'}
           </Typography.Text>
+          <div style={{ marginTop: 6, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            {data.phone && (
+              <a href={`tel:${data.phone}`} style={{ fontSize: 13, color: '#1677ff' }}>
+                <PhoneOutlined /> {data.phone}
+              </a>
+            )}
+            {data.email && (
+              <a href={`mailto:${data.email}`} style={{ fontSize: 13, color: '#1677ff' }}>
+                <MailOutlined /> {data.email}
+              </a>
+            )}
+            {data.customer360?.health?.level && (
+              <Tag
+                color={
+                  data.customer360.health.level === 'GREEN'
+                    ? 'green'
+                    : data.customer360.health.level === 'YELLOW'
+                      ? 'gold'
+                      : 'red'
+                }
+              >
+                健康度 {healthLevel(data.customer360.health.level).label}
+              </Tag>
+            )}
+          </div>
         </div>
-        {canShare && (
-          <Button icon={<ShareAltOutlined />} onClick={() => void openShare()}>
-            共享给...
+        <Space>
+          <Button icon={<EditOutlined />} onClick={openEdit}>
+            编辑客户
           </Button>
-        )}
+          {canShare && (
+            <Button icon={<ShareAltOutlined />} onClick={() => void openShare()}>
+              共享给...
+            </Button>
+          )}
+        </Space>
       </div>
 
       <Card
@@ -261,12 +338,16 @@ export default function CustomerDetailPage() {
         style={{ marginBottom: 16, borderRadius: 10 }}
         styles={{ header: { borderBottom: '1px solid #f0f0f0' } }}
       >
-        <Descriptions column={2} bordered size="small">
+        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
           <Descriptions.Item label="客户名称">{data.name}</Descriptions.Item>
           <Descriptions.Item label="公司">{data.company}</Descriptions.Item>
           <Descriptions.Item label="联系人">{data.contactPerson ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="电话">{data.phone ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="邮箱">{data.email ?? '-'}</Descriptions.Item>
+          <Descriptions.Item label="电话">
+            {data.phone ? <a href={`tel:${data.phone}`}>{data.phone}</a> : '-'}
+          </Descriptions.Item>
+          <Descriptions.Item label="邮箱">
+            {data.email ? <a href={`mailto:${data.email}`}>{data.email}</a> : '-'}
+          </Descriptions.Item>
           <Descriptions.Item label="地址">{data.address ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="备注" span={2}>
             {data.remark ?? '-'}
@@ -471,6 +552,54 @@ export default function CustomerDetailPage() {
             rules={[{ required: true, message: '请选择用户' }]}
           >
             <Select showSearch optionFilterProp="label" placeholder="选择用户" options={userOptions} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 优化：详情页编辑客户 */}
+      <Modal
+        title={`编辑客户「${data.name}」`}
+        open={editOpen}
+        onOk={() => void onSaveEdit()}
+        onCancel={() => setEditOpen(false)}
+        okText="保存"
+        confirmLoading={editSaving}
+        destroyOnClose
+        width={520}
+      >
+        <Form form={editForm} name="editForm" layout="vertical">
+          <Form.Item name="name" label="客户名称" rules={[{ required: true, message: '请输入客户名称' }]}>
+            <Input maxLength={100} />
+          </Form.Item>
+          <Form.Item name="company" label="公司" rules={[{ required: true, message: '请输入公司' }]}>
+            <Input maxLength={100} />
+          </Form.Item>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Form.Item name="contactPerson" label="联系人" style={{ flex: 1 }}>
+              <Input maxLength={50} />
+            </Form.Item>
+            <Form.Item name="phone" label="电话" style={{ flex: 1 }}>
+              <Input maxLength={20} />
+            </Form.Item>
+          </div>
+          <Form.Item name="email" label="邮箱" rules={[{ type: 'email', message: '邮箱格式不正确' }]}>
+            <Input maxLength={100} />
+          </Form.Item>
+          <Form.Item name="address" label="地址">
+            <Input maxLength={200} />
+          </Form.Item>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Form.Item name="status" label="状态" style={{ flex: 1 }}>
+              <Select
+                options={[
+                  { value: 'ACTIVE', label: '启用' },
+                  { value: 'INACTIVE', label: '停用' },
+                ]}
+              />
+            </Form.Item>
+          </div>
+          <Form.Item name="remark" label="备注">
+            <Input.TextArea rows={3} maxLength={500} />
           </Form.Item>
         </Form>
       </Modal>
