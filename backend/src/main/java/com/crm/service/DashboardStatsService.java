@@ -191,17 +191,30 @@ public class DashboardStatsService {
   }
 
   private DashboardStats.Forecast computeForecast(List<SalesOpportunity> allSo) {
-    List<DashboardStats.ForecastItem> breakdown = new ArrayList<>();
+    // 修复：按阶段聚合（每条商机一条导致同阶段多条、前端重复渲染）
+    Map<String, long[]> acc = new LinkedHashMap<>(); // stage -> {amount, weighted}
     long weightedTotal = 0;
     for (SalesOpportunity so : allSo) {
       // 019：用历史校准概率（样本不足回退默认），替代硬编码 STAGE_PROBABILITY
       double probability = stageConversionService.probabilityFor(so.getStage());
-      String source = probabilitySourceOf(so.getStage());
       long amount = so.getAmount() == null ? 0L : so.getAmount();
       long weighted = Math.round(amount * probability);
+      long[] cur = acc.computeIfAbsent(so.getStage(), k -> new long[2]);
+      cur[0] += amount;
+      cur[1] += weighted;
       weightedTotal += weighted;
+    }
+    List<DashboardStats.ForecastItem> breakdown = new ArrayList<>();
+    for (Map.Entry<String, long[]> entry : acc.entrySet()) {
+      String stage = entry.getKey();
+      long[] sums = entry.getValue();
       breakdown.add(
-          new DashboardStats.ForecastItem(so.getStage(), amount, probability, weighted, source));
+          new DashboardStats.ForecastItem(
+              stage,
+              sums[0],
+              stageConversionService.probabilityFor(stage),
+              sums[1],
+              probabilitySourceOf(stage)));
     }
     return new DashboardStats.Forecast(weightedTotal, breakdown);
   }
