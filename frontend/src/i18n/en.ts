@@ -49,6 +49,7 @@ const en = {
     satisfaction: 'Satisfaction',
     tasks: 'Tasks',
     suggestions: 'AI Suggestions',
+    callRecords: 'Call Records',
     board: 'Dashboard Board',
     reports: 'Custom Reports',
     leaderboard: 'Leaderboard',

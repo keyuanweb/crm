@@ -22,6 +22,7 @@ import {
   FormOutlined,
   FundOutlined,
   GlobalOutlined,
+  PhoneOutlined,
   HomeOutlined,
   IdcardOutlined,
   KeyOutlined,
@@ -109,6 +110,7 @@ const CurrencyRatePage = lazy(() => import('./pages/settings/CurrencyRatePage'))
 const IntegrationHubPage = lazy(() => import('./pages/settings/IntegrationHubPage'))
 const CustomObjectListPage = lazy(() => import('./pages/custom-object/CustomObjectListPage'))
 const CustomObjectRecordPage = lazy(() => import('./pages/custom-object/CustomObjectRecordPage'))
+const CallRecordPage = lazy(() => import('./pages/calls/CallRecordPage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -144,6 +146,7 @@ const MENU_I18N_KEYS: Record<string, string> = {
   '/satisfaction': 'satisfaction',
   '/tasks': 'tasks',
   '/suggestions': 'suggestions',
+  '/call-records': 'callRecords',
   '/board': 'board',
   '/reports': 'reports',
   '/stats/leaderboard': 'leaderboard',
@@ -395,6 +398,7 @@ function Shell() {
     { path: '/tasks', name: '任务', icon: <CalendarOutlined /> },
     { path: '/suggestions', name: '智能建议', icon: <BulbOutlined /> },
     { path: '/board', name: '数据大屏', icon: <FundProjectionScreenOutlined /> },
+    { path: '/call-records', name: '通话记录', icon: <PhoneOutlined /> },
   ]
   const dataRoutes = [
     { path: '/reports', name: '自定义报表', icon: <BarChartOutlined /> },
@@ -769,6 +773,7 @@ export default function App() {
         <Route path="reports" element={<ReportCenterPage />} />
         <Route path="suggestions" element={<SuggestionCenterPage />} />
         <Route path="board" element={<KpiBoardPage />} />
+        <Route path="call-records" element={<CallRecordPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="roles" element={<RoleListPage />} />
         <Route path="tags" element={<TagSegmentPage />} />

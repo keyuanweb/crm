@@ -49,6 +49,7 @@ const zhCN = {
     satisfaction: '满意度调查',
     tasks: '任务',
     suggestions: '智能建议',
+    callRecords: '通话记录',
     board: '数据大屏',
     reports: '自定义报表',
     leaderboard: '团队排行',
