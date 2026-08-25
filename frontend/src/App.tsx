@@ -1,4 +1,4 @@
-import { Suspense, lazy, startTransition, useEffect, useState } from 'react'
+import { Suspense, lazy, startTransition, useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Dropdown, Layout, Menu, Spin, type MenuProps } from 'antd'
@@ -114,6 +114,7 @@ const CustomObjectListPage = lazy(() => import('./pages/custom-object/CustomObje
 const CustomObjectRecordPage = lazy(() => import('./pages/custom-object/CustomObjectRecordPage'))
 const CallRecordPage = lazy(() => import('./pages/calls/CallRecordPage'))
 const MailSyncPage = lazy(() => import('./pages/mail/MailSyncPage'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 import NotificationCenter from './components/NotificationCenter'
 
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
@@ -280,6 +281,13 @@ function Shell() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   // 041：系统管理二级子组展开状态（受控 openKeys）
   const [openKeys, setOpenKeys] = useState<string[]>([])
+  // 布局优化：内容区引用（路由切换滚动复位）
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  // 布局优化：路由切换时内容区滚动复位到顶部
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
+  }, [location.pathname])
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768)
@@ -693,6 +701,7 @@ function Shell() {
         </Sider>
         <Layout style={{ flexDirection: 'column' }}>
           <Content
+            ref={contentRef}
             className="page-scroll"
             style={{ background: '#f0f2f5', padding: isMobile ? 8 : '16px 20px', overflow: 'auto' }}
           >
@@ -700,7 +709,10 @@ function Shell() {
               <div style={{ marginBottom: 12 }}>
                 <BreadcrumbNav />
               </div>
-              <Outlet />
+              {/* 布局优化：路由切换滚动复位 + 淡入过渡 */}
+              <div key={location.pathname} className="page-fade">
+                <Outlet />
+              </div>
             </div>
           </Content>
           <Footer
@@ -804,8 +816,10 @@ export default function App() {
         <Route path="audit-logs" element={<AuditLogPage />} />
         <Route path="recycle-bin" element={<RecycleBinPage />} />
         <Route path="account/password" element={<ChangePasswordPage />} />
+        {/* 布局优化：Shell 内未知路径 → 带菜单的 404 */}
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
     </Suspense>
   )

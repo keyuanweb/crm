@@ -54,3 +54,18 @@ body {
 .page-container > div > .ant-card {
   margin-bottom: 16px;
 }
+
+/* 布局优化：路由切换淡入过渡（配合 Outlet key 重挂载） */
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-fade {
+  animation: pageFadeIn 0.22s ease-out;
+}
