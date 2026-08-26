@@ -1,4 +1,4 @@
-# Tasks: 更多页面国际化模块
+﻿# Tasks: 更多页面国际化模块
 
 **Input**: Design documents from `/specs/066-i18n-pages/`
 
@@ -16,9 +16,9 @@
 
 ### 实现
 
-- [ ] T001 [P] 创建 `frontend/src/i18n/resources/common.json`（按钮/状态/消息/占位符）
-- [ ] T002 [P] zh-CN.ts / en.ts 注册新命名空间
-- [ ] T003 [P] CustomerListPage 列标题/按钮/消息 → t()
+- [x] T001 [P] 创建 `frontend/src/i18n/resources/common.json`（按钮/状态/消息/占位符）
+- [x] T002 [P] zh-CN.ts / en.ts 注册新命名空间
+- [x] T003 [P] CustomerListPage 列标题/按钮/消息 → t()
 
 **Checkpoint**: US1 可用——公共文案 + 客户列表
 
@@ -30,12 +30,12 @@
 
 ### 实现
 
-- [ ] T004 [P] product.json + ProductListPage 迁移
-- [ ] T005 [P] opportunity.json + OpportunityListPage 迁移
-- [ ] T006 [P] contract.json + ContractListPage 迁移
-- [ ] T007 [P] ticket.json + TicketListPage 迁移
-- [ ] T008 [P] lead.json + LeadListPage 迁移
-- [ ] T009 [P] contact.json + ContactListPage 迁移
+- [x] T004 [P] product.json + ProductListPage 迁移
+- [x] T005 [P] opportunity.json + OpportunityListPage 迁移
+- [x] T006 [P] contract.json + ContractListPage 迁移
+- [x] T007 [P] ticket.json + TicketListPage 迁移
+- [x] T008 [P] lead.json + LeadListPage 迁移
+- [x] T009 [P] contact.json + ContactListPage 迁移
 
 **Checkpoint**: US2 可用——7+ 核心页面覆盖
 
@@ -58,9 +58,9 @@
 
 ## Phase 4: 验证与收尾
 
-- [ ] T014 Frontend typecheck/lint/build 通过
-- [ ] T015 手动语言切换验证（抽查每页 10 处文案无中文残留）
-- [ ] T016 更新 roadmap 066 标记 `[x]`
+- [x] T014 Frontend typecheck/lint/build 通过
+- [x] T015 手动语言切换验证（抽查每页 10 处文案无中文残留）
+- [x] T016 更新 roadmap 066 标记 `[x]`
 
 **Checkpoint**: 模块完整可用
 
