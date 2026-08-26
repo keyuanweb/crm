@@ -1,0 +1,59 @@
+{
+  "button": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "share": "Share...",
+    "claim": "Claim",
+    "search": "Search",
+    "reset": "Reset",
+    "export": "Export",
+    "import": "Import",
+    "close": "Close",
+    "confirm": "Confirm",
+    "add": "Add",
+    "remove": "Remove"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "completed": "Completed",
+    "in_progress": "In Progress",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "new": "New",
+    "working": "Working",
+    "qualified": "Qualified",
+    "disqualified": "Disqualified",
+    "draft": "Draft",
+    "effective": "Effective",
+    "terminated": "Terminated",
+    "open": "Open",
+    "assigned": "Assigned"
+  },
+  "message": {
+    "success": "Operation successful",
+    "saved": "Saved",
+    "deleted": "Deleted (logical)",
+    "failed": "Operation failed",
+    "shared": "Shared",
+    "claimed": "Claimed",
+    "required": "Please enter {{field}}",
+    "invalid_email": "Invalid email format",
+    "no_data": "No data"
+  },
+  "placeholder": {
+    "name": "Enter name",
+    "company": "Enter company",
+    "phone": "Enter phone",
+    "email": "Enter email",
+    "address": "Enter address",
+    "remark": "Enter remark",
+    "keyword": "Search..."
+  }
+}
