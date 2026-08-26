@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -45,6 +46,7 @@ interface FormValues {
 }
 
 export default function ContractListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -109,11 +111,11 @@ export default function ContractListPage() {
     setSaving(true)
     try {
       await createContract(payload)
-      message.success('已创建（草稿）')
+      message.success(t('pages.contract.list.msgCreated'))
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '创建失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -121,19 +123,19 @@ export default function ContractListPage() {
 
   const columns: ProColumns<Contract>[] = [
     {
-      title: '合同编号',
+      title: t('pages.contract.list.colNo'),
       dataIndex: 'contractNo',
       render: (_, row) => <Link to={`/contracts/${row.id}`}>{row.contractNo}</Link>,
     },
-    { title: '标题', dataIndex: 'title' },
+    { title: t('pages.contract.list.colTitle'), dataIndex: 'title' },
     {
-      title: '客户',
+      title: t('pages.contract.list.colCustomer'),
       dataIndex: 'customerName',
       render: (_, row) =>
         row.customerId ? <Link to={`/customers/${row.customerId}`}>{row.customerName ?? '-'}</Link> : '-',
     },
     {
-      title: '状态',
+      title: t('pages.contract.list.colStatus'),
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: Object.fromEntries(
@@ -144,19 +146,19 @@ export default function ContractListPage() {
       ),
     },
     {
-      title: '金额（元）',
+      title: t('pages.contract.list.colAmount'),
       dataIndex: 'amount',
       search: false,
       render: (_, row) => (row.amount / 100).toLocaleString('zh-CN'),
     },
     {
-      title: '生效日期',
+      title: t('pages.contract.list.colEffective'),
       dataIndex: 'startDate',
       search: false,
       render: (_, row) => row.startDate ?? '-',
     },
     {
-      title: '创建时间',
+      title: t('pages.contract.list.colCreated'),
       dataIndex: 'createdAt',
       search: false,
       render: (_, row) => (row.createdAt ? row.createdAt.replace('T', ' ').slice(0, 16) : '-'),
@@ -167,7 +169,7 @@ export default function ContractListPage() {
     <>
       <ProTable<Contract>
         size="small"
-        headerTitle="合同管理"
+        headerTitle={t('pages.contract.list.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -185,18 +187,18 @@ export default function ContractListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建合同
+            {t('pages.contract.list.create')}
           </Button>,
         ]}
       />
 
       <Modal
-        title="新建合同"
+        title={t('pages.contract.list.createModal')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存草稿"
+        okText={t('pages.contract.list.saveDraft')}
         destroyOnClose
         width={720}
       >
@@ -209,15 +211,15 @@ export default function ContractListPage() {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="title" label="合同标题" rules={[{ required: true, message: '请输入合同标题' }]}>
+              <Form.Item name="title" label={t('pages.contract.list.formTitle')} rules={[{ required: true, message: t('pages.contract.list.msgTitleRequired') }]}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="customerId" label="客户" rules={[{ required: true, message: '请选择客户' }]}>
+              <Form.Item name="customerId" label={t('pages.contract.list.formCustomer')} rules={[{ required: true, message: t('pages.contract.list.msgCustomerRequired') }]}>
                 <Select
                   showSearch
-                  placeholder="搜索并选择客户"
+                  placeholder={t('pages.contract.list.phCustomer')}
                   options={customerOptions}
                   filterOption={false}
                   onSearch={(kw) => void loadCustomers(kw)}
@@ -225,11 +227,11 @@ export default function ContractListPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="quoteId" label="关联报价（已通过）">
+              <Form.Item name="quoteId" label={t('pages.contract.list.formQuote')}>
                 <Select
                   showSearch
                   allowClear
-                  placeholder="可选，选择后自动带入金额"
+                  placeholder={t('pages.contract.list.phQuote')}
                   options={quoteOptions}
                   filterOption={false}
                   onSearch={(kw) => void loadQuotes(kw)}
@@ -237,38 +239,38 @@ export default function ContractListPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="amount" label="合同金额（元）">
-                <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder="选择报价后自动带入" />
+              <Form.Item name="amount" label={t('pages.contract.list.formAmount')}>
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder={t('pages.contract.list.phAmount')} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="templateId" label="合同模板">
-                <Select allowClear placeholder="可选，选择后生成正文" options={templateOptions} />
+              <Form.Item name="templateId" label={t('pages.contract.list.formTemplate')}>
+                <Select allowClear placeholder={t('pages.contract.list.phTemplate')} options={templateOptions} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="startDate" label="生效日期">
+              <Form.Item name="startDate" label={t('pages.contract.list.formStart')}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="endDate" label="结束日期">
+              <Form.Item name="endDate" label={t('pages.contract.list.formEnd')}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="renewedFromId" label="续约自（可选）">
+              <Form.Item name="renewedFromId" label={t('pages.contract.list.formRenewedFrom')}>
                 <Select
                   allowClear
                   showSearch
                   optionFilterProp="label"
-                  placeholder="选择被续约的生效合同"
+                  placeholder={t('pages.contract.list.phRenewedFrom')}
                   options={renewalOptions}
                 />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="remark" label="备注">
+              <Form.Item name="remark" label={t('pages.contract.list.formRemark')}>
                 <Input.TextArea rows={2} />
               </Form.Item>
             </Col>

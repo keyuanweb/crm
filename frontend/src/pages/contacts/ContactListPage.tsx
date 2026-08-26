@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -41,6 +42,7 @@ interface FormValues {
 }
 
 export default function ContactListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -62,7 +64,7 @@ export default function ContactListPage() {
       setImportOpen(true)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '导入失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setImporting(false)
     }
@@ -111,15 +113,15 @@ export default function ContactListPage() {
     try {
       if (editing) {
         await updateContact(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.contact.list.msgSaved'))
       } else {
         await createContact(payload)
-        message.success('已创建')
+        message.success(t('pages.contact.list.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -128,30 +130,30 @@ export default function ContactListPage() {
   const onDelete = async (row: Contact) => {
     try {
       await deleteContact(row.id)
-      message.success('已删除（逻辑删除）')
+      message.success(t('pages.contact.list.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
   const columns: ProColumns<Contact>[] = [
     {
-      title: '姓名',
+      title: t('pages.contact.list.colName'),
       dataIndex: 'name',
       render: (_, row) => <Link to={`/customers/${row.customerId}`}>{row.name}</Link>,
     },
     {
-      title: '所属客户',
+      title: t('pages.contact.list.colCustomer'),
       dataIndex: 'customerName',
       render: (_, row) =>
         row.customerId ? <Link to={`/customers/${row.customerId}`}>{row.customerName ?? '-'}</Link> : '-',
     },
-    { title: '职位', dataIndex: 'title', search: false },
-    { title: '电话', dataIndex: 'phone', search: false },
-    { title: '邮箱', dataIndex: 'email', search: false },
+    { title: t('pages.contact.list.colTitle'), dataIndex: 'title', search: false },
+    { title: t('pages.contact.list.colPhone'), dataIndex: 'phone', search: false },
+    { title: t('pages.contact.list.colEmail'), dataIndex: 'email', search: false },
     {
-      title: '角色',
+      title: t('pages.contact.list.colRole'),
       dataIndex: 'role',
       valueType: 'select',
       valueEnum: Object.fromEntries(
@@ -162,16 +164,16 @@ export default function ContactListPage() {
       ),
     },
     {
-      title: '操作',
+      title: t('pages.contact.list.colAction'),
       valueType: 'option',
       width: 140,
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>
-          <EditOutlined /> 编辑
+          <EditOutlined /> {t('pages.contact.list.edit')}
         </a>,
-        <Popconfirm key="delete" title={`确定删除联系人「${row.name}」吗？`} onConfirm={() => onDelete(row)}>
+        <Popconfirm key="delete" title={t('pages.contact.list.deleteConfirm', { name: row.name })} onConfirm={() => onDelete(row)}>
           <a style={{ color: '#ff4d4f' }}>
-            <DeleteOutlined /> 删除
+            <DeleteOutlined /> {t('pages.contact.list.delete')}
           </a>
         </Popconfirm>,
       ],
@@ -182,7 +184,7 @@ export default function ContactListPage() {
     <>
       <ProTable<Contact>
         size="small"
-        headerTitle="联系人管理"
+        headerTitle={t('pages.contact.list.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -201,27 +203,27 @@ export default function ContactListPage() {
         }}
         toolBarRender={() => [
           <Upload key="import" showUploadList={false} beforeUpload={(f) => onImport(f as unknown as File)} accept=".xlsx">
-            <Button icon={<UploadOutlined />} loading={importing}>导入</Button>
+            <Button icon={<UploadOutlined />} loading={importing}>{t('pages.contact.list.import')}</Button>
           </Upload>,
           <Button key="template" icon={<DownloadOutlined />} onClick={() => void downloadContactTemplate()}>
-            下载模板
+            {t('pages.contact.list.downloadTemplate')}
           </Button>,
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增联系人
+            {t('pages.contact.list.create')}
           </Button>,
         ]}
       />
 
       {/* 导入结果反馈 */}
       <Modal
-        title="导入结果"
+        title={t('pages.contact.list.importResult')}
         open={importOpen}
         footer={null}
         onCancel={() => setImportOpen(false)}
       >
         <div style={{ marginBottom: 12 }}>
-          <Tag color="green">成功 {importResult?.successCount ?? 0} 条</Tag>
-          <Tag color="red">失败 {importResult?.failureCount ?? 0} 条</Tag>
+          <Tag color="green">{t('pages.contact.list.importSuccess', { count: importResult?.successCount ?? 0 })}</Tag>
+          <Tag color="red">{t('pages.contact.list.importFail', { count: importResult?.failureCount ?? 0 })}</Tag>
         </div>
         {(importResult?.failures ?? []).length > 0 && (
           <Table
@@ -230,20 +232,20 @@ export default function ContactListPage() {
             dataSource={importResult?.failures ?? []}
             pagination={false}
             columns={[
-              { title: '行号', dataIndex: 'row', width: 80 },
-              { title: '失败原因', dataIndex: 'message' },
+              { title: t('pages.contact.list.colRow'), dataIndex: 'row', width: 80 },
+              { title: t('pages.contact.list.colFail'), dataIndex: 'message' },
             ]}
           />
         )}
       </Modal>
 
       <Modal
-        title={editing ? '编辑联系人' : '新增联系人'}
+        title={editing ? t('pages.contact.list.editModal') : t('pages.contact.list.createModal')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         destroyOnClose
         width={640}
       >
@@ -256,12 +258,12 @@ export default function ContactListPage() {
         >
           <Form.Item
             name="customerId"
-            label="所属客户"
-            rules={[{ required: true, message: '请选择所属客户' }]}
+            label={t('pages.contact.list.colCustomer')}
+            rules={[{ required: true, message: t('pages.contract.list.msgCustomerRequired') }]}
           >
             <Select
               showSearch
-              placeholder="搜索并选择客户"
+              placeholder={t('pages.contract.list.phCustomer')}
               options={customerOptions}
               filterOption={false}
               onSearch={(kw) => void loadCustomers(kw)}
@@ -269,36 +271,36 @@ export default function ContactListPage() {
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}>
+              <Form.Item name="name" label={t('pages.contact.list.colName')} rules={[{ required: true, message: t('pages.lead.list.msgNameRequired') }]}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="title" label="职位">
+              <Form.Item name="title" label={t('pages.contact.list.colTitle')}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="phone" label="电话">
+              <Form.Item name="phone" label={t('pages.contact.list.colPhone')}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="email" label="邮箱">
+              <Form.Item name="email" label={t('pages.contact.list.colEmail')}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="role" label="角色">
+              <Form.Item name="role" label={t('pages.contact.list.colRole')}>
                 <Select
                   allowClear
-                  placeholder="默认：其他"
+                  placeholder="Default: Other"
                   options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
                 />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="remark" label="备注">
+          <Form.Item name="remark" label={t('pages.contact.list.formRemark')}>
             <Input.TextArea rows={2} />
           </Form.Item>
         </Form>

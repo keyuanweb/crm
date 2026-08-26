@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { App, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
@@ -30,6 +31,7 @@ interface FormValues {
 }
 
 export default function OpportunityListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const customFieldFilterColumns = useCustomFieldFilterColumns('OPPORTUNITY')
   const { message } = App.useApp()
@@ -79,15 +81,15 @@ export default function OpportunityListPage() {
     try {
       if (editing) {
         await updateOpportunity(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.opportunity.list.msgSaved'))
       } else {
         await createOpportunity(payload)
-        message.success('已创建')
+        message.success(t('pages.opportunity.list.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -96,46 +98,46 @@ export default function OpportunityListPage() {
   const onDelete = async (row: Opportunity) => {
     try {
       await deleteOpportunity(row.id)
-      message.success('已删除（含销售机会）')
+      message.success(t('pages.opportunity.list.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
   const columns: ProColumns<Opportunity>[] = [
-    { title: '商机名称', dataIndex: 'name' },
-    { title: '关联客户', dataIndex: 'customerName', search: false },
+    { title: t('pages.opportunity.list.colName'), dataIndex: 'name' },
+    { title: t('pages.opportunity.list.colCustomer'), dataIndex: 'customerName', search: false },
     {
-      title: '预期金额（元）',
+      title: t('pages.opportunity.list.colAmount'),
       search: false,
       render: (_, row) =>
         `${formatAmount(row.expectedAmountMin)} ~ ${formatAmount(row.expectedAmountMax)}`,
     },
-    { title: '销售机会数', dataIndex: 'salesOpportunityCount', search: false },
+    { title: t('pages.opportunity.list.colSalesCount'), dataIndex: 'salesOpportunityCount', search: false },
     {
-      title: '状态',
+      title: t('pages.opportunity.list.colStatus'),
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: {
-        ACTIVE: { text: '进行中', status: 'Processing' },
-        ARCHIVED: { text: '已归档', status: 'Default' },
+        ACTIVE: { text: t('pages.opportunity.list.active'), status: 'Processing' },
+        ARCHIVED: { text: t('pages.opportunity.list.archived'), status: 'Default' },
       },
     },
     {
-      title: '操作',
+      title: t('pages.opportunity.list.colAction'),
       valueType: 'option',
       width: 140,
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('common.button.edit')}
         </a>,
         <Popconfirm
           key="delete"
-          title={`确定删除商机「${row.name}」及其销售机会吗？`}
+          title={t('pages.opportunity.list.deleteConfirm', { name: row.name })}
           onConfirm={() => onDelete(row)}
         >
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -145,7 +147,7 @@ export default function OpportunityListPage() {
     <>
       <ProTable<Opportunity>
         size="small"
-        headerTitle="商机管理"
+        headerTitle={t('pages.opportunity.list.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={[...columns, ...customFieldFilterColumns]}
@@ -164,16 +166,16 @@ export default function OpportunityListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增商机
+            {t('pages.opportunity.list.create')}
           </Button>,
         ]}
       />
       <Modal
-        title={editing ? '编辑商机' : '新增商机'}
+        title={editing ? t('pages.opportunity.list.editModal') : t('pages.opportunity.list.createModal')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         confirmLoading={saving}
         destroyOnClose
         width={640}
@@ -189,8 +191,8 @@ export default function OpportunityListPage() {
             <Col span={12}>
               <Form.Item
                 name="customerId"
-                label="关联客户"
-                rules={[{ required: true, message: '请选择客户' }]}
+                label={t('pages.opportunity.list.formCustomer')}
+                rules={[{ required: true, message: t('pages.opportunity.list.msgCustomerRequired') }]}
               >
                 <Select
                   showSearch
@@ -199,26 +201,26 @@ export default function OpportunityListPage() {
                     value: c.id,
                     label: `${c.name}（${c.company}）`,
                   }))}
-                  placeholder="请选择客户"
+                  placeholder={t('pages.opportunity.list.msgCustomerRequired')}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
                 name="name"
-                label="商机名称"
-                rules={[{ required: true, message: '请输入商机名称' }]}
+                label={t('pages.opportunity.list.formName')}
+                rules={[{ required: true, message: t('pages.opportunity.list.msgNameRequired') }]}
               >
                 <Input />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="expectedAmountMin" label="预期金额下限">
+              <Form.Item name="expectedAmountMin" label={t('pages.opportunity.list.formAmountMin')}>
                 <InputNumber min={0} suffix="元" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="expectedAmountMax" label="预期金额上限">
+              <Form.Item name="expectedAmountMax" label={t('pages.opportunity.list.formAmountMax')}>
                 <InputNumber min={0} suffix="元" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -226,7 +228,7 @@ export default function OpportunityListPage() {
               <CustomFieldFormItems entityType="OPPORTUNITY" />
             </Col>
             <Col span={24}>
-              <Form.Item name="remark" label="备注">
+              <Form.Item name="remark" label={t('pages.opportunity.list.formRemark')}>
                 <Input.TextArea rows={2} />
               </Form.Item>
             </Col>

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Col, Form, Input, Modal, Row, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -37,6 +38,7 @@ interface FormValues {
 }
 
 export default function TicketListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const customFieldFilterColumns = useCustomFieldFilterColumns('TICKET')
   const { message } = App.useApp()
@@ -65,11 +67,11 @@ export default function TicketListPage() {
     setSaving(true)
     try {
       await createTicket(payload)
-      message.success('已创建')
+      message.success(t('pages.ticket.list.msgCreated'))
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '创建失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -87,18 +89,18 @@ export default function TicketListPage() {
 
   const columns: ProColumns<Ticket>[] = [
     {
-      title: '标题',
+      title: t('pages.ticket.list.colTitle'),
       dataIndex: 'title',
       render: (_, row) => <Link to={`/tickets/${row.id}`}>{row.title}</Link>,
     },
     {
-      title: '客户',
+      title: t('pages.ticket.list.colCustomer'),
       dataIndex: 'customerName',
       search: false,
       render: (_, row) => row.customerName ?? `#${row.customerId}`,
     },
     {
-      title: '优先级',
+      title: t('pages.ticket.list.colPriority'),
       dataIndex: 'priority',
       valueType: 'select',
       valueEnum: Object.fromEntries(
@@ -107,7 +109,7 @@ export default function TicketListPage() {
       render: (_, row) => <Tag color={TICKET_PRIORITY_COLORS[row.priority]}>{TICKET_PRIORITY_LABELS[row.priority]}</Tag>,
     },
     {
-      title: '状态',
+      title: t('pages.ticket.list.colStatus'),
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: Object.fromEntries(
@@ -117,22 +119,22 @@ export default function TicketListPage() {
         ]),
       ),
     },
-    { title: '处理人', dataIndex: 'assigneeName', search: false },
+    { title: t('pages.ticket.list.colAssignee'), dataIndex: 'assigneeName', search: false },
     { title: 'SLA', dataIndex: 'slaStatus', search: false, render: slaRender },
-    { title: '回复数', dataIndex: 'replyCount', search: false },
+    { title: t('pages.ticket.list.colReplies'), dataIndex: 'replyCount', search: false },
     {
-      title: '创建时间',
+      title: t('pages.ticket.list.colCreated'),
       dataIndex: 'createdAt',
       search: false,
       valueType: 'dateTime',
     },
     {
-      title: '操作',
+      title: t('pages.ticket.list.colAction'),
       valueType: 'option',
       width: 100,
       render: (_, row) => [
         <Link key="detail" to={`/tickets/${row.id}`}>
-          详情
+          {t('pages.ticket.list.detail')}
         </Link>,
       ],
     },
@@ -142,7 +144,7 @@ export default function TicketListPage() {
     <>
       <ProTable<Ticket>
         size="small"
-        headerTitle="服务工单"
+        headerTitle={t('pages.ticket.list.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={[...columns, ...customFieldFilterColumns]}
@@ -162,17 +164,17 @@ export default function TicketListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增工单
+            {t('pages.ticket.list.create')}
           </Button>,
         ]}
       />
 
       <Modal
-        title="新增工单"
+        title={t('pages.ticket.list.createModal')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="创建"
+        okText={t('common.button.create')}
         confirmLoading={saving}
         destroyOnClose
         width={640}
@@ -188,13 +190,13 @@ export default function TicketListPage() {
             <Col span={12}>
               <Form.Item
                 name="customerId"
-                label="客户"
-                rules={[{ required: true, message: '请选择客户' }]}
+                label={t('pages.ticket.list.formCustomer')}
+                rules={[{ required: true, message: t('pages.ticket.list.msgCustomerRequired') }]}
               >
                 <Select
                   showSearch
                   optionFilterProp="label"
-                  placeholder="搜索并选择客户"
+                  placeholder={t('pages.contract.list.phCustomer')}
                   options={customerOptions}
                   onSearch={loadCustomers}
                   onFocus={() => void loadCustomers()}
@@ -202,17 +204,17 @@ export default function TicketListPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
+              <Form.Item name="title" label={t('pages.ticket.list.formTitle')} rules={[{ required: true, message: t('pages.ticket.list.msgTitleRequired') }]}>
                 <Input maxLength={200} />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="description" label="问题描述">
+              <Form.Item name="description" label={t('pages.ticket.list.formDesc')}>
                 <Input.TextArea rows={4} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="priority" label="优先级" rules={[{ required: true, message: '请选择优先级' }]}>
+              <Form.Item name="priority" label={t('pages.ticket.list.formPriority')} rules={[{ required: true, message: t('pages.ticket.list.msgPriorityRequired') }]}>
                 <Select
                   options={Object.entries(TICKET_PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
                 />
@@ -222,7 +224,7 @@ export default function TicketListPage() {
               <CustomFieldFormItems entityType="TICKET" />
             </Col>
             <Col span={24}>
-              <Form.Item name="remark" label="备注">
+              <Form.Item name="remark" label={t('pages.opportunity.list.formRemark')}>
                 <Input.TextArea rows={2} />
               </Form.Item>
             </Col>

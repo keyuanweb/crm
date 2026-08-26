@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ProTable,
   type ActionType,
@@ -61,6 +62,7 @@ interface FormValues {
 }
 
 export default function LeadListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -86,7 +88,7 @@ export default function LeadListPage() {
       setImportOpen(true)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '导入失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setImporting(false)
     }
@@ -150,15 +152,15 @@ export default function LeadListPage() {
     try {
       if (editing) {
         await updateLead(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.lead.list.msgSaved'))
       } else {
         await createLead(payload)
-        message.success('已创建')
+        message.success(t('pages.lead.list.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -167,20 +169,20 @@ export default function LeadListPage() {
   const onDelete = async (row: Lead) => {
     try {
       await deleteLead(row.id)
-      message.success('已删除')
+      message.success(t('pages.lead.list.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
   const onClaim = async (row: Lead) => {
     try {
       await claimLead(row.id)
-      message.success('已领取')
+      message.success(t('pages.lead.list.msgClaimed'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '领取失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
@@ -188,10 +190,10 @@ export default function LeadListPage() {
     if (!user?.id) return
     try {
       await assignLead(row.id, user.id)
-      message.success('已分配')
+      message.success(t('pages.lead.list.msgAssigned'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '分配失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
@@ -200,16 +202,16 @@ export default function LeadListPage() {
 
   const columns: ProColumns<Lead>[] = [
     {
-      title: '姓名',
+      title: t('pages.lead.list.colName'),
       dataIndex: 'name',
       render: (_, row) => <Link to={`/leads/${row.id}`}>{row.name}</Link>,
     },
-    { title: '公司', dataIndex: 'company' },
-    { title: '职位', dataIndex: 'title', search: false },
-    { title: '电话', dataIndex: 'phone', search: false },
-    { title: '邮箱', dataIndex: 'email', search: false },
+    { title: t('pages.lead.list.colCompany'), dataIndex: 'company' },
+    { title: t('pages.lead.list.colTitle'), dataIndex: 'title', search: false },
+    { title: t('pages.lead.list.colPhone'), dataIndex: 'phone', search: false },
+    { title: t('pages.lead.list.colEmail'), dataIndex: 'email', search: false },
     {
-      title: '来源',
+      title: t('pages.lead.list.colSource'),
       dataIndex: 'source',
       valueType: 'select',
       valueEnum: Object.fromEntries(
@@ -217,7 +219,7 @@ export default function LeadListPage() {
       ),
     },
     {
-      title: '状态',
+      title: t('pages.lead.list.colStatus'),
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: Object.fromEntries(
@@ -225,41 +227,41 @@ export default function LeadListPage() {
       ),
     },
     {
-      title: '评分',
+      title: t('pages.lead.list.colScore'),
       dataIndex: 'score',
       search: false,
       render: (_, row) => <Tag color={row.score >= 70 ? 'green' : row.score >= 40 ? 'orange' : 'default'}>{row.score}</Tag>,
     },
-    { title: '负责人', dataIndex: 'ownerName', search: false },
+    { title: t('pages.lead.list.colOwner'), dataIndex: 'ownerName', search: false },
     {
-      title: '操作',
+      title: t('pages.lead.list.colAction'),
       valueType: 'option',
       width: 300,
       render: (_, row) => [
         canEdit(row) && (
           <a key="edit" onClick={() => openEdit(row)}>
-            <EditOutlined /> 编辑
+            <EditOutlined /> {t('pages.lead.list.edit')}
           </a>
         ),
         row.ownerId == null && (
           <a key="claim" onClick={() => onClaim(row)}>
-            <UserAddOutlined /> 领取
+            <UserAddOutlined /> {t('pages.lead.list.claim')}
           </a>
         ),
         row.ownerId != null && row.ownerId !== user?.id && isAdmin && (
           <a key="assign" onClick={() => onAssignToMe(row)}>
-            <SwapOutlined /> 分配给我
+            <SwapOutlined /> {t('pages.lead.list.assignToMe')}
           </a>
         ),
         canConvert(row) && (
           <a key="convert" onClick={() => openConvert(row)}>
-            <SwapOutlined /> 转化
+            <SwapOutlined /> {t('pages.lead.list.convert')}
           </a>
         ),
         canEdit(row) && (
-          <Popconfirm key="delete" title={`确定删除线索「${row.name}」吗？`} onConfirm={() => onDelete(row)}>
+          <Popconfirm key="delete" title={t('pages.lead.list.deleteConfirm', { name: row.name })} onConfirm={() => onDelete(row)}>
             <a style={{ color: '#ff4d4f' }}>
-              <DeleteOutlined /> 删除
+              <DeleteOutlined /> {t('pages.lead.list.delete')}
             </a>
           </Popconfirm>
         ),
@@ -271,16 +273,16 @@ export default function LeadListPage() {
     <>
       <Space style={{ marginBottom: 16 }}>
         <Button type={activeTab === 'all' ? 'primary' : 'default'} onClick={() => { setActiveTab('all'); reload() }}>
-          全部线索
+          {t('pages.lead.list.viewAll')}
         </Button>
         <Button type={activeTab === 'pool' ? 'primary' : 'default'} onClick={() => { setActiveTab('pool'); reload() }}>
-          线索池（未分配）
+          {t('pages.lead.list.viewPool')}
         </Button>
       </Space>
 
       <ProTable<Lead>
         size="small"
-        headerTitle="线索管理"
+        headerTitle={t('pages.lead.list.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={[...columns, ...customFieldFilterColumns]}
@@ -301,27 +303,27 @@ export default function LeadListPage() {
         }}
         toolBarRender={() => [
           <Upload key="import" showUploadList={false} beforeUpload={(f) => onImport(f as unknown as File)} accept=".xlsx">
-            <Button icon={<UploadOutlined />} loading={importing}>导入</Button>
+            <Button icon={<UploadOutlined />} loading={importing}>{t('pages.lead.list.import')}</Button>
           </Upload>,
           <Button key="template" icon={<DownloadOutlined />} onClick={() => void downloadLeadTemplate()}>
-            下载模板
+            {t('pages.lead.list.downloadTemplate')}
           </Button>,
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增线索
+            {t('pages.lead.list.create')}
           </Button>,
         ]}
       />
 
       {/* 导入结果反馈 */}
       <Modal
-        title="导入结果"
+        title={t('pages.lead.list.importResult')}
         open={importOpen}
         footer={null}
         onCancel={() => setImportOpen(false)}
       >
         <div style={{ marginBottom: 12 }}>
-          <Tag color="green">成功 {importResult?.successCount ?? 0} 条</Tag>
-          <Tag color="red">失败 {importResult?.failureCount ?? 0} 条</Tag>
+          <Tag color="green">{t('pages.lead.list.importSuccess', { count: importResult?.successCount ?? 0 })}</Tag>
+          <Tag color="red">{t('pages.lead.list.importFail', { count: importResult?.failureCount ?? 0 })}</Tag>
         </div>
         {(importResult?.failures ?? []).length > 0 && (
           <Table
@@ -330,19 +332,19 @@ export default function LeadListPage() {
             dataSource={importResult?.failures ?? []}
             pagination={false}
             columns={[
-              { title: '行号', dataIndex: 'row', width: 80 },
-              { title: '失败原因', dataIndex: 'message' },
+              { title: t('pages.lead.list.colRow'), dataIndex: 'row', width: 80 },
+              { title: t('pages.lead.list.colFail'), dataIndex: 'message' },
             ]}
           />
         )}
       </Modal>
 
       <Modal
-        title={editing ? '编辑线索' : '新增线索'}
+        title={editing ? t('pages.lead.list.editModal') : t('pages.lead.list.createModal')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         confirmLoading={saving}
         destroyOnClose
         width={640}
@@ -355,63 +357,63 @@ export default function LeadListPage() {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}>
+              <Form.Item name="name" label={t('pages.lead.list.formName')} rules={[{ required: true, message: t('pages.lead.list.msgNameRequired') }]}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="company" label="公司" rules={[{ required: true, message: '请输入公司' }]}>
+              <Form.Item name="company" label={t('pages.lead.list.formCompany')} rules={[{ required: true, message: t('pages.lead.list.msgCompanyRequired') }]}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="title" label="职位">
+              <Form.Item name="title" label={t('pages.lead.list.formTitle')}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="phone" label="电话">
+              <Form.Item name="phone" label={t('pages.lead.list.formPhone')}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="email" label="邮箱">
+              <Form.Item name="email" label={t('pages.lead.list.formEmail')}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="source" label="来源">
+              <Form.Item name="source" label={t('pages.lead.list.colSource')}>
                 <Select
                   options={Object.entries(SOURCE_LABELS).map(([value, label]) => ({ value, label }))}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="status" label="状态">
+              <Form.Item name="status" label={t('pages.lead.list.colStatus')}>
                 <Select
                   options={Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="score" label="评分（0-100）">
+              <Form.Item name="score" label={t('pages.lead.list.formScore')}>
                 <InputNumber min={0} max={100} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="campaignId" label="营销活动">
+              <Form.Item name="campaignId" label={t('pages.lead.list.formCampaign')}>
                 <Select
                   allowClear
                   showSearch
                   optionFilterProp="label"
-                  placeholder="选择来源活动（可选）"
+                  placeholder={t('pages.lead.list.phCampaign')}
                   options={campaignOptions}
                 />
               </Form.Item>
             </Col>
           </Row>
           <CustomFieldFormItems entityType="LEAD" />
-          <Form.Item name="remark" label="备注">
+          <Form.Item name="remark" label={t('pages.lead.list.formRemark')}>
             <Input.TextArea rows={2} />
           </Form.Item>
         </Form>
