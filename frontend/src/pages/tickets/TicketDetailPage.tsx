@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { App, Button, Card, Descriptions, Input, List, Modal, Select, Space, Tag, Timeline, Typography } from 'antd'
 import { ArrowLeftOutlined, CheckCircleOutlined, SendOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -26,6 +27,7 @@ import {
 } from '../../types/ticket'
 
 export default function TicketDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { message } = App.useApp()
@@ -50,7 +52,7 @@ export default function TicketDetailPage() {
       setTicket(t)
       setReplies(r.items)
     } catch (err) {
-      message.error(extractErrorMessage(err, '加载失败'))
+      message.error(extractErrorMessage(err, t('pages.ticket.detail.msgLoadFailed')))
     } finally {
       setLoading(false)
     }
@@ -74,46 +76,46 @@ export default function TicketDetailPage() {
     if (!assigneeId) return
     try {
       await assignTicket(ticketId, assigneeId)
-      message.success('已分配')
+      message.success(t('pages.ticket.detail.msgAssigned'))
       setAssignOpen(false)
       void load()
     } catch (err) {
-      message.error(extractErrorMessage(err, '分配失败'))
+      message.error(extractErrorMessage(err, t('pages.ticket.detail.assignFailed')))
     }
   }
 
   const onReply = async () => {
     if (!replyText.trim()) {
-      message.warning('请输入回复内容')
+      message.warning(t('pages.ticket.detail.msgReplyRequired'))
       return
     }
     try {
       await replyTicket(ticketId, replyText.trim())
       setReplyText('')
-      message.success('已回复')
+      message.success(t('pages.ticket.detail.msgReplied'))
       void load()
     } catch (err) {
-      message.error(extractErrorMessage(err, '回复失败'))
+      message.error(extractErrorMessage(err, t('pages.ticket.detail.replyFailed')))
     }
   }
 
   const onTransition = async (targetStatus: string) => {
     try {
       await transitionTicket(ticketId, targetStatus)
-      message.success('状态已更新')
+      message.success(t('pages.ticket.detail.msgStatusUpdated'))
       void load()
     } catch (err) {
-      message.error(extractErrorMessage(err, '流转失败'))
+      message.error(extractErrorMessage(err, t('pages.ticket.detail.flowFailed')))
     }
   }
 
   const onDelete = async () => {
     try {
       await deleteTicket(ticketId)
-      message.success('已删除')
+      message.success(t('pages.ticket.detail.msgDeleted'))
       navigate('/tickets')
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.ticket.detail.deleteFailed')))
     }
   }
 
@@ -129,7 +131,7 @@ export default function TicketDetailPage() {
     <>
       <Link to="/tickets" style={{ marginBottom: 16, display: 'inline-block' }}>
         <Button type="link" icon={<ArrowLeftOutlined />}>
-          返回工单列表
+          {t('pages.ticket.detail.backToList')}
         </Button>
       </Link>
 
@@ -139,81 +141,81 @@ export default function TicketDetailPage() {
             {ticket.title}
           </Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-            工单 #{ticket.id}
-            {ticket.customerName ? ` · 客户：${ticket.customerName}` : ''}
+            {t('pages.ticket.detail.ticketNo', { id: ticket.id })}
+            {ticket.customerName ? ` · ${t('pages.ticket.detail.customerPrefix')}${ticket.customerName}` : ''}
           </Typography.Text>
         </div>
         <Space>
           {ticket.status !== 'CLOSED' && (
             <Button danger onClick={() => void onDelete()}>
-              删除工单
+              {t('pages.ticket.detail.deleteTicket')}
             </Button>
           )}
         </Space>
       </div>
 
       <Card
-        title="工单信息"
+        title={t('pages.ticket.detail.ticketInfo')}
         style={{ marginBottom: 16, borderRadius: 10 }}
         styles={{ header: { borderBottom: '1px solid #f0f0f0' } }}
         extra={
           <Space>
-            <Button onClick={() => void openAssign()}>分配处理人</Button>
+            <Button onClick={() => void openAssign()}>{t('pages.ticket.detail.assignAssignee')}</Button>
             {canOperate && ticket.status === 'OPEN' && (
               <Button type="primary" onClick={() => void onTransition('IN_PROGRESS')}>
-                开始处理
+                {t('pages.ticket.detail.startProcess')}
               </Button>
             )}
             {canOperate && ticket.status === 'IN_PROGRESS' && (
               <Button type="primary" onClick={() => void onTransition('RESOLVED')}>
-                标记已解决
+                {t('pages.ticket.detail.markResolved')}
               </Button>
             )}
             {ticket.status === 'RESOLVED' && (
               <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => void onTransition('CLOSED')}>
-                关闭工单
+                {t('pages.ticket.detail.closeTicket')}
               </Button>
             )}
           </Space>
         }
       >
         <Descriptions bordered size="small" column={2}>
-          <Descriptions.Item label="客户">
+          <Descriptions.Item label={t('pages.ticket.detail.labelCustomer')}>
             {ticket.customerName ?? `#${ticket.customerId}`}
           </Descriptions.Item>
-          <Descriptions.Item label="状态">
+          <Descriptions.Item label={t('pages.ticket.detail.labelStatus')}>
             <Tag color={TICKET_STATUS_COLORS[ticket.status]}>{TICKET_STATUS_LABELS[ticket.status]}</Tag>
           </Descriptions.Item>
-          <Descriptions.Item label="优先级">
+          <Descriptions.Item label={t('pages.ticket.detail.labelPriority')}>
             <Tag color={TICKET_PRIORITY_COLORS[ticket.priority]}>
               {TICKET_PRIORITY_LABELS[ticket.priority]}
             </Tag>
           </Descriptions.Item>
-        <Descriptions.Item label="处理人">{ticket.assigneeName ?? '未分配'}</Descriptions.Item>
-        <Descriptions.Item label="SLA 状态">
+        <Descriptions.Item label={t('pages.ticket.detail.labelAssignee')}>{ticket.assigneeName ?? t('pages.ticket.detail.unassigned')}</Descriptions.Item>
+        <Descriptions.Item label={t('pages.ticket.detail.labelSlaStatus')}>
           {ticket.slaStatus ? (
             <Tag color={TICKET_SLA_COLORS[ticket.slaStatus]}>{TICKET_SLA_LABELS[ticket.slaStatus]}</Tag>
           ) : (
-            '无 SLA'
+            '-'
           )}
         </Descriptions.Item>
-        <Descriptions.Item label="创建时间">
+        <Descriptions.Item label={t('pages.ticket.detail.labelCreatedAt')}>
           {ticket.createdAt ? dayjs(ticket.createdAt).format('YYYY-MM-DD HH:mm') : '-'}
         </Descriptions.Item>
-        <Descriptions.Item label="SLA 响应截止">
+        <Descriptions.Item label={t('pages.ticket.detail.labelSlaRespondBy')}>
           {ticket.slaRespondDeadline ? dayjs(ticket.slaRespondDeadline).format('YYYY-MM-DD HH:mm') : '-'}
         </Descriptions.Item>
-        <Descriptions.Item label="SLA 解决截止">
+        <Descriptions.Item label={t('pages.ticket.detail.labelSlaResolveBy')}>
           {ticket.slaResolveDeadline ? dayjs(ticket.slaResolveDeadline).format('YYYY-MM-DD HH:mm') : '-'}
         </Descriptions.Item>
-        <Descriptions.Item label="回复数">{ticket.replyCount ?? replies.length}</Descriptions.Item>
+        <Descriptions.Item label={t('pages.ticket.detail.labelReplies')}>{ticket.replyCount ?? replies.length}</Descriptions.Item>
         {ticket.description && (
-          <Descriptions.Item label="问题描述" span={2}>
+          <Descriptions.Item label={t('pages.ticket.detail.labelDescription')} span={2}>
             {ticket.description}
           </Descriptions.Item>
         )}
         {ticket.customFieldValues?.map((cf) => (
-          <Descriptions.Item key={cf.fieldId} label={cf.fieldName ?? `字段#${cf.fieldId}`}>
+          <Descriptions.Item key={cf.fieldId} label={cf.fieldName ?? `${t('pages.customer.detail.fieldPrefix')}${cf.fieldId}`}>
             {cf.value || '-'}
           </Descriptions.Item>
         ))}
@@ -227,13 +229,13 @@ export default function TicketDetailPage() {
       />
 
       <Card
-        title="处理时间线"
+        title={t('pages.ticket.detail.timeline')}
         style={{ marginBottom: 16, borderRadius: 10 }}
         styles={{ header: { borderBottom: '1px solid #f0f0f0' }, body: { padding: 0 } }}
       >
         <List
           dataSource={replies}
-          locale={{ emptyText: '暂无回复' }}
+          locale={{ emptyText: t('pages.ticket.detail.emptyReplies') }}
           renderItem={(reply) => (
             <List.Item style={{ padding: '12px 20px' }}>
               <Timeline
@@ -263,7 +265,7 @@ export default function TicketDetailPage() {
         <div style={{ marginTop: 16 }}>
           <Input.TextArea
             rows={3}
-            placeholder="输入回复内容..."
+            placeholder={t('pages.ticket.detail.replyPlaceholder')}
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
           />
@@ -273,24 +275,24 @@ export default function TicketDetailPage() {
             style={{ marginTop: 8 }}
             onClick={() => void onReply()}
           >
-            发送回复
+            {t('pages.ticket.detail.sendReply')}
           </Button>
         </div>
       )}
 
       <Modal
-        title="分配处理人"
+        title={t('pages.ticket.detail.assignModal')}
         open={assignOpen}
         onOk={() => void onAssign()}
         onCancel={() => setAssignOpen(false)}
-        okText="分配"
+        okText={t('pages.ticket.detail.assignOk')}
         destroyOnClose
       >
         <Select
           showSearch
           optionFilterProp="label"
           style={{ width: '100%' }}
-          placeholder="选择处理人"
+          placeholder={t('pages.ticket.detail.assignPlaceholder')}
           value={assigneeId}
           onChange={setAssigneeId}
           options={assigneeOptions}
