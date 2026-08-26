@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -51,6 +52,7 @@ interface FormValues {
 }
 
 export default function TaskListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -101,15 +103,15 @@ export default function TaskListPage() {
     try {
       if (editing) {
         await updateTask(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.task.list.msgSaved'))
       } else {
         await createTask(payload)
-        message.success('已创建')
+        message.success(t('pages.task.list.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -118,26 +120,26 @@ export default function TaskListPage() {
   const onToggle = async (row: TaskItem) => {
     try {
       await toggleTask(row.id)
-      message.success(row.status === 'TODO' ? '已完成' : '已重开')
+      message.success(row.status === 'TODO' ? t('pages.task.list.msgDone') : t('pages.task.list.msgReopened'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
   const onDelete = async (row: TaskItem) => {
     try {
       await deleteTask(row.id)
-      message.success('已删除')
+      message.success(t('pages.task.list.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
   const columns: ProColumns<TaskItem>[] = [
     {
-      title: '标题',
+      title: t('pages.task.list.colTitle'),
       dataIndex: 'title',
       render: (_, row) => {
         const link = row.linkedType && row.linkedId
@@ -147,63 +149,63 @@ export default function TaskListPage() {
       },
     },
     {
-      title: '截止时间',
+      title: t('pages.task.list.colDue'),
       dataIndex: 'dueAt',
       search: false,
       render: (_, row) => (row.dueAt ? row.dueAt.replace('T', ' ').slice(0, 16) : '-'),
     },
     {
-      title: '优先级',
+      title: t('pages.task.list.colPriority'),
       dataIndex: 'priority',
       valueType: 'select',
       valueEnum: Object.fromEntries(Object.entries(PRIORITY_LABELS).map(([k, v]) => [k, { text: v }])),
       render: (_, row) => <Tag color={PRIORITY_COLORS[row.priority]}>{PRIORITY_LABELS[row.priority]}</Tag>,
     },
     {
-      title: '提醒',
+      title: t('pages.task.list.colRemind'),
       dataIndex: 'reminderStatus',
       search: false,
       render: (_, row) => {
         const label =
           row.reminderStatus === 'OVERDUE' && row.overdueDays
-            ? `逾期${row.overdueDays}天`
+            ? t('pages.task.list.overdueDays', { days: row.overdueDays })
             : REMINDER_LABELS[row.reminderStatus]
         return <Tag color={REMINDER_COLORS[row.reminderStatus]}>{label}</Tag>
       },
     },
     {
-      title: '关联',
+      title: t('pages.task.list.colLinked'),
       dataIndex: 'linkedType',
       valueType: 'select',
       valueEnum: Object.fromEntries(Object.entries(LINKED_TYPE_LABELS).map(([k, v]) => [k, { text: v }])),
       render: (_, row) => (row.linkedType ? LINKED_TYPE_LABELS[row.linkedType] : '-'),
     },
     {
-      title: '状态',
+      title: t('pages.task.list.colStatus'),
       dataIndex: 'status',
       valueType: 'select',
-      valueEnum: { TODO: { text: '待办' }, DONE: { text: '已完成' } },
-      render: (_, row) => (row.status === 'TODO' ? <Tag color="processing">待办</Tag> : <Tag color="green">已完成</Tag>),
+      valueEnum: { TODO: { text: t('pages.task.list.todo') }, DONE: { text: t('pages.task.list.done') } },
+      render: (_, row) => (row.status === 'TODO' ? <Tag color="processing">{t('pages.task.list.todo')}</Tag> : <Tag color="green">{t('pages.task.list.done')}</Tag>),
     },
     {
-      title: '操作',
+      title: t('pages.task.list.colAction'),
       valueType: 'option',
       width: 200,
       render: (_, row) => [
         row.status === 'TODO' ? (
           <a key="done" onClick={() => onToggle(row)}>
-            <CheckOutlined /> 完成
+            <CheckOutlined /> {t('pages.task.list.done')}
           </a>
         ) : (
           <a key="redo" onClick={() => onToggle(row)}>
-            <RedoOutlined /> 重开
+            <RedoOutlined /> {t('pages.task.list.redo')}
           </a>
         ),
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.task.list.edit')}
         </a>,
-        <Popconfirm key="delete" title={`确定删除任务「${row.title}」吗？`} onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm key="delete" title={t('pages.task.list.deleteConfirm', { name: row.title })} onConfirm={() => onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.task.list.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -214,24 +216,24 @@ export default function TaskListPage() {
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={8} md={8}>
           <Card size="small">
-            <Statistic title="待办任务" value={summaryQuery.data?.todoCount ?? 0} valueStyle={{ color: '#1677ff' }} />
+            <Statistic title={t('pages.task.list.todoCount')} value={summaryQuery.data?.todoCount ?? 0} valueStyle={{ color: '#1677ff' }} />
           </Card>
         </Col>
         <Col xs={8} md={8}>
           <Card size="small">
-            <Statistic title="逾期任务" value={summaryQuery.data?.overdueCount ?? 0} valueStyle={{ color: '#cf1322' }} />
+            <Statistic title={t('pages.task.list.overdueCount')} value={summaryQuery.data?.overdueCount ?? 0} valueStyle={{ color: '#cf1322' }} />
           </Card>
         </Col>
         <Col xs={8} md={8}>
           <Card size="small">
-            <Statistic title="今日到期" value={summaryQuery.data?.todayCount ?? 0} valueStyle={{ color: '#fa8c16' }} />
+            <Statistic title={t('pages.task.list.todayCount')} value={summaryQuery.data?.todayCount ?? 0} valueStyle={{ color: '#fa8c16' }} />
           </Card>
         </Col>
       </Row>
 
       <ProTable<TaskItem>
         size="small"
-        headerTitle="我的任务"
+        headerTitle={t('pages.task.list.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -251,21 +253,21 @@ export default function TaskListPage() {
         }}
         toolBarRender={() => [
           <Link key="calendar" to="/tasks/calendar">
-            <Button>日历视图</Button>
+            <Button>{t('pages.task.list.calendarView')}</Button>
           </Link>,
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建任务
+            {t('pages.task.list.create')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑任务' : '新建任务'}
+        title={editing ? t('pages.task.list.editModal') : t('pages.task.list.createModal')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         destroyOnClose
         width={640}
       >
@@ -278,38 +280,38 @@ export default function TaskListPage() {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
+              <Form.Item name="title" label={t('pages.task.list.colTitle')} rules={[{ required: true, message: t('pages.task.list.msgTitleRequired') }]}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="dueAt" label="截止时间">
+              <Form.Item name="dueAt" label={t('pages.task.list.colDue')}>
                 <DatePicker showTime style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="priority" label="优先级">
+              <Form.Item name="priority" label={t('pages.task.list.colPriority')}>
                 <Select
                   options={Object.entries(PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="linkedType" label="关联类型">
+              <Form.Item name="linkedType" label="Linked Type">
                 <Select
                   allowClear
-                  placeholder="可选"
+                  placeholder={t('pages.task.list.optional')}
                   options={Object.entries(LINKED_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="linkedId" label="关联 ID">
-                <Input placeholder="可选" />
+              <Form.Item name="linkedId" label="Linked ID">
+                <Input placeholder={t('pages.task.list.optional')} />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="remark" label="备注">
+              <Form.Item name="remark" label={t('pages.task.list.formRemark')}>
                 <Input.TextArea rows={2} />
               </Form.Item>
             </Col>
