@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -49,6 +50,7 @@ interface PriceRow {
 }
 
 export default function ProductListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -133,15 +135,15 @@ export default function ProductListPage() {
         for (const c of removedCodes) {
           await deleteProductPrice(editing.id, c)
         }
-        message.success('已保存')
+        message.success(t('pages.product.list.msgSaved'))
       } else {
         await createProduct(payload)
-        message.success('已创建')
+        message.success(t('pages.product.list.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -150,47 +152,47 @@ export default function ProductListPage() {
   const onDelete = async (row: Product) => {
     try {
       await deleteProduct(row.id)
-      message.success('已删除（逻辑删除）')
+      message.success(t('pages.product.list.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
   const columns: ProColumns<Product>[] = [
-    { title: '编码', dataIndex: 'code' },
-    { title: '名称', dataIndex: 'name' },
-    { title: '规格', dataIndex: 'spec', search: false, render: (_, row) => row.spec ?? '-' },
-    { title: '单位', dataIndex: 'unit', search: false, render: (_, row) => row.unit ?? '-' },
+    { title: t('pages.product.list.colCode'), dataIndex: 'code' },
+    { title: t('pages.product.list.colName'), dataIndex: 'name' },
+    { title: t('pages.product.list.colSpec'), dataIndex: 'spec', search: false, render: (_, row) => row.spec ?? '-' },
+    { title: t('pages.product.list.colUnit'), dataIndex: 'unit', search: false, render: (_, row) => row.unit ?? '-' },
     {
-      title: '标准售价（元）',
+      title: t('pages.product.list.colPrice'),
       dataIndex: 'standardPrice',
       search: false,
       render: (_, row) => (row.standardPrice / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2 }),
     },
     {
-      title: '状态',
+      title: t('pages.product.list.colStatus'),
       dataIndex: 'status',
       valueEnum: {
-        ACTIVE: { text: '启用' },
-        INACTIVE: { text: '停用' },
+        ACTIVE: { text: t('common.status.active') },
+        INACTIVE: { text: t('common.status.inactive') },
       },
       render: (_, row) =>
-        row.status === 'ACTIVE' ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>,
+        row.status === 'ACTIVE' ? <Tag color="green">{t('common.status.active')}</Tag> : <Tag>{t('common.status.inactive')}</Tag>,
     },
     {
-      title: '操作',
+      title: t('pages.product.list.colAction'),
       valueType: 'option',
       width: 140,
       render: (_, row) =>
         isAdmin
           ? [
               <a key="edit" onClick={() => void openEdit(row)}>
-                <EditOutlined /> 编辑
+                <EditOutlined /> {t('pages.product.list.edit')}
               </a>,
-              <Popconfirm key="delete" title={`确定删除产品「${row.name}」吗？`} onConfirm={() => onDelete(row)}>
+              <Popconfirm key="delete" title={t('pages.product.list.deleteConfirm', { name: row.name })} onConfirm={() => onDelete(row)}>
                 <a style={{ color: '#ff4d4f' }}>
-                  <DeleteOutlined /> 删除
+                  <DeleteOutlined /> {t('pages.product.list.delete')}
                 </a>
               </Popconfirm>,
             ]
@@ -206,7 +208,7 @@ export default function ProductListPage() {
     <>
       <ProTable<Product>
         size="small"
-        headerTitle="产品目录"
+        headerTitle={t('pages.product.list.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -226,7 +228,7 @@ export default function ProductListPage() {
           isAdmin
             ? [
                 <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                  新增产品
+                  {t('pages.product.list.create')}
                 </Button>,
               ]
             : []
@@ -234,12 +236,12 @@ export default function ProductListPage() {
       />
 
       <Modal
-        title={editing ? '编辑产品' : '新增产品'}
+        title={editing ? t('pages.product.list.editModal') : t('pages.product.list.createModal')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         destroyOnClose
         width={640}
       >
@@ -252,40 +254,40 @@ export default function ProductListPage() {
         >
           <Row gutter={16}>
             <Col xs={24} sm={12}>
-              <Form.Item name="code" label="编码" rules={[{ required: true, message: '请输入编码' }]}>
-                <Input placeholder="如 CRM-STD" />
+              <Form.Item name="code" label={t('pages.product.list.formCode')} rules={[{ required: true, message: t('pages.product.list.msgCodeRequired') }]}>
+                <Input placeholder={t('pages.product.list.formCodePlaceholder')} />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
-              <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
+              <Form.Item name="name" label={t('pages.product.list.formName')} rules={[{ required: true, message: t('pages.product.list.msgNameRequired') }]}>
                 <Input />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
-              <Form.Item name="spec" label="规格">
+              <Form.Item name="spec" label={t('pages.product.list.formSpec')}>
                 <Input />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
-              <Form.Item name="unit" label="单位">
-                <Input placeholder="个/套/月" />
+              <Form.Item name="unit" label={t('pages.product.list.formUnit')}>
+                <Input placeholder={t('pages.product.list.formUnitPlaceholder')} />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
               <Form.Item
                 name="standardPrice"
-                label="标准售价（元）"
-                rules={[{ required: true, message: '请输入标准售价' }]}
+                label={t('pages.product.list.formPrice')}
+                rules={[{ required: true, message: t('pages.product.list.msgPriceRequired') }]}
               >
                 <InputNumber min={0} precision={2} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
-              <Form.Item name="status" label="状态">
+              <Form.Item name="status" label={t('pages.product.list.formStatus')}>
                 <Select
                   options={[
-                    { value: 'ACTIVE', label: '启用' },
-                    { value: 'INACTIVE', label: '停用' },
+                    { value: 'ACTIVE', label: t('common.status.active') },
+                    { value: 'INACTIVE', label: t('common.status.inactive') },
                   ]}
                 />
               </Form.Item>
@@ -298,7 +300,7 @@ export default function ProductListPage() {
           <>
             <Divider style={{ margin: '12px 0' }} />
             <Typography.Text strong style={{ fontSize: 13 }}>
-              多币种价格（未配置币种按汇率自动折算）
+              {t('pages.product.list.multiPriceTitle')}
             </Typography.Text>
             <div style={{ marginTop: 10 }}>
               {priceRows.map((row, idx) => (
@@ -306,7 +308,7 @@ export default function ProductListPage() {
                   <Col xs={24} sm={9}>
                     <Select
                       style={{ width: '100%' }}
-                      placeholder="币种"
+                      placeholder="Currency"
                       value={row.currencyCode || undefined}
                       options={currencyOptions}
                       onChange={(v) => updatePriceRow(idx, { currencyCode: v })}
@@ -317,7 +319,7 @@ export default function ProductListPage() {
                       style={{ width: '100%' }}
                       min={0}
                       precision={2}
-                      placeholder="价格（元）"
+                      placeholder="Price (CNY)"
                       value={row.price}
                       onChange={(v) => updatePriceRow(idx, { price: v ?? 0 })}
                     />
@@ -329,7 +331,7 @@ export default function ProductListPage() {
                       icon={<DeleteOutlined />}
                       onClick={() => setPriceRows((prev) => prev.filter((_, i) => i !== idx))}
                     >
-                      移除
+                      {t('pages.product.list.removePrice')}
                     </Button>
                   </Col>
                 </Row>
@@ -340,11 +342,11 @@ export default function ProductListPage() {
                 block
                 onClick={() => setPriceRows((prev) => [...prev, { currencyCode: '', price: 0 }])}
               >
-                添加币种价格
+                {t('pages.product.list.addPrice')}
               </Button>
               {priceRows.length === 0 && (
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
-                  暂无配置，销售端将按汇率自动折算各币种价格
+                  {t('pages.product.list.multiPriceEmpty')}
                 </Typography.Text>
               )}
             </div>
