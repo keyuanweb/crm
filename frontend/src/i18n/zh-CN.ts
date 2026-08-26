@@ -615,7 +615,7 @@ const zhCN = {
         colStatus: '状态',
         colAction: '操作',
         todo: '待办',
-        done: '已完成',
+        doneStatus: '已完成',
         delete: '删除',
         calendarView: '日历视图',
         msgSaved: '已保存',

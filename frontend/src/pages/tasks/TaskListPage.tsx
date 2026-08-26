@@ -184,8 +184,8 @@ export default function TaskListPage() {
       title: t('pages.task.list.colStatus'),
       dataIndex: 'status',
       valueType: 'select',
-      valueEnum: { TODO: { text: t('pages.task.list.todo') }, DONE: { text: t('pages.task.list.done') } },
-      render: (_, row) => (row.status === 'TODO' ? <Tag color="processing">{t('pages.task.list.todo')}</Tag> : <Tag color="green">{t('pages.task.list.done')}</Tag>),
+      valueEnum: { TODO: { text: t('pages.task.list.todo') }, DONE: { text: t('pages.task.list.doneStatus') } },
+      render: (_, row) => (row.status === 'TODO' ? <Tag color="processing">{t('pages.task.list.todo')}</Tag> : <Tag color="green">{t('pages.task.list.doneStatus')}</Tag>),
     },
     {
       title: t('pages.task.list.colAction'),

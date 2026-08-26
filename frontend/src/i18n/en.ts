@@ -616,7 +616,7 @@ const en = {
         colStatus: 'Status',
         colAction: 'Actions',
         todo: 'To Do',
-        done: 'Done',
+        doneStatus: 'Done',
         delete: 'Delete',
         calendarView: 'Calendar View',
         msgSaved: 'Saved',
