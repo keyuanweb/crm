@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -50,6 +51,7 @@ interface PlanFormValues {
 }
 
 export default function OrderListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -119,11 +121,11 @@ export default function OrderListPage() {
     setSaving(true)
     try {
       await createOrder(payload)
-      message.success('已创建')
+      message.success(t('pages.order.list.msgCreated'))
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '创建失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -132,21 +134,21 @@ export default function OrderListPage() {
   const onDelete = async (row: Order) => {
     try {
       await deleteOrder(row.id)
-      message.success('已删除')
+      message.success(t('pages.order.list.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
   const planColumns = [
     {
-      title: '金额（元）',
+      title: t('pages.order.list.colAmount'),
       dataIndex: 'amount',
       render: (v: number) => (v / 100).toLocaleString('zh-CN'),
     },
-    { title: '计划日期', dataIndex: 'dueDate' },
-    { title: '说明', dataIndex: 'description', render: (v?: string) => v ?? '-' },
+    { title: t('pages.order.list.colPlanDate'), dataIndex: 'dueDate' },
+    { title: t('pages.order.list.colDesc'), dataIndex: 'description', render: (v?: string) => v ?? '-' },
     {
       title: '',
       key: 'actions',
@@ -163,19 +165,19 @@ export default function OrderListPage() {
 
   const columns: ProColumns<Order>[] = [
     {
-      title: '订单号',
+      title: t('pages.order.list.colOrderNo'),
       dataIndex: 'orderNo',
       render: (_, row) => <Link to={`/orders/${row.id}`}>{row.orderNo}</Link>,
     },
-    { title: '标题', dataIndex: 'title' },
+    { title: t('pages.order.list.colTitle'), dataIndex: 'title' },
     {
-      title: '客户',
+      title: t('pages.order.list.colCustomer'),
       dataIndex: 'customerName',
       render: (_, row) =>
         row.customerId ? <Link to={`/customers/${row.customerId}`}>{row.customerName ?? '-'}</Link> : '-',
     },
     {
-      title: '状态',
+      title: t('pages.order.list.colStatus'),
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: Object.fromEntries(
@@ -186,27 +188,27 @@ export default function OrderListPage() {
       ),
     },
     {
-      title: '金额（元）',
+      title: t('pages.order.list.colAmount'),
       dataIndex: 'amount',
       search: false,
       render: (_, row) => (row.amount / 100).toLocaleString('zh-CN'),
     },
     {
-      title: '已回款（元）',
+      title: t('pages.order.list.colPaid'),
       dataIndex: 'paidAmount',
       search: false,
       render: (_, row) => ((row.paidAmount ?? 0) / 100).toLocaleString('zh-CN'),
     },
     {
-      title: '操作',
+      title: t('pages.order.list.colAction'),
       valueType: 'option',
       width: 100,
       render: (_, row) =>
         isAdmin
           ? [
-              <Popconfirm key="delete" title={`确定删除订单「${row.title}」吗？`} onConfirm={() => onDelete(row)}>
+              <Popconfirm key="delete" title={t('pages.order.list.deleteConfirm', { name: row.title })} onConfirm={() => onDelete(row)}>
                 <a style={{ color: '#ff4d4f' }}>
-                  <DeleteOutlined /> 删除
+                  <DeleteOutlined /> {t('pages.order.list.delete')}
                 </a>
               </Popconfirm>,
             ]
@@ -218,7 +220,7 @@ export default function OrderListPage() {
     <>
       <ProTable<Order>
         size="small"
-        headerTitle="订单管理"
+        headerTitle={t('pages.order.list.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -236,18 +238,18 @@ export default function OrderListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建订单
+            {t('pages.order.list.create')}
           </Button>,
         ]}
       />
 
       <Modal
-        title="新建订单"
+        title={t('pages.order.list.createModal')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         destroyOnClose
         width={720}
       >
@@ -260,15 +262,15 @@ export default function OrderListPage() {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="title" label="订单标题" rules={[{ required: true, message: '请输入订单标题' }]}>
+              <Form.Item name="title" label={t('pages.order.list.formTitle')} rules={[{ required: true, message: t('pages.order.list.msgTitleRequired') }]}>
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="customerId" label="客户" rules={[{ required: true, message: '请选择客户' }]}>
+              <Form.Item name="customerId" label={t('pages.order.list.colCustomer')} rules={[{ required: true, message: t('pages.order.list.msgCustomerRequired') }]}>
                 <Select
                   showSearch
-                  placeholder="搜索并选择客户"
+                  placeholder={t('pages.order.list.phCustomer')}
                   options={customerOptions}
                   filterOption={false}
                   onSearch={(kw) => void loadCustomers(kw)}
@@ -276,25 +278,25 @@ export default function OrderListPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="contractId" label="关联合同（生效中）">
-                <Select allowClear placeholder="可选，选择后自动带入金额" options={contractOptions} />
+              <Form.Item name="contractId" label={t('pages.order.list.formContract')}>
+                <Select allowClear placeholder={t('pages.order.list.phQuote')} options={contractOptions} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="amount" label="订单金额（元）">
-                <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder="选择合同后自动带入" />
+              <Form.Item name="amount" label={t('pages.order.list.formAmount')}>
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder={t('pages.order.list.phAmount')} />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="description" label="说明">
+              <Form.Item name="description" label={t('pages.order.list.colDesc')}>
                 <Input.TextArea rows={2} />
               </Form.Item>
             </Col>
             <Col span={24}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontWeight: 600 }}>回款计划（可选，留空自动一期）</span>
+                <span style={{ fontWeight: 600 }}>{t('pages.order.list.paymentPlan')}</span>
                 <Button size="small" icon={<PlusOutlined />} onClick={openAddPlan}>
-                  添加期次
+                  {t('pages.order.list.addPlan')}
                 </Button>
               </div>
               <Table<PlanItemPayload>
@@ -316,23 +318,23 @@ export default function OrderListPage() {
       </Modal>
 
       <Modal
-        title="添加期次"
+        title={t('pages.order.list.addPlanModal')}
         open={planModalOpen}
         onOk={() => void onAddPlan()}
         onCancel={() => setPlanModalOpen(false)}
-        okText="添加"
+        okText={t('pages.order.list.addPlanOk')}
         destroyOnClose
         width={480}
       >
         <Form form={planForm} name="orderPlanForm" layout="vertical">
-          <Form.Item name="amount" label="金额（元）" rules={[{ required: true, message: '请输入金额' }]}>
+          <Form.Item name="amount" label={t('pages.order.list.planAmount')} rules={[{ required: true, message: t('pages.order.list.msgAmountRequired') }]}>
             <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="dueDate" label="计划回款日期" rules={[{ required: true, message: '请选择日期' }]}>
+          <Form.Item name="dueDate" label={t('pages.order.list.planDueDate')} rules={[{ required: true, message: t('pages.order.list.msgDateRequired') }]}>
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="description" label="期次说明">
-            <Input placeholder="如：首付/尾款" />
+          <Form.Item name="description" label={t('pages.order.list.planDesc')}>
+            <Input placeholder={t('pages.order.list.phPlan')} />
           </Form.Item>
         </Form>
       </Modal>
