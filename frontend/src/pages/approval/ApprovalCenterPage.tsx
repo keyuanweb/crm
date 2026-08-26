@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -42,6 +43,7 @@ const ACTION_LABELS: Record<string, string> = {
 }
 
 export default function ApprovalCenterPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [tab, setTab] = useState<'todos' | 'done'>('todos')
@@ -75,7 +77,7 @@ export default function ApprovalCenterPage() {
     if (!actionTask) return
     const values = await form.validateFields()
     if (actionType === 'reject' && !values.comment?.trim()) {
-      message.warning('驳回需填写意见')
+      message.warning(t('pages.approval.list.msgRejectRequired'))
       return
     }
     setSaving(true)
@@ -83,18 +85,18 @@ export default function ApprovalCenterPage() {
       const instanceId = actionTask.instanceId
       if (actionType === 'approve') {
         await approveTask(instanceId, actionTask.id, values.comment)
-        message.success('已通过')
+        message.success(t('pages.approval.list.msgApproved'))
       } else if (actionType === 'reject') {
         await rejectTask(instanceId, actionTask.id, values.comment ?? '')
-        message.success('已驳回')
+        message.success(t('pages.approval.list.msgRejected'))
       } else {
         await transferTask(instanceId, actionTask.id, values.toUserId!)
-        message.success('已转交')
+        message.success(t('pages.approval.list.msgTransferred'))
       }
       setActionTask(null)
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -112,7 +114,7 @@ export default function ApprovalCenterPage() {
 
   const columns: ProColumns<ApprovalTask>[] = [
     {
-      title: '审批事项',
+      title: t('pages.approval.list.colTitle'),
       dataIndex: 'instanceId',
       search: false,
       render: (_, row) => {
@@ -124,7 +126,7 @@ export default function ApprovalCenterPage() {
       },
     },
     {
-      title: '状态',
+      title: t('pages.approval.list.colStatus'),
       dataIndex: 'status',
       width: 90,
       search: false,
@@ -133,30 +135,30 @@ export default function ApprovalCenterPage() {
         return <Tag color={s.color}>{s.text}</Tag>
       },
     },
-    { title: '意见', dataIndex: 'comment', search: false, ellipsis: true, render: (_, row) => row.comment || '-' },
+    { title: t('pages.approval.list.colComment'), dataIndex: 'comment', search: false, ellipsis: true, render: (_, row) => row.comment || '-' },
     {
-      title: '时间',
+      title: t('pages.approval.list.colTime'),
       dataIndex: 'createdAt',
       width: 140,
       search: false,
       render: (_, row) => (row.createdAt ? row.createdAt.replace('T', ' ').slice(0, 16) : '-'),
     },
     {
-      title: '操作',
+      title: t('pages.approval.list.colAction'),
       valueType: 'option',
       width: 200,
       render: (_, row) => (
         <Space size="small">
           {row.status === 'PENDING' ? (
             <>
-              <a onClick={() => void openAction(row, 'approve')}>通过</a>
+              <a onClick={() => void openAction(row, 'approve')}>{t('pages.approval.list.approve')}</a>
               <a style={{ color: '#ff4d4f' }} onClick={() => void openAction(row, 'reject')}>
-                驳回
+                {t('pages.approval.list.reject')}
               </a>
-              <a onClick={() => void openAction(row, 'transfer')}>转交</a>
+              <a onClick={() => void openAction(row, 'transfer')}>{t('pages.approval.list.transfer')}</a>
             </>
           ) : null}
-          <a onClick={() => void openDetail(row)}>详情</a>
+          <a onClick={() => void openDetail(row)}>{t('pages.approval.list.detail')}</a>
         </Space>
       ),
     },
@@ -179,10 +181,10 @@ export default function ApprovalCenterPage() {
               size="small"
               onClick={() => setTab('todos')}
             >
-              我的待办
+              {t('pages.approval.list.todos')}
             </Button>
             <Button size="small" type={tab === 'done' ? 'primary' : 'default'} onClick={() => setTab('done')}>
-              我的已办
+              {t('pages.approval.list.doneTab')}
             </Button>
           </Space>
         }
@@ -195,22 +197,26 @@ export default function ApprovalCenterPage() {
       {/* 操作弹窗 */}
       <Modal
         title={
-          actionType === 'approve' ? '审批通过' : actionType === 'reject' ? '审批驳回' : '转交审批'
+          actionType === 'approve'
+            ? t('pages.approval.list.modalApprove')
+            : actionType === 'reject'
+              ? t('pages.approval.list.modalReject')
+              : t('pages.approval.list.modalTransfer')
         }
         open={!!actionTask}
         onOk={() => void submitAction()}
         confirmLoading={saving}
         onCancel={() => setActionTask(null)}
-        okText="确定"
+        okText={t('pages.approval.list.ok')}
         destroyOnClose
       >
         <Form form={form} name="actionForm" layout="vertical">
           {actionType === 'transfer' ? (
-            <Form.Item name="toUserId" label="转交给" rules={[{ required: true, message: '请选择用户' }]}>
-              <Select style={{ width: '100%' }} placeholder="选择用户" options={userOptions} />
+            <Form.Item name="toUserId" label={t('pages.approval.list.transferTo')} rules={[{ required: true, message: t('pages.approval.list.msgUserRequired') }]}>
+              <Select style={{ width: '100%' }} placeholder={t('pages.approval.list.selectUser')} options={userOptions} />
             </Form.Item>
           ) : (
-            <Form.Item name="comment" label={actionType === 'reject' ? '驳回意见（必填）' : '意见（可选）'}>
+            <Form.Item name="comment" label={actionType === 'reject' ? t('pages.approval.list.commentRequired') : t('pages.approval.list.commentOptional')}>
               <Input.TextArea rows={3} />
             </Form.Item>
           )}
@@ -248,7 +254,7 @@ export default function ApprovalCenterPage() {
             </div>
 
             <div>
-              <Typography.Text strong>审批记录</Typography.Text>
+              <Typography.Text strong>{t('pages.approval.list.recordsTitle')}</Typography.Text>
               <Timeline
                 style={{ marginTop: 8 }}
                 items={detail.logs.map((l) => ({
