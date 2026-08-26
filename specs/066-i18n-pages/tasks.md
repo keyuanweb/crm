@@ -1,4 +1,4 @@
-﻿# Tasks: 更多页面国际化模块
+# Tasks: 更多页面国际化模块
 
 **Input**: Design documents from `/specs/066-i18n-pages/`
 
@@ -47,10 +47,10 @@
 
 ### 实现
 
-- [ ] T010 [P] customer-detail.json + CustomerDetailPage 迁移
-- [ ] T011 [P] product-detail.json + ProductDetailPage 迁移
-- [ ] T012 [P] opportunity-detail.json + OpportunityDetailPage 迁移
-- [ ] T013 [P] contract-detail.json + ContractDetailPage 迁移
+- [x] T010 [P] customer-detail.json + CustomerDetailPage 迁移
+- [x] T011 [P] product-detail.json + ProductDetailPage 迁移
+- [x] T012 [P] opportunity-detail.json + OpportunityDetailPage 迁移
+- [x] T013 [P] contract-detail.json + ContractDetailPage 迁移
 
 **Checkpoint**: US3 可用——详情页覆盖
 
@@ -80,3 +80,6 @@
 - 金额格式化不翻译（浏览器 locale 自动处理）
 - 错误码保持英文 code，message 由后端返回
 - 提交规范：Conventional Commits
+- 详情页实际覆盖：客户/合同/报价/线索/工单（商机/产品无独立详情页，编辑在列表 Modal）
+- 状态/枚举文案（CONTRACT_STATUS_LABELS 等 types 常量）保留中文，本次范围为用户可见页面内联文案
+
