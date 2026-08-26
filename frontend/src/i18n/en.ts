@@ -507,6 +507,7 @@ const en = {
         pool: 'Lead Pool',
         unassignedPool: 'Unassigned (Lead Pool)',
         labelRemark: 'Remark',
+        convertedAt: 'Converted At',
       },
       list: {
         title: 'Leads',

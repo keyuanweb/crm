@@ -506,6 +506,7 @@ const zhCN = {
         pool: '线索池',
         unassignedPool: '未分配（线索池）',
         labelRemark: '备注',
+        convertedAt: '转化时间',
       },
       list: {
         title: '线索管理',
