@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   App,
   Button,
@@ -35,6 +36,7 @@ import {
 import type { QuoteItem } from '../../types/quote'
 
 export default function QuoteDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const quoteId = Number(id)
   const { message } = App.useApp()
@@ -61,13 +63,13 @@ export default function QuoteDetailPage() {
       message.success(successMsg)
       invalidate()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.quote.detail.msgFailed')))
     }
   }
 
   const onReject = async () => {
     const values = await rejectForm.validateFields()
-    await onAction(() => rejectQuote(quoteId, values.reason), '已拒绝')
+    await onAction(() => rejectQuote(quoteId, values.reason), t('pages.quote.detail.msgRejected'))
     setRejectOpen(false)
   }
 
@@ -78,11 +80,11 @@ export default function QuoteDetailPage() {
     return (
       <Result
         status="404"
-        title="报价单不存在或已被删除"
+        title={t('pages.quote.detail.notFound')}
         extra={
           <Link to="/quotes">
             <Button type="primary" icon={<ArrowLeftOutlined />}>
-              返回报价单列表
+              {t('pages.quote.detail.backToList')}
             </Button>
           </Link>
         }
@@ -95,20 +97,20 @@ export default function QuoteDetailPage() {
   const canApprove = isAdmin && status === 'PENDING_APPROVAL'
 
   const itemColumns = [
-    { title: '产品', dataIndex: 'productName' },
-    { title: '数量', dataIndex: 'quantity' },
+    { title: t('pages.quote.detail.colProduct'), dataIndex: 'productName' },
+    { title: t('pages.quote.detail.colQty'), dataIndex: 'quantity' },
     {
-      title: '单价（元）',
+      title: t('pages.quote.detail.colUnitPrice'),
       dataIndex: 'unitPrice',
       render: (v: number) => (v / 100).toLocaleString('zh-CN'),
     },
     {
-      title: '折扣',
+      title: t('pages.quote.detail.colDiscount'),
       dataIndex: 'discount',
       render: (v: number) => `${Math.round(v * 100)}%`,
     },
     {
-      title: '小计（元）',
+      title: t('pages.quote.detail.colSubtotal'),
       dataIndex: 'lineTotal',
       render: (v: number) => (v / 100).toLocaleString('zh-CN'),
     },
@@ -118,7 +120,7 @@ export default function QuoteDetailPage() {
     <div>
       <Link to="/quotes" style={{ marginBottom: 16, display: 'inline-block' }}>
         <Button type="link" icon={<ArrowLeftOutlined />}>
-          返回报价单列表
+          {t('pages.quote.detail.backToList')}
         </Button>
       </Link>
 
@@ -128,60 +130,60 @@ export default function QuoteDetailPage() {
             {data.quoteNo}
           </Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-            创建时间：{data.createdAt ? data.createdAt.replace('T', ' ').slice(0, 19) : '-'}
+            {t('pages.quote.detail.createdAtPrefix')}：{data.createdAt ? data.createdAt.replace('T', ' ').slice(0, 19) : '-'}
           </Typography.Text>
         </div>
         <Space>
           {canSubmit && (
             <Button
               type="primary"
-              onClick={() => onAction(() => submitQuote(quoteId), '已提交审批')}
+              onClick={() => onAction(() => submitQuote(quoteId), t('pages.quote.detail.msgSubmitted'))}
             >
-              提交审批
+              {t('pages.quote.detail.submit')}
             </Button>
           )}
           {canApprove && (
             <>
               <Button
                 type="primary"
-                onClick={() => onAction(() => approveQuote(quoteId), '审批已通过')}
+                onClick={() => onAction(() => approveQuote(quoteId), t('pages.quote.detail.msgApproved'))}
               >
-                审批通过
+                {t('pages.quote.detail.approve')}
               </Button>
               <Button danger onClick={() => { rejectForm.resetFields(); setRejectOpen(true) }}>
-                拒绝
+                {t('pages.quote.detail.reject')}
               </Button>
             </>
           )}
-          <Button icon={<DownloadOutlined />} onClick={() => void onAction(() => exportQuotePdf(quoteId), 'PDF 已导出')}>
-            导出 PDF
+          <Button icon={<DownloadOutlined />} onClick={() => void onAction(() => exportQuotePdf(quoteId), t('pages.quote.detail.msgPdf'))}>
+            {t('pages.quote.detail.exportPdf')}
           </Button>
         </Space>
       </div>
 
-      <Card title="基本信息" style={{ marginBottom: 16, borderRadius: 10 }}>
+      <Card title={t('pages.quote.detail.basicInfo')} style={{ marginBottom: 16, borderRadius: 10 }}>
         <Descriptions column={2} bordered size="small">
-          <Descriptions.Item label="状态">
+          <Descriptions.Item label={t('pages.quote.detail.labelStatus')}>
             <Tag color={QUOTE_STATUS_COLORS[status]}>{QUOTE_STATUS_LABELS[status]}</Tag>
           </Descriptions.Item>
-          <Descriptions.Item label="客户">
+          <Descriptions.Item label={t('pages.quote.detail.labelCustomer')}>
             <Link to={`/customers/${data.customerId}`}>{data.customerName ?? '-'}</Link>
           </Descriptions.Item>
-          <Descriptions.Item label="有效期">{data.validUntil ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="总额（元）">
+          <Descriptions.Item label={t('pages.quote.detail.labelValidUntil')}>{data.validUntil ?? '-'}</Descriptions.Item>
+          <Descriptions.Item label={t('pages.quote.detail.labelTotal')}>
             <Typography.Text strong>¥ {(data.totalAmount / 100).toLocaleString('zh-CN')}</Typography.Text>
           </Descriptions.Item>
           {data.approvedAt && (
-            <Descriptions.Item label="审批时间">
+            <Descriptions.Item label={t('pages.quote.detail.labelApprovedAt')}>
               {data.approvedAt.replace('T', ' ').slice(0, 19)}
             </Descriptions.Item>
           )}
           {data.rejectReason && (
-            <Descriptions.Item label="拒绝意见" span={2}>
+            <Descriptions.Item label={t('pages.quote.detail.labelRejectReason')} span={2}>
               <Typography.Text type="danger">{data.rejectReason}</Typography.Text>
             </Descriptions.Item>
           )}
-          <Descriptions.Item label="备注" span={2}>
+          <Descriptions.Item label={t('pages.quote.detail.labelRemark')} span={2}>
             {data.remark ?? '-'}
           </Descriptions.Item>
         </Descriptions>
@@ -197,7 +199,7 @@ export default function QuoteDetailPage() {
       />
 
       <Card
-        title="产品明细"
+        title={t('pages.quote.detail.items')}
         style={{ borderRadius: 10 }}
         styles={{ body: { padding: 0 } }}
       >
@@ -207,25 +209,25 @@ export default function QuoteDetailPage() {
           dataSource={data.items ?? []}
           columns={itemColumns as never}
           pagination={false}
-          locale={{ emptyText: '暂无产品行' }}
+          locale={{ emptyText: t('pages.quote.detail.emptyItems') }}
         />
       </Card>
 
       <Modal
-        title="拒绝报价"
+        title={t('pages.quote.detail.modalReject')}
         open={rejectOpen}
         onOk={() => void onReject()}
         onCancel={() => setRejectOpen(false)}
-        okText="确认拒绝"
+        okText={t('pages.quote.detail.confirmReject')}
         destroyOnClose
       >
         <Form form={rejectForm} name="rejectForm" layout="vertical">
           <Form.Item
             name="reason"
-            label="拒绝意见"
-            rules={[{ required: true, message: '请填写拒绝意见' }]}
+            label={t('pages.quote.detail.reason')}
+            rules={[{ required: true, message: t('pages.quote.detail.msgReasonRequired') }]}
           >
-            <Input.TextArea rows={3} placeholder="如：价格过高，建议下调 10%" />
+            <Input.TextArea rows={3} placeholder={t('pages.quote.detail.phReject')} />
           </Form.Item>
         </Form>
       </Modal>
