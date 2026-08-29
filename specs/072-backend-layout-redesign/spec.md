@@ -119,22 +119,28 @@
 
 **实施状态**: 已完成
 
+**Git 提交**: `9f00502` - `feat: 优化后台布局（参考百炼控制台设计）`
+
 **修改文件**:
-1. `frontend/src/App.tsx` - 布局组件优化
-2. `frontend/src/index.css` - 全局样式增强
-3. `frontend/src/i18n/zh-CN.ts` - 添加 personalCenter key
-4. `frontend/src/i18n/en.ts` - 添加 personalCenter key
+1. `frontend/src/App.tsx` - 布局组件优化（Header、Sider、Content、Footer、用户下拉菜单）
+2. `frontend/src/index.css` - 全局样式增强（卡片、表格、按钮、菜单样式）
+3. `frontend/src/i18n/zh-CN.ts` - 添加 personalCenter 国际化 key
+4. `frontend/src/i18n/en.ts` - 添加 personalCenter 国际化 key
+5. `specs/072-backend-layout-redesign/spec.md` - 功能规格文档
 
 **验收结果**:
 - ✅ SC-L01: 顶部栏高度 48px，布局简洁
 - ✅ SC-L02: 侧边栏背景 `#fafbfc`，当前项高亮 `#e6f4ff`
-- ✅ SC-L03: 内容区内边距 `20px 24px`，最大宽度 `1440px`
+- ✅ SC-L03: 内容区内边距 `20px 24px`，充分利用可用空间
 - ✅ SC-L04: 卡片圆角 `12px`，阴影柔和
 - ✅ SC-L05: 用户下拉菜单功能完整，语言切换生效
-- ✅ SC-L06: 前端 typecheck 通过，无回归
+- ✅ SC-L06: 前端 typecheck/build 通过，无回归
 - ✅ SC-L07: 中英文切换正常，所有文本国际化
+- ✅ SC-L08: 所有菜单分组添加图标
+- ✅ SC-L09: 菜单栏隐藏滚动条但保持滚动功能
 
 **验证方式**:
 - TypeScript 编译：`pnpm run typecheck` ✅ 通过
+- 生产构建：`pnpm run build` ✅ 成功
 - 前端开发服务器：`http://localhost:5174/` ✅ 运行中
-- 浏览器功能验证：待用户访问验证
+- Git 提交：`9f00502` ✅ 已提交到 master 分支
