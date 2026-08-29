@@ -27,10 +27,9 @@ body {
   }
 }
 
-/* 布局优化：内容区统一容器（大屏限宽居中，行宽可控）——留白适度，避免过度缩进 */
+/* 布局优化：内容区统一容器（充分利用可用空间） */
 .page-container {
-  max-width: 1680px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 /* 布局优化：内容区滚动条美化（薄滚动条，浅色轨道） */
@@ -47,6 +46,15 @@ body {
 }
 .page-scroll::-webkit-scrollbar-thumb:hover {
   background: #bfbfbf;
+}
+
+/* 菜单栏隐藏滚动条但保持滚动功能 */
+.ant-layout-sider .ant-menu::-webkit-scrollbar {
+  display: none;
+}
+.ant-layout-sider .ant-menu {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* 布局优化：页面卡片统一底部间距（避免各页 12/16/20 混用） */
@@ -68,4 +76,277 @@ body {
 }
 .page-fade {
   animation: pageFadeIn 0.22s ease-out;
+}
+
+/* ========== 全局卡片样式优化 ========== */
+
+/* Ant Design 卡片统一样式 */
+.ant-card {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ant-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Dashboard 卡片悬停效果（保留兼容性） */
+.dashboard-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dashboard-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* KPI 指标卡样式 */
+.kpi-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+}
+.kpi-card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  transform: translateY(-3px);
+}
+
+/* KPI 图标容器 */
+.kpi-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* AI 建议卡片样式 */
+.ai-suggestion-card {
+  border-radius: 12px;
+  border: 1px solid #ffe7ba;
+  background: linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+.ai-suggestion-card:hover {
+  box-shadow: 0 6px 20px rgba(250, 173, 20, 0.2);
+  transform: translateY(-2px);
+  border-color: #ffcc66;
+}
+
+/* AI 图标脉冲动画 */
+@keyframes aiPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(250, 173, 20, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(250, 173, 20, 0);
+  }
+}
+.ai-icon-pulse {
+  animation: aiPulse 2s ease-in-out infinite;
+}
+
+/* 漏斗条形动画 */
+@keyframes funnelBarFill {
+  from {
+    width: 0;
+  }
+}
+.funnel-bar {
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 数据加载骨架屏 */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+/* 统计数字动画 */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.stat-number {
+  animation: countUp 0.4s ease-out;
+}
+
+/* 头部样式优化 */
+.dashboard-header {
+  margin-bottom: 20px;
+}
+.dashboard-welcome-title {
+  margin: 0 0 4px 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: #1f1f1f;
+  line-height: 1.3;
+}
+.dashboard-welcome-sub {
+  margin: 0;
+  font-size: 13px;
+  color: #8c8c8c;
+}
+
+/* 标签样式优化 */
+.dashboard-tag {
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 表格样式优化 */
+.dashboard-table {
+  font-size: 13px;
+}
+.dashboard-table .ant-table-tbody > tr {
+  transition: background-color 0.2s ease;
+}
+.dashboard-table .ant-table-tbody > tr:hover > td {
+  background: #fafafa;
+}
+.dashboard-table .ant-table-thead > tr > th {
+  font-weight: 600;
+  background: #fafafa;
+}
+
+/* 全局表格样式统一 */
+.ant-table-tbody > tr:hover > td {
+  background: #fafafa;
+}
+.ant-table-thead > tr > th {
+  font-weight: 600;
+  background: #fafafa;
+  color: #1f1f1f;
+}
+.ant-table-thead > tr > th {
+  border-bottom: 1px solid #f0f0f0;
+}
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid #f5f5f5;
+}
+
+/* 进度条样式优化 */
+.dashboard-progress {
+  margin: 8px 0;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .dashboard-welcome-title {
+    font-size: 18px;
+  }
+  .kpi-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+  }
+}
+
+/* ========== 侧边栏菜单样式优化 ========== */
+
+/* 侧边栏容器 */
+.ant-layout-sider {
+  background: #fafbfc !important;
+}
+
+/* 菜单项样式 */
+.ant-menu-inline .ant-menu-item {
+  height: 40px;
+  line-height: 40px;
+  margin: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+/* 当前激活项高亮 */
+.ant-menu-inline .ant-menu-item-selected {
+  background: #e6f4ff !important;
+  color: #1677ff !important;
+}
+.ant-menu-inline .ant-menu-item-selected::after {
+  right: 0;
+}
+
+/* 悬停效果 */
+.ant-menu-inline .ant-menu-item:hover {
+  background: #f0f7ff;
+}
+
+/* 子菜单标题样式 */
+.ant-menu-inline .ant-menu-submenu > .ant-menu-submenu-title {
+  height: 40px;
+  line-height: 40px;
+  margin: 4px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+  color: #595959;
+}
+.ant-menu-inline .ant-menu-submenu > .ant-menu-submenu-title:hover {
+  background: #f0f7ff;
+}
+
+/* 子菜单项样式 */
+.ant-menu-inline .ant-menu-sub .ant-menu-item {
+  margin: 2px 8px;
+  padding-left: 32px !important;
+  height: 36px;
+  line-height: 36px;
+}
+
+/* 分组分隔符样式 */
+.ant-menu-item-group-title {
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  color: #8c8c8c;
+  font-weight: 500;
+}
+
+/* ========== 按钮样式优化 ========== */
+
+/* 主按钮增强 */
+.ant-btn-primary {
+  background: #1677ff !important;
+  border-color: #1677ff !important;
+  box-shadow: 0 2px 6px rgba(22, 119, 255, 0.3);
+}
+.ant-btn-primary:hover {
+  background: #4096ff !important;
+  border-color: #4096ff !important;
+}
+
+/*  danger 按钮 */
+.ant-btn-dangerous {
+  color: #ff4d4f !important;
+}
+.ant-btn-dangerous:hover {
+  color: #ff7875 !important;
 }

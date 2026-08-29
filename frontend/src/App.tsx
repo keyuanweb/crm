@@ -10,7 +10,6 @@ import {
   BulbOutlined,
   CalendarOutlined,
   CompassOutlined,
-  FundProjectionScreenOutlined,
   ContactsOutlined,
   CustomerServiceOutlined,
   DeleteOutlined,
@@ -40,6 +39,11 @@ import {
   ThunderboltOutlined,
   TeamOutlined,
   UserOutlined,
+  WalletOutlined,
+  RocketOutlined,
+  DesktopOutlined,
+  DatabaseOutlined,
+  SafetyOutlined,
 } from '@ant-design/icons'
 import { fetchMe, logout } from './services/authService'
 import { useAuthStore } from './store/authStore'
@@ -56,13 +60,12 @@ const DashboardPage = lazy(() => import('./pages/stats/DashboardPage'))
 const TeamLeaderboardPage = lazy(() => import('./pages/stats/TeamLeaderboardPage'))
 const ReportCenterPage = lazy(() => import('./pages/reports/ReportCenterPage'))
 const SuggestionCenterPage = lazy(() => import('./pages/assistant/SuggestionCenterPage'))
-const KpiBoardPage = lazy(() => import('./pages/board/KpiBoardPage'))
+const DataVisionPage = lazy(() => import('./pages/dataVision/DataVisionPage'))
 const RecycleBinPage = lazy(() => import('./pages/recycle/RecycleBinPage'))
 const RoleListPage = lazy(() => import('./pages/roles/RoleListPage'))
 const UsageMapPage = lazy(() => import('./pages/map/UsageMapPage'))
 const TagSegmentPage = lazy(() => import('./pages/tags/TagSegmentPage'))
 const EmailMarketingPage = lazy(() => import('./pages/marketing/EmailMarketingPage'))
-import GlobalSearch from './components/GlobalSearch'
 const SearchResultPage = lazy(() => import('./pages/search/SearchResultPage'))
 const ApprovalFlowPage = lazy(() => import('./pages/approval/ApprovalFlowPage'))
 const ApprovalCenterPage = lazy(() => import('./pages/approval/ApprovalCenterPage'))
@@ -89,6 +92,7 @@ const WorkflowRuleListPage = lazy(() => import('./pages/workflows/WorkflowRuleLi
 const WorkflowLogListPage = lazy(() => import('./pages/workflows/WorkflowLogListPage'))
 const UserManagementPage = lazy(() => import('./pages/users/UserManagementPage'))
 const ChangePasswordPage = lazy(() => import('./pages/account/ChangePasswordPage'))
+const PersonalCenterPage = lazy(() => import('./pages/personal/PersonalCenterPage'))
 const AuditLogPage = lazy(() => import('./pages/audit/AuditLogPage'))
 const CampaignListPage = lazy(() => import('./pages/marketing/CampaignListPage'))
 const ChannelRoiPage = lazy(() => import('./pages/marketing/ChannelRoiPage'))
@@ -153,7 +157,6 @@ const MENU_I18N_KEYS: Record<string, string> = {
   '/suggestions': 'suggestions',
   '/call-records': 'callRecords',
   '/mail-sync': 'mailSync',
-  '/board': 'board',
   '/reports': 'reports',
   '/stats/leaderboard': 'leaderboard',
   '/exports': 'exports',
@@ -183,6 +186,7 @@ const MENU_I18N_KEYS: Record<string, string> = {
  * import() 是幂等的：首次调用下载并缓存模块，后续调用立即 resolve。
  */
 const PRELOAD_PAGES: Array<() => Promise<unknown>> = [
+  () => import('./pages/dataVision/DataVisionPage'),
   () => import('./pages/customers/CustomerListPage'),
   () => import('./pages/customers/CustomerDetailPage'),
   () => import('./pages/customers/AtRiskCustomersPage'),
@@ -198,7 +202,6 @@ const PRELOAD_PAGES: Array<() => Promise<unknown>> = [
   () => import('./pages/stats/TeamLeaderboardPage'),
   () => import('./pages/reports/ReportCenterPage'),
   () => import('./pages/assistant/SuggestionCenterPage'),
-  () => import('./pages/board/KpiBoardPage'),
   () => import('./pages/recycle/RecycleBinPage'),
   () => import('./pages/roles/RoleListPage'),
   () => import('./pages/map/UsageMapPage'),
@@ -279,6 +282,8 @@ function Shell() {
   const location = useLocation()
   const [booted, setBooted] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  // 数据大屏页面：隐藏菜单和顶栏，全屏独占
+  const isDataVision = location.pathname === '/data-vision'
   // 041：系统管理二级子组展开状态（受控 openKeys）
   const [openKeys, setOpenKeys] = useState<string[]>([])
   // 布局优化：内容区引用（路由切换滚动复位）
@@ -410,7 +415,7 @@ function Shell() {
   const workbenchRoutes = [
     { path: '/tasks', name: '任务', icon: <CalendarOutlined /> },
     { path: '/suggestions', name: '智能建议', icon: <BulbOutlined /> },
-    { path: '/board', name: '数据大屏', icon: <FundProjectionScreenOutlined /> },
+    { path: '/data-vision', name: '酷炫大屏', icon: <ThunderboltOutlined /> },
     { path: '/call-records', name: '通话记录', icon: <PhoneOutlined /> },
     { path: '/mail-sync', name: '邮件同步', icon: <MailOutlined /> },
   ]
@@ -516,7 +521,6 @@ function Shell() {
       '/exports': 'exports',
       '/reports': 'reports',
       '/suggestions': 'suggestions',
-      '/board': 'board',
       '/users': 'users',
       '/departments': 'departments',
       '/workflows': 'workflows',
@@ -531,35 +535,35 @@ function Shell() {
       : routes
   const groupedMenuItems: MenuItemLike[] = [
     ...(filterByMenus(customerRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-customer', label: t('menu.customer'), children: toItems(filterByMenus(customerRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-customer', label: t('menu.customer'), icon: <TeamOutlined />, children: toItems(filterByMenus(customerRoutes)) }]
       : []),
     ...(filterByMenus(salesRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-sales', label: t('menu.sales'), children: toItems(filterByMenus(salesRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-sales', label: t('menu.sales'), icon: <FundOutlined />, children: toItems(filterByMenus(salesRoutes)) }]
       : []),
     ...(filterByMenus(dealRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-deal', label: t('menu.deal'), children: toItems(filterByMenus(dealRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-deal', label: t('menu.deal'), icon: <WalletOutlined />, children: toItems(filterByMenus(dealRoutes)) }]
       : []),
     ...(filterByMenus(marketingRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-marketing', label: t('menu.marketing'), children: toItems(filterByMenus(marketingRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-marketing', label: t('menu.marketing'), icon: <RocketOutlined />, children: toItems(filterByMenus(marketingRoutes)) }]
       : []),
     ...(filterByMenus(serviceRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-service', label: t('menu.service'), children: toItems(filterByMenus(serviceRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-service', label: t('menu.service'), icon: <CustomerServiceOutlined />, children: toItems(filterByMenus(serviceRoutes)) }]
       : []),
     ...(filterByMenus(workbenchRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-workbench', label: t('menu.workbench'), children: toItems(filterByMenus(workbenchRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-workbench', label: t('menu.workbench'), icon: <DesktopOutlined />, children: toItems(filterByMenus(workbenchRoutes)) }]
       : []),
     ...(filterByMenus(dataRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-data', label: t('menu.data'), children: toItems(filterByMenus(dataRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-data', label: t('menu.data'), icon: <DatabaseOutlined />, children: toItems(filterByMenus(dataRoutes)) }]
       : []),
     // 042：系统管理扁平化——三个一级分组（系统管理/流程与配置/审计与维护）
     ...(filterByMenus(adminOrgRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-admin', label: t('menu.admin'), children: toItems(filterByMenus(adminOrgRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-admin', label: t('menu.admin'), icon: <SafetyOutlined />, children: toItems(filterByMenus(adminOrgRoutes)) }]
       : []),
     ...(filterByMenus(adminConfigRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-config', label: t('menu.config'), children: toItems(filterByMenus(adminConfigRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-config', label: t('menu.config'), icon: <SettingOutlined />, children: toItems(filterByMenus(adminConfigRoutes)) }]
       : []),
     ...(filterByMenus(adminAuditRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-audit', label: t('menu.audit'), children: toItems(filterByMenus(adminAuditRoutes)) }]
+      ? [{ type: 'submenu' as const, key: 'g-audit', label: t('menu.audit'), icon: <AuditOutlined />, children: toItems(filterByMenus(adminAuditRoutes)) }]
       : []),
   ]
   // 所有分组默认收起（FR-S14 默认行为）；点击分组标签可收起/展开
@@ -575,160 +579,142 @@ function Shell() {
       .sort((a, b) => b.length - a.length)[0] ?? '/stats'
   const { Header, Sider, Content, Footer } = Layout
 
+  // 判断是否为数据大屏页面（使用更精确的路径匹配）
+  const shouldHideMenu = isDataVision || location.pathname.startsWith('/data-vision')
+
   return (
-    // 外层固定视口高度 + 隐藏溢出：顶部栏不参与滚动，内容区独立滚动（FR-018 顶栏固定）
-    <Layout style={{ height: '100vh', overflow: 'hidden' }}>
-      {/* 027：PWA 安装提示 */}
-      <InstallPrompt />
-      {/* 顶部栏（ant-layout-header，横跨 100%）：左=系统名称，右=当前用户下拉，内容垂直居中 */}
-      <Header
-        style={{
-          width: '100%',
-          height: 56,
-          lineHeight: 1,
-          padding: '0 20px',
-          background: '#fff',
-          borderBottom: '1px solid #f0f0f0',
-        }}
-      >
-        <div
+    shouldHideMenu ? (
+      <div style={{ width: '100vw', height: '100vh', overflow: 'auto' }}>
+        <Outlet />
+      </div>
+    ) : (
+      <Layout style={{ height: '100vh', overflow: 'hidden' }}>
+        {/* 027：PWA 安装提示 */}
+        <InstallPrompt />
+        {/* 顶部栏（ant-layout-header，横跨 100%）：左=系统名称，右=当前用户下拉，内容垂直居中 */}
+        <Header
           style={{
+            width: '100%',
+            height: 48,
+            lineHeight: 1,
+            padding: '0 24px',
+            background: '#fff',
+            borderBottom: '1px solid #f0f0f0',
+            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            height: '100%',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* 布局优化：桌面端侧栏折叠开关 */}
+          {/* 左侧：折叠按钮 + Logo + 系统名称 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {!isMobile && (
               <Button
                 type="text"
                 icon={siderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                 onClick={() => setSiderCollapsed((c) => !c)}
                 aria-label="折叠/展开菜单"
+                style={{ padding: 4 }}
               />
             )}
-            <TeamOutlined style={{ fontSize: 22, color: '#1677ff' }} />
-            <span style={{ fontSize: 17, fontWeight: 600, color: '#1f1f1f' }}>
+            <TeamOutlined style={{ fontSize: 20, color: '#1677ff' }} />
+            <span style={{ fontSize: 16, fontWeight: 600, color: '#1f1f1f' }}>
               {t('app.title')}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {/* 060：语言切换 */}
+          {/* 右侧：通知 + 用户头像 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <NotificationCenter />
             <Dropdown
               menu={{
                 items: [
-                  {
-                    key: 'zh-CN',
-                    label: '中文',
-                    onClick: () => void changeLanguage('zh-CN'),
-                  },
-                  {
-                    key: 'en',
-                    label: 'English',
-                    onClick: () => void changeLanguage('en'),
-                  },
+                  { key: 'personal-center', icon: <UserOutlined />, label: t('app.personalCenter'), onClick: () => navigate('/personal-center') },
+                  { key: 'usage-map', icon: <CompassOutlined />, label: t('app.usageMap'), onClick: () => navigate('/usage-map') },
+                  { key: 'password', icon: <KeyOutlined />, label: t('app.changePassword'), onClick: () => navigate('/account/password') },
+                  { type: 'divider' },
+                  { key: 'lang-zh', icon: <GlobalOutlined />, label: '中文', onClick: () => void changeLanguage('zh-CN') },
+                  { key: 'lang-en', icon: <GlobalOutlined />, label: 'English', onClick: () => void changeLanguage('en') },
+                  { type: 'divider' },
+                  { key: 'logout', icon: <LogoutOutlined />, label: t('app.logout'), danger: true, onClick: onLogout },
                 ],
-                selectedKeys: [i18n.language.startsWith('en') ? 'en' : 'zh-CN'],
               }}
             >
-              <Button type="text" icon={<GlobalOutlined />}>
-                {i18n.language.startsWith('en') ? 'EN' : '中'}
-              </Button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <Avatar style={{ backgroundColor: '#1677ff' }} size="small">
+                  {(user?.displayName ?? user?.username ?? '?').charAt(0).toUpperCase()}
+                </Avatar>
+              </div>
             </Dropdown>
-            {/* 032：全局搜索框 */}
-            <GlobalSearch />
-            {/* 029：右上角使用地图快捷入口 */}
-            <Button type="text" icon={<CompassOutlined style={{ fontSize: 17 }} />} onClick={() => navigate('/usage-map')}>
-              {t('app.usageMap')}
-            </Button>
-            <NotificationCenter />
-            <Dropdown
-            menu={{
-              items: [
-                {
-                  key: 'password',
-                  icon: <KeyOutlined />,
-                  label: t('app.changePassword'),
-                  onClick: () => navigate('/account/password'),
-                },
-                { type: 'divider' },
-                {
-                  key: 'logout',
-                  icon: <LogoutOutlined />,
-                  label: t('app.logout'),
-                  onClick: onLogout,
-                },
-              ],
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-              <Avatar style={{ backgroundColor: '#1677ff' }} size="small">
-                {(user?.displayName ?? user?.username ?? '?').charAt(0).toUpperCase()}
-              </Avatar>
-              <span style={{ fontSize: 14, color: '#1f1f1f' }}>
-                {user?.displayName ?? user?.username}
-              </span>
-            </div>
-          </Dropdown>
           </div>
-        </div>
-      </Header>
+        </Header>
 
-      {/* header 下方：左侧菜单栏 + 右侧内容区（窄屏折叠菜单为顶部横向滚动） */}
-      <Layout style={{ flex: 1, minHeight: 0, flexDirection: isMobile ? 'column' : 'row' }}>
-        <Sider
-          width={isMobile ? undefined : 200}
-          theme="light"
-          collapsed={isMobile ? false : siderCollapsed}
-          collapsedWidth={isMobile ? undefined : 64}
-          style={{
-            background: '#fff',
-            borderRight: '1px solid #f0f0f0',
-            ...(isMobile ? { height: 48 } : {}),
-          }}
-        >
-          <Menu
-            mode={isMobile ? 'horizontal' : 'inline'}
-            style={{ height: '100%', borderInlineEnd: 'none', overflow: 'auto' }}
-            items={menuItems}
-            openKeys={isMobile ? undefined : openKeys}
-            onOpenChange={(keys) => setOpenKeys(keys as string[])}
-            selectedKeys={[selectedKey]}
-            onClick={({ key }) => startTransition(() => navigate(key))}
-          />
-        </Sider>
-        <Layout style={{ flexDirection: 'column' }}>
-          <Content
-            ref={contentRef}
-            className="page-scroll"
-            style={{ background: '#f0f2f5', padding: isMobile ? 8 : '16px 12px', overflow: 'auto' }}
-          >
-            <div className="page-container" style={{ minHeight: 'calc(100vh - 56px - 64px)' }}>
-              <div style={{ marginBottom: 12 }}>
-                <BreadcrumbNav />
-              </div>
-              {/* 布局优化：路由切换滚动复位 + 淡入过渡 */}
-              <div key={location.pathname} className="page-fade">
-                <Outlet />
-              </div>
-            </div>
-          </Content>
-          <Footer
+        {/* header 下方：左侧菜单栏 + 右侧内容区（窄屏折叠菜单为顶部横向滚动） */}
+        <Layout style={{ flex: 1, minHeight: 0, flexDirection: isMobile ? 'column' : 'row' }}>
+          <Sider
+            width={isMobile ? undefined : 200}
+            theme="light"
+            collapsed={isMobile ? false : siderCollapsed}
+            collapsedWidth={isMobile ? undefined : 64}
             style={{
-              textAlign: 'center',
-              padding: '12px 0',
-              background: '#f0f2f5',
-              color: '#8c8c8c',
-              fontSize: 13,
+              background: '#fafbfc',
+              borderRight: '1px solid #e8e8e8',
+              ...(isMobile ? { height: 48 } : {}),
             }}
           >
-            {t('app.footer', { year: new Date().getFullYear() })}
-          </Footer>
+            <Menu
+              mode={isMobile ? 'horizontal' : 'inline'}
+              style={{ 
+                height: '100%', 
+                borderInlineEnd: 'none', 
+                overflow: 'auto',
+                background: 'transparent',
+                scrollbarWidth: 'none', /* Firefox */
+                msOverflowStyle: 'none', /* IE 10+ */
+              }}
+              items={menuItems}
+              openKeys={isMobile ? undefined : openKeys}
+              onOpenChange={(keys) => setOpenKeys(keys as string[])}
+              selectedKeys={[selectedKey]}
+              onClick={({ key }) => startTransition(() => navigate(key))}
+              theme="light"
+            />
+          </Sider>
+          <Layout style={{ flexDirection: 'column' }}>
+            <Content
+              ref={contentRef}
+              className="page-scroll"
+              style={{ 
+                background: '#f0f2f5', 
+                padding: isMobile ? 12 : '20px 24px', 
+                overflow: 'auto' 
+              }}
+            >
+              <div className="page-container" style={{ minHeight: 'calc(100vh - 48px - 40px)' }}>
+                <div style={{ marginBottom: 12 }}>
+                  <BreadcrumbNav />
+                </div>
+                {/* 布局优化：路由切换滚动复位 + 淡入过渡 */}
+                <div key={location.pathname} className="page-fade">
+                  <Outlet />
+                </div>
+              </div>
+            </Content>
+            <Footer
+              style={{
+                textAlign: 'center',
+                padding: '8px 24px',
+                background: '#f0f2f5',
+                color: '#bfbfbf',
+                fontSize: 12,
+                borderTop: '1px solid #e8e8e8',
+              }}
+            >
+              © {new Date().getFullYear()} {t('app.title')}
+            </Footer>
+          </Layout>
         </Layout>
       </Layout>
-    </Layout>
+    )
   )
 }
 
@@ -743,6 +729,15 @@ export default function App() {
       <Route path="/portal" element={<CustomerPortalPage />} />
       {/* 053：托管落地页公开渲染（无需登录） */}
       <Route path="/lp/:id" element={<LandingPageView />} />
+      {/* 数据大屏页面：独立路由，不嵌套在 Shell 中，确保完全隐藏菜单和顶栏 */}
+      <Route
+        path="/data-vision"
+        element={
+          <RequireAuth>
+            <DataVisionPage />
+          </RequireAuth>
+        }
+      />
       <Route
         path="/"
         element={
@@ -804,7 +799,6 @@ export default function App() {
         <Route path="stats/leaderboard" element={<TeamLeaderboardPage />} />
         <Route path="reports" element={<ReportCenterPage />} />
         <Route path="suggestions" element={<SuggestionCenterPage />} />
-        <Route path="board" element={<KpiBoardPage />} />
         <Route path="call-records" element={<CallRecordPage />} />
         <Route path="mail-sync" element={<MailSyncPage />} />
         <Route path="users" element={<UserManagementPage />} />
@@ -816,6 +810,7 @@ export default function App() {
         <Route path="audit-logs" element={<AuditLogPage />} />
         <Route path="recycle-bin" element={<RecycleBinPage />} />
         <Route path="account/password" element={<ChangePasswordPage />} />
+        <Route path="personal-center" element={<PersonalCenterPage />} />
         {/* 布局优化：Shell 内未知路径 → 带菜单的 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
