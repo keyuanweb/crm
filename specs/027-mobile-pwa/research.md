@@ -1,4 +1,4 @@
-# 研究：PWA 设计
+# Research: 移动端 PWA
 
 ## R1 manifest 字段
 

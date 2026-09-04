@@ -1,28 +1,71 @@
-# Tasks: 鍥㈤槦閿€鍞洰鏍囦笌鎺掕鐪嬫澘
+# Tasks: 团队销售目标与排行看板
+
+
 
 **Input**: Design documents from `/specs/020-sales-targets/`
 
+
+
 **Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/sales-targets.md
 
-**Tests**: 绔犵▼鍘熷垯鍥涜姹傛祴璇曞厛浜庡疄鐜帮紙绾⑩啋缁匡級锛屾湰鍔熻兘鍚悗绔崟鍏?闆嗘垚 + 鍓嶇娓叉煋娴嬭瘯銆?
-## Phase 1: 鍩虹璁炬柦
 
-- [x] T001 [P] 鍚庣锛欶lyway `backend/src/main/resources/db/migration/V44__sales_target_user_id.sql`鈥斺€攕ales_target 鍔?`user_id` 鍒楋紙鍙┖锛? `idx_sales_target_user_month` 绱㈠紩锛涜皟鏁村敮涓€閿负鎸?(user_id, target_month)锛坲ser_id 绌烘寜 target_month锛夈€?- [x] T002 [P] 鍚庣锛歚entity/SalesTarget.java` 鍔?`userId` 瀛楁锛沗dto/stats/SalesTargetResponse.java` 鍔?`userId` 瀛楁銆?
-## Phase 2: 鍚庣娴嬭瘯鍏堣锛圱DD 绾級
 
-- [x] T003 [P] [US1] 鍚庣锛氱紪鍐?`backend/src/test/java/com/crm/service/TeamLeaderboardServiceTest.java` 鍗曞厓娴嬭瘯鈥斺€旇鐩栵細鎸?created_by 缁熻璧㈠崟銆佽揪鎴愮巼璁＄畻銆佹棤鐩爣閿€鍞帓鏈€鍚庛€佹寜杈炬垚鐜囬檷搴忋€傛鏃?TeamLeaderboardService 鏈疄鐜帮紝娴嬭瘯缂栬瘧澶辫触锛堢孩锛夈€?- [x] T004 [P] [US1] 鍚庣锛氱紪鍐?`backend/src/test/java/com/crm/integration/SalesTargetsIT.java` 闆嗘垚娴嬭瘯鈥斺€斾负涓や綅閿€鍞缃釜浜虹洰鏍囦簰涓嶅共鎵帮紱GET /stats/leaderboard 杩斿洖鎺掕锛堢洰鏍?璧㈠崟/杈炬垚鐜囷級銆傛鏃舵帴鍙ｆ湭瀹炵幇锛屾祴璇曞け璐ワ紙绾級銆?
-## Phase 3: 鍚庣瀹炵幇锛圲S1 涓汉鐩爣锛?
-- [x] T005 [US1] 鍚庣锛歚SalesTargetService` 鐨?`get/set` 鏀寔 `userId`鈥斺€旀寜 (userId, month) 鏌ヨ/upsert锛沗get` 涓嶄紶 userId 鏃舵煡鍏ㄥ眬鐩爣锛坲ser_id IS NULL锛夈€傦紙渚濊禆 T001/T002锛?- [x] T006 [US1] 鍚庣锛歚StatsController` 鐨?`GET /stats/sales-targets` 涓?`PUT /stats/sales-targets` 鏀寔 `userId` 鍙傛暟锛沗SalesTargetRequest` 鍔?`userId` 瀛楁銆傦紙渚濊禆 T005锛?
-## Phase 4: 鍚庣瀹炵幇锛圲S2 鎺掕鐪嬫澘锛?
-- [x] T007 [US2] 鍚庣锛氭柊澧?`service/TeamLeaderboardService.java`鈥斺€旀寜鏈堣仛鍚堬細鏌ュ綋鏈?sales_target锛堜釜浜猴級+ 褰撴湀 CLOSED_WON 鎸?created_by 姹囨€婚噾棰濓紱鐢熸垚 LeaderboardItem锛堢洰鏍?璧㈠崟/杈炬垚鐜囷級锛涙寜杈炬垚鐜囬檷搴忥紙鏃犵洰鏍囨帓鏈€鍚庯級锛汚DMIN 鍏ㄩ噺銆丼ALES 浠呮湰浜恒€傦紙渚濊禆 T001/T002锛?- [x] T008 [US2] 鍚庣锛氭柊澧?`dto/stats/LeaderboardItem.java`锛沗StatsController` 鏂板 `GET /stats/leaderboard`锛坢onth/sortBy 鍙傛暟锛夈€傦紙渚濊禆 T007锛?- [x] T009 [US2] 鍚庣锛歚DashboardStatsService.computePerformance` 浼樺厛鏌ュ綋鍓嶇敤鎴蜂釜浜虹洰鏍囷紙user_id=褰撳墠鐢ㄦ埛锛夛紝鏈缃洖閫€鍏ㄥ眬鐩爣锛沗Performance` 鍔?`personal` 瀛楁銆傦紙渚濊禆 T005锛?
-## Phase 5: 鍓嶇
+**Tests**: 单元测试 (JUnit 5 + Mockito) + 集成测试 (Spring Boot Test + MockMvc) + 前端测试 (Vitest + RTL)
 
-- [x] T010 [P] [US1] 鍓嶇锛歚types/stats.ts` 鍔?LeaderboardItem銆丼alesTarget.userId锛沗services/statsService.ts` 鏂板 `fetchLeaderboard(month)`銆乣saveSalesTarget` 鏀寔 userId銆?- [x] T011 [US2] 鍓嶇锛氭柊澧?`pages/stats/TeamLeaderboardPage.tsx`鈥斺€旀帓琛岃〃鏍硷紙閿€鍞?鐩爣/璧㈠崟/杈炬垚鐜?Progress + 绾㈤粍缁?Tag锛夛紝鎸夋湀浠芥煡璇紱`App.tsx` 娉ㄥ唽璺敱锛堟暟鎹垎鏋愬垎缁勶級銆?- [x] T012 [US3] 鍓嶇锛歚DashboardPage` 涓氱哗杈炬垚鍗＄墖灞曠ず涓汉鐩爣锛坧erformance.personal 鏍囪瘑锛夛紝鏈缃椂鎻愮ず銆?
-## Phase 6: 楠岃瘉涓庢敹灏?
-- [x] T013 鍚庣锛歚mvn test` 鍏ㄩ噺閫氳繃锛堟柊澧?TeamLeaderboardServiceTest + SalesTargetsIT锛屼笉褰卞搷鏃㈡湁 217锛夈€?- [x] T014 鍓嶇锛歚pnpm run typecheck` + `lint` + `test` 鍏ㄩ噺閫氳繃銆?- [x] T015 [P] 鎵嬪姩鍐掔儫锛氳缃攢鍞釜浜虹洰鏍?鈫?鎺掕鐪嬫澘鎸夎揪鎴愮巼鎺掑簭 鈫?棣栭〉涓氱哗杈炬垚鏄剧ず涓汉鐩爣銆?
+## Phase 1: 基础设施搭建
+
+
+
+- [x] T001 [P] 编写 Flyway 迁移脚本 `backend/src/main/resources/db/migration/V44__sales_target_user_id.sql`，为 sales_target 表添加 `user_id` 列，创建索引 `idx_sales_target_user_month`（联合唯一约束：user_id + target_month，user_id 为 NULL 表示全局目标）。
+- [x] T002 [P] 修改 `entity/SalesTarget.java` 添加 `userId` 字段；修改 `dto/stats/SalesTargetResponse.java` 添加 `userId` 字段。
+
+## Phase 2: 后端测试（测试优先）
+
+- [x] T003 [P] [US1] 编写单元测试 `backend/src/test/java/com/crm/service/TeamLeaderboardServiceTest.java`，测试按月统计每位销售赢单金额（按 sales_opportunity.created_by 归属当月 CLOSED_WON 金额），验证 TeamLeaderboardService 正确计算目标/赢单/达成率，支持按达成率或赢单金额排序。
+- [x] T004 [P] [US1] 编写集成测试 `backend/src/test/java/com/crm/integration/SalesTargetsIT.java`，测试个人目标设置/查询接口和排行接口 GET /stats/leaderboard 的数据权限过滤（ADMIN 可见全部，SALES 仅见自己）。
+
+## Phase 3: 后端聚合服务实现（US1 个人目标）
+
+- [x] T005 [US1] 修改 `SalesTargetService` 添加 `get/set` 方法支持 `userId`，实现按 (userId, month) 查询或 upsert；`get` 方法优先查询个人目标（userId 非 NULL），未设置时回退全局目标（user_id IS NULL）。依赖 T001/T002。
+- [x] T006 [US1] 修改 `StatsController` 添加 `GET /stats/sales-targets` 和 `PUT /stats/sales-targets` 方法支持 `userId` 参数；添加 `SalesTargetRequest` DTO 包含 `userId` 字段。依赖 T005。
+
+## Phase 4: 后端排行服务实现（US2 团队排行）
+
+- [x] T007 [US2] 编写 `service/TeamLeaderboardService.java`，实现按月聚合查询：连接 sales_target 表和赢单金额（当月 CLOSED_WON 金额，按 created_by 归属），返回 LeaderboardItem 列表（目标/赢单/达成率），支持按达成率或赢单金额排序，遵循数据权限（SALES 仅看自己，ADMIN 看全部）。依赖 T001/T002。
+- [x] T008 [US2] 编写 `dto/stats/LeaderboardItem.java`；修改 StatsController 添加 `GET /stats/leaderboard` 接口，支持 month/sortBy 参数。依赖 T007。
+- [x] T009 [US2] 修改 `DashboardStatsService.computePerformance` 方法，优先展示个人目标与达成率（user_id=当前用户），未设置时回退全局目标；返回 `Performance` 对象包含 `personal` 字段。依赖 T005。
+
+## Phase 5: 前端实现
+
+- [x] T010 [P] [US1] 修改 `types/stats.ts` 添加 LeaderboardItem 类型和 SalesTarget.userId 字段；修改 `services/statsService.ts` 添加 `fetchLeaderboard(month)` 和 `saveSalesTarget` 方法支持 userId。
+- [x] T011 [US2] 编写 `pages/stats/TeamLeaderboardPage.tsx`，实现团队排行看板页面：显示每位销售的目标、赢单金额、达成率，使用 antd Table + Progress + Tag 展示红黄绿标识；添加路由到 `App.tsx`。
+- [x] T012 [US3] 修改 `DashboardPage` 业绩达成卡片，优先展示个人目标与达成率（`Performance.personal`），未设置时显示全局目标。
+
+## Phase 6: 质量检查
+
+- [x] T013 运行 `mvn test` 确保后端测试通过（TeamLeaderboardServiceTest + SalesTargetsIT）。
+- [x] T014 运行 `pnpm run typecheck` + `lint` + `test` 确保前端代码质量。
+- [x] T015 [P] 人工审查：个人目标设置/查询正确、团队排行显示正确、首页业绩达成卡片正确、数据权限隔离正确。
+
 ## Dependencies & Execution Order
 
-- T001/T002 鍙苟琛岋紙鍩虹璁炬柦锛夈€?- T003/T004 鍙苟琛岋紝鍧囦负绾㈤樁娈碉紱渚濊禆 T001/T002銆?- T005 渚濊禆 T001/T002锛汿006 渚濊禆 T005銆?- T007 渚濊禆 T001/T002锛汿008 渚濊禆 T007锛汿009 渚濊禆 T005銆?- T010/T011/T012 鍙苟琛岋紙鍓嶇锛夈€?- Phase 6 鍦ㄦ墍鏈夊疄鐜板畬鎴愬悗鎵ц銆?
+
+
+- T001/T002 是 Phase 1 基础设施，无依赖。
+- T003/T004 依赖 Phase 1 完成（依赖 T001/T002）。
+- T005 依赖 T001/T002。
+- T006 依赖 T005。
+- T007 依赖 T001/T002。
+- T008 依赖 T007。
+- T009 依赖 T005。
+- T010/T011/T012 是 Phase 5 前端实现，依赖后端接口完成。
+- Phase 6 质量检查在所有任务完成后执行。
+
 ## Notes
 
-- sales_target.user_id NULL=鍏ㄥ眬鐩爣锛堝吋瀹?006锛夛紝涓汉鐩爣浼樺厛灞曠ず銆?- 璧㈠崟閲戦鎸?sales_opportunity.created_by 褰掑睘褰撴湀 CLOSED_WON銆?- 鎺掕瀹炴椂鑱氬悎锛屾棤鏂拌〃銆佹棤缂撳瓨銆?- 杈炬垚鐜囬鑹?<50% 绾?/ 50-79% 榛?/ 鈮?0% 缁裤€?
+
+
+- sales_target.user_id NULL 表示全局目标（兼容 006 旧数据）。
+- 赢单金额按 sales_opportunity.created_by 归属当月 CLOSED_WON。
+- 达成率颜色阈值：达成率 <50% 红 / 50-79% 黄 / ≥80% 绿。
+- 排行看板为实时聚合查询，数据量小无需缓存。

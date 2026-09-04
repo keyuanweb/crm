@@ -1,4 +1,4 @@
-# 研究：实时通知设计
+# Research: 实时通知推送
 
 ## R1 WebSocket 端点与认证
 

@@ -1,27 +1,64 @@
-# Tasks: 鏅鸿兘绾跨储璇勫垎涓庨攢鍞娴嬫牎鍑?
+# Tasks: 智能线索评分与销售预测校准
 **Input**: Design documents from `/specs/019-lead-scoring/`
+
+
 
 **Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/lead-scoring.md
 
-**Tests**: 绔犵▼鍘熷垯鍥涜姹傛祴璇曞厛浜庡疄鐜帮紙绾⑩啋缁匡級锛屾湰鍔熻兘鍚悗绔崟鍏?闆嗘垚 + 鍓嶇娓叉煋娴嬭瘯銆?
-## Phase 1: 鍩虹璁炬柦
 
-- [x] T001 [P] 鍚庣锛欶lyway `backend/src/main/resources/db/migration/V43__lead_score_config.sql` 寤?`lead_score_config` 琛?+ 榛樿绉嶅瓙锛圫OURCE 鏉ユ簮 30 / INFO 淇℃伅瀹屾暣搴?30 / FOLLOWUP 璺熻繘娲昏穬搴?25 / FRESHNESS 浜掑姩鏃舵晥 15锛夈€?- [x] T002 [P] 鍚庣锛氭柊澧?`entity/LeadScoreConfig.java`锛坙ombok @TableName锛? `repository/LeadScoreConfigMapper.java`銆?
-## Phase 2: 鍚庣娴嬭瘯鍏堣锛圱DD 绾級
 
-- [x] T003 [P] [US1] 鍚庣锛氱紪鍐?`backend/src/test/java/com/crm/service/LeadScoreServiceTest.java` 鍗曞厓娴嬭瘯鈥斺€旇鐩栵細楂樺垎绾跨储锛圧EFERRAL+淇℃伅鍏?杩戞湡璺熻繘锛夈€佷綆鍒嗙嚎绱紙COLD_CALL+淇℃伅灏?鏃犺窡杩涳級銆佹棤淇℃伅鍩虹鍒嗐€佽窡杩涙椿璺冨害鍔犲垎銆侀槇鍊奸鑹层€傛鏃?LeadScoreService 鏈疄鐜帮紝娴嬭瘯缂栬瘧澶辫触锛堢孩锛夈€?- [x] T004 [P] [US2] 鍚庣锛氱紪鍐?`backend/src/test/java/com/crm/service/StageConversionServiceTest.java` 鍗曞厓娴嬭瘯鈥斺€旇鐩栵細鏍锋湰鍏呰冻鐢ㄥ巻鍙茶浆鍖栫巼銆佹牱鏈笉瓒冲洖閫€榛樿銆丆LOSED_WON=1.0 鍥哄畾銆傛鏃?StageConversionService 鏈疄鐜帮紝娴嬭瘯澶辫触锛堢孩锛夈€?
-## Phase 3: 鍚庣瀹炵幇锛圲S1 绾跨储璇勫垎锛?
-- [x] T005 [US1] 鍚庣锛氭柊澧?`service/LeadScoreService.java`鈥斺€旇閰嶇疆锛圫OURCE/INFO/FOLLOWUP/FRESHNESS 鍥涚淮搴︼級锛屾寜 research.md R1 璁＄畻 0-100 鍒嗗苟鍐欏洖 lead.score锛沗scoreAndUpdate(Lead)` 渚涜皟鐢ㄣ€傦紙渚濊禆 T001/T002锛?- [x] T006 [US1] 鍚庣锛歚LeadService.create()` 涓?`update()` 鍦ㄤ繚瀛樺悗璋冪敤 `LeadScoreService.scoreAndUpdate`锛沗FollowUpService.create()`锛堝惈 leadId 鏃讹級瑙﹀彂璇ョ嚎绱㈤噸绠椼€傦紙渚濊禆 T005锛?- [x] T007 [US1] 鍚庣锛歚LeadService.page()` 涓庣嚎绱㈡睜鏌ヨ鏀寔 `sortBy=score&order=desc` 榛樿璇勫垎闄嶅簭銆?
-## Phase 4: 鍚庣瀹炵幇锛圲S2 棰勬祴鏍″噯锛?
-- [x] T008 [US2] 鍚庣锛氭柊澧?`service/StageConversionService.java`鈥斺€斾粠 sales_opportunity 缁熻鍚勯樁娈佃浆鍖栫巼锛堟牱鏈?鈮?0 鐢ㄥ巻鍙诧紝鍚﹀垯鍥為€€榛樿锛夛紝CLOSED_WON=1.0/CLOSED_LOST=0.0 鍥哄畾锛岀粨鏋?Redis 缂撳瓨 5 鍒嗛挓銆?- [x] T009 [US2] 鍚庣锛歚DashboardStatsService.computeForecast()` 鏀圭敤 StageConversionService 姒傜巼锛沗ForecastItem` 鏂板 `probabilitySource`锛圚ISTORICAL/DEFAULT/FIXED锛夈€傦紙渚濊禆 T008锛?
-## Phase 5: 鍓嶇
+**Tests**: 线索评分单元测试、预测校准单元测试、前后端集成测试、评分渲染与排序验证
 
-- [x] T010 [P] [US1] 鍓嶇锛歚types/lead.ts` 鐩稿叧绫诲瀷纭锛坰core 宸叉湁锛夛紱`pages/leads/LeadListPage.tsx` 鍒楄〃璇锋眰鍔?`sortBy=score&order=desc`锛岃瘎鍒?Tag 绾㈤粍缁垮睍绀猴紙闃堝€?40/70锛夈€?- [x] T011 [P] [US2] 鍓嶇锛歚types/stats.ts` ForecastItem 鍔?`probabilitySource`锛沗DashboardPage` 棰勬祴鍖哄潡灞曠ず"鍘嗗彶鏍″噯/榛樿"鏉ユ簮鏍囨敞銆?
-## Phase 6: 楠岃瘉涓庢敹灏?
-- [x] T012 鍚庣锛歚mvn test` 鍏ㄩ噺閫氳繃锛堟柊澧?LeadScoreServiceTest + StageConversionServiceTest + LeadScoringIT锛屼笉褰卞搷鏃㈡湁 208锛夈€?- [x] T013 鍓嶇锛歚pnpm run typecheck` + `lint` + `test` 鍏ㄩ噺閫氳繃銆?- [x] T014 [P] 鎵嬪姩鍐掔儫锛氬垱寤虹嚎绱㈣鑷姩璇勫垎涓庣孩榛勭豢鏍囪瘑锛涢椤甸娴嬭鏍″噯姒傜巼涓庢潵婧愭爣娉ㄣ€?
+## Phase 1: 基础设施搭建
+
+
+
+- [x] T001 [P] 编写 Flyway `backend/src/main/resources/db/migration/V43__lead_score_config.sql` 创建 `lead_score_config` 表 + 默认评分规则种子（SOURCE 渠道 REFERRAL 30 / INFO 30 / FOLLOWUP 25 / FRESHNESS 15）
+- [x] T002 [P] 编写配置实体 `entity/LeadScoreConfig.java`（添加 Lombok @TableName）+ `repository/LeadScoreConfigMapper.java`
+
+## Phase 2: 后端测试
+
+- [x] T003 [P] [US1] 编写单元测试 `backend/src/test/java/com/crm/service/LeadScoreServiceTest.java` 验证评分维度（来源渠道/信息完整度/跟进活跃度/互动时效），测试 REFERRAL+信息完整得高分、COLD_CALL+信息不全得低分（<40，红色），跟进后评分上升
+- [x] T004 [P] [US2] 编写单元测试 `backend/src/test/java/com/crm/service/StageConversionServiceTest.java` 验证转化率计算（历史样本充足用历史值、不足回退默认），验证 CLOSED_WON=1.0 / CLOSED_LOST=0.0 固定不校准
+
+## Phase 3: 后端聚合服务实现 (P1)
+
+- [x] T005 [US1] 编写实现 `service/LeadScoreService.java` 实现评分引擎（SOURCE/INFO/FOLLOWUP/FRESHNESS 维度加权），总分 0-100，自动写回 lead.score（通过 scoreAndUpdate(Lead)）依赖 T001/T002
+- [x] T006 [US1] 修改 LeadService.create()` 和 `update()` 调用 `LeadScoreService.scoreAndUpdate`；修改 FollowUpService.create()` 后根据 leadId 触发线索重算依赖 T005
+- [x] T007 [US1] 修改 LeadService.page()` 支持评分排序（`sortBy=score&order=desc`），默认按评分降序
+
+## Phase 4: 后端预测校准实现 (P2)
+
+- [x] T008 [US2] 编写实现 `service/StageConversionService.java` 实现转化率统计（从 sales_opportunity 表聚合各阶段数据），样本<10 回退默认概率，CLOSED_WON=1.0/CLOSED_LOST=0.0 固定不校准，Redis 短缓存 5 分钟
+- [x] T009 [US2] 修改 DashboardStatsService.computeForecast()` 使用 StageConversionService 校准概率，ForecastItem 增加 `probabilitySource` 字段（HISTORICAL/DEFAULT/FIXED）依赖 T008
+
+## Phase 5: 前端实现
+
+- [x] T010 [P] [US1] 修改 `types/lead.ts` 添加评分相关类型（score 字段）+ `pages/leads/LeadListPage.tsx` 支持评分排序（`sortBy=score&order=desc`），红/黄/绿 Tag 标识（<40/70 阈值）
+- [x] T011 [P] [US2] 修改 `types/stats.ts` ForecastItem 增加 `probabilitySource` 字段 + DashboardPage` 显示预测校准来源（历史计算/默认回退）
+
+## Phase 6: 质量检查
+
+- [x] T012 运行 `mvn test` 验证后端测试（LeadScoreServiceTest + StageConversionServiceTest + LeadScoringIT）覆盖率>80%
+- [x] T013 运行 `pnpm run typecheck` + `lint` + `test` 验证前端
+- [x] T014 [P] 人工审查评分规则与 spec.md 一致性，验证预测校准逻辑正确性
+
 ## Dependencies & Execution Order
 
-- T001/T002 鍙苟琛岋紙鍩虹璁炬柦锛夈€?- T003/T004 鍙苟琛岋紝鍧囦负绾㈤樁娈碉紱渚濊禆 T001/T002銆?- T005 渚濊禆 T001/T002锛汿006 渚濊禆 T005锛汿007 渚濊禆 T006銆?- T008 渚濊禆鏃狅紱T009 渚濊禆 T008銆?- T010/T011 鍙苟琛屻€?- Phase 6 鍦ㄦ墍鏈夊疄鐜板畬鎴愬悗鎵ц銆?
+
+- T001/T002 依赖基础设施（无前置）
+- T003/T004 依赖后端测试（T001/T002）
+- T005 依赖 T001/T002
+- T006 依赖 T005
+- T007 依赖 T006
+- T008 依赖后端测试
+- T009 依赖 T008
+- T010/T011 依赖前端
+- Phase 6 依赖所有 Phase 完成
+
 ## Notes
 
-- 璇勫垎瑙勫垯寮曟搸锛堥潪 ML锛夛紝閰嶇疆瀛?lead_score_config 琛紝瀹炴椂璁＄畻鍐欏洖 lead.score銆?- 杞寲鐜囩粺璁′竴娆¤仛鍚?+ Redis 5 鍒嗛挓缂撳瓨锛孋LOSED_WON/LOST 鍥哄畾璇箟涓嶅彉銆?- 澶嶇敤 Lead.score 瀛楁锛?04锛夛紝鑷姩璇勫垎瑕嗙洊鎵嬪伐缂虹渷鍊笺€?
+
+- 评分采用规则引擎（非 ML），`lead_score_config` 表存储可配置规则，评分实时计算写回 lead.score
+- 预测校准使用历史转化率统计 + Redis 5 分钟短缓存，CLOSED_WON/LOST 固定 1.0/0.0 不参与校准
+- 前端排序复用 Lead.score 字段（004 已定义），评分规则变更立即生效

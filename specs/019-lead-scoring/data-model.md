@@ -1,4 +1,4 @@
-# 数据模型：智能线索评分与预测校准
+# Data Model: 智能线索评分与销售预测校准
 
 ## 评分规则表 lead_score_config（新表，Flyway V43）
 

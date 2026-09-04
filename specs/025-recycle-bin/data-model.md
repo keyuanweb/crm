@@ -1,4 +1,4 @@
-# 数据模型：回收站
+# Data Model: 回收站与批量恢复
 
 ## RecycleItem（派生，无新表）
 

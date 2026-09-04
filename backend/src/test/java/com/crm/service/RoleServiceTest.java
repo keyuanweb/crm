@@ -176,4 +176,127 @@ class RoleServiceTest {
     assertThat(service.menuTree()).isNotEmpty();
     assertThat(service.permissionDefs()).isNotEmpty();
   }
+
+  @Test
+  @DisplayName("081：菜单字典应包含所有新菜单分组")
+  void menuTreeShouldContainNewGroups() {
+    var menuTree = service.menuTree();
+    assertThat(menuTree).hasSizeGreaterThanOrEqualTo(11);
+    // 验证包含新菜单分组
+    boolean hasCustomerManagement = menuTree.stream().anyMatch(g -> "客户管理".equals(g.get("title")));
+    boolean hasSalesManagement = menuTree.stream().anyMatch(g -> "销售管理".equals(g.get("title")));
+    boolean hasMarketingManagement = menuTree.stream().anyMatch(g -> "营销管理".equals(g.get("title")));
+    boolean hasSystemService = menuTree.stream().anyMatch(g -> "系统管理".equals(g.get("title")));
+    assertThat(hasCustomerManagement).isTrue();
+    assertThat(hasSalesManagement).isTrue();
+    assertThat(hasMarketingManagement).isTrue();
+    assertThat(hasSystemService).isTrue();
+  }
+
+  @Test
+  @DisplayName("081：权限字典应包含所有新权限分组")
+  void permissionDefsShouldContainNewGroups() {
+    var permissionDefs = service.permissionDefs();
+    assertThat(permissionDefs).hasSizeGreaterThanOrEqualTo(23);
+    // 验证包含新权限分组
+    boolean hasCustomerManagement = permissionDefs.stream().anyMatch(g -> "客户管理".equals(g.get("title")));
+    boolean hasSalesQuota = permissionDefs.stream().anyMatch(g -> "销售配额".equals(g.get("title")));
+    boolean hasDataRetention = permissionDefs.stream().anyMatch(g -> "数据保留".equals(g.get("title")));
+    assertThat(hasCustomerManagement).isTrue();
+    assertThat(hasSalesQuota).isTrue();
+    assertThat(hasDataRetention).isTrue();
+  }
+
+  @Test
+  @DisplayName("081：ADMIN 角色应返回所有菜单")
+  void adminRoleShouldReturnAllMenus() {
+    when(roleMapper.selectOne(any())).thenReturn(role(1L, "ADMIN", "系统管理员", true));
+    when(roleMenuMapper.selectList(any())).thenReturn(List.of());
+
+    var menus = service.menusOf("ADMIN");
+    assertThat(menus).isNotNull();
+  }
+
+  @Test
+  @DisplayName("081：SALES_MANAGER 角色应返回销售相关菜单")
+  void salesManagerRoleShouldReturnSalesMenus() {
+    when(roleMapper.selectOne(any())).thenReturn(role(2L, "SALES_MANAGER", "销售总监", true));
+    var roleMenus = List.of(
+        createRoleMenu(2L, "customers"),
+        createRoleMenu(2L, "opportunities"),
+        createRoleMenu(2L, "quotes")
+    );
+    when(roleMenuMapper.selectList(any())).thenReturn(roleMenus);
+
+    var menus = service.menusOf("SALES_MANAGER");
+    assertThat(menus).containsExactlyInAnyOrder("customers", "opportunities", "quotes");
+  }
+
+  @Test
+  @DisplayName("081：SALES_REP 角色应返回销售代表菜单")
+  void salesRepRoleShouldReturnSalesRepMenus() {
+    when(roleMapper.selectOne(any())).thenReturn(role(3L, "SALES_REP", "销售代表", true));
+    var roleMenus = List.of(
+        createRoleMenu(3L, "customers"),
+        createRoleMenu(3L, "leads")
+    );
+    when(roleMenuMapper.selectList(any())).thenReturn(roleMenus);
+
+    var menus = service.menusOf("SALES_REP");
+    assertThat(menus).containsExactlyInAnyOrder("customers", "leads");
+  }
+
+  @Test
+  @DisplayName("081：VIEWER 角色应仅返回查看菜单")
+  void viewerRoleShouldReturnOnlyViewMenus() {
+    when(roleMapper.selectOne(any())).thenReturn(role(11L, "VIEWER", "只读用户", true));
+    var roleMenus = List.of(
+        createRoleMenu(11L, "customers"),
+        createRoleMenu(11L, "contacts"),
+        createRoleMenu(11L, "opportunities")
+    );
+    when(roleMenuMapper.selectList(any())).thenReturn(roleMenus);
+
+    var menus = service.menusOf("VIEWER");
+    assertThat(menus).containsExactlyInAnyOrder("customers", "contacts", "opportunities");
+  }
+
+  @Test
+  @DisplayName("081：菜单字典结构应一致")
+  void menuTreeShouldHaveConsistentStructure() {
+    var menuTree = service.menuTree();
+    for (var group : menuTree) {
+      assertThat(group.get("title")).isNotNull();
+      assertThat(group.get("children")).isNotNull();
+      @SuppressWarnings("unchecked")
+      var children = (java.util.List<java.util.Map<String, Object>>) group.get("children");
+      for (var item : children) {
+        assertThat(item.get("key")).isNotNull();
+        assertThat(item.get("title")).isNotNull();
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("081：权限字典结构应一致")
+  void permissionDefsShouldHaveConsistentStructure() {
+    var permissionDefs = service.permissionDefs();
+    for (var group : permissionDefs) {
+      assertThat(group.get("title")).isNotNull();
+      assertThat(group.get("children")).isNotNull();
+      @SuppressWarnings("unchecked")
+      var children = (java.util.List<java.util.Map<String, Object>>) group.get("children");
+      for (var perm : children) {
+        assertThat(perm.get("code")).isNotNull();
+        assertThat(perm.get("label")).isNotNull();
+      }
+    }
+  }
+
+  private RoleMenu createRoleMenu(Long roleId, String menuKey) {
+    RoleMenu rm = new RoleMenu();
+    rm.setRoleId(roleId);
+    rm.setMenuKey(menuKey);
+    return rm;
+  }
 }

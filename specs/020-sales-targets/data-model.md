@@ -1,4 +1,4 @@
-# 数据模型：团队销售目标与排行
+# Data Model: 团队销售目标与排行看板
 
 ## sales_target 表扩展（Flyway V44）
 

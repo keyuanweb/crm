@@ -1,22 +1,54 @@
-# Tasks: 绉诲姩绔?PWA
+# Tasks: 移动端 PWA
+
+
 
 **Input**: Design documents from `/specs/027-mobile-pwa/`
 
+
+
 **Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/pwa.md
 
-**Tests**: 绔犵▼鍘熷垯鍥涜姹傛祴璇曞厛浜庡疄鐜帮紙绾⑩啋缁匡級锛屾湰鍔熻兘鍚墠绔粍浠舵祴璇曘€?
-## Phase 1: PWA 鍩虹璁炬柦锛圲S1 鍙畨瑁咃級
 
-- [x] T001 [P] [US1] 鍓嶇锛氭柊澧?`frontend/public/manifest.webmanifest`鈥斺€攏ame/short_name/display=standalone/start_url/theme_color=#1677ff/icons(192/512)銆?- [x] T002 [P] [US1] 鍓嶇锛氱敓鎴?`frontend/public/icon-192.png`銆乣icon-512.png`銆乣apple-touch-icon.png`锛堢畝鍗曞搧鐗屽浘鏍囷紝鍙敤绯荤粺棣栧瓧姣嶆垨绠€鍗曞浘褰級銆?- [x] T003 [P] [US1] 鍓嶇锛歚index.html` 鍔?manifest link + theme-color + iOS 鍏冩暟鎹紙apple-mobile-web-app-capable銆乻tatus-bar銆乤pple-touch-icon锛夈€?
-## Phase 2: Service Worker锛圲S2 绂荤嚎锛?
-- [x] T004 [P] [US2] 鍓嶇锛氭柊澧?`frontend/public/sw.js`鈥斺€擵ERSION 甯搁噺锛沬nstall 棰勭紦瀛樺簲鐢ㄥ澹筹紙"/"銆乮ndex.html銆乵anifest銆佸浘鏍囷級锛沠etch 缂撳瓨浼樺厛+缃戠粶鍥為€€锛堜笉缂撳瓨 /api/**锛夛紱activate 娓呯悊鏃х紦瀛樸€?- [x] T005 [US2] 鍓嶇锛歚main.tsx` 鐢熶骇鐜锛坕mport.meta.env.PROD锛夋敞鍐?`/sw.js`锛沗src/test/setup.ts` mock navigator.serviceWorker 閬垮厤娴嬭瘯鎶ラ敊銆?
-## Phase 3: 瀹夎鎻愮ず涓庡揩鎹峰叆鍙ｏ紙US1/US3锛?
-- [x] T006 [P] [US1] 鍓嶇锛氭柊澧?`src/components/InstallPrompt.tsx`鈥斺€旂洃鍚?beforeinstallprompt锛岃Е鍙戞椂鏄剧ず"瀹夎鍒颁富灞忓箷"鎻愮ず锛堝彲鍏抽棴锛夛紱appinstalled 鍚庨殣钘忋€傜粍浠舵祴璇曪細浜嬩欢瑙﹀彂鏄剧ず/涓嶈Е鍙戦殣钘忋€?- [x] T007 [US3] 鍓嶇锛歚DashboardPage.tsx` isMobile 鏃舵覆鏌撳鍕ゅ揩鎹峰叆鍙ｆ潯锛堝鎴?璁拌窡杩?绾跨储澶ф寜閽?鈮?4px锛岀偣鍑诲鑸級锛涚粍浠舵祴璇曪細isMobile 娓叉煋蹇嵎鍏ュ彛銆?
-## Phase 4: 楠岃瘉涓庢敹灏?
-- [x] T008 鍓嶇锛歚pnpm run typecheck` + `lint` + `test` 鍏ㄩ噺閫氳繃锛堟柊澧炵粍浠舵祴璇曪級銆?- [x] T009 [P] 鎵嬪姩鍐掔儫锛歭ocalhost 鎵撳紑 鈫?devtools Application 鈫?Manifest 鏍￠獙閫氳繃锛涜Е鍙戝畨瑁呮彁绀猴紱鏂綉鍒锋柊搴旂敤澶栧３鍙姞杞斤紙鐢熶骇鏋勫缓楠岃瘉锛夛紱妗岄潰绔姛鑳芥棤鍥炲綊銆?
+
+**Tests**: 安装提示组件测试、快捷入口渲染测试、SW 策略代码审查 + devtools 冒烟验证
+
+## Phase 1: PWA 基础设施搭建 (S1 可安装 PWA)
+
+
+
+- [x] T001 [P] [US1] 创建并编写 `frontend/public/manifest.webmanifest` 配置 name/short_name/display=standalone/start_url/theme_color=#1677ff/icons(192/512) 图标
+- [x] T002 [P] [US1] 创建 `frontend/public/icon-192.png`、`icon-512.png` 图标和 `apple-touch-icon.png` 图标，生成简单 SVG/PNG 应用图标
+- [x] T003 [P] [US1] 修改 `index.html` 添加 manifest link + theme-color + iOS 元数据（apple-mobile-web-app-capable、status-bar-style、apple-touch-icon）
+
+## Phase 2: Service Worker 实现 (S2 离线可用)
+
+- [x] T004 [P] [US2] 创建并编写 `frontend/public/sw.js` 配置 VERSION 预缓存 install 事件检测请求 fetch 事件缓存优先+网络回退策略（/"index.html"、"manifest"、静态资源）；/api/** 网络优先；activate 事件清理旧缓存
+- [x] T005 [US2] 修改 `main.tsx` 生产环境注册 SW（`import.meta.env.PROD` 判断）；`/sw.js` 注册；`src/test/setup.ts` mock navigator.serviceWorker
+
+## Phase 3: 安装提示与外勤快捷入口 (US1/US3 快捷入口)
+
+- [x] T006 [P] [US1] 创建并编写 `src/components/InstallPrompt.tsx` 组件监听 beforeinstallprompt 事件显示"添加到主屏幕"提示按钮；点击触发安装；监听 appinstalled 事件重置状态
+- [x] T007 [US3] 修改 `DashboardPage.tsx` isMobile 时渲染快捷入口条（客户/跟进/线索大按钮，触控目标 ≥44px）；复用现有 DashboardPage，isMobile 条件渲染
+
+## Phase 4: 质量检查与冒烟测试
+
+- [x] T008 运行 `pnpm run typecheck` + `lint` + `test` 确保类型检查、代码规范、单元测试通过
+- [x] T009 [P] 本地 localhost 冒烟测试（devtools Application 面板 Manifest 校验、SW 注册验证、安装提示触发验证；断网刷新验证离线可用；快捷入口点击跳转验证）
+
 ## Dependencies & Execution Order
 
-- T001/T002/T003 鍙苟琛岋紙US1 鍩虹璁炬柦锛夈€?- T004 鏃犱緷璧栵紱T005 渚濊禆 T004銆?- T006 鏃犱緷璧栵紱T007 鏃犱緷璧栵紙鍧囧墠绔粍浠讹級銆?- Phase 4 鍦ㄦ墍鏈夊疄鐜板畬鎴愬悗鎵ц銆?
+
+
+- T001/T002/T003 完成后即可验证 US1 可安装 PWA
+- T004 完成后执行 T005 注册 SW
+- T006 完成后执行 T007 快捷入口集成
+- Phase 4 在所有任务完成后执行质量检查
+
 ## Notes
 
-- 绾墠绔紱鏃犲悗绔敼鍔ㄣ€?- SW 鐢ㄥ師鐢?API锛堜笉寮?workbox锛夛紱绂荤嚎浠呭簲鐢ㄥ澹炽€?- 寮€鍙戠幆澧冧笉娉ㄥ唽 SW锛涚敓浜ф瀯寤哄悗鐢熸晥銆?- PWA 浠?HTTPS/localhost銆?
+
+
+- PWA 功能仅限 HTTPS/localhost 环境生效
+- SW 仅缓存静态资源，不缓存业务数据/令牌（YAGNI，不引入 workbox）
+- 图标使用简单 SVG/PNG 生成（基于现有 TeamOutlined 或系统首字母）
+- PWA 仅在 HTTPS/localhost 生效

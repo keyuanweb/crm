@@ -3,21 +3,44 @@
 import { ENTITY_TYPE_LABELS } from '../../types/dataRetention';
 import { ArrowLeftOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Button, Card, Form, Input, Select, Space, Typography, message } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const { Title } = Typography;
 
 const { Option } = Select;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const onFinish = (_values: any) => {
-  // TODO: 实现合规导出逻辑
-  message.info('合规导出功能开发中');
+interface ExportValues {
+  entityType: string;
+  dateRange: string;
+  exportFormat: string;
+  userId: string;
+}
+
+const onFinish = async (values: ExportValues, setLoading: (v: boolean) => void) => {
+  try {
+    setLoading(true);
+    const res = await axios.post('/api/v1/data-retention/compliance-export', null, {
+      params: {
+        entityType: values.entityType,
+        userId: values.userId || '1',
+        exportFormat: values.exportFormat,
+      },
+    });
+    message.success('合规导出完成');
+    console.log('Export file:', res.data.data.filePath);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '导出失败';
+    message.error(msg);
+  } finally {
+    setLoading(false);
+  }
 };
 
 const ComplianceExportPage: React.FC = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   return (
     <div>
@@ -30,10 +53,11 @@ const ComplianceExportPage: React.FC = () => {
 
       <Card>
         <Form
-          onFinish={onFinish}
+          onFinish={(values) => onFinish(values, setLoading)}
           layout="vertical"
           initialValues={{
             exportFormat: 'CSV',
+            userId: '1',
           }}
         >
           <Form.Item
@@ -49,11 +73,11 @@ const ComplianceExportPage: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            label="时间范围"
-            name="dateRange"
-            rules={[{ required: true, message: '请选择时间范围' }]}
+            label="用户 ID"
+            name="userId"
+            rules={[{ required: true, message: '请输入用户 ID' }]}
           >
-            <Input placeholder="请选择时间范围" />
+            <Input placeholder="请输入用户 ID" />
           </Form.Item>
 
           <Form.Item
@@ -70,7 +94,7 @@ const ComplianceExportPage: React.FC = () => {
           <Form.Item>
             <Space>
               <Button onClick={() => navigate('/data-retention')}>取消</Button>
-              <Button type="primary" htmlType="submit" icon={<DownloadOutlined />}>
+              <Button type="primary" htmlType="submit" icon={<DownloadOutlined />} loading={loading}>
                 导出
               </Button>
             </Space>

@@ -1,4 +1,4 @@
-# 数据模型：PWA 静态资源
+# Data Model: 移动端 PWA
 
 ## manifest.webmanifest（静态）
 

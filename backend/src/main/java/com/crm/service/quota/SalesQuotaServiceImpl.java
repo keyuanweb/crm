@@ -10,6 +10,10 @@ import com.crm.dto.quota.SalesQuotaResponse;
 import com.crm.entity.SalesQuota;
 import com.crm.entity.SalesQuotaBreakdown;
 import com.crm.entity.SalesQuotaVersion;
+import com.crm.entity.Department;
+import com.crm.entity.User;
+import com.crm.repository.DepartmentMapper;
+import com.crm.repository.UserMapper;
 import com.crm.repository.quota.SalesQuotaAchievementRepository;
 import com.crm.repository.quota.SalesQuotaBreakdownRepository;
 import com.crm.repository.quota.SalesQuotaRepository;
@@ -39,6 +43,8 @@ public class SalesQuotaServiceImpl implements SalesQuotaService {
   private final SalesQuotaVersionRepository salesQuotaVersionRepository;
   private final SalesQuotaAchievementRepository salesQuotaAchievementRepository;
   private final AuditService auditService;
+  private final DepartmentMapper departmentMapper;
+  private final UserMapper userMapper;
 
   @Override
   @Transactional
@@ -258,7 +264,20 @@ public class SalesQuotaServiceImpl implements SalesQuotaService {
   private SalesQuotaResponse toResponse(SalesQuota quota) {
     SalesQuotaResponse response = new SalesQuotaResponse();
     BeanUtils.copyProperties(quota, response);
-    // TODO: Fetch teamName and userName from Department and User tables
+    // 关联查询团队名称
+    if (quota.getTeamId() != null) {
+      Department dept = departmentMapper.selectById(quota.getTeamId());
+      if (dept != null) {
+        response.setTeamName(dept.getName());
+      }
+    }
+    // 关联查询用户名称
+    if (quota.getUserId() != null) {
+      User user = userMapper.selectById(quota.getUserId());
+      if (user != null) {
+        response.setUserName(user.getUsername());
+      }
+    }
     return response;
   }
 }

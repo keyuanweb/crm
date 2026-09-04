@@ -1,4 +1,4 @@
-# 数据模型：实时通知
+# Data Model: 实时通知推送
 
 ## NotificationPushPayload（WebSocket 消息）
 

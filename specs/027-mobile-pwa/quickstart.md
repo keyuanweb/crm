@@ -1,4 +1,4 @@
-# 快速开始：移动端 PWA
+# Quickstart: 移动端 PWA
 
 ## 前端
 

@@ -180,16 +180,18 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
 
     try {
       // 复用 016 导出逻辑
-      String filePath =
-          exportExecutor.executeExport(
+      String[] result =
+          exportExecutor.executeExportWithRowCount(
               task.getEntityType(), task.getFilterConditions(), task.getExportFormat());
+      String filePath = result[0];
+      String rowCount = result[1];
       execution.setFilePath(filePath);
       try {
         execution.setFileSize(java.nio.file.Files.size(java.nio.file.Paths.get(filePath)));
       } catch (Exception ex) {
         execution.setFileSize(0L);
       }
-      execution.setRowCount(0); // TODO: 从 ExportExecutor 获取行数
+      execution.setRowCount(Integer.parseInt(rowCount));
       execution.setEmailStatus("EMAIL_SENT");
 
       // 发送邮件
