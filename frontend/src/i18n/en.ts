@@ -234,6 +234,7 @@ const en = {
         tabPayments: 'Payments ({{count}})',
         tabContracts: 'Contracts ({{count}})',
         tabTickets: 'Tickets ({{count}})',
+        tabOpportunities: 'Opportunities ({{count}})',
         emptyOrders: 'No orders',
         emptyPayments: 'No payment records',
         emptyContracts: 'No contracts',

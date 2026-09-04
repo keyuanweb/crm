@@ -234,6 +234,7 @@ const zhCN = {
         tabPayments: '回款（{{count}}）',
         tabContracts: '合同（{{count}}）',
         tabTickets: '工单（{{count}}）',
+        tabOpportunities: '商机（{{count}}）',
         emptyOrders: '暂无订单',
         emptyPayments: '暂无回款记录',
         emptyContracts: '暂无合同',
