@@ -58,9 +58,10 @@ docker-compose up -d
 # 查看服务状态
 docker-compose ps
 
-# 查看后端日志（等待 Flyway 初始化完成）
+# 查看后端日志（Flyway 自动建表，首次启动约需 10-30 秒）
 docker-compose logs -f crm-backend
 
+# 看到 "Started CrmApplication" 后即表示初始化完成
 # 访问前端 http://localhost
 # 访问后端 API http://localhost:8081
 # 访问 Swagger UI http://localhost:8081/swagger-ui.html
@@ -93,11 +94,13 @@ docker-compose down -v
 
 ### 1. 初始化数据库
 
+> ⚠️ **只需创建空数据库，无需手动导入 SQL 文件。** 项目使用 Flyway 自动迁移，后端启动时会自动创建全部表结构（V1~V75，共 75 个迁移脚本）。
+
 ```sql
--- 创建数据库
+-- 创建空数据库（字符集必须为 utf8mb4）
 CREATE DATABASE crm_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- 创建用户
+-- 创建用户并授权
 CREATE USER 'crm_user'@'localhost' IDENTIFIED BY 'crm123456';
 GRANT ALL PRIVILEGES ON crm_db.* TO 'crm_user'@'localhost';
 FLUSH PRIVILEGES;
@@ -214,6 +217,44 @@ docker build -t crm-backend:latest .
 
 # 或使用 docker-compose（已配置多阶段构建）
 docker-compose up -d --build
+```
+
+---
+
+## 数据库迁移说明
+
+本项目使用 **Flyway** 进行数据库版本管理，无需手动执行 SQL 文件。
+
+### 工作机制
+
+1. 后端启动时自动检测 `db/migration/` 目录下的迁移脚本
+2. 按版本号（V1、V2、V3...）顺序执行未应用的迁移
+3. 迁移记录存储在 `flyway_schema_history` 表中
+4. 首次启动会自动创建全部 **75 张表**并初始化管理员账号
+
+### 迁移脚本列表
+
+| 范围 | 说明 |
+|------|------|
+| V1~V10 | 用户、客户、商机、跟进、联系人基础表 |
+| V11~V20 | 销售目标、产品、报价、合同、订单、付款 |
+| V21~V30 | 任务、部门、数据权限、客户共享、工作流 |
+| V31~V40 | 营销活动、工单、知识库、SLA、自定义字段、导出任务 |
+| V41~V50 | 通知、健康评分、线索评分、报表模板、角色权限、标签细分 |
+| V51~V60 | 邮件营销、审批流、外勤拜访、在线表单、公告、发票、搜索索引 |
+| V61~V70 | SLA 日历、落地页、开放平台、字段权限、多币种、集成渠道、自定义对象、通话记录、邮件同步 |
+| V71~V75 | 销售配额、定时导出、数据保留、角色权限更新 |
+
+### 手动触发迁移
+
+如需重新执行迁移（⚠️ 会清空数据）：
+
+```bash
+# Docker 环境
+docker-compose down -v
+docker-compose up -d
+
+# 本地开发：删除 flyway_schema_history 表后重启后端
 ```
 
 ---
