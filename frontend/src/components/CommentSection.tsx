@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { App, Avatar, Button, Empty, Input, Popconfirm, Space, Timeline, Typography } from 'antd'
 import { CommentOutlined, DeleteOutlined, UserOutlined } from '@ant-design/icons'
 import { createComment, deleteComment, fetchComments } from '../services/commentService'
@@ -14,6 +15,7 @@ export default function CommentSection({
   entityType: string
   entityId: number
 }) {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const user = useAuthStore((s) => s.user)
   const [comments, setComments] = useState<Comment[]>([])
@@ -40,17 +42,17 @@ export default function CommentSection({
 
   const onSubmit = async () => {
     if (!content.trim()) {
-      message.warning('请输入评论内容')
+      message.warning(t('pages.commentSection.msgInputRequired'))
       return
     }
     setSubmitting(true)
     try {
       await createComment(entityType, entityId, content.trim())
       setContent('')
-      message.success('已发表')
+      message.success(t('pages.commentSection.msgPublished'))
       void load()
     } catch (err) {
-      message.error(extractErrorMessage(err, '发表失败'))
+      message.error(extractErrorMessage(err, t('pages.commentSection.msgPublishFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -59,10 +61,10 @@ export default function CommentSection({
   const onDelete = async (c: Comment) => {
     try {
       await deleteComment(c.id)
-      message.success('已删除')
+      message.success(t('pages.commentSection.msgDeleted'))
       void load()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.commentSection.msgDeleteFailed')))
     }
   }
 
@@ -72,9 +74,9 @@ export default function CommentSection({
     <div>
       <Space align="center" style={{ marginBottom: 12 }}>
         <CommentOutlined style={{ color: '#1677ff' }} />
-        <Typography.Text strong>评论协作</Typography.Text>
+        <Typography.Text strong>{t('pages.commentSection.title')}</Typography.Text>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          输入 @用户名 可提醒同事
+          {t('pages.commentSection.tipMention')}
         </Typography.Text>
       </Space>
 
@@ -82,16 +84,16 @@ export default function CommentSection({
         <Input
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="发表评论，@用户名 提醒同事…"
+          placeholder={t('pages.commentSection.placeholder')}
           onPressEnter={() => void onSubmit()}
         />
         <Button type="primary" loading={submitting} onClick={() => void onSubmit()}>
-          发表
+          {t('pages.commentSection.btnSubmit')}
         </Button>
       </Space.Compact>
 
       {comments.length === 0 && !loading ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无评论" style={{ padding: 12 }} />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.commentSection.empty')} style={{ padding: 12 }} />
       ) : (
         <Timeline
           items={comments.map((c) => ({
@@ -106,9 +108,9 @@ export default function CommentSection({
                     {c.createdAt ? c.createdAt.replace('T', ' ').slice(0, 16) : ''}
                   </Typography.Text>
                   {canDelete(c) && (
-                    <Popconfirm title="删除该评论？" onConfirm={() => void onDelete(c)}>
+                    <Popconfirm title={t('pages.commentSection.confirmDelete')} onConfirm={() => void onDelete(c)}>
                       <a style={{ fontSize: 12, color: '#ff4d4f' }}>
-                        <DeleteOutlined /> 删除
+                        <DeleteOutlined /> {t('pages.commentSection.btnDelete')}
                       </a>
                     </Popconfirm>
                   )}

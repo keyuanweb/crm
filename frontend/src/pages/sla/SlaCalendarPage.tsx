@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { App, Button, Card, Checkbox, DatePicker, Form, Space, Switch, TimePicker, Typography } from 'antd'
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { useTranslation } from 'react-i18next'
 import { fetchSlaCalendar, updateSlaCalendar } from '../../services/slaCalendarService'
 import { extractErrorMessage } from '../../services/apiClient'
 
@@ -12,6 +13,7 @@ interface SlotValue {
 
 /** SLA 日历配置页（054，仅 ADMIN）：工作时间/工作周/节假日。 */
 export default function SlaCalendarPage() {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(true)
@@ -34,9 +36,9 @@ export default function SlaCalendarPage() {
           form.setFieldsValue({ enabled: false, workDays: [1, 2, 3, 4, 5], workSlots: [{ start: dayjs('09:00', 'HH:mm'), end: dayjs('18:00', 'HH:mm') }] })
         }
       })
-      .catch((err) => message.error(extractErrorMessage(err, '加载失败')))
+      .catch((err) => message.error(extractErrorMessage(err, t('pages.slaCalendar.msgLoadFailed'))))
       .finally(() => setLoading(false))
-  }, [form, message])
+  }, [form, message, t])
 
   const onSave = async () => {
     const values = await form.validateFields()
@@ -53,34 +55,34 @@ export default function SlaCalendarPage() {
     setSaving(true)
     try {
       await updateSlaCalendar(payload)
-      message.success('已保存')
+      message.success(t('pages.slaCalendar.msgSaved'))
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.slaCalendar.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
   }
 
   const weekDays = [
-    { label: '周一', value: 1 },
-    { label: '周二', value: 2 },
-    { label: '周三', value: 3 },
-    { label: '周四', value: 4 },
-    { label: '周五', value: 5 },
-    { label: '周六', value: 6 },
-    { label: '周日', value: 7 },
+    { label: t('pages.slaCalendar.weekMon'), value: 1 },
+    { label: t('pages.slaCalendar.weekTue'), value: 2 },
+    { label: t('pages.slaCalendar.weekWed'), value: 3 },
+    { label: t('pages.slaCalendar.weekThu'), value: 4 },
+    { label: t('pages.slaCalendar.weekFri'), value: 5 },
+    { label: t('pages.slaCalendar.weekSat'), value: 6 },
+    { label: t('pages.slaCalendar.weekSun'), value: 7 },
   ]
 
   return (
-    <Card title="SLA 工作日历" style={{ borderRadius: 10 }} loading={loading}>
+    <Card title={t('pages.slaCalendar.title')} style={{ borderRadius: 10 }} loading={loading}>
       <Form form={form} layout="vertical" style={{ maxWidth: 560 }}>
-        <Form.Item name="enabled" label="启用工作日历" valuePropName="checked" initialValue={false}>
+        <Form.Item name="enabled" label={t('pages.slaCalendar.formEnabled')} valuePropName="checked" initialValue={false}>
           <Switch />
         </Form.Item>
         <Typography.Paragraph type="secondary">
-          启用后，新工单 SLA 到期时间按工作时间窗口计算（跳过非工作时间与节假日）；未启用回退全天 24h 计算。
+          {t('pages.slaCalendar.descEnabled')}
         </Typography.Paragraph>
-        <Form.Item name="workDays" label="工作周" initialValue={[1, 2, 3, 4, 5]}>
+        <Form.Item name="workDays" label={t('pages.slaCalendar.formWorkDays')} initialValue={[1, 2, 3, 4, 5]}>
           <Checkbox.Group options={weekDays} />
         </Form.Item>
         <Form.List name="workSlots" initialValue={[{ start: dayjs('09:00', 'HH:mm'), end: dayjs('18:00', 'HH:mm') }]}>
@@ -88,26 +90,26 @@ export default function SlaCalendarPage() {
             <>
               {fields.map((field) => (
                 <Space key={field.key} align="baseline">
-                  <Form.Item name={[field.name, 'start']} label="开始">
+                  <Form.Item name={[field.name, 'start']} label={t('pages.slaCalendar.formSlotStart')}>
                     <TimePicker format="HH:mm" />
                   </Form.Item>
-                  <Form.Item name={[field.name, 'end']} label="结束">
+                  <Form.Item name={[field.name, 'end']} label={t('pages.slaCalendar.formSlotEnd')}>
                     <TimePicker format="HH:mm" />
                   </Form.Item>
                   <MinusCircleOutlined onClick={() => remove(field.name)} />
                 </Space>
               ))}
               <Button type="dashed" onClick={() => add({ start: dayjs('09:00', 'HH:mm'), end: dayjs('18:00', 'HH:mm') })} icon={<PlusOutlined />} block>
-                添加工作时间段
+                {t('pages.slaCalendar.btnAddSlot')}
               </Button>
             </>
           )}
         </Form.List>
-        <Form.Item name="holidays" label="节假日">
+        <Form.Item name="holidays" label={t('pages.slaCalendar.formHolidays')}>
           <DatePicker multiple maxTagCount={8} />
         </Form.Item>
         <Button type="primary" loading={saving} onClick={() => void onSave()}>
-          保存
+          {t('common.button.save')}
         </Button>
       </Form>
     </Card>

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Form, Modal, Popconfirm, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -22,6 +23,7 @@ const ROLE_OPTIONS = ['ADMIN', 'SALES', 'SUPPORT', 'SERVICE'].map((r) => ({ valu
 
 /** 字段权限配置页（056，仅 ADMIN）。 */
 export default function FieldPermissionPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -38,11 +40,11 @@ export default function FieldPermissionPage() {
   }
 
   const columns: ProColumns<FieldPermission>[] = [
-    { title: '角色', dataIndex: 'roleCode', valueType: 'select', valueEnum: Object.fromEntries(ROLE_OPTIONS.map((r) => [r, { text: r }])) },
-    { title: '实体', dataIndex: 'entityType', render: (_, row) => FIELD_ENTITY_LABELS[row.entityType] ?? row.entityType },
-    { title: '字段', dataIndex: 'fieldId', search: false },
+    { title: t('pages.fieldPermission.colRole'), dataIndex: 'roleCode', valueType: 'select', valueEnum: Object.fromEntries(ROLE_OPTIONS.map((r) => [r, { text: r }])) },
+    { title: t('pages.fieldPermission.colEntity'), dataIndex: 'entityType', render: (_, row) => FIELD_ENTITY_LABELS[row.entityType] ?? row.entityType },
+    { title: t('pages.fieldPermission.colField'), dataIndex: 'fieldId', search: false },
     {
-      title: '权限',
+      title: t('pages.fieldPermission.colPermission'),
       dataIndex: 'permission',
       search: false,
       render: (_, row) => {
@@ -51,11 +53,11 @@ export default function FieldPermissionPage() {
       },
     },
     {
-      title: '操作',
+      title: t('pages.fieldPermission.colAction'),
       valueType: 'option',
       render: (_, row) => [
-        <Popconfirm key="del" title="删除该权限配置？" onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm key="del" title={t('pages.fieldPermission.confirmDelete')} onConfirm={() => void onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.fieldPermission.btnDelete')}</a>
         </Popconfirm>,
       ],
     },
@@ -64,10 +66,10 @@ export default function FieldPermissionPage() {
   const onDelete = async (row: FieldPermission) => {
     try {
       await deleteFieldPermission(row.id)
-      message.success('已删除')
+      message.success(t('pages.fieldPermission.msgDeleted'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.fieldPermission.msgDeleteFailed')))
     }
   }
 
@@ -75,18 +77,18 @@ export default function FieldPermissionPage() {
     const values = await form.validateFields()
     try {
       await upsertFieldPermission(values)
-      message.success('已保存')
+      message.success(t('pages.fieldPermission.msgSaved'))
       setModalOpen(false)
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.fieldPermission.msgSaveFailed')))
     }
   }
 
   return (
     <>
       <ProTable<FieldPermission>
-        headerTitle="字段级读写权限"
+        headerTitle={t('pages.fieldPermission.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -106,26 +108,26 @@ export default function FieldPermissionPage() {
               setModalOpen(true)
             }}
           >
-            新建权限
+            {t('pages.fieldPermission.btnAdd')}
           </Button>,
         ]}
       />
-      <Modal title="新建字段权限" open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText="保存" destroyOnClose>
+      <Modal title={t('pages.fieldPermission.modalTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.fieldPermission.btnSave')} destroyOnClose>
         <Form form={form} layout="vertical">
-          <Form.Item name="roleCode" label="角色" rules={[{ required: true, message: '请选择角色' }]}>
-            <Select options={ROLE_OPTIONS} placeholder="选择角色" />
+          <Form.Item name="roleCode" label={t('pages.fieldPermission.formRoleLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formRoleRequired') }]}>
+            <Select options={ROLE_OPTIONS} placeholder={t('pages.fieldPermission.formRolePlaceholder')} />
           </Form.Item>
-          <Form.Item name="entityType" label="实体" rules={[{ required: true, message: '请选择实体' }]}>
+          <Form.Item name="entityType" label={t('pages.fieldPermission.formEntityLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formEntityRequired') }]}>
             <Select
               options={Object.entries(FIELD_ENTITY_LABELS).map(([value, label]) => ({ value, label }))}
               onChange={(v: string) => void loadFields(v)}
-              placeholder="选择实体类型"
+              placeholder={t('pages.fieldPermission.formEntityPlaceholder')}
             />
           </Form.Item>
-          <Form.Item name="fieldId" label="字段" rules={[{ required: true, message: '请选择字段' }]}>
-            <Select options={fieldOptions} placeholder="选择自定义字段" />
+          <Form.Item name="fieldId" label={t('pages.fieldPermission.formFieldLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formFieldRequired') }]}>
+            <Select options={fieldOptions} placeholder={t('pages.fieldPermission.formFieldPlaceholder')} />
           </Form.Item>
-          <Form.Item name="permission" label="权限" rules={[{ required: true, message: '请选择权限' }]} initialValue="READ_ONLY">
+          <Form.Item name="permission" label={t('pages.fieldPermission.formPermissionLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formPermissionRequired') }]} initialValue="READ_ONLY">
             <Select
               options={Object.entries(FIELD_PERMISSION_LABELS).map(([value, label]) => ({ value, label }))}
             />

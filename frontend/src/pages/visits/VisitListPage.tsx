@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -236,6 +236,8 @@ export default function VisitListPage() {
           </div>
         </Col>
       </Row>
+
+      <div style={{ height: 16 }} />
 
       <ProTable<FieldVisit>
         size="small"

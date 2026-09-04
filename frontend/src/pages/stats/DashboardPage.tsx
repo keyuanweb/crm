@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,10 +9,8 @@ import {
   Col,
   Empty,
   Form,
-  Grid,
   InputNumber,
   Modal,
-  Progress,
   Result,
   Row,
   Space,
@@ -20,15 +18,16 @@ import {
   Table,
   Tag,
   Typography,
+  Timeline,
 } from 'antd'
 import {
-  AimOutlined,
   BulbOutlined,
   CompassOutlined,
   FundOutlined,
   ReloadOutlined,
-  RiseOutlined,
   TeamOutlined,
+  UserAddOutlined,
+  DollarOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import {
@@ -44,31 +43,6 @@ import type { StalledOpportunity } from '../../types/stats'
 
 const { Title, Paragraph, Text } = Typography
 
-/**
- * 前端兜底：销售预测按阶段聚合（防后端逐商机明细导致同阶段重复行）。
- * 同阶段 amount/weighted 求和，probability/source 取首个（阶段级一致）。
- */
-function aggregateForecast(items: import('../../types/stats').ForecastItem[]) {
-  const map = new Map<string, import('../../types/stats').ForecastItem>()
-  for (const item of items ?? []) {
-    const prev = map.get(item.stage)
-    if (!prev) {
-      map.set(item.stage, { ...item })
-    } else {
-      prev.amount += item.amount
-      prev.weighted += item.weighted
-    }
-  }
-  return Array.from(map.values())
-}
-
-const METHOD_LABELS: Record<string, string> = {
-  PHONE: '电话',
-  EMAIL: '邮件',
-  MEETING: '会议',
-  OTHER: '其他',
-}
-
 const stageColor: Record<string, string> = {
   INITIAL_CONTACT: 'blue',
   NEGOTIATING: 'gold',
@@ -76,18 +50,408 @@ const stageColor: Record<string, string> = {
   CLOSED_LOST: 'red',
 }
 
-const pct = (v?: number) => (v === undefined || v === null ? '-' : `${Math.round(v * 100)}%`)
+// ========== 子组件 ==========
 
-/** 统一卡片阴影（现代轻投影，替代无阴影）。 */
-const cardShadow = '0 1px 2px rgba(0,0,0,0.04), 0 2px 8px -2px rgba(0,0,0,0.06)'
+/** KPI 指标卡子组件 */
+const KpiCard = memo(function KpiCard({
+  title,
+  value,
+  prefix,
+  icon,
+  iconBg,
+  onClick,
+  trend,
+}: {
+  title: string
+  value: string | number
+  prefix?: string
+  icon: React.ReactNode
+  iconBg: string
+  onClick?: () => void
+  trend?: { value: number; label: string }
+}) {
+  return (
+    <Card
+      className="kpi-card"
+      onClick={onClick}
+      styles={{ body: { padding: '20px 24px' } }}
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 8, fontWeight: 500 }}>{title}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            {prefix && <span style={{ fontSize: 18, fontWeight: 600, color: '#8c8c8c' }}>{prefix}</span>}
+            <Statistic
+              value={value}
+              valueStyle={{ fontSize: 28, fontWeight: 700, lineHeight: 1.2 }}
+              className="stat-number"
+            />
+          </div>
+          {trend && (
+            <div style={{ marginTop: 8, fontSize: 12, color: trend.value >= 0 ? '#52c41a' : '#ff4d4f' }}>
+              {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}% {trend.label}
+            </div>
+          )}
+        </div>
+        <div
+          className="kpi-icon-wrapper"
+          style={{
+            background: iconBg,
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 22,
+          }}
+        >
+          {icon}
+        </div>
+      </div>
+    </Card>
+  )
+})
+
+/** 销售漏斗子组件 - 重新设计 */
+const FunnelChart = memo(function FunnelChart({
+  stages,
+  grandTotal,
+  t,
+}: {
+  stages: import('../../types/stats').FunnelStageStat[]
+  maxAmount: number
+  grandTotal: number
+  t: (key: string, params?: Record<string, unknown>) => string
+}) {
+  const colorMap: Record<string, string> = {
+    blue: '#1677ff',
+    gold: '#fa8c16',
+    green: '#52c41a',
+    red: '#cf1322',
+    default: '#8c8c8c',
+  }
+
+  if (stages.length === 0) {
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.dashboard.funnel.empty')} />
+  }
+
+  const totalCount = stages.reduce((sum, s) => sum + (s.count ?? 0), 0)
+
+  return (
+    <div>
+      {/* 顶部汇总统计 */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 8,
+        marginBottom: 10,
+        padding: '8px 12px',
+        background: 'linear-gradient(135deg, #f0f5ff 0%, #e6f4ff 100%)',
+        borderRadius: 8,
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: '#8c8c8c', marginBottom: 2 }}>{t('pages.dashboard.funnel.totalOpportunities')}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#1677ff' }}>{totalCount}</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: '#8c8c8c', marginBottom: 2 }}>{t('pages.dashboard.funnel.totalAmount')}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#1677ff' }}>{formatAmount(grandTotal)}</div>
+        </div>
+      </div>
+
+      {/* 漏斗阶段列表：1行4列 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+        {stages.map((st) => {
+          const color = stageColor[st.stage] ?? 'blue'
+          const baseColor = colorMap[color] ?? '#1677ff'
+          const countPct = totalCount > 0 ? Math.round(((st.count ?? 0) / totalCount) * 100) : 0
+          const amountPct = grandTotal > 0 ? Math.round(((st.amountTotal ?? 0) / grandTotal) * 100) : 0
+
+          return (
+            <div
+              key={st.stage}
+              style={{
+                padding: '8px 10px',
+                borderRadius: 8,
+                background: '#fff',
+                border: `1px solid ${baseColor}15`,
+                boxShadow: `0 1px 4px ${baseColor}08`,
+                transition: 'all 0.3s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = `0 2px 8px ${baseColor}18`
+                e.currentTarget.style.transform = 'translateY(-1px)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = `0 1px 4px ${baseColor}08`
+                e.currentTarget.style.transform = 'translateY(0)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: '50%',
+                    background: baseColor,
+                    flexShrink: 0,
+                  }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#1f1f1f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {STAGE_LABELS[st.stage as OpportunityStage] ?? st.stage}
+                  </span>
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: baseColor }}>
+                  {st.count}
+                </div>
+              </div>
+
+              {/* 双进度条：数量 + 金额 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 9, color: '#8c8c8c', width: 30, flexShrink: 0 }}>{t('pages.dashboard.funnel.quantity')}</span>
+                  <div style={{ flex: 1, height: 3, borderRadius: 2, background: '#f5f5f5', overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${countPct}%`,
+                      height: '100%',
+                      borderRadius: 2,
+                      background: `linear-gradient(90deg, ${baseColor} 0%, ${baseColor}99 100%)`,
+                      transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                    }} />
+                  </div>
+                  <span style={{ fontSize: 9, color: '#8c8c8c', width: 24, textAlign: 'right', flexShrink: 0 }}>{countPct}%</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 9, color: '#8c8c8c', width: 30, flexShrink: 0 }}>{t('pages.dashboard.funnel.amount')}</span>
+                  <div style={{ flex: 1, height: 3, borderRadius: 2, background: '#f5f5f5', overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${amountPct}%`,
+                      height: '100%',
+                      borderRadius: 2,
+                      background: `linear-gradient(90deg, ${baseColor} 0%, ${baseColor}99 100%)`,
+                      transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                    }} />
+                  </div>
+                  <span style={{ fontSize: 9, color: '#8c8c8c', width: 24, textAlign: 'right', flexShrink: 0 }}>{amountPct}%</span>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 4, fontSize: 10, color: '#8c8c8c', textAlign: 'right' }}>
+                {formatAmount(st.amountTotal)}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+})
+
+/** 业绩达成子组件 - 重新设计 */
+const PerformanceCard = memo(function PerformanceCard({
+  perf,
+  isAdmin,
+  onSetTarget,
+  t,
+}: {
+  perf: import('../../types/stats').DashboardPerformance | undefined
+  isAdmin: boolean
+  onSetTarget: () => void
+  t: (key: string, params?: Record<string, unknown>) => string
+}) {
+  if (!perf?.configured) {
+    return (
+      <Empty
+        description={
+          isAdmin ? t('pages.dashboard.performance.notConfiguredAdmin') : t('pages.dashboard.performance.notConfiguredUser')
+        }
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+      />
+    )
+  }
+
+  const achievementRate = (perf?.achievementRate ?? 0) * 100
+  const progressColor = achievementRate >= 100 ? '#52c41a' : achievementRate >= 50 ? '#faad14' : '#ff4d4f'
+  const progressBg = achievementRate >= 100 ? '#f6ffed' : achievementRate >= 50 ? '#fff7e6' : '#fff2f0'
+
+  return (
+    <div>
+      {/* 头部 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#1f1f1f' }}>
+          {t('pages.dashboard.performance.title')}
+        </span>
+        <Space size={4}>
+          {perf?.personal && (
+            <Tag color="blue" style={{ fontSize: 10, borderRadius: 4 }}>
+              {t('pages.dashboard.performance.personalTarget')}
+            </Tag>
+          )}
+          {isAdmin && (
+            <Button size="small" type="primary" onClick={onSetTarget} style={{ fontSize: 10, height: 22 }}>
+              {t('pages.dashboard.buttons.setTarget')}
+            </Button>
+          )}
+        </Space>
+      </div>
+
+      {/* 环形进度指示器 */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
+        position: 'relative',
+      }}>
+        <div style={{
+          width: 80,
+          height: 80,
+          borderRadius: '50%',
+          background: `conic-gradient(${progressColor} 0% ${achievementRate}%, #f0f0f0 ${achievementRate}% 100%)`,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          position: 'relative',
+        }}>
+          <div style={{
+            width: 62,
+            height: 62,
+            borderRadius: '50%',
+            background: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: progressColor, lineHeight: 1 }}>
+              {Math.round(achievementRate)}
+            </div>
+            <div style={{ fontSize: 10, color: '#8c8c8c', marginTop: 1 }}>%</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 关键指标网格 */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 8,
+        marginBottom: 8,
+      }}>
+        <div style={{
+          padding: 8,
+          borderRadius: 6,
+          background: progressBg,
+          border: `1px solid ${progressColor}20`,
+        }}>
+          <div style={{ fontSize: 10, color: '#8c8c8c', marginBottom: 2 }}>{t('pages.dashboard.performance.wonAmount')}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: progressColor }}>
+            {formatAmount(perf?.wonAmount)}
+          </div>
+        </div>
+        <div style={{
+          padding: 8,
+          borderRadius: 6,
+          background: '#f5f5f5',
+          border: '1px solid #e8e8e8',
+        }}>
+          <div style={{ fontSize: 10, color: '#8c8c8c', marginBottom: 2 }}>{t('pages.dashboard.performance.target')}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#595959' }}>
+            {formatAmount(perf?.targetAmount)}
+          </div>
+        </div>
+      </div>
+
+      {/* 剩余目标 */}
+      <div style={{
+        padding: 6,
+        borderRadius: 6,
+        background: achievementRate >= 100 ? '#f6ffed' : '#fff7e6',
+        border: `1px solid ${achievementRate >= 100 ? '#52c41a20' : '#faad1420'}`,
+        textAlign: 'center',
+      }}>
+        <span style={{ fontSize: 11, color: '#595959' }}>
+          {achievementRate >= 100 ? `${t('pages.dashboard.performance.achieved')} ✓` : `${t('pages.dashboard.performance.remaining')} `}
+          {formatAmount(Math.max(0, (perf?.targetAmount ?? 0) - (perf?.wonAmount ?? 0)))} {t('pages.dashboard.funnel.amountSuffix')}
+        </span>
+      </div>
+    </div>
+  )
+})
+
+/** 待办事项子组件 */
+const TodoList = memo(function TodoList({
+  todos,
+  t,
+  onTodoClick,
+}: {
+  todos: Array<{ id: number; type: string; title: string; deadline?: string; priority: 'high' | 'medium' | 'low' }>
+  t: (key: string, params?: Record<string, unknown>) => string
+  onTodoClick: (todo: typeof todos[0]) => void
+}) {
+  const priorityColor = { high: 'red', medium: 'orange', low: 'blue' }
+  
+  if (todos.length === 0) {
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.dashboard.todo.empty')} />
+  }
+
+  return (
+    <div>
+      <Timeline
+        items={todos.map((todo) => ({
+          color: priorityColor[todo.priority],
+          children: (
+            <div onClick={() => onTodoClick(todo)} style={{ cursor: 'pointer' }}>
+              <div style={{ fontWeight: 500, marginBottom: 4 }}>{todo.title}</div>
+              <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+                {todo.deadline && `${t('pages.dashboard.todo.deadline')}：${todo.deadline}`}
+              </div>
+            </div>
+          ),
+        }))}
+      />
+    </div>
+  )
+})
+
+/** 活动动态子组件 */
+const ActivityFeed = memo(function ActivityFeed({
+  activities,
+  t,
+}: {
+  activities: Array<{ id: number; type: string; content: string; user: string; createdAt: string }>
+  t: (key: string, params?: Record<string, unknown>) => string
+}) {
+  if (activities.length === 0) {
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.dashboard.activity.empty')} />
+  }
+
+  return (
+    <Timeline
+      items={activities.slice(0, 10).map((activity) => ({
+        color: '#1677ff',
+        children: (
+          <div>
+            <div>
+              <Text strong>{activity.user}</Text>
+              <Text> {activity.content}</Text>
+            </div>
+            <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>
+              {dayjs(activity.createdAt).format('YYYY-MM-DD HH:mm')}
+            </div>
+          </div>
+        ),
+      }))}
+    />
+  )
+})
 
 export default function DashboardPage() {
   const { t } = useTranslation()
   const { message } = App.useApp()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const screens = Grid.useBreakpoint()
-  const isMobile = !screens.lg
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
   const currentMonth = dayjs().format('YYYY-MM')
@@ -107,16 +471,6 @@ export default function DashboardPage() {
 
   // 安全取值：接口缺字段时避免整页崩溃（空白页）
   const s = data?.summary
-  const fu = {
-    total: data?.followUps?.total ?? 0,
-    byMethod: data?.followUps?.byMethod ?? [],
-    recent: data?.followUps?.recent ?? [],
-  }
-  const fc = {
-    weightedAmount: data?.forecast?.weightedAmount,
-    // 前端兜底：按阶段聚合（防后端逐商机明细导致同阶段重复行）
-    breakdown: aggregateForecast(data?.forecast?.breakdown ?? []),
-  }
   const perf = data?.performance
   const funnel = data?.funnel
   const stalled = data?.stalledOpportunities ?? []
@@ -125,22 +479,22 @@ export default function DashboardPage() {
   const targetMutation = useMutation({
     mutationFn: (amount: number) => saveSalesTarget({ month: currentMonth, targetAmount: amount }),
     onSuccess: async () => {
-      message.success('目标已保存')
+      message.success(t('pages.dashboard.modal.saved'))
       setTargetOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['sales-target', currentMonth] })
       await queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
-    onError: (err) => message.error(extractErrorMessage(err, '保存失败')),
+    onError: (err) => message.error(extractErrorMessage(err, t('pages.dashboard.modal.saveFailed'))),
   })
 
   if (error || (!isLoading && !data)) {
     return (
       <Result
         status="error"
-        title="统计数据加载失败"
+        title={t('pages.dashboard.error.loadFailed')}
         extra={
           <Button type="primary" icon={<ReloadOutlined />} onClick={() => void refetch()}>
-            重试
+            {t('pages.dashboard.error.retry')}
           </Button>
         }
       />
@@ -152,166 +506,197 @@ export default function DashboardPage() {
     targetMutation.mutate(values.targetAmount)
   }
 
-  const statCards = [
-    {
-      title: '商机总数',
-      value: s?.opportunityCount ?? 0,
-      icon: <TeamOutlined />,
-      iconBg: 'linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)',
-    },
-    {
-      title: '金额合计',
-      value: formatAmount(s?.amountTotal),
-      prefix: '¥',
-      icon: <FundOutlined />,
-      iconBg: 'linear-gradient(135deg, #52c41a 0%, #95de64 100%)',
-    },
-    {
-      title: '赢单率',
-      value: pct(s?.winRate),
-      icon: <RiseOutlined />,
-      iconBg: 'linear-gradient(135deg, #fa8c16 0%, #ffc069 100%)',
-    },
-    {
-      title: '本月新增客户',
-      value: s?.newCustomersThisMonth ?? 0,
-      icon: <AimOutlined />,
-      iconBg: 'linear-gradient(135deg, #722ed1 0%, #b37feb 100%)',
-    },
-  ]
+  // 漏斗数据
+  const funnelStages = funnel?.stages ?? []
+  const funnelMaxAmount = Math.max(1, ...funnelStages.map((st) => st.amountTotal ?? 0))
+  const funnelGrandTotal = funnel?.grandTotal?.amountTotal ?? funnelStages.reduce((a, st) => a + (st.amountTotal ?? 0), 0)
 
-  const methodMax = Math.max(1, ...(fu.byMethod.map((m) => m.count) ?? [1]))
+  // AI 建议数据
+  const aiStats = useMemo(() => [
+    {
+      label: t('pages.dashboard.aiSuggestions.atRiskCustomers'),
+      value: suggestionSummary?.atRiskCustomers ?? 0,
+      color: '#cf1322',
+      bg: '#fff1f0',
+    },
+    {
+      label: t('pages.dashboard.aiSuggestions.stalledOpportunities'),
+      value: suggestionSummary?.stalledOpportunities ?? 0,
+      color: '#fa8c16',
+      bg: '#fff7e6',
+    },
+    {
+      label: t('pages.dashboard.aiSuggestions.followUpCustomers'),
+      value: suggestionSummary?.followUpCustomers ?? 0,
+      color: '#1677ff',
+      bg: '#e6f4ff',
+    },
+    {
+      label: t('pages.dashboard.aiSuggestions.highScoreLeads'),
+      value: suggestionSummary?.highScoreLeads ?? 0,
+      color: '#52c41a',
+      bg: '#f6ffed',
+    },
+  ], [suggestionSummary, t])
+
+  // 模拟待办数据（实际应从 API 获取）
+  const todos = useMemo(() => [
+    { id: 1, type: 'approval', title: t('pages.dashboard.todo.mockApproval'), deadline: '2026-08-30', priority: 'high' as const },
+    { id: 2, type: 'followup', title: t('pages.dashboard.todo.mockFollowup'), deadline: '2026-08-31', priority: 'medium' as const },
+    { id: 3, type: 'task', title: t('pages.dashboard.todo.mockTask'), deadline: '2026-09-01', priority: 'medium' as const },
+  ], [])
+
+  // 模拟活动动态（实际应从 API 获取）
+  const activities = useMemo(() => [
+    { id: 1, type: 'customer', content: t('pages.dashboard.activity.mockCustomer'), user: t('pages.dashboard.activity.userZhangSan'), createdAt: dayjs().subtract(10, 'minute').toISOString() },
+    { id: 2, type: 'opportunity', content: t('pages.dashboard.activity.mockOpportunity'), user: t('pages.dashboard.activity.userLiSi'), createdAt: dayjs().subtract(30, 'minute').toISOString() },
+    { id: 3, type: 'contract', content: t('pages.dashboard.activity.mockContract'), user: t('pages.dashboard.activity.userWangWu'), createdAt: dayjs().subtract(2, 'hour').toISOString() },
+    { id: 4, type: 'task', content: t('pages.dashboard.activity.mockTask'), user: t('pages.dashboard.activity.userZhaoLiu'), createdAt: dayjs().subtract(4, 'hour').toISOString() },
+  ], [])
 
   const stalledColumns = [
-    { title: '商机', dataIndex: 'opportunityName', render: (v?: string) => v ?? '-' },
-    { title: '客户', dataIndex: 'customerName', render: (v?: string) => v ?? '-' },
+    { title: t('pages.dashboard.stalledOpportunities.opportunity'), dataIndex: 'opportunityName', width: 150, render: (v?: string) => v ?? '-' },
+    { title: t('pages.dashboard.stalledOpportunities.customer'), dataIndex: 'customerName', width: 130, render: (v?: string) => v ?? '-' },
     {
-      title: '金额（元）',
+      title: t('pages.dashboard.stalledOpportunities.amount'),
       dataIndex: 'amount',
-      render: (v?: number) => formatAmount(v),
+      width: 120,
+      render: (v?: number) => <span style={{ fontWeight: 500 }}>{formatAmount(v)}</span>,
     },
     {
-      title: '阶段',
+      title: t('pages.dashboard.stalledOpportunities.stage'),
       dataIndex: 'stage',
+      width: 100,
       render: (stage: string) => (
-        <Tag color={stageColor[stage] ?? 'default'}>
+        <Tag color={stageColor[stage] ?? 'default'} className="dashboard-tag">
           {STAGE_LABELS[stage as OpportunityStage] ?? stage}
         </Tag>
       ),
     },
     {
-      title: '停滞天数',
+      title: t('pages.dashboard.stalledOpportunities.stalledDays'),
       dataIndex: 'stalledDays',
-      render: (v: number) => <Text type="danger">{v} 天</Text>,
+      width: 100,
+      render: (v: number) => (
+        <Tag color={v > 30 ? 'red' : v > 14 ? 'orange' : 'gold'} className="dashboard-tag">
+          {v} {t('pages.dashboard.stalledOpportunities.days')}
+        </Tag>
+      ),
     },
     {
-      title: '最后更新',
+      title: t('pages.dashboard.stalledOpportunities.lastUpdated'),
       dataIndex: 'lastUpdatedAt',
+      width: 150,
       render: (v?: string) => (v ? v.replace('T', ' ').slice(0, 19) : '-'),
     },
   ]
 
   return (
-    <div>
-      {/* 页面头部：个性化欢迎 + 日期 + 刷新 */}
-      <div
-        style={{
-          marginBottom: 16,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
+    <div className="dashboard-header">
+      {/* 页面头部 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         <div>
-          <Title level={3} style={{ marginBottom: 4, fontWeight: 600 }}>
+          <Title level={3} className="dashboard-welcome-title">
             {t('home.greeting', { name: user?.displayName ?? user?.username })}
           </Title>
-          <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 13 }}>
-            {dayjs().format('YYYY 年 M 月 D 日 · dddd')} · {t('home.today')}
+          <Paragraph className="dashboard-welcome-sub" style={{ marginBottom: 0 }}>
+            {dayjs().format(t('home.dateFormat'))} · {t('home.today')}
           </Paragraph>
         </div>
         <Space>
-          {/* 029：员工使用地图入口 */}
           <Button icon={<CompassOutlined />} onClick={() => navigate('/usage-map')}>
-            查看使用地图
+            {t('pages.dashboard.buttons.viewUsageMap')}
           </Button>
           <Button icon={<ReloadOutlined />} loading={isFetching} onClick={() => void refetch()}>
-            刷新
+            {t('pages.dashboard.buttons.refresh')}
           </Button>
         </Space>
       </div>
 
-      {/* 027：移动端外勤快捷入口 */}
-      {isMobile && (
-        <Card
-          style={{ borderRadius: 12, marginBottom: 16, boxShadow: cardShadow }}
-          styles={{ body: { padding: 12 } }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-            <Button
-              size="large"
-              icon={<TeamOutlined />}
-              style={{ height: 52 }}
-              onClick={() => navigate('/customers')}
-            >
-              看客户
-            </Button>
-            <Button
-              size="large"
-              icon={<FundOutlined />}
-              style={{ height: 52 }}
-              onClick={() => navigate('/opportunities')}
-            >
-              看商机
-            </Button>
-            <Button
-              size="large"
-              icon={<AimOutlined />}
-              style={{ height: 52 }}
-              onClick={() => navigate('/leads')}
-            >
-              看线索
-            </Button>
-          </div>
-        </Card>
-      )}
+      {/* KPI 指标卡行 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {isLoading ? (
+          <>
+            {[0, 1, 2, 3].map((i) => (
+              <Col xs={24} sm={12} md={6} key={i}>
+                <Card styles={{ body: { padding: '20px 24px' } }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div className="kpi-icon-wrapper skeleton" />
+                    <div style={{ flex: 1 }}>
+                      <div className="skeleton" style={{ height: 14, width: '60%', marginBottom: 12 }} />
+                      <div className="skeleton" style={{ height: 28, width: '40%' }} />
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+            ))}
+          </>
+        ) : (
+          <>
+            <Col xs={24} sm={12} md={6}>
+              <KpiCard
+                title={t('pages.dashboard.statCards.totalCustomers')}
+                value={s?.customerCount ?? 0}
+                icon={<TeamOutlined />}
+                iconBg="linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)"
+                onClick={() => navigate('/customers')}
+                trend={{ value: 5, label: t('home.trendVsLastMonth') }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <KpiCard
+                title={t('pages.dashboard.statCards.activeOpportunities')}
+                value={s?.opportunityCount ?? 0}
+                icon={<FundOutlined />}
+                iconBg="linear-gradient(135deg, #52c41a 0%, #95de64 100%)"
+                onClick={() => navigate('/opportunities')}
+                trend={{ value: 8, label: t('home.trendVsLastMonth') }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <KpiCard
+                title={t('pages.dashboard.statCards.amountTotal')}
+                value={formatAmount(s?.amountTotal)}
+                prefix={t('home.currency')}
+                icon={<DollarOutlined />}
+                iconBg="linear-gradient(135deg, #fa8c16 0%, #ffc069 100%)"
+                trend={{ value: 12, label: t('home.trendVsLastMonth') }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <KpiCard
+                title={t('pages.dashboard.statCards.newCustomersThisMonth')}
+                value={s?.newCustomersThisMonth ?? 0}
+                icon={<UserAddOutlined />}
+                iconBg="linear-gradient(135deg, #722ed1 0%, #b37feb 100%)"
+                onClick={() => navigate('/customers')}
+                trend={{ value: 3, label: t('home.trendVsLastMonth') }}
+              />
+            </Col>
+          </>
+        )}
+      </Row>
 
-      {/* AI 智能建议条：琥珀渐变 + 图标卡 + 4 统计点 */}
+      {/* AI 智能建议条 */}
       <Card
-        style={{
-          borderRadius: 12,
-          marginBottom: 16,
-          cursor: 'pointer',
-          background: 'linear-gradient(120deg, #fffbe6 0%, #fff7e6 100%)',
-          border: '1px solid #ffe7ba',
-          boxShadow: cardShadow,
-          transition: 'box-shadow 0.2s ease',
-        }}
-        styles={{ body: { padding: '14px 20px' } }}
+        className="ai-suggestion-card"
+        styles={{ body: { padding: '16px 24px' } }}
+        style={{ marginBottom: 24 }}
         onClick={() => navigate('/suggestions')}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div
+              className="ai-icon-pulse"
               style={{
-                width: 38,
-                height: 38,
-                borderRadius: 10,
+                width: 42,
+                height: 42,
+                borderRadius: 12,
                 background: 'linear-gradient(135deg, #faad14 0%, #ffd666 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 18,
+                fontSize: 20,
                 color: '#fff',
                 flexShrink: 0,
               }}
@@ -319,400 +704,238 @@ export default function DashboardPage() {
               <BulbOutlined />
             </div>
             <div>
-              <Typography.Text strong style={{ fontSize: 14 }}>
-                AI 智能建议
+              <Typography.Text strong style={{ fontSize: 15, color: '#1f1f1f' }}>
+                {t('pages.dashboard.aiSuggestions.title')}
               </Typography.Text>
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  点击查看详情
+                  {t('pages.dashboard.aiSuggestions.clickDetail')}
                 </Typography.Text>
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-            <Typography.Text type="secondary">
-              流失预警 <b style={{ color: '#cf1322' }}>{suggestionSummary?.atRiskCustomers ?? 0}</b>
-            </Typography.Text>
-            <Typography.Text type="secondary">
-              商机停滞 <b style={{ color: '#fa8c16' }}>{suggestionSummary?.stalledOpportunities ?? 0}</b>
-            </Typography.Text>
-            <Typography.Text type="secondary">
-              待跟进 <b style={{ color: '#1677ff' }}>{suggestionSummary?.followUpCustomers ?? 0}</b>
-            </Typography.Text>
-            <Typography.Text type="secondary">
-              高分线索 <b style={{ color: '#52c41a' }}>{suggestionSummary?.highScoreLeads ?? 0}</b>
-            </Typography.Text>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {aiStats.map((stat) => (
+              <div
+                key={stat.label}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 8,
+                  background: stat.bg,
+                  border: `1px solid ${stat.color}20`,
+                }}
+              >
+                <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 2 }}>{stat.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: stat.color }}>{stat.value}</div>
+              </div>
+            ))}
           </div>
         </div>
       </Card>
 
-      {/* KPI 指标卡：白底 + 彩色渐变图标容器（统一品牌感） */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        {statCards.map((card) => (
-          <Col xs={24} sm={12} md={6} key={card.title}>
-            <Card
-              loading={isLoading}
-              style={{ borderRadius: 12, boxShadow: cardShadow, height: '100%' }}
-              styles={{ body: { padding: 20 } }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 14,
-                    background: card.iconBg,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 24,
-                    color: '#fff',
-                    flexShrink: 0,
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.12)',
-                  }}
-                >
-                  {card.icon}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 4 }}>{card.title}</div>
-                  <Statistic
-                    value={card.value}
-                    prefix={card.prefix}
-                    valueStyle={{ fontSize: 26, fontWeight: 700 }}
-                  />
-                </div>
-              </div>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+      {/* 主内容区：2x2 网格布局 */}
+      <Row gutter={[20, 24]}>
+        {/* 第一行：销售漏斗 + 业绩达成 */}
         <Col xs={24} lg={12}>
           <Card
+            className="dashboard-card"
             loading={isLoading}
-            title="销售漏斗"
-            styles={{ body: { padding: 16 } }}
-            style={{ borderRadius: 12, boxShadow: cardShadow, height: '100%' }}
+            title={t('pages.dashboard.funnel.title')}
+            styles={{ body: { padding: 20 } }}
+            style={{ borderRadius: 12, height: '100%' }}
           >
-            {(funnel?.stages ?? []).length ? (
-              (() => {
-                const stages = funnel?.stages ?? []
-                const maxAmount = Math.max(1, ...stages.map((st) => st.amountTotal ?? 0))
-                const grand = funnel?.grandTotal?.amountTotal ?? stages.reduce((a, st) => a + (st.amountTotal ?? 0), 0)
-                return stages.map((st, idx) => {
-                  const color = stageColor[st.stage] ?? 'blue'
-                  const colorMap: Record<string, string> = {
-                    blue: '#1677ff',
-                    gold: '#fa8c16',
-                    green: '#52c41a',
-                    red: '#cf1322',
-                    default: '#8c8c8c',
-                  }
-                  const baseColor = colorMap[color] ?? '#1677ff'
-                  const widthPct = Math.round(((st.amountTotal ?? 0) / maxAmount) * 100)
-                  const sharePct = grand > 0 ? Math.round(((st.amountTotal ?? 0) / grand) * 100) : 0
-                  return (
-                    <div key={st.stage} style={{ marginBottom: idx === stages.length - 1 ? 0 : 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <Tag color={color}>{STAGE_LABELS[st.stage as OpportunityStage] ?? st.stage}</Tag>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {st.count} 个 · {formatAmount(st.amountTotal)} 元
-                          {st.conversionRate != null && ` · 转化 ${Math.round((st.conversionRate ?? 0) * 100)}%`}
-                        </Text>
-                      </div>
-                      <div style={{ height: 14, borderRadius: 7, background: 'rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-                        <div
-                          style={{
-                            width: `${widthPct}%`,
-                            height: '100%',
-                            borderRadius: 7,
-                            background: `linear-gradient(90deg, ${baseColor} 0%, ${baseColor}cc 100%)`,
-                            transition: 'width 0.3s ease',
-                          }}
-                        />
-                      </div>
-                      <Text type="secondary" style={{ fontSize: 11, marginTop: 2, display: 'block' }}>
-                        占比 {sharePct}%
-                      </Text>
-                    </div>
-                  )
-                })
-              })()
+            {funnelStages.length ? (
+              <FunnelChart
+                stages={funnelStages}
+                maxAmount={funnelMaxAmount}
+                grandTotal={funnelGrandTotal}
+                t={t}
+              />
             ) : (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无销售机会" />
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.dashboard.funnel.empty')} />
             )}
           </Card>
         </Col>
-
         <Col xs={24} lg={12}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
-            <Card
-              loading={isLoading}
-              title="销售预测"
-              style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
-              styles={{ body: { padding: 20 } }}
-            >
-            <Statistic
-              title="加权预测总额（元）"
-              value={formatAmount(fc.weightedAmount)}
-              prefix="¥"
-            />
-            <div style={{ marginTop: 16 }}>
-              {(fc.breakdown ?? [])
-                .filter((b) => b.stage !== 'CLOSED_LOST')
-                .map((b) => (
-                  <div
-                    key={b.stage}
-                    style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0' }}
-                  >
-                    <span>
-                      {STAGE_LABELS[b.stage as OpportunityStage] ?? b.stage}（{Math.round(b.probability * 100)}%）
-                      {b.probabilitySource === 'HISTORICAL' && (
-                        <Tag color="green" style={{ marginLeft: 6, fontSize: 11 }}>
-                          历史校准
-                        </Tag>
-                      )}
-                      {b.probabilitySource === 'DEFAULT' && (
-                        <Tag style={{ marginLeft: 6, fontSize: 11 }}>默认概率</Tag>
-                      )}
-                    </span>
-                    <span>{formatAmount(b.weighted)} 元</span>
-                  </div>
-                ))}
-            </div>
-          </Card>
-
           <Card
+            className="dashboard-card"
             loading={isLoading}
-            title={
-              <span>
-                业绩达成（{perf?.month ?? currentMonth}）
-                {perf?.personal && (
-                  <Tag color="blue" style={{ marginLeft: 8 }}>
-                    个人目标
-                  </Tag>
-                )}
-                {isAdmin && (
-                  <Button size="small" style={{ marginLeft: 12 }} onClick={() => {
-                    form.setFieldsValue({ targetAmount: (perf?.targetAmount ?? 0) / 100 })
-                    setTargetOpen(true)
-                  }}>
-                    设置目标
-                  </Button>
-                )}
-              </span>
-            }
-            style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
+            title={t('pages.dashboard.performance.title')}
             styles={{ body: { padding: 20 } }}
+            style={{ borderRadius: 12, height: '100%' }}
           >
-            {perf?.configured ? (
+            {isLoading ? (
               <>
-                <Statistic
-                  title="达成率"
-                  value={pct(perf?.achievementRate)}
-                  valueStyle={{
-                    color:
-                      (perf?.achievementRate ?? 0) >= 1
-                        ? '#3f8600'
-                        : (perf?.achievementRate ?? 0) >= 0.5
-                          ? '#fa8c16'
-                          : '#cf1322',
-                  }}
-                />
-                <div style={{ marginTop: 12 }}>
-                  <Progress
-                    percent={Math.round((perf?.achievementRate ?? 0) * 100)}
-                    status={(perf?.achievementRate ?? 0) >= 1 ? 'success' : 'active'}
-                  />
-                </div>
-                <Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0, fontSize: 13 }}>
-                  已赢单 {formatAmount(perf?.wonAmount)} 元 / 目标{' '}
-                  {formatAmount(perf?.targetAmount)} 元
-                </Paragraph>
+                <div className="skeleton" style={{ height: 20, width: '50%', marginBottom: 16 }} />
+                <div className="skeleton" style={{ height: 32, width: '30%', marginBottom: 16 }} />
+                <div className="skeleton" style={{ height: 16, width: '100%' }} />
               </>
             ) : (
-              <Empty
-                description={
-                  isAdmin ? '尚未设置本月目标，点击右上角"设置目标"' : '管理员尚未设置本月目标'
-                }
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              <PerformanceCard
+                perf={perf}
+                isAdmin={isAdmin}
+                onSetTarget={() => {
+                  form.setFieldsValue({ targetAmount: (perf?.targetAmount ?? 0) / 100 })
+                  setTargetOpen(true)
+                }}
+                t={t}
               />
             )}
           </Card>
-          </div>
-        </Col>
-      </Row>
-
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={12}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
-            <Card
-              loading={isLoading}
-              title="客户分析"
-              style={{ borderRadius: 12, boxShadow: cardShadow }}
-              styles={{ body: { padding: '16px 20px' } }}
-            >
-              <Row gutter={[16, 16]}>
-                <Col xs={24} sm={8}>
-                  <Statistic title="客户总数" value={s?.customerCount ?? 0} />
-                </Col>
-                <Col xs={24} sm={8}>
-                  <Statistic title="活跃客户" value={s?.activeCustomerCount ?? 0} />
-                </Col>
-                <Col xs={24} sm={8}>
-                  <Statistic
-                    title="本月新增"
-                    value={s?.newCustomersThisMonth ?? 0}
-                    valueStyle={{ color: '#3f8600' }}
-                  />
-                </Col>
-              </Row>
-            </Card>
-
-            <Card
-              loading={isLoading}
-              title="跟进活动"
-              style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
-              styles={{ body: { padding: 20 } }}
-            >
-              <Statistic title="跟进总数" value={fu.total} style={{ marginBottom: 16 }} />
-              {(fu.byMethod ?? []).map((m) => (
-                <div key={m.method} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }}>
-                  <span style={{ width: 40, fontSize: 13 }}>{METHOD_LABELS[m.method] ?? m.method}</span>
-                  <Progress
-                    percent={Math.round((m.count / methodMax) * 100)}
-                    size="small"
-                    style={{ flex: 1 }}
-                    format={() => `${m.count}`}
-                  />
-                </div>
-              ))}
-              {!fu.byMethod.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无跟进记录" />}
-            </Card>
-            {/* 037：团队公告 */}
-            <AnnouncementCard />
-          </div>
         </Col>
 
+        {/* 第二行：待办事项 + 活动动态 */}
         <Col xs={24} lg={12}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
           <Card
+            className="dashboard-card"
             loading={isLoading}
-            title="最近跟进"
-            styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
-            style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
+            title={t('pages.dashboard.todo.title')}
+            styles={{ body: { padding: 20 } }}
+            style={{ borderRadius: 12, height: '100%' }}
           >
-            {(fu.recent ?? []).length === 0 ? (
-              <div
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 16,
-                }}
-              >
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无跟进记录" />
+            {isLoading ? (
+              <div style={{ padding: 20 }}>
+                {[0, 1, 2].map((i) => (
+                  <div key={i} style={{ marginBottom: 12 }}>
+                    <div className="skeleton" style={{ height: 14, width: '80%', marginBottom: 8 }} />
+                    <div className="skeleton" style={{ height: 14, width: '60%' }} />
+                  </div>
+                ))}
               </div>
             ) : (
-              <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-                <Table<{ id: number; method: string; content: string; customerName?: string; followUpBy?: string; createdAt: string }>
-                  rowKey="id"
-                  size="small"
-                  dataSource={fu.recent ?? []}
-                  pagination={false}
-                  columns={
-                [
-                  {
-                    title: '方式',
-                    dataIndex: 'method',
-                    width: 70,
-                    render: (v: string) => <Tag>{METHOD_LABELS[v] ?? v}</Tag>,
-                  },
-                  { title: '内容', dataIndex: 'content', ellipsis: true },
-                  {
-                    title: '客户',
-                    dataIndex: 'customerName',
-                    width: 110,
-                    render: (v?: string) => v ?? '-',
-                  },
-                  {
-                    title: '跟进人',
-                    dataIndex: 'followUpBy',
-                    width: 120,
-                    render: (v?: string) => v ?? '-',
-                  },
-                  {
-                    title: '时间',
-                    dataIndex: 'createdAt',
-                    width: 150,
-                    render: (v?: string) => (v ?? '').replace('T', ' ').slice(0, 16),
-                  },
-                ] as never
-              }
+              <TodoList
+                todos={todos}
+                t={t}
+                onTodoClick={(todo) => {
+                  if (todo.type === 'approval') navigate('/approvals')
+                  else if (todo.type === 'followup') navigate('/opportunities')
+                  else navigate('/tasks')
+                }}
               />
-              </div>
             )}
           </Card>
-
+        </Col>
+        <Col xs={24} lg={12}>
           <Card
+            className="dashboard-card"
             loading={isLoading}
-            title="停滞商机预警（超过 7 天未更新）"
-            styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
-            style={{ borderRadius: 12, boxShadow: cardShadow, flex: 1, minHeight: 0 }}
+            title={t('pages.dashboard.activity.title')}
+            styles={{ body: { padding: 20 } }}
+            style={{ borderRadius: 12, height: '100%' }}
           >
-            {stalled.length === 0 ? (
-              <div
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 16,
-                }}
-              >
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无停滞商机，管道健康" />
+            {isLoading ? (
+              <div style={{ padding: 20 }}>
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} style={{ marginBottom: 12 }}>
+                    <div className="skeleton" style={{ height: 14, width: '80%', marginBottom: 8 }} />
+                    <div className="skeleton" style={{ height: 14, width: '60%' }} />
+                  </div>
+                ))}
               </div>
             ) : (
-              <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-                <Table<StalledOpportunity>
-                  rowKey="id"
-                  size="small"
-                  dataSource={stalled}
-                  columns={stalledColumns as never}
-                  pagination={false}
-                />
-              </div>
+              <ActivityFeed activities={activities} t={t} />
             )}
           </Card>
-          </div>
         </Col>
       </Row>
 
-      <Paragraph type="secondary" style={{ marginTop: 12, fontSize: 12, marginBottom: 0 }}>
-        生成时间：{generatedAt ? generatedAt.replace('T', ' ').slice(0, 19) : '-'}
+      {/* 停滞商机预警 + 团队公告 */}
+      <Row gutter={[20, 24]} style={{ marginTop: 24 }}>
+        {/* 左列：停滞商机预警 */}
+        <Col xs={24} lg={12}>
+          <Card
+            className="dashboard-card"
+            loading={isLoading}
+            title={t('pages.dashboard.stalledOpportunities.title')}
+            styles={{ body: { padding: 0 } }}
+            style={{ borderRadius: 12, height: '100%' }}
+          >
+            {isLoading ? (
+              <div style={{ padding: 20 }}>
+                {[0, 1, 2].map((i) => (
+                  <div key={i} style={{ marginBottom: 12 }}>
+                    <div className="skeleton" style={{ height: 14, width: '70%', marginBottom: 8 }} />
+                    <div className="skeleton" style={{ height: 14, width: '50%' }} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <StalledTable stalled={stalled} columns={stalledColumns} t={t} />
+            )}
+          </Card>
+        </Col>
+
+        {/* 右列：团队公告 */}
+        <Col xs={24} lg={12}>
+          <AnnouncementCard />
+        </Col>
+      </Row>
+
+      {/* 底部信息 */}
+      <Paragraph type="secondary" style={{ marginTop: 20, fontSize: 12, marginBottom: 0, textAlign: 'center' }}>
+        {t('pages.dashboard.generatedAt')}：{generatedAt ? generatedAt.replace('T', ' ').slice(0, 19) : '-'}
       </Paragraph>
 
+      {/* 设置目标弹窗 */}
       <Modal
-        title="设置销售目标"
+        title={t('pages.dashboard.modal.title')}
         open={targetOpen}
         onOk={() => void onSaveTarget()}
         onCancel={() => setTargetOpen(false)}
-        okText="保存"
+        okText={t('pages.dashboard.modal.save')}
         confirmLoading={targetMutation.isPending}
         destroyOnClose
       >
         <Form form={form} name="salesTargetForm" layout="vertical">
           <Form.Item
             name="targetAmount"
-            label={`目标金额（元，月份：${currentMonth}）`}
-            rules={[{ required: true, message: '请输入目标金额' }]}
+            label={t('pages.dashboard.modal.targetAmount', { month: currentMonth })}
+            rules={[{ required: true, message: t('pages.dashboard.modal.amountRequired') }]}
           >
-            <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder="输入目标金额" />
+            <InputNumber
+              min={0}
+              precision={2}
+              style={{ width: '100%' }}
+              placeholder={t('pages.dashboard.modal.placeholder')}
+              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={((value: string | undefined) => Number(value!.replace(/\$\s?|(,*)/g, '')) || 0) as any}
+            />
           </Form.Item>
         </Form>
       </Modal>
     </div>
   )
 }
+
+/** 停滞商机表格子组件 */
+const StalledTable = memo(function StalledTable({
+  stalled,
+  columns,
+  t,
+}: {
+  stalled: StalledOpportunity[]
+  columns: any[]
+  t: (key: string, params?: Record<string, unknown>) => string
+}) {
+  if (stalled.length === 0) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.dashboard.stalledOpportunities.empty')} />
+      </div>
+    )
+  }
+
+  return (
+    <Table<StalledOpportunity>
+      className="dashboard-table"
+      rowKey="id"
+      size="small"
+      dataSource={stalled}
+      pagination={false}
+      columns={columns}
+      onRow={() => ({
+        style: { cursor: 'pointer' },
+      })}
+    />
+  )
+})

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Form, InputNumber, Modal, Popconfirm, Select, Switch, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -22,6 +23,7 @@ interface FormValues {
 }
 
 export default function SlaPolicyListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -75,16 +77,16 @@ export default function SlaPolicyListPage() {
     try {
       if (editing) {
         await updateSlaPolicy(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.slaPolicy.msgSaved'))
       } else {
         await createSlaPolicy(payload)
-        message.success('已创建')
+        message.success(t('pages.slaPolicy.msgCreated'))
       }
       setModalOpen(false)
       reload()
       void loadOverview()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.slaPolicy.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -93,53 +95,53 @@ export default function SlaPolicyListPage() {
   const onDelete = async (row: SlaPolicy) => {
     try {
       await deleteSlaPolicy(row.id)
-      message.success('已删除')
+      message.success(t('pages.slaPolicy.msgDeleted'))
       reload()
       void loadOverview()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.slaPolicy.msgDeleteFailed')))
     }
   }
 
   const columns: ProColumns<SlaPolicy>[] = [
     {
-      title: '优先级',
+      title: t('pages.slaPolicy.colPriority'),
       dataIndex: 'priority',
       render: (_, row) => <Tag color="blue">{TICKET_PRIORITY_LABELS[row.priority]}</Tag>,
     },
     {
-      title: '响应时限（小时）',
+      title: t('pages.slaPolicy.colRespondHours'),
       dataIndex: 'respondHours',
       search: false,
-      render: (_, row) => row.respondHours ?? '不约束',
+      render: (_, row) => row.respondHours ?? t('pages.slaPolicy.unconstrained'),
     },
     {
-      title: '解决时限（小时）',
+      title: t('pages.slaPolicy.colResolveHours'),
       dataIndex: 'resolveHours',
       search: false,
-      render: (_, row) => row.resolveHours ?? '不约束',
+      render: (_, row) => row.resolveHours ?? t('pages.slaPolicy.unconstrained'),
     },
     {
-      title: '启用',
+      title: t('pages.slaPolicy.colEnabled'),
       dataIndex: 'enabled',
       search: false,
       render: (_, row) =>
-        row.enabled === 1 ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>,
+        row.enabled === 1 ? <Tag color="green">{t('pages.slaPolicy.enabled')}</Tag> : <Tag>{t('pages.slaPolicy.disabled')}</Tag>,
     },
     {
-      title: '操作',
+      title: t('pages.slaPolicy.colAction'),
       valueType: 'option',
       width: 140,
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.slaPolicy.edit')}
         </a>,
         <Popconfirm
           key="delete"
-          title={`确定删除「${TICKET_PRIORITY_LABELS[row.priority]}」策略吗？`}
+          title={t('pages.slaPolicy.confirmDelete', { priority: TICKET_PRIORITY_LABELS[row.priority] })}
           onConfirm={() => onDelete(row)}
         >
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.slaPolicy.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -149,13 +151,14 @@ export default function SlaPolicyListPage() {
     <>
       <div style={{ marginBottom: 16 }}>
         <Tag color={overview && overview.overdue > 0 ? 'red' : 'green'} style={{ fontSize: 13, padding: '4px 10px' }}>
-          未关闭工单 {overview?.totalOpen ?? 0} 张，已超时 {overview?.overdue ?? 0} 张
+          {t('pages.slaPolicy.overviewText', { totalOpen: overview?.totalOpen ?? 0, overdue: overview?.overdue ?? 0 })}
         </Tag>
       </div>
+      <div style={{ height: 16 }} />
 
       <ProTable<SlaPolicy>
         size="small"
-        headerTitle="SLA 策略"
+        headerTitle={t('pages.slaPolicy.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -168,26 +171,26 @@ export default function SlaPolicyListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增策略
+            {t('pages.slaPolicy.btnAdd')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑 SLA 策略' : '新增 SLA 策略'}
+        title={editing ? t('pages.slaPolicy.modalEditTitle') : t('pages.slaPolicy.modalAddTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.slaPolicy.btnSave')}
         destroyOnClose
         width={520}
       >
         <Form form={form} name="slaForm" layout="vertical">
           <Form.Item
             name="priority"
-            label="优先级"
-            rules={[{ required: true, message: '请选择优先级' }]}
+            label={t('pages.slaPolicy.formPriorityLabel')}
+            rules={[{ required: true, message: t('pages.slaPolicy.formPriorityRequired') }]}
           >
             <Select
               disabled={!!editing}
@@ -195,14 +198,14 @@ export default function SlaPolicyListPage() {
             />
           </Form.Item>
           <div style={{ display: 'flex', gap: 12 }}>
-            <Form.Item name="respondHours" label="响应时限（小时，可空）" style={{ flex: 1 }}>
-              <InputNumber min={1} style={{ width: '100%' }} placeholder="不填则不约束" />
+            <Form.Item name="respondHours" label={t('pages.slaPolicy.formRespondHoursLabel')} style={{ flex: 1 }}>
+              <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.slaPolicy.formRespondHoursPlaceholder')} />
             </Form.Item>
-            <Form.Item name="resolveHours" label="解决时限（小时，可空）" style={{ flex: 1 }}>
-              <InputNumber min={1} style={{ width: '100%' }} placeholder="不填则不约束" />
+            <Form.Item name="resolveHours" label={t('pages.slaPolicy.formResolveHoursLabel')} style={{ flex: 1 }}>
+              <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.slaPolicy.formResolveHoursPlaceholder')} />
             </Form.Item>
           </div>
-          <Form.Item name="enabled" label="启用" valuePropName="checked">
+          <Form.Item name="enabled" label={t('pages.slaPolicy.formEnabledLabel')} valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>

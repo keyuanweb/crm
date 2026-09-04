@@ -77,3 +77,53 @@ specs/      Spec Kit 设计文档（spec/plan/research/data-model/contracts/quic
 ## 规范驱动开发流程
 
 见 `specs/001-crm-core/`：`spec.md` → `plan.md` → `research.md` → `data-model.md` → `contracts/` → `tasks.md` → `quickstart.md`，项目治理原则见 `.specify/memory/constitution.md`。
+
+## Docker 一键部署
+
+### 前置条件
+
+- Docker 20.10+
+- Docker Compose v2+
+
+### 快速启动
+
+```bash
+# 1. 复制环境变量模板
+cp .env.example .env
+# 2. 修改 .env 中的 JWT_SECRET（生产环境必须修改）
+# 3. 一键启动
+docker-compose up -d
+```
+
+### 服务地址
+
+| 服务 | 地址 |
+|------|------|
+| 前端 | http://localhost |
+| 后端 API | http://localhost:8081 |
+| Swagger UI | http://localhost:8081/swagger-ui.html |
+| MySQL | localhost:3306 |
+| Redis | localhost:6379 |
+
+### 常用命令
+
+```bash
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+
+# 停止并删除数据卷（谨慎使用）
+docker-compose down -v
+
+# 重启后端
+docker-compose restart crm-backend
+```
+
+### 生产环境配置
+
+1. 修改 `.env` 中的密码和 JWT_SECRET
+2. 生成强 JWT 密钥：`openssl rand -hex 32`
+3. 配置反向代理（Nginx/Caddy）+ HTTPS
+4. 调整 JVM 参数：`-Xms1g -Xmx2g`

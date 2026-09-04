@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { App, Button, Card, Descriptions, Image, Modal, Typography } from 'antd'
 import { FileDoneOutlined } from '@ant-design/icons'
 import SignaturePad from './SignaturePad'
@@ -25,6 +26,7 @@ export default function SignSection({
   fetchFn,
   onSigned,
 }: Props) {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [record, setRecord] = useState<SignatureRecord | null>(null)
   const [signOpen, setSignOpen] = useState(false)
@@ -47,7 +49,7 @@ export default function SignSection({
 
   const submitSign = async () => {
     if (!signature) {
-      message.warning('请先绘制或上传签名')
+      message.warning(t('pages.signSection.msgDrawOrUpload'))
       return
     }
     setSaving(true)
@@ -55,10 +57,10 @@ export default function SignSection({
       const rec = await signFn(businessId, signature)
       setRecord(rec)
       setSignOpen(false)
-      message.success('签署成功')
+      message.success(t('pages.signSection.msgSigned'))
       onSigned()
     } catch (err) {
-      message.error(extractErrorMessage(err, '签署失败'))
+      message.error(extractErrorMessage(err, t('pages.signSection.msgSignFailed')))
     } finally {
       setSaving(false)
     }
@@ -69,18 +71,18 @@ export default function SignSection({
       title={
         <span>
           <FileDoneOutlined style={{ marginRight: 8 }} />
-          电子签署
+          {t('pages.signSection.title')}
         </span>
       }
       style={{ borderRadius: 10 }}
     >
       {record ? (
         <Descriptions column={2} size="small">
-          <Descriptions.Item label="签署人">{record.signerName ?? `用户#${record.signerId}`}</Descriptions.Item>
-          <Descriptions.Item label="签署时间">
+          <Descriptions.Item label={t('pages.signSection.labelSigner')}>{record.signerName ?? `用户#${record.signerId}`}</Descriptions.Item>
+          <Descriptions.Item label={t('pages.signSection.labelSignTime')}>
             {record.signedAt.replace('T', ' ').slice(0, 19)}
           </Descriptions.Item>
-          <Descriptions.Item label="签名图" span={2}>
+          <Descriptions.Item label={t('pages.signSection.labelSignature')} span={2}>
             <Image
               src={record.signatureImage}
               alt="签名"
@@ -91,26 +93,26 @@ export default function SignSection({
         </Descriptions>
       ) : (
         <Typography.Text type="secondary">
-          该{businessType === 'QUOTE' ? '报价单' : '合同'}尚未签署。
-          {canSign ? '审批通过后可由内部或客户确认签署。' : '仅审批通过后可发起签署。'}
+          {t('pages.signSection.textNotSigned', { type: businessType === 'QUOTE' ? '报价单' : '合同' })}
+          {canSign ? t('pages.signSection.textCanSign') : t('pages.signSection.textCannotSign')}
         </Typography.Text>
       )}
       {canSign && !record && (
         <div style={{ marginTop: 12 }}>
           <Button type="primary" onClick={() => setSignOpen(true)}>
-            发起签署
+            {t('pages.signSection.btnInitiate')}
           </Button>
         </div>
       )}
       <Modal
-        title="电子签署"
+        title={t('pages.signSection.title')}
         open={signOpen}
         onOk={() => void submitSign()}
         onCancel={() => {
           setSignOpen(false)
           setSignature(null)
         }}
-        okText="确认签署"
+        okText={t('pages.signSection.btnConfirmSign')}
         confirmLoading={saving}
         destroyOnClose
         width={480}

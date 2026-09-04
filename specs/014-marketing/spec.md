@@ -110,3 +110,48 @@
 - ROI 的收益估算 = 归因客户关联商机的 expected_amount_max 合计（简单口径）。
 - 渠道 ROI 统计为管理端聚合报表（前端表格/卡片）。
 - 不做活动审批流（后续工作流模块可扩展触发）。
+
+## 国际化（i18n）
+
+### 已完成页面
+
+| 页面 | 文件路径 | 翻译键数 | 状态 |
+|---|---|---|---|
+| 营销活动 | `frontend/src/pages/marketing/CampaignListPage.tsx` | 18 | ✅ 已完成 |
+| 邮件营销容器 | `frontend/src/pages/marketing/EmailMarketingPage.tsx` | 2 | ✅ 已完成 |
+| 邮件群发 | `frontend/src/pages/marketing/EmailCampaignPage.tsx` | 24 | ✅ 已完成 |
+| 在线表单 | `frontend/src/pages/marketing/OnlineFormPage.tsx` | 30 | ✅ 已完成 |
+| 托管落地页 | `frontend/src/pages/marketing/PublicFormPage.tsx` | 12 | ✅ 已完成 |
+| 落地页列表 | `frontend/src/pages/landing/LandingPageListPage.tsx` | 37 | ✅ 已完成 |
+| 落地页查看 | `frontend/src/pages/landing/LandingPageView.tsx` | 15 | ✅ 已完成 |
+| 邮件退订名单 | `frontend/src/pages/email/EmailUnsubscribePage.tsx` | 8 | ✅ 已完成 |
+
+### 翻译键结构
+
+```
+pages.marketing.campaign.*          - 营销活动页面（18 个键）
+pages.marketing.emailMarketing.*    - 邮件营销容器页（2 个键）
+pages.marketing.emailCampaign.*     - 邮件群发页面（24 个键）
+pages.marketing.onlineForm.*        - 在线表单页面（30 个键）
+pages.marketing.publicForm.*        - 托管落地页（12 个键）
+```
+
+### 关键翻译键示例
+
+| 键 | 中文 | English |
+|---|---|---|
+| `pages.marketing.campaign.title` | 营销活动 | Marketing Campaigns |
+| `pages.marketing.campaign.colName` | 活动名称 | Campaign Name |
+| `pages.marketing.campaign.colChannel` | 渠道 | Channel |
+| `pages.marketing.campaign.colStatus` | 状态 | Status |
+| `pages.marketing.campaign.btnCreate` | 新增活动 | Create Campaign |
+| `pages.marketing.emailCampaign.title` | 邮件退订名单 | Email Unsubscribes |
+| `pages.marketing.onlineForm.title` | 在线表单 | Online Forms |
+| `pages.marketing.publicForm.title` | 托管落地页 | Landing Pages |
+
+## 变更记录
+
+| 日期 | 变更内容 |
+|---|---|
+| 2026-08-22 | 初始规格创建 |
+| 2026-08-30 | 完成 5 个营销页面国际化（86 个翻译键） |

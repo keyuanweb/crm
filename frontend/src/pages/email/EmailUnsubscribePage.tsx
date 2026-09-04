@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Popconfirm } from 'antd'
+import { useTranslation } from 'react-i18next'
 import {
   fetchUnsubscribes,
   restoreUnsubscribe,
@@ -12,40 +13,41 @@ import { extractErrorMessage } from '../../services/apiClient'
 export default function EmailUnsubscribePage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
+  const { t } = useTranslation()
 
   const columns: ProColumns<EmailUnsubscribe>[] = [
-    { title: '邮箱', dataIndex: 'email', copyable: true },
+    { title: t('pages.emailUnsubscribe.colEmail'), dataIndex: 'email', copyable: true },
     {
-      title: '来源活动',
+      title: t('pages.emailUnsubscribe.colCampaign'),
       dataIndex: 'campaignId',
       search: false,
       render: (_, row) => (row.campaignId ? `#${row.campaignId}` : '-'),
     },
     {
-      title: '退订时间',
+      title: t('pages.emailUnsubscribe.colUnsubscribedAt'),
       dataIndex: 'unsubscribedAt',
       search: false,
       render: (_, row) => row.unsubscribedAt.replace('T', ' ').slice(0, 19),
     },
     {
-      title: '操作',
+      title: t('pages.emailUnsubscribe.colAction'),
       valueType: 'option',
       width: 100,
       render: (_, row) => [
         <Popconfirm
           key="restore"
-          title={`恢复 ${row.email}（取消退订）？`}
+          title={t('pages.emailUnsubscribe.confirmRestore', { email: row.email })}
           onConfirm={async () => {
             try {
               await restoreUnsubscribe(row.id)
-              message.success('已恢复')
+              message.success(t('pages.emailUnsubscribe.msgRestored'))
               actionRef.current?.reload()
             } catch (err) {
-              message.error(extractErrorMessage(err, '恢复失败'))
+              message.error(extractErrorMessage(err, t('pages.emailUnsubscribe.msgRestoreFailed')))
             }
           }}
         >
-          <a>恢复</a>
+          <a>{t('pages.emailUnsubscribe.btnRestore')}</a>
         </Popconfirm>,
       ],
     },
@@ -53,7 +55,7 @@ export default function EmailUnsubscribePage() {
 
   return (
     <ProTable<EmailUnsubscribe>
-      headerTitle="邮件退订名单"
+      headerTitle={t('pages.emailUnsubscribe.title')}
       rowKey="id"
       actionRef={actionRef}
       columns={columns}

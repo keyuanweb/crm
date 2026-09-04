@@ -123,3 +123,26 @@
 - 知识库仅供内部使用（客服答复参考），不做对外帮助中心（后续增强）。
 - 工单通知复用 013 工作流模块的通知机制（WorkflowNotification），本次不做独立通知中心。
 - 不做满意度评分（后续增强）。
+
+## 国际化（i18n）
+
+### 已完成页面
+
+| 页面 | 文件路径 | 翻译键数 | 状态 |
+|---|---|---|---|
+| 知识库文章列表 | `frontend/src/pages/knowledge/KnowledgeArticleListPage.tsx` | 35 | ✅ 已完成 |
+| SLA 工作日历 | `frontend/src/pages/sla/SlaCalendarPage.tsx` | 17 | ✅ 已完成 |
+
+### 翻译键结构
+
+```
+pages.knowledge.*          - 知识库页面（35 个键）
+pages.slaCalendar.*        - SLA 工作日历（17 个键）
+```
+
+### 变更记录
+
+| 日期 | 变更内容 |
+|---|---|
+| 2026-08-22 | 初始规格创建 |
+| 2026-08-30 | 完成 2 个页面国际化（52 个翻译键） |

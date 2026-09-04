@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Card, DatePicker, Progress, Radio, Select, Table, Tag, Typography, message } from 'antd'
 import { DownloadOutlined } from '@ant-design/icons'
 import type { Dayjs } from 'dayjs'
@@ -9,22 +10,23 @@ import type { ReportDimension, ReportMetric, ReportQuery, ReportResult, ReportRo
 
 const { Title, Paragraph } = Typography
 
-const DIMENSION_LABELS: Record<string, string> = {
-  SALES: '销售',
-  PRODUCT: '产品',
-  SOURCE: '线索来源',
-  STAGE: '商机阶段',
-  TIME: '时间',
+const DIMENSION_KEYS: Record<ReportDimension, string> = {
+  SALES: 'pages.reportCenter.dimSales',
+  PRODUCT: 'pages.reportCenter.dimProduct',
+  SOURCE: 'pages.reportCenter.dimSource',
+  STAGE: 'pages.reportCenter.dimStage',
+  TIME: 'pages.reportCenter.dimTime',
 }
 
-const STAGE_LABELS: Record<string, string> = {
-  INITIAL_CONTACT: '初步接触',
-  NEGOTIATING: '谈判中',
-  CLOSED_WON: '已赢单',
-  CLOSED_LOST: '已输单',
+const STAGE_KEYS: Record<string, string> = {
+  INITIAL_CONTACT: 'pages.reportCenter.stageInitialContact',
+  NEGOTIATING: 'pages.reportCenter.stageNegotiating',
+  CLOSED_WON: 'pages.reportCenter.stageClosedWon',
+  CLOSED_LOST: 'pages.reportCenter.stageClosedLost',
 }
 
 export default function ReportCenterPage() {
+  const { t } = useTranslation()
   const [dimension, setDimension] = useState<ReportDimension>('SALES')
   const [metric, setMetric] = useState<ReportMetric>('AMOUNT')
   const [granularity, setGranularity] = useState<'DAY' | 'MONTH'>('MONTH')
@@ -51,7 +53,7 @@ export default function ReportCenterPage() {
       const res = await queryReport(buildQuery())
       setResult(res)
     } catch {
-      message.error('报表查询失败，请检查参数')
+      message.error(t('pages.reportCenter.msgQueryFailed'))
     } finally {
       setLoading(false)
     }
@@ -60,28 +62,28 @@ export default function ReportCenterPage() {
   const onExport = async () => {
     try {
       await exportReport(buildQuery())
-      message.success('报表已导出')
+      message.success(t('pages.reportCenter.msgExported'))
     } catch {
-      message.error('导出失败')
+      message.error(t('pages.reportCenter.msgExportFailed'))
     }
   }
 
   const columns = [
     {
-      title: DIMENSION_LABELS[dimension] ?? '维度',
+      title: t(DIMENSION_KEYS[dimension]) ?? t('pages.reportCenter.dimLabel'),
       dataIndex: 'dimensionValue',
       render: (v: string) =>
-        dimension === 'STAGE' ? <Tag>{STAGE_LABELS[v] ?? v}</Tag> : v,
+        dimension === 'STAGE' ? <Tag>{t(STAGE_KEYS[v]) ?? v}</Tag> : v,
     },
-    { title: '数量', dataIndex: 'count', width: 120 },
+    { title: t('pages.reportCenter.colCount'), dataIndex: 'count', width: 120 },
     {
-      title: '金额（元）',
+      title: t('pages.reportCenter.colAmount'),
       dataIndex: 'amount',
       width: 160,
       render: (v: number) => (metric === 'AMOUNT' ? formatAmount(v) : '-'),
     },
     {
-      title: '占比',
+      title: t('pages.reportCenter.colRatio'),
       dataIndex: 'ratio',
       width: 200,
       render: (v: number) => (
@@ -97,42 +99,42 @@ export default function ReportCenterPage() {
     <div>
       <div style={{ marginBottom: 12 }}>
         <Title level={4} style={{ marginBottom: 4 }}>
-          自定义报表
+          {t('pages.reportCenter.title')}
         </Title>
         <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 13 }}>
-          按维度（销售/产品/来源/阶段/时间）与指标（数量/金额）聚合业务数据，支持导出 Excel。
+          {t('pages.reportCenter.description')}
         </Paragraph>
       </div>
 
       <Card style={{ borderRadius: 10, marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>维度</div>
+            <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>{t('pages.reportCenter.dimLabel')}</div>
             <Select
               value={dimension}
               onChange={(v) => setDimension(v)}
               style={{ width: 140 }}
-              options={Object.entries(DIMENSION_LABELS).map(([value, label]) => ({ value, label }))}
+              options={Object.entries(DIMENSION_KEYS).map(([value, key]) => ({ value, label: t(key) }))}
             />
           </div>
           <div>
-            <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>指标</div>
+            <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>{t('pages.reportCenter.metricLabel')}</div>
             <Radio.Group value={metric} onChange={(e) => setMetric(e.target.value)}>
-              <Radio.Button value="COUNT">数量</Radio.Button>
-              <Radio.Button value="AMOUNT">金额</Radio.Button>
+              <Radio.Button value="COUNT">{t('pages.reportCenter.colCount')}</Radio.Button>
+              <Radio.Button value="AMOUNT">{t('pages.reportCenter.colAmount')}</Radio.Button>
             </Radio.Group>
           </div>
           {dimension === 'TIME' && (
             <div>
-              <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>时间粒度</div>
+              <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>{t('pages.reportCenter.timeGranularityLabel')}</div>
               <Radio.Group value={granularity} onChange={(e) => setGranularity(e.target.value)}>
-                <Radio.Button value="DAY">按日</Radio.Button>
-                <Radio.Button value="MONTH">按月</Radio.Button>
+                <Radio.Button value="DAY">{t('pages.reportCenter.granularityDay')}</Radio.Button>
+                <Radio.Button value="MONTH">{t('pages.reportCenter.granularityMonth')}</Radio.Button>
               </Radio.Group>
             </div>
           )}
           <div>
-            <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>时间范围</div>
+            <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>{t('pages.reportCenter.timeRangeLabel')}</div>
             <DatePicker.RangePicker
               value={range}
               onChange={(v) => setRange(v && v[0] && v[1] ? [v[0], v[1]] : null)}
@@ -140,23 +142,23 @@ export default function ReportCenterPage() {
           </div>
           {dimension !== 'SOURCE' && dimension !== 'TIME' && (
             <div>
-              <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>阶段过滤（可选）</div>
+              <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>{t('pages.reportCenter.stageFilterLabel')}</div>
               <Select
                 allowClear
-                placeholder="全部阶段"
+                placeholder={t('pages.reportCenter.placeholderStage')}
                 value={stageFilter}
                 onChange={(v) => setStageFilter(v)}
                 style={{ width: 140 }}
-                options={Object.entries(STAGE_LABELS).map(([value, label]) => ({ value, label }))}
+                options={Object.entries(STAGE_KEYS).map(([value, key]) => ({ value, label: t(key) }))}
               />
             </div>
           )}
           <div style={{ alignSelf: 'flex-end', display: 'flex', gap: 8 }}>
             <Button type="primary" loading={loading} onClick={() => void onQuery()}>
-              查询
+              {t('pages.reportCenter.btnQuery')}
             </Button>
             <Button icon={<DownloadOutlined />} disabled={!result} onClick={() => void onExport()}>
-              导出
+              {t('pages.reportCenter.btnExport')}
             </Button>
           </div>
         </div>
@@ -170,17 +172,17 @@ export default function ReportCenterPage() {
           dataSource={result?.rows ?? []}
           columns={columns as never}
           pagination={false}
-          locale={{ emptyText: '点击查询生成报表' }}
+          locale={{ emptyText: t('pages.reportCenter.emptyText') }}
           footer={
             result
               ? () => (
                   <div style={{ display: 'flex', gap: 32 }}>
                     <span>
-                      合计数量：<b>{result.totalCount}</b>
+                      {t('pages.reportCenter.totalCount')}<b>{result.totalCount}</b>
                     </span>
                     {metric === 'AMOUNT' && (
                       <span>
-                        合计金额：<b>{formatAmount(result.totalAmount)}</b> 元
+                        {t('pages.reportCenter.totalAmount')}<b>{formatAmount(result.totalAmount)}</b> {t('pages.reportCenter.unit')}
                       </span>
                     )}
                   </div>

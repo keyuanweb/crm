@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Switch, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -10,13 +11,7 @@ import {
   type CustomFieldPayload,
 } from '../../services/customFieldService'
 import { extractErrorMessage } from '../../services/apiClient'
-import {
-  FIELD_ENTITY_LABELS,
-  FIELD_TYPE_LABELS,
-  type CustomField,
-  type FieldEntityType,
-  type FieldType,
-} from '../../types/customField'
+import type { CustomField, FieldEntityType, FieldType } from '../../types/customField'
 
 interface FormValues {
   entityType: FieldEntityType
@@ -28,6 +23,7 @@ interface FormValues {
 }
 
 export default function CustomFieldListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -35,6 +31,21 @@ export default function CustomFieldListPage() {
   const [editing, setEditing] = useState<CustomField | null>(null)
   const [fieldType, setFieldType] = useState<FieldType>('TEXT')
   const [form] = Form.useForm<FormValues>()
+
+  const FIELD_ENTITY_LABELS: Record<FieldEntityType, string> = {
+    LEAD: t('pages.customField.fieldEntityLead'),
+    CUSTOMER: t('pages.customField.fieldEntityCustomer'),
+    OPPORTUNITY: t('pages.customField.fieldEntityOpportunity'),
+    TICKET: t('pages.customField.fieldEntityTicket'),
+  }
+
+  const FIELD_TYPE_LABELS: Record<FieldType, string> = {
+    TEXT: t('pages.customField.fieldTypeText'),
+    TEXTAREA: t('pages.customField.fieldTypeTextarea'),
+    NUMBER: t('pages.customField.fieldTypeNumber'),
+    DATE: t('pages.customField.fieldTypeDate'),
+    SELECT: t('pages.customField.fieldTypeSelect'),
+  }
 
   const reload = () => actionRef.current?.reload()
 
@@ -74,15 +85,15 @@ export default function CustomFieldListPage() {
     try {
       if (editing) {
         await updateCustomField(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.customField.msgSaved'))
       } else {
         await createCustomField(payload)
-        message.success('已创建')
+        message.success(t('pages.customField.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.customField.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -91,16 +102,16 @@ export default function CustomFieldListPage() {
   const onDelete = async (row: CustomField) => {
     try {
       await deleteCustomField(row.id)
-      message.success('已删除（历史值已清理）')
+      message.success(t('pages.customField.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.customField.msgDeleteFailed')))
     }
   }
 
   const columns: ProColumns<CustomField>[] = [
     {
-      title: '适用实体',
+      title: t('pages.customField.colEntityType'),
       dataIndex: 'entityType',
       valueType: 'select',
       valueEnum: Object.fromEntries(
@@ -108,40 +119,40 @@ export default function CustomFieldListPage() {
       ),
       render: (_, row) => <Tag color="blue">{FIELD_ENTITY_LABELS[row.entityType]}</Tag>,
     },
-    { title: '字段名称', dataIndex: 'name' },
+    { title: t('pages.customField.colName'), dataIndex: 'name' },
     {
-      title: '类型',
+      title: t('pages.customField.colFieldType'),
       dataIndex: 'fieldType',
       search: false,
       render: (_, row) => FIELD_TYPE_LABELS[row.fieldType],
     },
     {
-      title: '必填',
+      title: t('pages.customField.colRequired'),
       dataIndex: 'required',
       search: false,
-      render: (_, row) => (row.required ? <Tag color="red">必填</Tag> : <Tag>可选</Tag>),
+      render: (_, row) => (row.required ? <Tag color="red">{t('pages.customField.required')}</Tag> : <Tag>{t('pages.customField.optional')}</Tag>),
     },
     {
-      title: '启用',
+      title: t('pages.customField.colEnabled'),
       dataIndex: 'enabled',
       search: false,
-      render: (_, row) => (row.enabled ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>),
+      render: (_, row) => (row.enabled ? <Tag color="green">{t('pages.customField.enabled')}</Tag> : <Tag>{t('pages.customField.disabled')}</Tag>),
     },
-    { title: '排序', dataIndex: 'sortOrder', search: false },
+    { title: t('pages.customField.colSortOrder'), dataIndex: 'sortOrder', search: false },
     {
-      title: '操作',
+      title: t('pages.customField.colAction'),
       valueType: 'option',
       width: 140,
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.customField.edit')}
         </a>,
         <Popconfirm
           key="delete"
-          title={`确定删除字段「${row.name}」吗？历史值将被清理。`}
+          title={t('pages.customField.confirmDelete', { name: row.name })}
           onConfirm={() => onDelete(row)}
         >
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.customField.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -151,7 +162,7 @@ export default function CustomFieldListPage() {
     <>
       <ProTable<CustomField>
         size="small"
-        headerTitle="自定义字段"
+        headerTitle={t('pages.customField.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -164,36 +175,36 @@ export default function CustomFieldListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增字段
+            {t('pages.customField.btnAdd')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑自定义字段' : '新增自定义字段'}
+        title={editing ? t('pages.customField.modalEditTitle') : t('pages.customField.modalAddTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.customField.btnSave')}
         destroyOnClose
         width={560}
       >
         <Form form={form} name="customFieldForm" layout="vertical">
           <Form.Item
             name="entityType"
-            label="适用实体"
-            rules={[{ required: true, message: '请选择实体' }]}
+            label={t('pages.customField.formEntityTypeLabel')}
+            rules={[{ required: true, message: t('pages.customField.formEntityTypeRequired') }]}
           >
             <Select
               disabled={!!editing}
               options={Object.entries(FIELD_ENTITY_LABELS).map(([value, label]) => ({ value, label }))}
             />
           </Form.Item>
-          <Form.Item name="name" label="字段名称" rules={[{ required: true, message: '请输入名称' }]}>
+          <Form.Item name="name" label={t('pages.customField.formNameLabel')} rules={[{ required: true, message: t('pages.customField.formNameRequired') }]}>
             <Input maxLength={50} />
           </Form.Item>
-          <Form.Item name="fieldType" label="字段类型" rules={[{ required: true, message: '请选择类型' }]}>
+          <Form.Item name="fieldType" label={t('pages.customField.formFieldTypeLabel')} rules={[{ required: true, message: t('pages.customField.formFieldTypeRequired') }]}>
             <Select
               disabled={!!editing}
               options={Object.entries(FIELD_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
@@ -203,17 +214,17 @@ export default function CustomFieldListPage() {
           {fieldType === 'SELECT' && (
             <Form.Item
               name="options"
-              label="选项（逗号分隔）"
-              rules={[{ required: true, message: 'SELECT 类型必须提供选项' }]}
+              label={t('pages.customField.formOptionsLabel')}
+              rules={[{ required: true, message: t('pages.customField.formOptionsRequired') }]}
             >
-              <Input placeholder="如：高,中,低" />
+              <Input placeholder={t('pages.customField.formOptionsPlaceholder')} />
             </Form.Item>
           )}
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-            <Form.Item name="sortOrder" label="排序" style={{ flex: 1 }}>
+            <Form.Item name="sortOrder" label={t('pages.customField.formSortOrderLabel')} style={{ flex: 1 }}>
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
-            <Form.Item name="required" label="必填" valuePropName="checked">
+            <Form.Item name="required" label={t('pages.customField.formRequiredLabel')} valuePropName="checked">
               <Switch />
             </Form.Item>
           </div>

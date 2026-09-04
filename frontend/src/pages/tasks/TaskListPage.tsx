@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
@@ -213,7 +213,7 @@ export default function TaskListPage() {
 
   return (
     <>
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+      <Row gutter={[16, 16]}>
         <Col xs={8} md={8}>
           <Card size="small">
             <Statistic title={t('pages.task.list.todoCount')} value={summaryQuery.data?.todoCount ?? 0} valueStyle={{ color: '#1677ff' }} />
@@ -230,6 +230,8 @@ export default function TaskListPage() {
           </Card>
         </Col>
       </Row>
+
+      <div style={{ height: 16 }} />
 
       <ProTable<TaskItem>
         size="small"

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { App, Button, Upload } from 'antd'
 import { UploadOutlined } from '@ant-design/icons'
 
@@ -11,6 +12,7 @@ interface Props {
 
 /** 电子签名板（047）：canvas 手绘 + 图片上传两种方式。 */
 export default function SignaturePad({ onChange, disabled }: Props) {
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawingRef = useRef(false)
   const lastRef = useRef<{ x: number; y: number } | null>(null)
@@ -85,7 +87,7 @@ export default function SignaturePad({ onChange, disabled }: Props) {
 
   const handleUpload = (file: File) => {
     if (file.size > 500 * 1024) {
-      message.error('签名图片不能超过 500KB')
+      message.error(t('pages.signaturePad.msgFileSize'))
       return false
     }
     const reader = new FileReader()
@@ -133,11 +135,11 @@ export default function SignaturePad({ onChange, disabled }: Props) {
       <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
         <Upload accept="image/*" beforeUpload={handleUpload} showUploadList={false} disabled={disabled}>
           <Button icon={<UploadOutlined />} size="small" disabled={disabled}>
-            上传签名图
+            {t('pages.signaturePad.btnUpload')}
           </Button>
         </Upload>
         <Button size="small" onClick={clear} disabled={disabled || !hasInk}>
-          清除
+          {t('pages.signaturePad.btnClear')}
         </Button>
       </div>
     </div>

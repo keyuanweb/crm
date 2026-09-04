@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { App, Button, Card, Descriptions, Input, Modal, Rate, Typography } from 'antd'
 import { SmileOutlined } from '@ant-design/icons'
 import { extractErrorMessage } from '../services/apiClient'
@@ -14,6 +15,7 @@ interface Props {
 
 /** 工单满意度区块（051）：CLOSED 工单可评分，已评分展示记录。 */
 export default function SurveyBlock({ ticketId, isClosed, onSubmitted }: Props) {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [record, setRecord] = useState<TicketSurvey | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -40,10 +42,10 @@ export default function SurveyBlock({ ticketId, isClosed, onSubmitted }: Props) 
       setRecord(rec)
       setModalOpen(false)
       setComment('')
-      message.success('评分已提交')
+      message.success(t('pages.surveyBlock.msgSubmitted'))
       onSubmitted()
     } catch (err) {
-      message.error(extractErrorMessage(err, '提交失败'))
+      message.error(extractErrorMessage(err, t('pages.surveyBlock.msgSubmitFailed')))
     } finally {
       setSaving(false)
     }
@@ -54,53 +56,53 @@ export default function SurveyBlock({ ticketId, isClosed, onSubmitted }: Props) 
       title={
         <span>
           <SmileOutlined style={{ marginRight: 8 }} />
-          满意度调查
+          {t('pages.surveyBlock.title')}
         </span>
       }
       style={{ marginBottom: 16, borderRadius: 10 }}
     >
       {record ? (
         <Descriptions column={2} size="small">
-          <Descriptions.Item label="评分">
+          <Descriptions.Item label={t('pages.surveyBlock.labelScore')}>
             <Rate disabled value={record.rating} />
             <span style={{ marginLeft: 8 }}>{record.rating} / 5</span>
           </Descriptions.Item>
-          <Descriptions.Item label="提交时间">
+          <Descriptions.Item label={t('pages.surveyBlock.labelSubmitTime')}>
             {record.createdAt.replace('T', ' ').slice(0, 19)}
           </Descriptions.Item>
           {record.comment && (
-            <Descriptions.Item label="评语" span={2}>
+            <Descriptions.Item label={t('pages.surveyBlock.labelComment')} span={2}>
               {record.comment}
             </Descriptions.Item>
           )}
         </Descriptions>
       ) : (
         <Typography.Text type="secondary">
-          {isClosed ? '该工单已关闭，可为本次服务评分。' : '工单关闭后可提交满意度评分。'}
+          {isClosed ? t('pages.surveyBlock.textClosed') : t('pages.surveyBlock.textNotClosed')}
         </Typography.Text>
       )}
       {isClosed && !record && (
         <div style={{ marginTop: 12 }}>
           <Button type="primary" onClick={() => setModalOpen(true)}>
-            提交评分
+            {t('pages.surveyBlock.btnSubmit')}
           </Button>
         </div>
       )}
       <Modal
-        title="满意度评分"
+        title={t('pages.surveyBlock.modalTitle')}
         open={modalOpen}
         onOk={() => void submit()}
         onCancel={() => {
           setModalOpen(false)
           setComment('')
         }}
-        okText="提交"
+        okText={t('pages.surveyBlock.btnSubmitScore')}
         confirmLoading={saving}
         destroyOnClose
         width={420}
       >
         <div style={{ marginBottom: 16 }}>
-          <Typography.Text>本次服务评分：</Typography.Text>
+          <Typography.Text>{t('pages.surveyBlock.labelScoreQuestion')}</Typography.Text>
           <div style={{ marginTop: 8 }}>
             <Rate value={rating} onChange={setRating} />
             <span style={{ marginLeft: 8 }}>{rating} / 5</span>
@@ -109,7 +111,7 @@ export default function SurveyBlock({ ticketId, isClosed, onSubmitted }: Props) 
         <Input.TextArea
           rows={3}
           maxLength={500}
-          placeholder="评语（可选）"
+          placeholder={t('pages.surveyBlock.placeholderComment')}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
         />

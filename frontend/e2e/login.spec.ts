@@ -19,3 +19,23 @@ test('登录并完成客户创建流程', async ({ page }) => {
 
   await expect(page.getByText('E2E 客户')).toBeVisible()
 })
+
+test('登录页面加载', async ({ page }) => {
+  await page.goto('/login')
+  await expect(page).toHaveTitle(/CRM/)
+})
+
+test('导航菜单显示', async ({ page }) => {
+  await page.goto('/dashboard')
+  await expect(page.locator('.ant-menu-item')).toBeVisible()
+})
+
+test('商机列表页面加载', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByLabel('用户名').fill('admin')
+  await page.getByLabel('密码').fill('admin123')
+  await page.getByRole('button', { name: /登\s*录/ }).click()
+  await page.goto('/opportunities')
+  await expect(page).toHaveURL(/\/opportunities/)
+})
+

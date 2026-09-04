@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Switch, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -20,6 +21,7 @@ interface FormValues {
 
 /** 汇率管理页（057，仅 ADMIN）。 */
 export default function CurrencyRatePage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -27,29 +29,29 @@ export default function CurrencyRatePage() {
   const [form] = Form.useForm<FormValues>()
 
   const columns: ProColumns<CurrencyRate>[] = [
-    { title: '代码', dataIndex: 'code', render: (_, row) => <Tag color={row.isBase ? 'gold' : 'blue'}>{row.code}</Tag> },
-    { title: '名称', dataIndex: 'name' },
-    { title: '汇率（对人民币）', dataIndex: 'rate', search: false },
-    { title: '基准', dataIndex: 'isBase', search: false, render: (_, row) => (row.isBase ? <Tag color="gold">基准</Tag> : '-') },
+    { title: t('pages.currency.colCode'), dataIndex: 'code', render: (_, row) => <Tag color={row.isBase ? 'gold' : 'blue'}>{row.code}</Tag> },
+    { title: t('pages.currency.colName'), dataIndex: 'name' },
+    { title: t('pages.currency.colRate'), dataIndex: 'rate', search: false },
+    { title: t('pages.currency.colIsBase'), dataIndex: 'isBase', search: false, render: (_, row) => (row.isBase ? <Tag color="gold">{t('pages.currency.isBase')}</Tag> : '-') },
     {
-      title: '启用',
+      title: t('pages.currency.colEnabled'),
       dataIndex: 'enabled',
       search: false,
-      render: (_, row) => (row.enabled ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>),
+      render: (_, row) => (row.enabled ? <Tag color="green">{t('pages.currency.enabled')}</Tag> : <Tag>{t('pages.currency.disabled')}</Tag>),
     },
     {
-      title: '操作',
+      title: t('pages.currency.colAction'),
       valueType: 'option',
       render: (_, row) =>
         row.isBase ? (
-          <span style={{ color: '#bbb' }}>基准不可编辑</span>
+          <span style={{ color: '#bbb' }}>{t('pages.currency.baseNotEditable')}</span>
         ) : (
           <>
             <a key="edit" onClick={() => openEdit(row)}>
-              编辑
+              {t('pages.currency.btnEdit')}
             </a>
-            <Popconfirm key="del" title="删除该币种？" onConfirm={() => void onDelete(row)}>
-              <a style={{ color: '#ff4d4f', marginLeft: 8 }}>删除</a>
+            <Popconfirm key="del" title={t('pages.currency.confirmDelete')} onConfirm={() => void onDelete(row)}>
+              <a style={{ color: '#ff4d4f', marginLeft: 8 }}>{t('pages.currency.btnDelete')}</a>
             </Popconfirm>
           </>
         ),
@@ -73,32 +75,32 @@ export default function CurrencyRatePage() {
     try {
       if (editing) {
         await updateCurrency(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.currency.msgSaved'))
       } else {
         await createCurrency(payload)
-        message.success('已创建')
+        message.success(t('pages.currency.msgCreated'))
       }
       setModalOpen(false)
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.currency.msgSaveFailed')))
     }
   }
 
   const onDelete = async (row: CurrencyRate) => {
     try {
       await deleteCurrency(row.id)
-      message.success('已删除')
+      message.success(t('pages.currency.msgDeleted'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.currency.msgDeleteFailed')))
     }
   }
 
   return (
     <>
       <ProTable<CurrencyRate>
-        headerTitle="币种与汇率"
+        headerTitle={t('pages.currency.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -120,34 +122,34 @@ export default function CurrencyRatePage() {
               setModalOpen(true)
             }}
           >
-            新增币种
+            {t('pages.currency.btnAdd')}
           </Button>,
         ]}
       />
       <Modal
-        title={editing ? '编辑币种' : '新增币种'}
+        title={editing ? t('pages.currency.modalEditTitle') : t('pages.currency.modalAddTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.currency.btnSave')}
         destroyOnClose
         width={420}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="code" label="币种代码" rules={[{ required: true, message: '请输入代码' }]}>
-            <Input maxLength={10} placeholder="如 USD" disabled={!!editing} />
+          <Form.Item name="code" label={t('pages.currency.formCodeLabel')} rules={[{ required: true, message: t('pages.currency.formCodeRequired') }]}>
+            <Input maxLength={10} placeholder={t('pages.currency.formCodePlaceholder')} disabled={!!editing} />
           </Form.Item>
-          <Form.Item name="name" label="币种名称" rules={[{ required: true, message: '请输入名称' }]}>
-            <Input maxLength={50} placeholder="如 美元" />
+          <Form.Item name="name" label={t('pages.currency.formNameLabel')} rules={[{ required: true, message: t('pages.currency.formNameRequired') }]}>
+            <Input maxLength={50} placeholder={t('pages.currency.formNamePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="rate"
-            label="汇率（1 单位该币种 = 多少人民币）"
-            rules={[{ required: true, message: '请输入汇率' }]}
+            label={t('pages.currency.formRateLabel')}
+            rules={[{ required: true, message: t('pages.currency.formRateRequired') }]}
           >
             <InputNumber min={0.000001} precision={6} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="enabled" label="启用" valuePropName="checked">
+          <Form.Item name="enabled" label={t('pages.currency.formEnabledLabel')} valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>

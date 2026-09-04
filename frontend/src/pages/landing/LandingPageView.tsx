@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { App, Button, Card, Form, Input, Result, Select, Typography } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { fetchLandingPagePublic } from '../../services/landingPageService'
 import { submitPublicForm } from '../../services/formService'
 import { extractErrorMessage } from '../../services/apiClient'
@@ -10,6 +11,7 @@ import type { LandingPagePublic } from '../../types/landingPage'
 export default function LandingPageView() {
   const { id } = useParams<{ id: string }>()
   const { message } = App.useApp()
+  const { t } = useTranslation()
   const [lp, setLp] = useState<LandingPagePublic | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -31,7 +33,7 @@ export default function LandingPageView() {
       await submitPublicForm(Number(id), { ...values })
       setDone(true)
     } catch (err) {
-      message.error(extractErrorMessage(err, '提交失败'))
+      message.error(extractErrorMessage(err, t('pages.landing.msgSubmitFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -42,8 +44,8 @@ export default function LandingPageView() {
     return (
       <Result
         status="404"
-        title="页面不可用"
-        subTitle="落地页或关联表单已停用"
+        title={t('pages.landing.errorTitle')}
+        subTitle={t('pages.landing.errorSubtitle')}
         style={{ maxWidth: 640, margin: '40px auto' }}
       />
     )
@@ -72,7 +74,7 @@ export default function LandingPageView() {
         )}
 
         {done ? (
-          <Result status="success" title={lp.form.successMessage || '提交成功'} />
+          <Result status="success" title={lp.form.successMessage || t('pages.landing.msgSubmitSuccess')} />
         ) : (
           <Form form={form} layout="vertical" style={{ marginTop: 24 }}>
             {lp.form.fields.map((f) => (
@@ -80,26 +82,26 @@ export default function LandingPageView() {
                 key={f.field}
                 name={f.field}
                 label={f.label || f.field}
-                rules={[{ required: !!f.required, message: `请填写${f.label || f.field}` }]}
+                rules={[{ required: !!f.required, message: t('pages.landing.msgFieldRequired', { label: f.label || f.field }) }]}
               >
                 {f.options?.length ? (
                   <Select
                     options={f.options.map((o) => ({ value: o, label: o }))}
-                    placeholder={`请选择${f.label || ''}`}
+                    placeholder={t('pages.landing.msgFieldSelect', { label: f.label || '' })}
                   />
                 ) : (
-                  <Input placeholder={`请输入${f.label || ''}`} />
+                  <Input placeholder={t('pages.landing.msgFieldInput', { label: f.label || '' })} />
                 )}
               </Form.Item>
             ))}
             <Button type="primary" block size="large" loading={submitting} onClick={() => void submit()}>
-              提交
+              {t('pages.landing.btnSubmit')}
             </Button>
           </Form>
         )}
       </Card>
       <Typography.Paragraph type="secondary" style={{ textAlign: 'center', marginTop: 16, fontSize: 12 }}>
-        由 CRM 客户关系管理系统提供
+        {t('pages.landing.footerPoweredBy')}
       </Typography.Paragraph>
     </div>
   )

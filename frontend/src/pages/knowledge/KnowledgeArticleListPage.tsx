@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Form, Input, Modal, Popconfirm, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import {
   createArticle,
   deleteArticle,
@@ -26,6 +27,7 @@ interface FormValues {
 }
 
 export default function KnowledgeArticleListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -64,15 +66,15 @@ export default function KnowledgeArticleListPage() {
     try {
       if (editing) {
         await updateArticle(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.knowledge.msgSaved'))
       } else {
         await createArticle(payload)
-        message.success('已创建（草稿）')
+        message.success(t('pages.knowledge.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.knowledge.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -81,37 +83,37 @@ export default function KnowledgeArticleListPage() {
   const onPublish = async (row: KnowledgeArticle) => {
     try {
       await publishArticle(row.id)
-      message.success('已发布')
+      message.success(t('pages.knowledge.msgPublished'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.knowledge.msgOperationFailed')))
     }
   }
 
   const onUnpublish = async (row: KnowledgeArticle) => {
     try {
       await unpublishArticle(row.id)
-      message.success('已下线')
+      message.success(t('pages.knowledge.msgUnpublished'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.knowledge.msgOperationFailed')))
     }
   }
 
   const onDelete = async (row: KnowledgeArticle) => {
     try {
       await deleteArticle(row.id)
-      message.success('已删除')
+      message.success(t('pages.knowledge.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.knowledge.msgDeleteFailed')))
     }
   }
 
   const columns: ProColumns<KnowledgeArticle>[] = [
-    { title: '标题', dataIndex: 'title' },
+    { title: t('pages.knowledge.colTitle'), dataIndex: 'title' },
     {
-      title: '分类',
+      title: t('pages.knowledge.colCategory'),
       dataIndex: 'category',
       valueType: 'select',
       valueEnum: Object.fromEntries(
@@ -120,43 +122,43 @@ export default function KnowledgeArticleListPage() {
       render: (_, row) => <Tag color="blue">{ARTICLE_CATEGORY_LABELS[row.category]}</Tag>,
     },
     {
-      title: '状态',
+      title: t('pages.knowledge.colStatus'),
       dataIndex: 'status',
       search: false,
       render: (_, row) =>
-        row.status === 'PUBLISHED' ? <Tag color="green">已发布</Tag> : <Tag>草稿</Tag>,
+        row.status === 'PUBLISHED' ? <Tag color="green">{t('pages.knowledge.statusPublished')}</Tag> : <Tag>{t('pages.knowledge.statusDraft')}</Tag>,
     },
-    { title: '关键词', dataIndex: 'keywords', search: false },
-    { title: '作者', dataIndex: 'authorName', search: false },
+    { title: t('pages.knowledge.colKeywords'), dataIndex: 'keywords', search: false },
+    { title: t('pages.knowledge.colAuthor'), dataIndex: 'authorName', search: false },
     {
-      title: '创建时间',
+      title: t('pages.knowledge.colCreatedAt'),
       dataIndex: 'createdAt',
       search: false,
       valueType: 'dateTime',
     },
     {
-      title: '操作',
+      title: t('pages.knowledge.colAction'),
       valueType: 'option',
       width: 200,
       render: (_, row) => [
         row.status === 'DRAFT' ? (
           <a key="publish" onClick={() => onPublish(row)}>
-            发布
+            {t('pages.knowledge.btnPublish')}
           </a>
         ) : (
           <a key="unpublish" onClick={() => onUnpublish(row)}>
-            下线
+            {t('pages.knowledge.btnUnpublish')}
           </a>
         ),
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.knowledge.btnEdit')}
         </a>,
         <Popconfirm
           key="delete"
-          title={`确定删除文章「${row.title}」吗？`}
+          title={t('pages.knowledge.confirmDelete', { title: row.title })}
           onConfirm={() => onDelete(row)}
         >
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -166,7 +168,7 @@ export default function KnowledgeArticleListPage() {
     <>
       <ProTable<KnowledgeArticle>
         size="small"
-        headerTitle="知识库"
+        headerTitle={t('pages.knowledge.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -185,38 +187,38 @@ export default function KnowledgeArticleListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增文章
+            {t('pages.knowledge.btnCreate')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑文章' : '新增文章'}
+        title={editing ? t('pages.knowledge.modalEdit') : t('pages.knowledge.modalCreate')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         destroyOnClose
         width={720}
       >
         <Form form={form} name="articleForm" layout="vertical">
           <Form.Item
             name="category"
-            label="分类"
-            rules={[{ required: true, message: '请选择分类' }]}
+            label={t('pages.knowledge.formCategory')}
+            rules={[{ required: true, message: t('pages.knowledge.msgCategoryRequired') }]}
           >
             <Select
               options={Object.entries(ARTICLE_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))}
             />
           </Form.Item>
-          <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
+          <Form.Item name="title" label={t('pages.knowledge.formTitle')} rules={[{ required: true, message: t('pages.knowledge.msgTitleRequired') }]}>
             <Input maxLength={200} />
           </Form.Item>
-          <Form.Item name="keywords" label="关键词（逗号分隔）">
-            <Input placeholder="如：密码,重置" />
+          <Form.Item name="keywords" label={t('pages.knowledge.formKeywords')}>
+            <Input placeholder={t('pages.knowledge.placeholderKeywords')} />
           </Form.Item>
-          <Form.Item name="content" label="内容">
+          <Form.Item name="content" label={t('pages.knowledge.formContent')}>
             <Input.TextArea rows={10} />
           </Form.Item>
         </Form>

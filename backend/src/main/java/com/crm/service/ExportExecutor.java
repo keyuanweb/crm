@@ -302,4 +302,33 @@ public class ExportExecutor {
   private String nvl(String s) {
     return s == null ? "" : s;
   }
+
+  /** 定时导出复用：根据实体类型和格式生成导出文件。 */
+  public String executeExport(String entityType, String filterConditions, String exportFormat) {
+    try {
+      // 创建临时 ExportJob 用于复用现有导出逻辑
+      ExportJob tempJob = new ExportJob();
+      tempJob.setExportType(entityType.toUpperCase());
+      tempJob.setExportFormat(exportFormat.toUpperCase());
+      tempJob.setStatus(ExportJobService.STATUS_RUNNING);
+      tempJob.setCreatedAt(LocalDateTime.now());
+
+      Path dir = Paths.get(exportDir);
+      Files.createDirectories(dir);
+      String fileName =
+          entityType.toLowerCase()
+              + "_scheduled_"
+              + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+              + "."
+              + (exportFormat.toUpperCase().equals("CSV") ? "csv" : "xlsx");
+      Path file = dir.resolve(fileName);
+
+      byte[] content = buildContent(tempJob);
+      Files.write(file, content);
+
+      return file.toString();
+    } catch (IOException e) {
+      throw new BusinessException(ErrorCode.EXPORT_FAILED, "Export failed: " + e.getMessage());
+    }
+  }
 }

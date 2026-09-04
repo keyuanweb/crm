@@ -43,3 +43,5 @@ contract-files/
 # Redis persistence & editor backups
 dump.rdb
 *.bak
+
+.pnpm-store/

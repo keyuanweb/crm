@@ -12,7 +12,8 @@
 3. 产品编辑页未集成多币种价格（057）；
 4. 整体布局：内容区无限制（大屏行过长）、滚动条默认、间距不统一、无 404 页、页面切换无过渡；
 5. 首页问候 i18n 插值 `{name}` 未替换（单花括号 vs i18next 双花括号）；
-6. 客户列表手机号脱敏导致"显示不全"（按用户要求列表显示完整号）。
+6. 客户列表手机号脱敏导致"显示不全"（按用户要求列表显示完整号）；
+7. 列表页搜索框与顶部内容紧贴，缺少间距（ProTable search form 上方有 Space/Row/Card 时）。
 
 ## 用户场景与测试（必填）
 
@@ -83,6 +84,27 @@
 1. **Given** 登录，**When** 查看首页，**Then** 问候含真实用户名（非 `{name}` 字面量）。
 2. **Given** 客户列表，**When** 查看电话列，**Then** 显示完整号码（非 `139****1111`）。
 
+---
+
+### 用户故事 6 - 列表页搜索框间距（优先级：P1）
+
+列表页 ProTable 搜索框与顶部内容（Tab 按钮/统计卡片/说明文字）之间需要 16px 间距，避免视觉紧贴。
+
+**独立测试**: 打开任意有顶部内容的列表页 → 搜索框与上方内容有 16px 间距。
+
+**验收场景**:
+
+1. **Given** 线索/客户列表（有 Tab 按钮），**When** 查看，**Then** 搜索框与按钮组有 16px 间距。
+2. **Given** 发票/任务/拜访列表（有统计卡片），**When** 查看，**Then** 搜索框与卡片有 16px 间距。
+3. **Given** 无顶部内容的列表页（如合同/联系人），**When** 查看，**Then** 搜索框在顶部无多余间距。
+
+### 实现细节
+
+- 7 个文件添加 `<div style={{ height: 16 }} />` 间距：`LeadListPage`、`CustomerListPage`、`InvoiceListPage`、`TaskListPage`、`WorkflowLogListPage`、`SlaPolicyListPage`、`VisitListPage`。
+- 全局 CSS `index.css`：`.ant-row .ant-col .ant-form-item { margin-bottom: 24px !important; }` 兜底。
+- 全局 CSS `index.css`：`.pro-card .ant-pro-search-form { margin-top: 16px !important; }` 兜底。
+- 其余 19 个 ListPage 的 ProTable 是页面第一个元素，无需间距。
+
 ### 边界情况
 
 - 预测去重对 CLOSED_LOST 过滤后仍按阶段唯一（前端兜底 + 后端聚合双保险）。
@@ -102,6 +124,7 @@
 - **FR-U07**: 路由切换滚动复位 + 淡入过渡。
 - **FR-U08**: 首页问候 i18n 插值正确（{{name}}）。
 - **FR-U09**: 客户列表显示完整手机号/邮箱（导出仍脱敏）。
+- **FR-U10**: 列表页 ProTable 搜索框与顶部内容有 16px 间距（7 个有内容的页面）。
 
 ### 关键实体（涉及数据）
 
@@ -115,6 +138,7 @@
 - **SC-U02**: 详情页编辑/刷新流程可用。
 - **SC-U03**: 多币种价保存/删除差集正确。
 - **SC-U04**: 前端 typecheck/lint/build 通过；后端 verify 通过（预测聚合改动）。
+- **SC-U05**: 7 个有顶部内容的列表页搜索框间距 16px，无顶部内容的列表页无多余间距。
 
 ## 假设
 

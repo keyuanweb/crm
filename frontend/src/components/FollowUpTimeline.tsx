@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { App, Button, Card, Checkbox, DatePicker, Empty, Form, Input, Modal, Select, Timeline, Typography } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
@@ -25,6 +26,7 @@ interface FormValues {
 }
 
 export default function FollowUpTimeline({ customerId, leadId }: Props) {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [items, setItems] = useState<FollowUp[]>([])
   const [loading, setLoading] = useState(false)
@@ -40,7 +42,7 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
       const res = await fetchFollowUps({ customerId, leadId, page: 1, pageSize: 50 })
       setItems(res.items)
     } catch (err) {
-      message.error(extractErrorMessage(err, '加载跟进记录失败'))
+      message.error(extractErrorMessage(err, t('pages.followUpTimeline.msgLoadFailed')))
     } finally {
       setLoading(false)
     }
@@ -78,15 +80,15 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
     try {
       if (editing) {
         await updateFollowUp(editing.id, payload)
-        message.success('已保存')
+        message.success(t('pages.followUpTimeline.msgSaved'))
       } else {
         await createFollowUp(payload)
-        message.success('已添加')
+        message.success(t('pages.followUpTimeline.msgAdded'))
       }
       setModalOpen(false)
       void load()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.followUpTimeline.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -96,18 +98,18 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
 
   return (
     <Card
-      title="跟进记录"
+      title={t('pages.followUpTimeline.title')}
       loading={loading}
       style={{ borderRadius: 10 }}
       headStyle={{ borderBottom: '1px solid #f0f0f0' }}
       extra={
         <Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}>
-          添加跟进
+          {t('pages.followUpTimeline.btnAdd')}
         </Button>
       }
     >
       {items.length === 0 ? (
-        <Empty description="暂无跟进记录" />
+        <Empty description={t('pages.followUpTimeline.empty')} />
       ) : (
         <Timeline
           items={items.map((f) => ({
@@ -117,7 +119,7 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
               <div>
                 <Typography.Text strong>{METHOD_LABELS[f.method]}</Typography.Text>{' '}
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {f.followUpByName ?? '未知'} ·{' '}
+                  {f.followUpByName ?? t('pages.followUpTimeline.unknown')} ·{' '}
                   {f.createdAt ? dayjs(f.createdAt).format('YYYY-MM-DD HH:mm') : ''}
                   {f.nextFollowUpAt
                     ? ` · 下次跟进 ${dayjs(f.nextFollowUpAt).format('YYYY-MM-DD HH:mm')}`
@@ -125,7 +127,7 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
                 </Typography.Text>
                 {canEdit(f) && (
                   <a style={{ marginLeft: 8 }} onClick={() => openEdit(f)}>
-                    编辑
+                    {t('pages.followUpTimeline.btnEdit')}
                   </a>
                 )}
                 <div style={{ marginTop: 4 }}>{f.content}</div>
@@ -136,15 +138,15 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
       )}
 
       <Modal
-        title={editing ? '编辑跟进记录' : '添加跟进记录'}
+        title={editing ? t('pages.followUpTimeline.modalEdit') : t('pages.followUpTimeline.modalAdd')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.followUpTimeline.btnSave')}
         confirmLoading={saving}
         destroyOnClose>
         <Form form={form} name="followUpForm" layout="vertical">
-          <Form.Item name="method" label="方式" rules={[{ required: true, message: '请选择方式' }]}>
+          <Form.Item name="method" label={t('pages.followUpTimeline.labelMethod')} rules={[{ required: true, message: t('pages.followUpTimeline.labelMethod') }]}>
             <Select
               options={Object.entries(METHOD_LABELS).map(([value, label]) => ({
                 value,
@@ -152,15 +154,15 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
               }))}
             />
           </Form.Item>
-          <Form.Item name="content" label="内容" rules={[{ required: true, message: '请输入内容' }]}>
+          <Form.Item name="content" label={t('pages.followUpTimeline.labelContent')} rules={[{ required: true, message: t('pages.followUpTimeline.labelContent') }]}>
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item name="nextFollowUpAt" label="下次跟进">
+          <Form.Item name="nextFollowUpAt" label={t('pages.followUpTimeline.labelNextFollowUp')}>
             <DatePicker showTime style={{ width: '100%' }} />
           </Form.Item>
           {!editing && (
             <Form.Item name="createTask" valuePropName="checked" initialValue={false}>
-              <Checkbox>创建跟进任务（截止=下次跟进时间，需填写下次跟进）</Checkbox>
+              <Checkbox>{t('pages.followUpTimeline.checkboxCreateTask')}</Checkbox>
             </Form.Item>
           )}
         </Form>

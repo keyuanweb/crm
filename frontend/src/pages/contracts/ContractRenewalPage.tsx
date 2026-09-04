@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Tag } from 'antd'
@@ -6,7 +7,6 @@ import { fetchRenewalOverview } from '../../services/contractService'
 import { extractErrorMessage } from '../../services/apiClient'
 import {
   CONTRACT_STATUS_COLORS,
-  CONTRACT_STATUS_LABELS,
   RENEWAL_GROUP_LABELS,
   type Contract,
   type RenewalGroup,
@@ -14,6 +14,7 @@ import {
 import { formatAmount } from '../../types/opportunity'
 
 export default function ContractRenewalPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [group, setGroup] = useState<RenewalGroup>('EXPIRING_SOON')
@@ -25,35 +26,35 @@ export default function ContractRenewalPage() {
 
   const columns: ProColumns<Contract>[] = [
     {
-      title: '合同号',
+      title: t('pages.contractRenewal.colContractNo'),
       dataIndex: 'contractNo',
       render: (_, row) => <Link to={`/contracts/${row.id}`}>{row.contractNo}</Link>,
     },
-    { title: '标题', dataIndex: 'title' },
-    { title: '客户', dataIndex: 'customerName', search: false },
-    { title: '金额（元）', dataIndex: 'amount', search: false, render: (_, row) => formatAmount(row.amount) },
+    { title: t('pages.contractRenewal.colTitle'), dataIndex: 'title' },
+    { title: t('pages.contractRenewal.colCustomer'), dataIndex: 'customerName', search: false },
+    { title: t('pages.contractRenewal.colAmount'), dataIndex: 'amount', search: false, render: (_, row) => formatAmount(row.amount) },
     {
-      title: '结束日期',
+      title: t('pages.contractRenewal.colEndDate'),
       dataIndex: 'endDate',
       search: false,
       render: (_, row) => (row.endDate ? row.endDate.replace(/-/g, '/') : '-'),
     },
     {
-      title: '状态',
+      title: t('pages.contractRenewal.colStatus'),
       dataIndex: 'status',
       search: false,
       render: (_, row) => (
-        <Tag color={CONTRACT_STATUS_COLORS[row.status]}>{CONTRACT_STATUS_LABELS[row.status]}</Tag>
+        <Tag color={CONTRACT_STATUS_COLORS[row.status]}>{t(`pages.contractRenewal.status${row.status}`)}</Tag>
       ),
     },
     {
-      title: '续约来源',
+      title: t('pages.contractRenewal.colRenewedFrom'),
       dataIndex: 'renewedFromNo',
       search: false,
       render: (_, row) => (row.renewedFromNo ? `#${row.renewedFromNo}` : '-'),
     },
     {
-      title: '续约去向',
+      title: t('pages.contractRenewal.colRenewedTo'),
       dataIndex: 'renewedBy',
       search: false,
       render: (_, row) =>
@@ -72,12 +73,12 @@ export default function ContractRenewalPage() {
             type={group === g ? 'primary' : 'default'}
             onClick={() => switchGroup(g)}
           >
-            {RENEWAL_GROUP_LABELS[g]}
+            {t(`pages.contractRenewal.group${g}`)}
           </Button>
         ))}
       </div>
       <ProTable<Contract>
-        headerTitle={`续约漏斗 · ${RENEWAL_GROUP_LABELS[group]}`}
+        headerTitle={`${t('pages.contractRenewal.headerTitle')} · ${t(`pages.contractRenewal.group${group}`)}`}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -93,7 +94,7 @@ export default function ContractRenewalPage() {
             )
             return { data: res.items, success: true, total: res.total }
           } catch (err) {
-            message.error(extractErrorMessage(err, '加载失败'))
+            message.error(extractErrorMessage(err, t('pages.contractRenewal.msgLoadFailed')))
             return { data: [], success: false, total: 0 }
           }
         }}

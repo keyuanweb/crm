@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -37,10 +38,11 @@ const BIZ_LABELS: Record<string, string> = {
 const APPROVER_TYPES = [
   { value: 'ROLE', label: '角色' },
   { value: 'USER', label: '指定用户' },
-  { value: 'MANAGER', label: '指定用户(上级)' },
+  { value: 'MANAGER', label: '指定用户 (上级)' },
 ]
 
 export default function ApprovalFlowPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -164,7 +166,7 @@ export default function ApprovalFlowPage() {
   const onSave = async () => {
     await form.validateFields()
     if (nodes.filter((n) => n.name.trim()).length === 0) {
-      message.warning('至少需要一个审批节点')
+      message.warning(t('pages.approvalFlow.msgAtLeastOneNode'))
       return
     }
     setSaving(true)
@@ -172,15 +174,15 @@ export default function ApprovalFlowPage() {
       const payload = buildPayload()
       if (editing) {
         await updateApprovalFlow(editing.id, payload)
-        message.success('已保存')
+        message.success(t('pages.approvalFlow.msgSaved'))
       } else {
         await createApprovalFlow(payload)
-        message.success('已创建')
+        message.success(t('pages.approvalFlow.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.approvalFlow.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -189,17 +191,17 @@ export default function ApprovalFlowPage() {
   const onDelete = async (row: ApprovalFlow) => {
     try {
       await deleteApprovalFlow(row.id)
-      message.success('已删除')
+      message.success(t('pages.approvalFlow.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.approvalFlow.msgDeleteFailed')))
     }
   }
 
   const renderNodeEditor = (list: NodeRow[], target?: 'main' | 'extra') => (
     <div style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 10, background: '#fafafa' }}>
       {list.length === 0 && (
-        <div style={{ color: '#8c8c8c', fontSize: 13, marginBottom: 8 }}>暂无节点</div>
+        <div style={{ color: '#8c8c8c', fontSize: 13, marginBottom: 8 }}>{t('pages.approvalFlow.noNodes')}</div>
       )}
       {list.map((n) => (
         <Row key={n.key} gutter={8} style={{ marginBottom: 8 }} align="middle">
@@ -207,7 +209,7 @@ export default function ApprovalFlowPage() {
             <Input
               value={n.name}
               onChange={(e) => updateNode(n.key, { name: e.target.value }, target)}
-              placeholder="节点名，如：销售经理"
+              placeholder={t('pages.approvalFlow.nodePlaceholder')}
             />
           </Col>
           <Col span={7}>
@@ -222,7 +224,7 @@ export default function ApprovalFlowPage() {
             <Input
               value={n.approverValue}
               onChange={(e) => updateNode(n.key, { approverValue: e.target.value }, target)}
-              placeholder={n.approverType === 'ROLE' ? '角色码，如 ADMIN' : '用户 id'}
+              placeholder={n.approverType === 'ROLE' ? t('pages.approvalFlow.roleCodePlaceholder') : t('pages.approvalFlow.userIdPlaceholder')}
             />
           </Col>
           <Col span={2}>
@@ -231,21 +233,21 @@ export default function ApprovalFlowPage() {
         </Row>
       ))}
       <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => addNode(target)} block>
-        添加节点
+        {t('pages.approvalFlow.addNode')}
       </Button>
     </div>
   )
 
   const columns: ProColumns<ApprovalFlow>[] = [
-    { title: '流程名', dataIndex: 'name' },
+    { title: t('pages.approvalFlow.colName'), dataIndex: 'name' },
     {
-      title: '业务类型',
+      title: t('pages.approvalFlow.colBusinessType'),
       dataIndex: 'businessType',
       width: 100,
       render: (_, row) => <Tag color="blue">{BIZ_LABELS[row.businessType] ?? row.businessType}</Tag>,
     },
     {
-      title: '节点数',
+      title: t('pages.approvalFlow.colNodeCount'),
       search: false,
       width: 80,
       render: (_, row) => {
@@ -257,28 +259,28 @@ export default function ApprovalFlowPage() {
       },
     },
     {
-      title: '条件分支',
+      title: t('pages.approvalFlow.colConditionBranch'),
       search: false,
       width: 90,
-      render: (_, row) => (row.conditionJson ? <Tag color="orange">金额条件</Tag> : <span>-</span>),
+      render: (_, row) => (row.conditionJson ? <Tag color="orange">{t('pages.approvalFlow.amountCondition')}</Tag> : <span>-</span>),
     },
     {
-      title: '启用',
+      title: t('pages.approvalFlow.colEnabled'),
       dataIndex: 'enabled',
       width: 80,
       search: false,
       render: (_, row) => <Switch checked={row.enabled} size="small" />,
     },
     {
-      title: '操作',
+      title: t('pages.approvalFlow.colAction'),
       valueType: 'option',
       width: 130,
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.approvalFlow.edit')}
         </a>,
-        <Popconfirm key="delete" title="确定删除该流程？" onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm key="delete" title={t('pages.approvalFlow.confirmDelete')} onConfirm={() => onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.approvalFlow.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -288,7 +290,7 @@ export default function ApprovalFlowPage() {
     <>
       <ProTable<ApprovalFlow>
         size="small"
-        headerTitle="审批流配置"
+        headerTitle={t('pages.approvalFlow.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -301,30 +303,30 @@ export default function ApprovalFlowPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建审批流
+            {t('pages.approvalFlow.btnAdd')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑审批流' : '新建审批流'}
+        title={editing ? t('pages.approvalFlow.modalEditTitle') : t('pages.approvalFlow.modalAddTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.approvalFlow.btnSave')}
         destroyOnClose
         width={760}
       >
         <Form form={form} name="flowForm" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="name" label="流程名" rules={[{ required: true, message: '请输入流程名' }]}>
-                <Input placeholder="如：合同审批" />
+              <Form.Item name="name" label={t('pages.approvalFlow.formNameLabel')} rules={[{ required: true, message: t('pages.approvalFlow.formNameRequired') }]} >
+                <Input placeholder={t('pages.approvalFlow.formNamePlaceholder')} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="businessType" label="业务类型" rules={[{ required: true, message: '请选择业务类型' }]}>
+              <Form.Item name="businessType" label={t('pages.approvalFlow.formBusinessTypeLabel')} rules={[{ required: true, message: t('pages.approvalFlow.formBusinessTypeRequired') }]} >
                 <Select options={Object.entries(BIZ_LABELS).map(([value, label]) => ({ value, label }))} />
               </Form.Item>
             </Col>
@@ -333,9 +335,9 @@ export default function ApprovalFlowPage() {
 
         <div style={{ marginBottom: 6 }}>
           <Space>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>审批节点：</span>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>{t('pages.approvalFlow.approvalNodes')}</span>
             <Switch checked={useCondition} onChange={setUseCondition} size="small" />
-            <span style={{ fontSize: 13, color: '#8c8c8c' }}>启用金额条件分支</span>
+            <span style={{ fontSize: 13, color: '#8c8c8c' }}>{t('pages.approvalFlow.enableAmountCondition')}</span>
           </Space>
         </div>
         {renderNodeEditor(nodes)}
@@ -343,24 +345,24 @@ export default function ApprovalFlowPage() {
         {useCondition && (
           <div style={{ marginTop: 12 }}>
             <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
-              条件（金额超阈值追加节点）：
+              {t('pages.approvalFlow.conditionLabel')}
             </div>
             <Space wrap style={{ marginBottom: 8 }}>
-              <span>金额</span>
+              <span>{t('pages.approvalFlow.amount')}</span>
               <Select
                 value={condition.op}
                 onChange={(v) => setCondition({ ...condition, op: v })}
                 style={{ width: 100 }}
                 options={[
-                  { value: 'GT', label: '大于' },
-                  { value: 'GTE', label: '大于等于' },
-                  { value: 'LT', label: '小于' },
+                  { value: 'GT', label: t('pages.approvalFlow.gt') },
+                  { value: 'GTE', label: t('pages.approvalFlow.gte') },
+                  { value: 'LT', label: t('pages.approvalFlow.lt') },
                 ]}
               />
               <InputNumber
                 value={condition.value}
                 onChange={(v) => setCondition({ ...condition, value: v ?? undefined })}
-                placeholder="金额阈值"
+                placeholder={t('pages.approvalFlow.amountThresholdPlaceholder')}
                 style={{ width: 140 }}
               />
             </Space>

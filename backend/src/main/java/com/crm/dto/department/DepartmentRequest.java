@@ -14,5 +14,10 @@ public class DepartmentRequest {
 
   private Long parentId;
 
+  @Size(max = 500, message = "描述不能超过 500 字")
+  private String description;
+
+  private Integer sortOrder;
+
   private Integer version;
 }

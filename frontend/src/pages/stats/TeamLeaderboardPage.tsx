@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, DatePicker, Progress, Radio, Table, Tag, Typography } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
+import { useTranslation } from 'react-i18next'
 import { fetchLeaderboard } from '../../services/statsService'
 import { formatAmount } from '../../types/opportunity'
 import type { LeaderboardItem } from '../../types/stats'
@@ -15,12 +16,13 @@ const rateColor = (rate?: number) => {
   return 'red'
 }
 
-const rateLabel = (rate?: number) => {
-  if (rate === undefined || rate === null) return '未设目标'
+const rateLabel = (rate?: number, t?: (key: string) => string) => {
+  if (rate === undefined || rate === null) return t ? t('pages.teamLeaderboard.noTarget') : '未设目标'
   return `${Math.round(rate * 100)}%`
 }
 
 export default function TeamLeaderboardPage() {
+  const { t } = useTranslation()
   const [month, setMonth] = useState<Dayjs>(dayjs())
   const [sortBy, setSortBy] = useState<'rate' | 'amount'>('rate')
 
@@ -31,7 +33,7 @@ export default function TeamLeaderboardPage() {
 
   const columns = [
     {
-      title: '排名',
+      title: t('pages.teamLeaderboard.colRank'),
       key: 'rank',
       width: 70,
       render: (_: unknown, __: LeaderboardItem, index: number) => {
@@ -39,21 +41,21 @@ export default function TeamLeaderboardPage() {
         return <span style={{ fontWeight: 600 }}>{medals[index] ?? index + 1}</span>
       },
     },
-    { title: '销售', dataIndex: 'displayName', width: 160 },
+    { title: t('pages.teamLeaderboard.colUser'), dataIndex: 'displayName', width: 160 },
     {
-      title: '目标金额（元）',
+      title: t('pages.teamLeaderboard.colTargetAmount'),
       dataIndex: 'targetAmount',
       width: 160,
-      render: (v?: number) => (v === undefined || v === null ? <Tag>未设目标</Tag> : formatAmount(v)),
+      render: (v?: number) => (v === undefined || v === null ? <Tag>{t('pages.teamLeaderboard.noTarget')}</Tag> : formatAmount(v)),
     },
     {
-      title: '赢单金额（元）',
+      title: t('pages.teamLeaderboard.colWonAmount'),
       dataIndex: 'wonAmount',
       width: 160,
       render: (v: number) => <span style={{ fontWeight: 500 }}>{formatAmount(v)}</span>,
     },
     {
-      title: '达成率',
+      title: t('pages.teamLeaderboard.colAchievementRate'),
       dataIndex: 'achievementRate',
       width: 240,
       render: (v?: number) => (
@@ -74,7 +76,7 @@ export default function TeamLeaderboardPage() {
             style={{ flex: 1, maxWidth: 140 }}
           />
           <Tag color={rateColor(v)} style={{ marginInlineEnd: 0 }}>
-            {rateLabel(v)}
+            {rateLabel(v, t)}
           </Tag>
         </div>
       ),
@@ -85,10 +87,10 @@ export default function TeamLeaderboardPage() {
     <div>
       <div style={{ marginBottom: 12 }}>
         <Title level={4} style={{ marginBottom: 4 }}>
-          团队销售排行
+          {t('pages.teamLeaderboard.title')}
         </Title>
         <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 13 }}>
-          按月度对比各销售的目标、赢单金额与达成率，驱动良性竞争。
+          {t('pages.teamLeaderboard.description')}
         </Paragraph>
       </div>
 
@@ -101,8 +103,8 @@ export default function TeamLeaderboardPage() {
           style={{ width: 140 }}
         />
         <Radio.Group value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-          <Radio.Button value="rate">按达成率</Radio.Button>
-          <Radio.Button value="amount">按赢单金额</Radio.Button>
+          <Radio.Button value="rate">{t('pages.teamLeaderboard.sortByRate')}</Radio.Button>
+          <Radio.Button value="amount">{t('pages.teamLeaderboard.sortByAmount')}</Radio.Button>
         </Radio.Group>
       </div>
 
@@ -114,7 +116,7 @@ export default function TeamLeaderboardPage() {
           dataSource={data?.items ?? []}
           columns={columns as never}
           pagination={false}
-          locale={{ emptyText: '暂无排行数据' }}
+          locale={{ emptyText: t('pages.teamLeaderboard.emptyText') }}
         />
       </Card>
     </div>

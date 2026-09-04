@@ -19,7 +19,17 @@ import {
   Tag,
   Typography,
 } from 'antd'
-import { ArrowLeftOutlined, EditOutlined, MailOutlined, PhoneOutlined, ShareAltOutlined } from '@ant-design/icons'
+import {
+  ArrowLeftOutlined,
+  EditOutlined,
+  MailOutlined,
+  PhoneOutlined,
+  ShareAltOutlined,
+  BulbOutlined,
+  FileTextOutlined,
+  ShoppingCartOutlined,
+  CustomerServiceOutlined,
+} from '@ant-design/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCustomerDetail } from '../../hooks/useCustomers'
 import { shareCustomer } from '../../services/customerShareService'
@@ -29,7 +39,6 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { formatAmount } from '../../types/opportunity'
 import { useAuthStore } from '../../store/authStore'
 import FollowUpTimeline from '../../components/FollowUpTimeline'
-import ContactsCard from '../../components/ContactsCard'
 import CommentSection from '../../components/CommentSection'
 import type {
   ContractBrief,
@@ -38,6 +47,7 @@ import type {
   PaymentSummary,
   TicketBrief,
 } from '../../types/customer'
+import { StatCard, StatusTag } from '../../components/ui'
 
 export default function CustomerDetailPage() {
   const { t } = useTranslation()
@@ -186,15 +196,15 @@ export default function CustomerDetailPage() {
     {
       title: t('pages.customer.detail.colStatus'),
       dataIndex: 'status',
-      render: (s: string) => (s === 'ACTIVE' ? <Tag color="blue">{t('pages.opportunity.list.active')}</Tag> : <Tag>{t('pages.opportunity.list.archived')}</Tag>),
+      render: (s: string) => (s === 'ACTIVE' ? <StatusTag type="info">{t('pages.opportunity.list.active')}</StatusTag> : <StatusTag>{t('pages.opportunity.list.archived')}</StatusTag>),
     },
     { title: t('pages.customer.detail.colSalesCount'), dataIndex: 'salesOpportunityCount' },
   ]
 
   const healthLevel = (level?: string) => {
-    if (level === 'GREEN') return { color: '#3f8600', label: t('pages.customer.detail.healthGreen') }
-    if (level === 'YELLOW') return { color: '#d48806', label: t('pages.customer.detail.healthYellow') }
-    return { color: '#cf1322', label: t('pages.customer.detail.healthRed') }
+    if (level === 'GREEN') return { color: 'var(--color-success)', label: t('pages.customer.detail.healthGreen') }
+    if (level === 'YELLOW') return { color: 'var(--color-warning)', label: t('pages.customer.detail.healthYellow') }
+    return { color: 'var(--color-danger)', label: t('pages.customer.detail.healthRed') }
   }
 
   const orderColumns = [
@@ -209,16 +219,18 @@ export default function CustomerDetailPage() {
       title: t('pages.customer.detail.colStatus'),
       dataIndex: 'status',
       render: (s: string) => {
-        const map: Record<string, { c: string; l: string }> = {
-          PENDING: { c: 'orange', l: t('pages.customer.detail.orderPending') },
-          PARTIAL: { c: 'gold', l: t('pages.customer.detail.orderPartial') },
-          PAID: { c: 'green', l: t('pages.customer.detail.orderPaid') },
+        const map: Record<string, { c: StatusTagType; l: string }> = {
+          PENDING: { c: 'warning', l: t('pages.customer.detail.orderPending') },
+          PARTIAL: { c: 'info', l: t('pages.customer.detail.orderPartial') },
+          PAID: { c: 'success', l: t('pages.customer.detail.orderPaid') },
         }
         const m = map[s] ?? { c: 'default', l: s }
-        return <Tag color={m.c}>{m.l}</Tag>
+        return <StatusTag type={m.c}>{m.l}</StatusTag>
       },
     },
   ]
+
+  type StatusTagType = 'success' | 'warning' | 'danger' | 'info' | 'default'
 
   const paymentColumns = [
     { title: t('pages.customer.detail.colOrderNo'), dataIndex: 'orderNo' },
@@ -235,15 +247,15 @@ export default function CustomerDetailPage() {
       title: t('pages.customer.detail.colStatus'),
       dataIndex: 'status',
       render: (s: string) => {
-        const map: Record<string, string> = {
-          DRAFT: t('common.status.draft'),
-          PENDING_APPROVAL: t('common.status.pending'),
-          APPROVED: t('common.status.approved'),
-          EFFECTIVE: t('common.status.effective'),
-          COMPLETED: t('common.status.completed'),
-          TERMINATED: t('common.status.terminated'),
+        const map: Record<string, StatusTagType> = {
+          DRAFT: 'default',
+          PENDING_APPROVAL: 'info',
+          APPROVED: 'info',
+          EFFECTIVE: 'success',
+          COMPLETED: 'info',
+          TERMINATED: 'danger',
         }
-        return <Tag>{map[s] ?? s}</Tag>
+        return <StatusTag type={map[s] ?? 'default'}>{s}</StatusTag>
       },
     },
   ]
@@ -254,11 +266,11 @@ export default function CustomerDetailPage() {
       title: t('pages.customer.detail.colPriority'),
       dataIndex: 'priority',
       render: (s: string) => {
-        const map: Record<string, string> = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', URGENT: 'Urgent' }
+        const map: Record<string, StatusTagType> = { LOW: 'default', MEDIUM: 'warning', HIGH: 'danger', URGENT: 'danger' }
         return (
-          <Tag color={s === 'URGENT' || s === 'HIGH' ? 'red' : s === 'MEDIUM' ? 'orange' : 'default'}>
-            {map[s] ?? s}
-          </Tag>
+          <StatusTag type={map[s] ?? 'default'}>
+            {s}
+          </StatusTag>
         )
       },
     },
@@ -266,202 +278,182 @@ export default function CustomerDetailPage() {
       title: t('pages.customer.detail.colStatus'),
       dataIndex: 'status',
       render: (s: string) => {
-        const map: Record<string, string> = {
-          OPEN: t('pages.customer.detail.ticketOpen'),
-          IN_PROGRESS: t('pages.customer.detail.ticketInProgress'),
-          RESOLVED: t('pages.customer.detail.ticketResolved'),
-          CLOSED: t('pages.customer.detail.ticketClosed'),
+        const map: Record<string, StatusTagType> = {
+          OPEN: 'warning',
+          IN_PROGRESS: 'info',
+          RESOLVED: 'success',
+          CLOSED: 'default',
         }
-        return <Tag color={s === 'OPEN' ? 'orange' : s === 'CLOSED' ? 'green' : 'blue'}>{map[s] ?? s}</Tag>
+        return <StatusTag type={map[s] ?? 'default'}>{s}</StatusTag>
       },
     },
     {
       title: 'SLA',
       dataIndex: 'slaStatus',
       render: (s?: string) => {
-        const map: Record<string, string> = {
-          NORMAL: t('pages.customer.detail.slaNormal'),
-          WARNING: t('pages.customer.detail.slaWarning'),
-          OVERDUE: t('pages.customer.detail.slaOverdue'),
+        const map: Record<string, StatusTagType> = {
+          NORMAL: 'success',
+          WARNING: 'warning',
+          OVERDUE: 'danger',
         }
-        return <Tag color={s === 'OVERDUE' ? 'red' : s === 'WARNING' ? 'orange' : 'default'}>{s ? map[s] ?? s : '-'}</Tag>
+        return s ? <StatusTag type={map[s] ?? 'default'}>{s}</StatusTag> : <StatusTag>-</StatusTag>
       },
     },
   ]
 
-  return (
-    <div>
-      <Link to="/customers" style={{ marginBottom: 16, display: 'inline-block' }}>
-        <Button type="link" icon={<ArrowLeftOutlined />}>
-          {t('pages.customer.detail.backToList')}
-        </Button>
-      </Link>
+  // 统计卡片数据
+  const statsCards = [
+    {
+      value: data.opportunities?.length ?? 0,
+      label: t('pages.customer.detail.tabOpportunities', { count: 0 }),
+      icon: <BulbOutlined />,
+    },
+    {
+      value: data.customer360?.amountSummary?.totalOrder ? formatAmount(data.customer360.amountSummary.totalOrder) : '-',
+      label: t('pages.customer.detail.totalContract'),
+      icon: <FileTextOutlined />,
+    },
+    {
+      value: data.customer360?.orders?.length ?? 0,
+      label: t('pages.customer.detail.tabOrders', { count: 0 }),
+      icon: <ShoppingCartOutlined />,
+    },
+    {
+      value: data.customer360?.tickets?.length ?? 0,
+      label: t('pages.customer.detail.tabTickets', { count: 0 }),
+      icon: <CustomerServiceOutlined />,
+    },
+  ]
 
-      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0 }}>
-          <Typography.Title level={4} style={{ marginBottom: 4 }}>
-            {data.name} <Typography.Text type="secondary" style={{ fontSize: 13 }}>#{data.id}</Typography.Text>
-          </Typography.Title>
-          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-            {data.company} · {data.status === 'ACTIVE' ? t('pages.customer.detail.active') : t('pages.customer.detail.inactive')}
-            {data.ownerName
-              ? ` · ${t('pages.customer.detail.ownerPrefix')}${data.ownerName}`
-              : ` · ${t('pages.customer.detail.pool')}`}
-          </Typography.Text>
-          <div style={{ marginTop: 6, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            {data.phone && (
-              <a href={`tel:${data.phone}`} style={{ fontSize: 13, color: '#1677ff' }}>
-                <PhoneOutlined /> {data.phone}
-              </a>
-            )}
-            {data.email && (
-              <a href={`mailto:${data.email}`} style={{ fontSize: 13, color: '#1677ff' }}>
-                <MailOutlined /> {data.email}
-              </a>
-            )}
-            {data.customer360?.health?.level && (
-              <Tag
-                color={
-                  data.customer360.health.level === 'GREEN'
-                    ? 'green'
-                    : data.customer360.health.level === 'YELLOW'
-                      ? 'gold'
-                      : 'red'
-                }
-              >
-                {t('pages.customer.detail.healthScore')} {healthLevel(data.customer360.health.level).label}
-              </Tag>
-            )}
-          </div>
-        </div>
-        <Space>
-          <Button icon={<EditOutlined />} onClick={openEdit}>
-            {t('pages.customer.list.edit')}
-          </Button>
-          {canShare && (
-            <Button icon={<ShareAltOutlined />} onClick={() => void openShare()}>
-              {t('common.button.share')}
-            </Button>
-          )}
-        </Space>
-      </div>
-
-      <Card
-        title={t('pages.customer.detail.basicInfo')}
-        style={{ marginBottom: 16, borderRadius: 10 }}
-        styles={{ header: { borderBottom: '1px solid #f0f0f0' } }}
-      >
-        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
-          <Descriptions.Item label={t('pages.customer.list.formName')}>{data.name}</Descriptions.Item>
-          <Descriptions.Item label={t('pages.customer.list.formCompany')}>{data.company}</Descriptions.Item>
-          <Descriptions.Item label={t('pages.customer.list.formContact')}>{data.contactPerson ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label={t('pages.customer.list.formPhone')}>
-            {data.phone ? <a href={`tel:${data.phone}`}>{data.phone}</a> : '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label={t('pages.customer.list.formEmail')}>
-            {data.email ? <a href={`mailto:${data.email}`}>{data.email}</a> : '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label={t('pages.customer.list.formAddress')}>{data.address ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label={t('pages.customer.list.formRemark')} span={2}>
-            {data.remark ?? '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label={t('pages.customer.list.colStatus')}>
-            {data.status === 'ACTIVE' ? <Tag color="green">{t('common.status.active')}</Tag> : <Tag>{t('common.status.inactive')}</Tag>}
-          </Descriptions.Item>
-          {data.customFieldValues?.map((cf) => (
-            <Descriptions.Item key={cf.fieldId} label={cf.fieldName ?? `${t('pages.customer.detail.fieldPrefix')}${cf.fieldId}`}>
-              {cf.value || '-'}
+  const tabItems = [
+    {
+      key: 'basic',
+      label: t('pages.customer.detail.tabBasic'),
+      children: (
+        <Card bordered={false} style={{ background: 'var(--color-bg-page)' }}>
+          <Descriptions
+            column={{ xs: 1, sm: 2, md: 3 }}
+            bordered
+            size="small"
+            layout="horizontal"
+          >
+            <Descriptions.Item label={t('pages.customer.list.formName')}>{data.name}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.customer.list.formCompany')}>{data.company}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.customer.list.formContact')}>{data.contactPerson ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.customer.list.formPhone')}>
+              {data.phone ? <a href={`tel:${data.phone}`}>{data.phone}</a> : '-'}
             </Descriptions.Item>
-          ))}
-        </Descriptions>
-      </Card>
-
-      {/* 031：客户标签 */}
-      <Card
-        title={t('pages.customer.detail.tags')}
-        style={{ marginBottom: 16, borderRadius: 10 }}
-        styles={{ header: { borderBottom: '1px solid #f0f0f0' } }}
-        extra={
-          <Button size="small" onClick={() => void onEditTags()}>
-            {t('pages.customer.detail.editTags')}
-          </Button>
-        }
-      >
-        {customerTags.length === 0 ? (
-          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-            {t('pages.customer.detail.noTags')}
-          </Typography.Text>
-        ) : (
-          customerTags.map((tag) => (
-            <Tag key={tag.id} color={tag.color} style={{ marginBottom: 4 }}>
-              {tag.name}
-            </Tag>
-          ))
-        )}
-      </Card>
-
-      {data.customer360 && (
+            <Descriptions.Item label={t('pages.customer.list.formEmail')}>
+              {data.email ? <a href={`mailto:${data.email}`}>{data.email}</a> : '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('pages.customer.list.formAddress')}>{data.address ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.customer.list.colStatus')}>
+              {data.status === 'ACTIVE' ? <StatusTag type="success">{t('common.status.active')}</StatusTag> : <StatusTag type="default">{t('common.status.inactive')}</StatusTag>}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('pages.customer.list.formRemark')} span={3}>
+              {data.remark ?? '-'}
+            </Descriptions.Item>
+            {data.customFieldValues?.map((cf) => (
+              <Descriptions.Item key={cf.fieldId} label={cf.fieldName ?? `${t('pages.customer.detail.fieldPrefix')}${cf.fieldId}`}>
+                {cf.value || '-'}
+              </Descriptions.Item>
+            ))}
+          </Descriptions>
+        </Card>
+      ),
+    },
+    {
+      key: 'tags',
+      label: t('pages.customer.detail.tabTags'),
+      children: (
         <Card
-          title={t('pages.customer.detail.customer360')}
-          style={{ marginBottom: 16, borderRadius: 10 }}
-          styles={{ header: { borderBottom: '1px solid #f0f0f0' } }}
+          bordered={false}
+          style={{ background: 'var(--color-bg-page)' }}
+          extra={
+            <Button size="small" onClick={() => void onEditTags()}>
+              {t('pages.customer.detail.editTags')}
+            </Button>
+          }
         >
-          <div style={{ display: 'flex', gap: 24, marginBottom: 16, flexWrap: 'wrap' }}>
-            {/* 健康度评分 */}
-            <div style={{ minWidth: 200, flex: 1 }}>
-              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-                {t('pages.customer.detail.healthScore')}
-              </Typography.Text>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
-                <div
-                  style={{
-                    fontSize: 32,
-                    fontWeight: 700,
-                    color: healthLevel(data.customer360.health?.level).color,
-                  }}
-                >
-                  {data.customer360.health?.score ?? '-'}
-                </div>
-                <Tag
-                  color={
-                    healthLevel(data.customer360.health?.level).color === '#3f8600'
-                      ? 'green'
-                      : healthLevel(data.customer360.health?.level).color === '#d48806'
-                        ? 'gold'
-                        : 'red'
-                  }
-                >
-                  {healthLevel(data.customer360.health?.level).label}
+          {customerTags.length === 0 ? (
+            <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+              {t('pages.customer.detail.noTags')}
+            </Typography.Text>
+          ) : (
+            <Space wrap>
+              {customerTags.map((tag) => (
+                <Tag key={tag.id} color={tag.color} style={{ padding: '2px 12px', borderRadius: 'var(--radius-full)' }}>
+                  {tag.name}
                 </Tag>
-                <Progress
-                  percent={data.customer360.health?.score ?? 0}
-                  showInfo={false}
-                  strokeColor={healthLevel(data.customer360.health?.level).color}
-                  style={{ flex: 1, maxWidth: 200 }}
-                />
+              ))}
+            </Space>
+          )}
+        </Card>
+      ),
+    },
+  ]
+
+  // 添加 360 Tab（如果有数据）
+  if (data.customer360) {
+    tabItems.push({
+      key: 'overview',
+      label: t('pages.customer.detail.tabOverview'),
+      children: (
+        <Card bordered={false} style={{ background: 'var(--color-bg-page)' }}>
+          {/* 健康度 */}
+          <div style={{ marginBottom: 24 }}>
+            <Typography.Text type="secondary" style={{ fontSize: 13, marginBottom: 8, display: 'block' }}>
+              {t('pages.customer.detail.healthScore')}
+            </Typography.Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ fontSize: 36, fontWeight: 700, color: healthLevel(data.customer360.health?.level).color }}>
+                {data.customer360.health?.score ?? '-'}
               </div>
-              {data.customer360.health?.deductions?.length ? (
-                <div style={{ marginTop: 8 }}>
-                  {data.customer360.health.deductions.map((d) => (
-                    <Typography.Text key={d.dimension} type="secondary" style={{ fontSize: 12, marginRight: 12 }}>
-                      {d.dimension} -{d.deduct} pts
-                    </Typography.Text>
-                  ))}
-                </div>
-              ) : (
-                <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>
-                  {t('pages.customer.detail.noDeductions')}
-                </Typography.Text>
-              )}
+              <StatusTag type={data.customer360.health?.level === 'GREEN' ? 'success' : data.customer360.health?.level === 'YELLOW' ? 'warning' : 'danger'}>
+                {healthLevel(data.customer360.health?.level).label}
+              </StatusTag>
+              <Progress
+                percent={data.customer360.health?.score ?? 0}
+                showInfo={false}
+                strokeColor={healthLevel(data.customer360.health?.level).color}
+                style={{ flex: 1, maxWidth: 200 }}
+              />
             </div>
-            {/* 金额汇总 */}
-            <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-              <Statistic title={t('pages.customer.detail.totalOrder')} value={formatAmount(data.customer360.amountSummary?.totalOrder)} />
-              <Statistic title={t('pages.customer.detail.paid')} value={formatAmount(data.customer360.amountSummary?.paid)} valueStyle={{ color: '#3f8600' }} />
-              <Statistic title={t('pages.customer.detail.overdue')} value={formatAmount(data.customer360.amountSummary?.dueOverdue)} valueStyle={{ color: '#cf1322' }} />
-            </div>
+            {data.customer360.health?.deductions?.length ? (
+              <div style={{ marginTop: 8 }}>
+                {data.customer360.health.deductions.map((d) => (
+                  <Typography.Text key={d.dimension} type="secondary" style={{ fontSize: 12, marginRight: 12 }}>
+                    {d.dimension} -{d.deduct} pts
+                  </Typography.Text>
+                ))}
+              </div>
+            ) : (
+              <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>
+                {t('pages.customer.detail.noDeductions')}
+              </Typography.Text>
+            )}
           </div>
 
+          {/* 金额汇总 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 24 }}>
+            <Statistic
+              title={t('pages.customer.detail.totalOrder')}
+              value={formatAmount(data.customer360.amountSummary?.totalOrder)}
+              valueStyle={{ fontSize: 18, fontWeight: 600 }}
+            />
+            <Statistic
+              title={t('pages.customer.detail.paid')}
+              value={formatAmount(data.customer360.amountSummary?.paid)}
+              valueStyle={{ fontSize: 18, fontWeight: 600, color: 'var(--color-success)' }}
+            />
+            <Statistic
+              title={t('pages.customer.detail.overdue')}
+              value={formatAmount(data.customer360.amountSummary?.dueOverdue)}
+              valueStyle={{ fontSize: 18, fontWeight: 600, color: 'var(--color-danger)' }}
+            />
+          </div>
+
+          {/* 子 Tab：订单、付款、合同、工单 */}
           <Tabs
             size="small"
             items={[
@@ -476,6 +468,7 @@ export default function CustomerDetailPage() {
                     columns={orderColumns as never}
                     pagination={false}
                     locale={{ emptyText: t('pages.customer.detail.emptyOrders') }}
+                    bordered
                   />
                 ),
               },
@@ -490,6 +483,7 @@ export default function CustomerDetailPage() {
                     columns={paymentColumns as never}
                     pagination={false}
                     locale={{ emptyText: t('pages.customer.detail.emptyPayments') }}
+                    bordered
                   />
                 ),
               },
@@ -504,6 +498,7 @@ export default function CustomerDetailPage() {
                     columns={contractColumns as never}
                     pagination={false}
                     locale={{ emptyText: t('pages.customer.detail.emptyContracts') }}
+                    bordered
                   />
                 ),
               },
@@ -518,38 +513,154 @@ export default function CustomerDetailPage() {
                     columns={ticketColumns as never}
                     pagination={false}
                     locale={{ emptyText: t('pages.customer.detail.emptyTickets') }}
+                    bordered
                   />
                 ),
               },
             ]}
           />
         </Card>
-      )}
+      ),
+    })
+  }
 
+  // 添加商机 Tab
+  tabItems.push({
+    key: 'opportunities',
+    label: t('pages.customer.detail.tabOpportunities', { count: data.opportunities?.length ?? 0 }),
+    children: (
+      <Table<OpportunityBrief>
+        rowKey="id"
+        size="small"
+        dataSource={data.opportunities}
+        columns={opportunityColumns as never}
+        pagination={false}
+        locale={{ emptyText: t('pages.customer.detail.emptyOpportunities') }}
+        bordered
+      />
+    ),
+  })
+
+  return (
+    <div>
+      {/* 返回按钮 */}
+      <Link to="/customers" style={{ marginBottom: 16, display: 'inline-block' }}>
+        <Button type="link" icon={<ArrowLeftOutlined />} style={{ paddingLeft: 0 }}>
+          {t('pages.customer.detail.backToList')}
+        </Button>
+      </Link>
+
+      {/* 顶部信息栏 */}
       <Card
-        title={t('pages.customer.detail.relatedOpportunities')}
-        style={{ marginBottom: 16, borderRadius: 10 }}
-        styles={{ header: { borderBottom: '1px solid #f0f0f0' }, body: { padding: 0 } }}
+        bordered={false}
+        style={{
+          borderRadius: 'var(--radius-lg)',
+          marginBottom: 20,
+          background: 'linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-bg-card) 100%)',
+          border: '1px solid var(--color-border-light)',
+        }}
       >
-        <Table<OpportunityBrief>
-          rowKey="id"
-          size="small"
-          dataSource={data.opportunities}
-          columns={opportunityColumns as never}
-          pagination={false}
-          locale={{ emptyText: t('pages.customer.detail.emptyOpportunities') }}
-        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+            {/* 客户图标 */}
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 'var(--radius-lg)',
+                background: 'var(--color-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontSize: 24,
+                flexShrink: 0,
+              }}
+            >
+              🏢
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
+                <Typography.Title level={4} style={{ margin: 0 }}>
+                  {data.name}
+                </Typography.Title>
+                <StatusTag type={data.status === 'ACTIVE' ? 'success' : 'default'}>
+                  {data.status === 'ACTIVE' ? t('pages.customer.detail.active') : t('pages.customer.detail.inactive')}
+                </StatusTag>
+              </div>
+              <Typography.Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
+                #{data.id} · {data.company}
+              </Typography.Text>
+              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                {data.ownerName
+                  ? `${t('pages.customer.detail.ownerPrefix')}${data.ownerName}`
+                  : t('pages.customer.detail.pool')}
+              </Typography.Text>
+              <div style={{ marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {data.phone && (
+                  <a href={`tel:${data.phone}`} style={{ fontSize: 13, color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <PhoneOutlined /> {data.phone}
+                  </a>
+                )}
+                {data.email && (
+                  <a href={`mailto:${data.email}`} style={{ fontSize: 13, color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <MailOutlined /> {data.email}
+                  </a>
+                )}
+                {data.customer360?.health?.level && (
+                  <StatusTag type={data.customer360.health.level === 'GREEN' ? 'success' : data.customer360.health.level === 'YELLOW' ? 'warning' : 'danger'}>
+                    {t('pages.customer.detail.healthScore')} {healthLevel(data.customer360.health.level).label}
+                  </StatusTag>
+                )}
+              </div>
+            </div>
+          </div>
+          <Space>
+            <Button icon={<EditOutlined />} onClick={openEdit}>
+              {t('pages.customer.list.edit')}
+            </Button>
+            {canShare && (
+              <Button icon={<ShareAltOutlined />} onClick={() => void openShare()}>
+                {t('common.button.share')}
+              </Button>
+            )}
+          </Space>
+        </div>
       </Card>
 
-      <ContactsCard customerId={customerId} />
+      {/* 统计卡片行 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 20 }}>
+        {statsCards.map((card, index) => (
+          <StatCard
+            key={index}
+            value={card.value}
+            label={card.label}
+            icon={card.icon}
+          />
+        ))}
+      </div>
 
+      {/* Tab 内容区 */}
+      <Tabs
+        size="large"
+        tabPosition="top"
+        items={tabItems}
+        style={{ borderRadius: 'var(--radius-lg)' }}
+      />
+
+      {/* 跟进记录 */}
       <FollowUpTimeline customerId={customerId} />
 
       {/* 037：评论协作 */}
-      <Card title={t('pages.customer.detail.comments')} style={{ marginBottom: 16, borderRadius: 10 }} styles={{ header: { borderBottom: '1px solid #f0f0f0' } }}>
+      <Card
+        title={t('pages.customer.detail.comments')}
+        bordered={false}
+        style={{ borderRadius: 'var(--radius-lg)', marginTop: 20 }}
+      >
         <CommentSection entityType="CUSTOMER" entityId={customerId} />
       </Card>
 
+      {/* 分享弹窗 */}
       <Modal
         title={t('pages.customer.detail.shareModal', { name: data.name })}
         open={shareOpen}
@@ -557,6 +668,7 @@ export default function CustomerDetailPage() {
         onCancel={() => setShareOpen(false)}
         okText={t('common.button.share')}
         destroyOnClose
+        styles={{ body: { padding: '20px 24px' } }}
       >
         <Form form={shareForm} name="shareForm" layout="vertical">
           <Form.Item
@@ -569,7 +681,7 @@ export default function CustomerDetailPage() {
         </Form>
       </Modal>
 
-      {/* 优化：详情页编辑客户 */}
+      {/* 编辑客户弹窗 */}
       <Modal
         title={t('pages.customer.detail.editModal', { name: data.name })}
         open={editOpen}
@@ -579,6 +691,7 @@ export default function CustomerDetailPage() {
         confirmLoading={editSaving}
         destroyOnClose
         width={520}
+        styles={{ body: { padding: '20px 24px' } }}
       >
         <Form form={editForm} name="editForm" layout="vertical">
           <Form.Item name="name" label={t('pages.customer.list.formName')} rules={[{ required: true, message: t('pages.customer.list.msgNameRequired') }]}>
@@ -617,7 +730,7 @@ export default function CustomerDetailPage() {
         </Form>
       </Modal>
 
-      {/* 031：编辑客户标签 */}
+      {/* 编辑客户标签弹窗 */}
       <Modal
         title={`${t('pages.customer.detail.editTags')}「${data.name}」`}
         open={tagOpen}
@@ -625,6 +738,7 @@ export default function CustomerDetailPage() {
         onCancel={() => setTagOpen(false)}
         okText={t('common.button.save')}
         destroyOnClose
+        styles={{ body: { padding: '20px 24px' } }}
       >
         <Select
           mode="multiple"

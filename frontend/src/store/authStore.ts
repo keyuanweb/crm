@@ -7,6 +7,18 @@ export interface UserInfo {
   username: string
   displayName: string
   role: Role
+  /** 所属部门 ID。 */
+  departmentId?: number
+  /** 所属部门名称。 */
+  departmentName?: string
+  /** 数据权限范围。 */
+  dataScope?: string
+  /** 启用状态。 */
+  enabled?: boolean
+  /** 最后登录时间。 */
+  lastLoginAt?: string
+  /** 创建时间。 */
+  createdAt?: string
   /** 可见菜单 key（028 角色权限）。 */
   menus?: string[]
   /** 操作权限码（028 角色权限）。 */

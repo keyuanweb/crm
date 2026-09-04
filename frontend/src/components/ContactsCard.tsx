@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { App, Button, Card, Form, Input, Modal, Popconfirm, Select, Table, Tag } from 'antd'
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 import {
@@ -31,6 +32,7 @@ interface FormValues {
 
 /** 客户详情联系人卡片：列表 + 新增/编辑/删除（005 T015）。 */
 export default function ContactsCard({ customerId }: Props) {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [items, setItems] = useState<Contact[]>([])
   const [loading, setLoading] = useState(false)
@@ -44,7 +46,7 @@ export default function ContactsCard({ customerId }: Props) {
       const res = await fetchContacts({ customerId, page: 1, pageSize: 50 })
       setItems(res.items)
     } catch (err) {
-      message.error(extractErrorMessage(err, '加载联系人失败'))
+      message.error(extractErrorMessage(err, t('pages.contactsCard.msgLoadFailed')))
     } finally {
       setLoading(false)
     }
@@ -88,55 +90,55 @@ export default function ContactsCard({ customerId }: Props) {
     try {
       if (editing) {
         await updateContact(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.contactsCard.msgSaved'))
       } else {
         await createContact(payload)
-        message.success('已创建')
+        message.success(t('pages.contactsCard.msgCreated'))
       }
       setModalOpen(false)
       void load()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.contactsCard.msgSaveFailed')))
     }
   }
 
   const onDelete = async (row: Contact) => {
     try {
       await deleteContact(row.id)
-      message.success('已删除（逻辑删除）')
+      message.success(t('pages.contactsCard.msgDeleted'))
       void load()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.contactsCard.msgDeleteFailed')))
     }
   }
 
   const columns = [
-    { title: '姓名', dataIndex: 'name' },
-    { title: '职位', dataIndex: 'title', render: (v?: string) => v ?? '-' },
-    { title: '电话', dataIndex: 'phone', render: (v?: string) => v ?? '-' },
-    { title: '邮箱', dataIndex: 'email', render: (v?: string) => v ?? '-' },
+    { title: t('pages.contactsCard.colName'), dataIndex: 'name' },
+    { title: t('pages.contactsCard.colTitle'), dataIndex: 'title', render: (v?: string) => v ?? '-' },
+    { title: t('pages.contactsCard.colPhone'), dataIndex: 'phone', render: (v?: string) => v ?? '-' },
+    { title: t('pages.contactsCard.colEmail'), dataIndex: 'email', render: (v?: string) => v ?? '-' },
     {
-      title: '角色',
+      title: t('pages.contactsCard.colRole'),
       dataIndex: 'role',
       render: (role: ContactRole) => (
         <Tag color={ROLE_COLORS[role]}>{ROLE_LABELS[role] ?? role}</Tag>
       ),
     },
     {
-      title: '操作',
+      title: t('pages.contactsCard.colAction'),
       key: 'actions',
       width: 140,
       render: (_: unknown, row: Contact) => [
         <a key="edit" onClick={() => openEdit(row)}>
-          <EditOutlined /> 编辑
+          <EditOutlined /> {t('pages.contactsCard.btnEdit')}
         </a>,
         <Popconfirm
           key="delete"
-          title={`确定删除联系人「${row.name}」吗？`}
+          title={t('pages.contactsCard.confirmDelete', { name: row.name })}
           onConfirm={() => onDelete(row)}
         >
           <a style={{ color: '#ff4d4f' }}>
-            <DeleteOutlined /> 删除
+            <DeleteOutlined /> {t('pages.contactsCard.btnDelete')}
           </a>
         </Popconfirm>,
       ],
@@ -145,13 +147,13 @@ export default function ContactsCard({ customerId }: Props) {
 
   return (
     <Card
-      title="联系人"
+      title={t('pages.contactsCard.title')}
       style={{ marginBottom: 16, borderRadius: 10 }}
       headStyle={{ borderBottom: '1px solid #f0f0f0' }}
       styles={{ body: { padding: 0 } }}
       extra={
         <Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}>
-          新增联系人
+          {t('pages.contactsCard.btnAdd')}
         </Button>
       }
     >
@@ -162,37 +164,39 @@ export default function ContactsCard({ customerId }: Props) {
         dataSource={items}
         columns={columns as never}
         pagination={false}
-        locale={{ emptyText: '暂无联系人' }}
+        locale={{ emptyText: t('pages.contactsCard.empty') }}
       />
 
       <Modal
-        title={editing ? '编辑联系人' : '新增联系人'}
+        title={editing ? t('pages.contactsCard.modalEdit') : t('pages.contactsCard.modalAdd')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.contactsCard.btnSave')}
         destroyOnClose
         width={560}
       >
-        <Form form={form} name="contactCardForm" layout="vertical">            <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]} style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="title" label="职位" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>            <Form.Item name="phone" label="电话" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="email" label="邮箱" style={{ flex: 1 }}>
-              <Input />
-            </Form.Item>
-          <Form.Item name="role" label="角色">
+        <Form form={form} name="contactCardForm" layout="vertical">
+          <Form.Item name="name" label={t('pages.contactsCard.labelName')} rules={[{ required: true, message: t('pages.contactsCard.labelName') }]} style={{ flex: 1 }}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="title" label={t('pages.contactsCard.labelTitle')} style={{ flex: 1 }}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="phone" label={t('pages.contactsCard.labelPhone')} style={{ flex: 1 }}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="email" label={t('pages.contactsCard.labelEmail')} style={{ flex: 1 }}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="role" label={t('pages.contactsCard.labelRole')}>
             <Select
               allowClear
-              placeholder="默认：其他"
+              placeholder={t('pages.contactsCard.placeholderRole')}
               options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
             />
           </Form.Item>
-          <Form.Item name="remark" label="备注">
+          <Form.Item name="remark" label={t('pages.contactsCard.labelRemark')}>
             <Input.TextArea rows={2} />
           </Form.Item>
         </Form>

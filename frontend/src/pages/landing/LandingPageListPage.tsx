@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, ColorPicker, Form, Input, Modal, Popconfirm, Select, Switch, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import {
   createLandingPage,
   deleteLandingPage,
@@ -28,6 +29,7 @@ interface FormValues {
 export default function LandingPageListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
+  const { t } = useTranslation()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<LandingPage | null>(null)
   const [formOptions, setFormOptions] = useState<{ value: number; label: string }[]>([])
@@ -72,45 +74,45 @@ export default function LandingPageListPage() {
     try {
       if (editing) {
         await updateLandingPage(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.landing.msgSaved'))
       } else {
         await createLandingPage(payload)
-        message.success('已创建')
+        message.success(t('pages.landing.msgCreated'))
       }
       setModalOpen(false)
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.landing.msgSaveFailed')))
     }
   }
 
   const columns: ProColumns<LandingPage>[] = [
     {
-      title: '标题',
+      title: t('pages.landing.colTitle'),
       dataIndex: 'title',
       render: (_, row) => <Link to={`/lp/${row.id}`} target="_blank">{row.title}</Link>,
     },
-    { title: '副标题', dataIndex: 'subtitle', search: false },
-    { title: '关联表单', dataIndex: 'formName', search: false },
+    { title: t('pages.landing.colSubtitle'), dataIndex: 'subtitle', search: false },
+    { title: t('pages.landing.colFormName'), dataIndex: 'formName', search: false },
     {
-      title: '状态',
+      title: t('pages.landing.colStatus'),
       dataIndex: 'enabled',
       search: false,
-      render: (_, row) => (row.enabled ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>),
+      render: (_, row) => (row.enabled ? <Tag color="green">{t('pages.landing.statusActive')}</Tag> : <Tag>{t('pages.landing.statusInactive')}</Tag>),
     },
     {
-      title: '操作',
+      title: t('pages.landing.colAction'),
       valueType: 'option',
       width: 180,
       render: (_, row) => [
         <a key="stats" onClick={() => openStats(row.id)}>
-          统计
+          {t('pages.landing.btnStats')}
         </a>,
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.landing.btnEdit')}
         </a>,
-        <Popconfirm key="del" title="确定删除？" onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm key="del" title={t('pages.landing.confirmDelete')} onConfirm={() => void onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.landing.btnDelete')}</a>
         </Popconfirm>,
       ],
     },
@@ -119,22 +121,22 @@ export default function LandingPageListPage() {
   const onDelete = async (row: LandingPage) => {
     try {
       await deleteLandingPage(row.id)
-      message.success('已删除')
+      message.success(t('pages.landing.msgDeleted'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.landing.msgDeleteFailed')))
     }
   }
 
   const openStats = async (id: number) => {
     // 简化：跳转统计对话框（此处仅提示，完整统计见页面扩展）
-    message.info(`落地页 #${id} 统计请见营销报表（后续扩展）`)
+    message.info(t('pages.landing.msgStatsInfo', { id }))
   }
 
   return (
     <>
       <ProTable<LandingPage>
-        headerTitle="托管落地页"
+        headerTitle={t('pages.landing.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -146,37 +148,37 @@ export default function LandingPageListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建落地页
+            {t('pages.landing.btnCreate')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑落地页' : '新建落地页'}
+        title={editing ? t('pages.landing.modalEdit') : t('pages.landing.modalCreate')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.landing.btnSave')}
         destroyOnClose
         width={520}
       >
         <Form form={form} name="landingPageForm" layout="vertical">
-          <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
+          <Form.Item name="title" label={t('pages.landing.formTitle')} rules={[{ required: true, message: t('pages.landing.msgTitleRequired') }]}>
             <Input maxLength={200} />
           </Form.Item>
-          <Form.Item name="subtitle" label="副标题">
+          <Form.Item name="subtitle" label={t('pages.landing.formSubtitle')}>
             <Input maxLength={500} />
           </Form.Item>
-          <Form.Item name="description" label="描述">
+          <Form.Item name="description" label={t('pages.landing.formDescription')}>
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item name="themeColor" label="品牌色">
+          <Form.Item name="themeColor" label={t('pages.landing.formThemeColor')}>
             <ColorPicker showText />
           </Form.Item>
-          <Form.Item name="formId" label="关联表单" rules={[{ required: true, message: '请选择表单' }]}>
-            <Select options={formOptions} placeholder="选择启用中的在线表单" />
+          <Form.Item name="formId" label={t('pages.landing.formFormId')} rules={[{ required: true, message: t('pages.landing.msgFormRequired') }]}>
+            <Select options={formOptions} placeholder={t('pages.landing.formFormIdPlaceholder')} />
           </Form.Item>
-          <Form.Item name="enabled" label="启用" valuePropName="checked">
+          <Form.Item name="enabled" label={t('pages.landing.formEnabled')} valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>

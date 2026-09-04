@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Drawer, Form, Input, Modal, Popconfirm, Select, Switch, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -22,6 +23,7 @@ interface FormValues {
 
 /** 集成中心页（058，仅 ADMIN）：通道管理 + 推送记录。 */
 export default function IntegrationHubPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -31,34 +33,34 @@ export default function IntegrationHubPage() {
 
   const columns: ProColumns<IntegrationChannel>[] = [
     {
-      title: '类型',
+      title: t('pages.integrationHub.colType'),
       dataIndex: 'channelType',
       valueEnum: Object.fromEntries(Object.entries(CHANNEL_TYPE_LABELS).map(([k, v]) => [k, { text: v }])),
       render: (_, row) => <Tag color="blue">{CHANNEL_TYPE_LABELS[row.channelType] ?? row.channelType}</Tag>,
     },
-    { title: '名称', dataIndex: 'name' },
-    { title: 'Webhook URL', dataIndex: 'webhookUrl', search: false, ellipsis: true },
+    { title: t('pages.integrationHub.colName'), dataIndex: 'name' },
+    { title: t('pages.integrationHub.colWebhookUrl'), dataIndex: 'webhookUrl', search: false, ellipsis: true },
     {
-      title: '状态',
+      title: t('pages.integrationHub.colStatus'),
       dataIndex: 'enabled',
       search: false,
-      render: (_, row) => (row.enabled ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>),
+      render: (_, row) => (row.enabled ? <Tag color="green">{t('pages.integrationHub.enabled')}</Tag> : <Tag>{t('pages.integrationHub.disabled')}</Tag>),
     },
     {
-      title: '操作',
+      title: t('pages.integrationHub.colAction'),
       valueType: 'option',
       render: (_, row) => [
         <a key="deliveries" onClick={() => setDeliveryChannel(row)}>
-          推送记录
+          {t('pages.integrationHub.deliveryRecords')}
         </a>,
         <a key="toggle" onClick={() => void onToggle(row)}>
-          {row.enabled ? '停用' : '启用'}
+          {row.enabled ? t('pages.integrationHub.disable') : t('pages.integrationHub.enable')}
         </a>,
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.integrationHub.edit')}
         </a>,
-        <Popconfirm key="del" title="删除该通道？" onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm key="del" title={t('pages.integrationHub.confirmDelete')} onConfirm={() => void onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.integrationHub.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -75,42 +77,42 @@ export default function IntegrationHubPage() {
     try {
       if (editing) {
         await updateChannel(editing.id, values)
-        message.success('已保存')
+        message.success(t('pages.integrationHub.msgSaved'))
       } else {
         await createChannel(values)
-        message.success('已创建')
+        message.success(t('pages.integrationHub.msgCreated'))
       }
       setModalOpen(false)
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.integrationHub.msgSaveFailed')))
     }
   }
 
   const onToggle = async (row: IntegrationChannel) => {
     try {
       await toggleChannel(row.id)
-      message.success(row.enabled ? '已停用' : '已启用')
+      message.success(row.enabled ? t('pages.integrationHub.msgDisabled') : t('pages.integrationHub.msgEnabled'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.integrationHub.msgOperationFailed')))
     }
   }
 
   const onDelete = async (row: IntegrationChannel) => {
     try {
       await deleteChannel(row.id)
-      message.success('已删除')
+      message.success(t('pages.integrationHub.msgDeleted'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.integrationHub.msgDeleteFailed')))
     }
   }
 
   return (
     <>
       <ProTable<IntegrationChannel>
-        headerTitle="集成通道"
+        headerTitle={t('pages.integrationHub.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -132,36 +134,36 @@ export default function IntegrationHubPage() {
               setModalOpen(true)
             }}
           >
-            新增通道
+            {t('pages.integrationHub.btnAdd')}
           </Button>,
         ]}
       />
       <Modal
-        title={editing ? '编辑通道' : '新增通道'}
+        title={editing ? t('pages.integrationHub.modalEditTitle') : t('pages.integrationHub.modalAddTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.integrationHub.btnSave')}
         destroyOnClose
         width={480}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="channelType" label="通道类型" rules={[{ required: true, message: '请选择类型' }]}>
+          <Form.Item name="channelType" label={t('pages.integrationHub.formChannelTypeLabel')} rules={[{ required: true, message: t('pages.integrationHub.formChannelTypeRequired') }]}>
             <Select options={Object.entries(CHANNEL_TYPE_LABELS).map(([value, label]) => ({ value, label }))} />
           </Form.Item>
-          <Form.Item name="name" label="通道名称" rules={[{ required: true, message: '请输入名称' }]}>
-            <Input placeholder="如：销售群" maxLength={100} />
+          <Form.Item name="name" label={t('pages.integrationHub.formNameLabel')} rules={[{ required: true, message: t('pages.integrationHub.formNameRequired') }]}>
+            <Input placeholder={t('pages.integrationHub.formNamePlaceholder')} maxLength={100} />
           </Form.Item>
-          <Form.Item name="webhookUrl" label="Webhook URL" rules={[{ required: true, message: '请输入 URL' }]}>
-            <Input placeholder="https://qyapi.weixin.qq.com/..." />
+          <Form.Item name="webhookUrl" label={t('pages.integrationHub.formWebhookUrlLabel')} rules={[{ required: true, message: t('pages.integrationHub.formWebhookUrlRequired') }]}>
+            <Input placeholder={t('pages.integrationHub.formWebhookUrlPlaceholder')} />
           </Form.Item>
-          <Form.Item name="enabled" label="启用" valuePropName="checked">
+          <Form.Item name="enabled" label={t('pages.integrationHub.formEnabledLabel')} valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>
       </Modal>
       <Drawer
-        title={`推送记录 · ${deliveryChannel?.name ?? ''}`}
+        title={`${t('pages.integrationHub.deliveryRecords')} · ${deliveryChannel?.name ?? ''}`}
         open={!!deliveryChannel}
         onClose={() => setDeliveryChannel(null)}
         width={520}
@@ -173,6 +175,7 @@ export default function IntegrationHubPage() {
 }
 
 function DeliveryList({ channelId }: { channelId: number }) {
+  const { t } = useTranslation()
   const [records, setRecords] = useState<{ id: number; eventType: string; status: string; httpStatus?: number; error?: string; createdAt: string }[]>([])
   useEffect(() => {
     void fetchChannelDeliveries(channelId, 1, 50)
@@ -183,12 +186,12 @@ function DeliveryList({ channelId }: { channelId: number }) {
   return (
     <div>
       {records.length === 0 ? (
-        <span style={{ color: '#8c8c8c' }}>暂无推送记录</span>
+        <span style={{ color: '#8c8c8c' }}>{t('pages.integrationHub.noRecords')}</span>
       ) : (
         records.map((r) => (
           <div key={r.id} style={{ border: '1px solid #f0f0f0', borderRadius: 6, padding: 8, marginBottom: 8 }}>
             <Tag color="blue">{r.eventType}</Tag>
-            {r.status === 'SUCCESS' ? <Tag color="green">成功</Tag> : <Tag color="red">失败</Tag>}
+            {r.status === 'SUCCESS' ? <Tag color="green">{t('pages.integrationHub.success')}</Tag> : <Tag color="red">{t('pages.integrationHub.failed')}</Tag>}
             <span style={{ color: '#8c8c8c', marginLeft: 8 }}>{r.createdAt.replace('T', ' ').slice(0, 19)}</span>
             {r.error && <div style={{ color: '#cf1322', marginTop: 4 }}>{r.error}</div>}
           </div>

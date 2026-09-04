@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Empty, List, Space, Tabs, Tag, Typography } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { searchFull, type SearchGroup, type SearchResponse } from '../../services/searchService'
 
 /** 高亮关键字。 */
@@ -23,6 +24,7 @@ function Highlight({ text, keyword }: { text: string; keyword: string }) {
 }
 
 export default function SearchResultPage() {
+  const { t } = useTranslation()
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const keyword = params.get('q') ?? ''
@@ -44,10 +46,10 @@ export default function SearchResultPage() {
   return (
     <div>
       <Typography.Title level={4} style={{ marginBottom: 4 }}>
-        搜索：{keyword}
+        {t('title')}: {keyword}
       </Typography.Title>
       <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-        共 {resp.total} 条结果
+        {t('totalResults', { count: resp.total })}
       </Typography.Text>
 
       {resp.groups.length > 1 && (
@@ -57,20 +59,20 @@ export default function SearchResultPage() {
           style={{ marginTop: 8 }}
           items={[
             { key: 'ALL', label: '全部' },
-            ...resp.groups.map((g) => ({ key: g.type, label: `${g.label}（${g.items.length}）` })),
+            ...resp.groups.map((g) => ({ key: g.type, label: `${t(g.label.toLowerCase())}（${g.items.length}）` })),
           ]}
         />
       )}
 
       <div style={{ marginTop: 12 }}>
         {groups.length === 0 ? (
-          <Empty description="未找到匹配结果" style={{ padding: 40 }} />
+          <Empty description={t('noResults')} style={{ padding: 40 }} />
         ) : (
           <Space direction="vertical" style={{ width: '100%' }} size={16}>
             {groups.map((g) => (
               <div key={g.type}>
                 <div style={{ marginBottom: 8 }}>
-                  <Tag color="blue">{g.label}</Tag>
+                  <Tag color="blue">{t(g.label.toLowerCase())}</Tag>
                 </div>
                 <List
                   size="small"

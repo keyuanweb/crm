@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
@@ -308,7 +308,7 @@ export default function CustomerListPage() {
 
   return (
     <>
-      <Space style={{ marginBottom: 16 }}>
+      <Space>
         <Button type={view === 'all' ? 'primary' : 'default'} onClick={() => { setView('all'); reload() }}>
           {t('pages.customer.list.viewAll')}
         </Button>
@@ -319,6 +319,8 @@ export default function CustomerListPage() {
           {t('pages.customer.list.viewPool')}
         </Button>
       </Space>
+
+      <div style={{ height: 16 }} />
 
       <ProTable<Customer>
         size="small"

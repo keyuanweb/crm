@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Badge, Button, Drawer, Empty, List, Tag } from 'antd'
 import { BellOutlined } from '@ant-design/icons'
@@ -19,6 +20,7 @@ const TYPE_COLORS: Record<NotificationType, string> = {
 }
 
 export default function NotificationCenter() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [unread, setUnread] = useState(0)
@@ -93,24 +95,24 @@ export default function NotificationCenter() {
           type="text"
           icon={<BellOutlined style={{ fontSize: 17 }} />}
           onClick={onOpen}
-          aria-label="通知中心"
+          aria-label={t('pages.notificationCenter.title')}
         />
       </Badge>
       <Drawer
-        title="通知中心"
+        title={t('pages.notificationCenter.title')}
         open={open}
         onClose={() => setOpen(false)}
         width={420}
         extra={
           <Button size="small" onClick={() => void onReadAll()} disabled={unread === 0}>
-            全部已读
+            {t('pages.notificationCenter.btnMarkAllRead')}
           </Button>
         }
       >
         <List
           loading={loading}
           dataSource={items}
-          locale={{ emptyText: <Empty description="暂无通知" /> }}
+          locale={{ emptyText: <Empty description={t('pages.notificationCenter.empty')} /> }}
           renderItem={(n) => (
             <List.Item
               onClick={() => void onRead(n)}
@@ -125,7 +127,7 @@ export default function NotificationCenter() {
                 title={
                   <span>
                     {n.message}
-                    {!n.read && <Tag color="red" style={{ marginLeft: 8 }}>未读</Tag>}
+                    {!n.read && <Tag color="red" style={{ marginLeft: 8 }}>{t('pages.notificationCenter.tagUnread')}</Tag>}
                   </span>
                 }
                 description={
@@ -136,7 +138,7 @@ export default function NotificationCenter() {
           )}
         />
         <div style={{ marginTop: 12, textAlign: 'center' }}>
-          <a onClick={() => navigate('/exports')}>前往导出中心</a>
+          <a onClick={() => navigate('/exports')}>{t('pages.notificationCenter.linkExportCenter')}</a>
         </div>
       </Drawer>
     </>

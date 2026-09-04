@@ -44,9 +44,14 @@ public class DepartmentService {
   @Transactional
   public DepartmentResponse create(DepartmentRequest req) {
     validateParent(req.getParentId());
+    validateNameUnique(null, req.getParentId(), req.getName().trim());
+    validateDepth(req.getParentId());
+
     Department dept = new Department();
     dept.setName(req.getName().trim());
     dept.setParentId(req.getParentId());
+    dept.setDescription(req.getDescription());
+    dept.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : 0);
     dept.setCreatedBy(SecurityUtil.currentUserId());
     departmentMapper.insert(dept);
     auditService.record("CREATE", "DEPARTMENT", dept.getId(), "创建部门：" + dept.getName());
@@ -56,13 +61,20 @@ public class DepartmentService {
   @Transactional
   public DepartmentResponse update(Long id, DepartmentRequest req) {
     Department existing = require(id);
+
     // 防环：parent 不能是自己的子孙
     if (req.getParentId() != null && req.getParentId().equals(id)) {
       throw new BusinessException(ErrorCode.BAD_REQUEST);
     }
+
     validateParent(req.getParentId());
+    validateNameUnique(id, req.getParentId(), req.getName().trim());
+    validateDepth(req.getParentId());
+
     existing.setName(req.getName().trim());
     existing.setParentId(req.getParentId());
+    existing.setDescription(req.getDescription());
+    existing.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : 0);
     existing.setVersion(req.getVersion());
     int rows = departmentMapper.updateById(existing);
     if (rows == 0) {
@@ -128,6 +140,45 @@ public class DepartmentService {
     }
   }
 
+  /** 验证部门名称在相同上级部门下唯一。 */
+  private void validateNameUnique(Long excludeId, Long parentId, String name) {
+    LambdaQueryWrapper<Department> wrapper =
+        new LambdaQueryWrapper<Department>()
+            .eq(Department::getName, name)
+            .eq(Department::getParentId, parentId == null ? null : parentId);
+
+    if (excludeId != null) {
+      wrapper.ne(Department::getId, excludeId);
+    }
+
+    Long count = departmentMapper.selectCount(wrapper);
+    if (count != null && count > 0) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
+  }
+
+  /** 验证部门树深度不超过 5 层。 */
+  private void validateDepth(Long parentId) {
+    if (parentId == null) {
+      return;
+    }
+
+    int depth = 1;
+    Long currentId = parentId;
+    while (currentId != null && depth < 5) {
+      Department parent = departmentMapper.selectById(currentId);
+      if (parent == null || parent.getParentId() == null) {
+        break;
+      }
+      currentId = parent.getParentId();
+      depth++;
+    }
+
+    if (depth >= 5) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
+  }
+
   private List<DepartmentResponse> buildTree(List<Department> all, Long parentId) {
     List<DepartmentResponse> nodes = new ArrayList<>();
     for (Department d : all) {
@@ -145,8 +196,29 @@ public class DepartmentService {
     resp.setId(dept.getId());
     resp.setName(dept.getName());
     resp.setParentId(dept.getParentId());
+    resp.setDescription(dept.getDescription());
+    resp.setSortOrder(dept.getSortOrder());
     resp.setVersion(dept.getVersion());
     resp.setCreatedAt(dept.getCreatedAt());
+
+    // 填充 createdBy（用户名）
+    if (dept.getCreatedBy() != null) {
+      User creator = userMapper.selectById(dept.getCreatedBy());
+      resp.setCreatedBy(creator != null ? creator.getUsername() : "未知");
+    }
+
+    // 计算 memberCount
+    Long memberCount =
+        userMapper.selectCount(
+            new LambdaQueryWrapper<User>().eq(User::getDepartmentId, dept.getId()));
+    resp.setMemberCount(memberCount != null ? memberCount.intValue() : 0);
+
+    // 计算 childCount
+    Long childCount =
+        departmentMapper.selectCount(
+            new LambdaQueryWrapper<Department>().eq(Department::getParentId, dept.getId()));
+    resp.setChildCount(childCount != null ? childCount.intValue() : 0);
+
     return resp;
   }
 }

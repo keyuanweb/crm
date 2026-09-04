@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -271,7 +271,7 @@ export default function LeadListPage() {
 
   return (
     <>
-      <Space style={{ marginBottom: 16 }}>
+      <Space>
         <Button type={activeTab === 'all' ? 'primary' : 'default'} onClick={() => { setActiveTab('all'); reload() }}>
           {t('pages.lead.list.viewAll')}
         </Button>
@@ -279,6 +279,8 @@ export default function LeadListPage() {
           {t('pages.lead.list.viewPool')}
         </Button>
       </Space>
+
+      <div style={{ height: 16 }} />
 
       <ProTable<Lead>
         size="small"

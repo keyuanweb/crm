@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { App, Button, Card, Form, Input, Result, Typography } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { fetchPublicFormMeta, submitPublicForm } from '../../services/formService'
 import { extractErrorMessage } from '../../services/apiClient'
 import type { FormField } from '../../types/form'
 
 const TYPE_RULES: Record<string, { pattern?: RegExp; message?: string }> = {
-  TEL: { pattern: /^[0-9+\-() ]{5,30}$/, message: '手机号格式不正确' },
-  EMAIL: { pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/, message: '邮箱格式不正确' },
+  TEL: { pattern: /^[0-9+\-() ]{5,30}$/, message: '' },
+  EMAIL: { pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/, message: '' },
 }
 
 /** 公开表单提交页（036）：/f/:id，匿名可提交。 */
 export default function PublicFormPage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const formId = Number(id)
   const { message } = App.useApp()
@@ -21,11 +23,17 @@ export default function PublicFormPage() {
   const [done, setDone] = useState<string | null>(null)
   const [form] = Form.useForm()
 
+  // Set validation messages after t is available
+  useEffect(() => {
+    TYPE_RULES.TEL.message = t('pages.marketing.publicForm.msgTelInvalid')
+    TYPE_RULES.EMAIL.message = t('pages.marketing.publicForm.msgEmailInvalid')
+  }, [t])
+
   useEffect(() => {
     if (!formId) return
     void fetchPublicFormMeta(formId)
       .then(setMeta)
-      .catch(() => message.error('表单不存在或已停用'))
+      .catch(() => message.error(t('pages.marketing.publicForm.msgFormNotFound')))
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId])
@@ -37,7 +45,7 @@ export default function PublicFormPage() {
       const result = await submitPublicForm(formId, values as Record<string, string>)
       setDone(result.message)
     } catch (err) {
-      message.error(extractErrorMessage(err, '提交失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.publicForm.msgSubmitFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -47,7 +55,7 @@ export default function PublicFormPage() {
     return (
       <div style={{ maxWidth: 480, margin: '60px auto', padding: '0 16px' }}>
         <Card style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-          <Result status="success" title="提交成功" subTitle={done} />
+          <Result status="success" title={t('pages.marketing.publicForm.resultSuccess')} subTitle={done} />
         </Card>
       </div>
     )
@@ -57,7 +65,7 @@ export default function PublicFormPage() {
     <div style={{ maxWidth: 480, margin: '60px auto', padding: '0 16px' }}>
       <Card
         loading={loading}
-        title={meta?.name ?? '表单'}
+        title={meta?.name ?? t('pages.marketing.publicForm.defaultFormName')}
         style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
       >
         {meta && (
@@ -70,15 +78,15 @@ export default function PublicFormPage() {
                   name={f.field}
                   label={f.label}
                   rules={[
-                    { required: f.required, message: `请填写${f.label}` },
+                    { required: f.required, message: t('pages.marketing.publicForm.msgRequired', { label: f.label }) },
                     rule.pattern ? { pattern: rule.pattern, message: rule.message } : undefined,
                   ].filter(Boolean) as never[]}
                 >
                   {f.type === 'TEXTAREA' ? (
-                    <Input.TextArea rows={3} placeholder={`请输入${f.label}`} />
+                    <Input.TextArea rows={3} placeholder={t('pages.marketing.publicForm.phEnter', { label: f.label })} />
                   ) : (
                     <Input
-                      placeholder={`请输入${f.label}`}
+                      placeholder={t('pages.marketing.publicForm.phEnter', { label: f.label })}
                       maxLength={f.type === 'TEL' ? 30 : f.type === 'EMAIL' ? 100 : 100}
                     />
                   )}
@@ -86,12 +94,12 @@ export default function PublicFormPage() {
               )
             })}
             <Button type="primary" htmlType="submit" block loading={submitting}>
-              提交
+              {t('pages.marketing.publicForm.btnSubmit')}
             </Button>
           </Form>
         )}
         <Typography.Text type="secondary" style={{ display: 'block', textAlign: 'center', marginTop: 12, fontSize: 12 }}>
-          提交即同意我们将信息用于联系您
+          {t('pages.marketing.publicForm.footerNotice')}
         </Typography.Text>
       </Card>
     </div>

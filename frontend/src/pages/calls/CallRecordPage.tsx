@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Statistic, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -131,7 +131,7 @@ export default function CallRecordPage() {
 
   return (
     <>
-      <Row gutter={12} style={{ marginBottom: 16 }}>
+      <Row gutter={12}>
         <Col span={6}>
           <Card size="small">
             <Statistic title="通话次数" value={stats?.totalCount ?? 0} />

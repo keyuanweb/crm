@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { App, Button, Form, Input, Modal, Popconfirm, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
@@ -24,6 +25,7 @@ interface EditValues {
 
 export default function UserManagementPage() {
   const actionRef = useRef<ActionType>()
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -94,11 +96,11 @@ export default function UserManagementPage() {
     const values = await permForm.validateFields()
     try {
       await setUserDataPermission(editing!.id, values)
-      message.success('已保存')
+      message.success(t('pages.userManagement.messages.saved'))
       setPermOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.userManagement.messages.saveFailed')))
     }
   }
 
@@ -106,11 +108,11 @@ export default function UserManagementPage() {
     const values = await createForm.validateFields()
     try {
       await createUser(values)
-      message.success('已创建')
+      message.success(t('pages.userManagement.messages.created'))
       setCreateOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '创建失败'))
+      message.error(extractErrorMessage(err, t('pages.userManagement.messages.createFailed')))
     }
   }
 
@@ -119,11 +121,11 @@ export default function UserManagementPage() {
     const values = await editForm.validateFields()
     try {
       await updateUser(editing.id, { ...values, version: editing.version })
-      message.success('已保存')
+      message.success(t('pages.userManagement.messages.saved'))
       setEditOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.userManagement.messages.saveFailed')))
     }
   }
 
@@ -132,32 +134,32 @@ export default function UserManagementPage() {
     const values = await resetForm.validateFields()
     try {
       await resetPassword(editing.id, values.newPassword)
-      message.success('已重置密码（旧令牌立即失效）')
+      message.success(t('pages.userManagement.messages.passwordReset'))
       setResetOpen(false)
     } catch (err) {
-      message.error(extractErrorMessage(err, '重置失败'))
+      message.error(extractErrorMessage(err, t('pages.userManagement.messages.resetFailed')))
     }
   }
 
   const onToggle = async (row: User) => {
     if (row.id === currentUser?.id) {
-      message.error('不能停用当前登录账号')
+      message.error(t('pages.userManagement.messages.cannotDisableSelf'))
       return
     }
     try {
       await updateUser(row.id, { enabled: !row.enabled, version: row.version })
-      message.success(row.enabled ? '已停用' : '已启用')
+      message.success(row.enabled ? t('pages.userManagement.messages.disabled') : t('pages.userManagement.messages.enabled'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.userManagement.messages.operationFailed')))
     }
   }
 
   const columns: ProColumns<User>[] = [
-    { title: '用户名', dataIndex: 'username' },
-    { title: '显示名', dataIndex: 'displayName' },
+    { title: t('pages.userManagement.colUsername'), dataIndex: 'username' },
+    { title: t('pages.userManagement.colDisplayName'), dataIndex: 'displayName' },
     {
-      title: '角色',
+      title: t('pages.userManagement.colRole'),
       dataIndex: 'role',
       valueType: 'select',
       valueEnum: Object.fromEntries(
@@ -166,54 +168,54 @@ export default function UserManagementPage() {
       render: (_, row) => <Tag color={row.role === 'ADMIN' ? 'red' : row.role === 'SALES' ? 'blue' : 'default'}>{ROLE_LABELS[row.role]}</Tag>,
     },
     {
-      title: '状态',
+      title: t('pages.userManagement.colStatus'),
       dataIndex: 'enabled',
       valueType: 'select',
-      valueEnum: { true: { text: '启用' }, false: { text: '停用' } },
+      valueEnum: { true: { text: t('pages.userManagement.enable') }, false: { text: t('pages.userManagement.disable') } },
       render: (_, row) =>
-        row.enabled ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>,
+        row.enabled ? <Tag color="green">{t('pages.userManagement.enable')}</Tag> : <Tag>{t('pages.userManagement.disable')}</Tag>,
     },
     {
-      title: '部门',
+      title: t('pages.userManagement.colDepartment'),
       dataIndex: 'departmentName',
       search: false,
       render: (_, row) => row.departmentName ?? '-',
     },
     {
-      title: '数据权限',
+      title: t('pages.userManagement.colDataScope'),
       dataIndex: 'dataScope',
       search: false,
       render: (_, row) => {
-        const label = row.dataScope ? DATA_SCOPE_LABELS[row.dataScope as DataScope] : '本人'
+        const label = row.dataScope ? DATA_SCOPE_LABELS[row.dataScope as DataScope] : t('pages.userManagement.dataScopeSelf')
         return <Tag>{label}</Tag>
       },
     },
     {
-      title: '最后登录',
+      title: t('pages.userManagement.colLastLogin'),
       dataIndex: 'lastLoginAt',
       search: false,
       render: (_, row) => (row.lastLoginAt ? dayjs(row.lastLoginAt).format('YYYY-MM-DD HH:mm') : '-'),
     },
     {
-      title: '操作',
+      title: t('pages.userManagement.colAction'),
       valueType: 'option',
       width: 280,
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.userManagement.edit')}
         </a>,
         <a key="perm" onClick={() => void openPermission(row)}>
-          数据权限
+          {t('pages.userManagement.dataPermission')}
         </a>,
         <a key="reset" style={{ color: '#fa8c16' }} onClick={() => openReset(row)}>
-          重置密码
+          {t('pages.userManagement.resetPassword')}
         </a>,
         <Popconfirm
           key="toggle"
-          title={`确定${row.enabled ? '停用' : '启用'}账号「${row.username}」吗？`}
+          title={t('pages.userManagement.toggleConfirm', { action: row.enabled ? 'pages.userManagement.toggleAction.disable' : 'pages.userManagement.toggleAction.enable', username: row.username })}
           onConfirm={() => onToggle(row)}
         >
-          <a style={{ color: '#ff4d4f' }}>{row.enabled ? '停用' : '启用'}</a>
+          <a style={{ color: '#ff4d4f' }}>{row.enabled ? t('pages.userManagement.disable') : t('pages.userManagement.enable')}</a>
         </Popconfirm>,
       ],
     },
@@ -223,7 +225,7 @@ export default function UserManagementPage() {
     <>
       <ProTable<User>
         size="small"
-        headerTitle="用户管理"
+        headerTitle={t('pages.userManagement.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -241,38 +243,38 @@ export default function UserManagementPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增用户
+            {t('pages.userManagement.toolbar.newUser')}
           </Button>,
         ]}
       />
 
       <Modal
-        title="新增用户"
+        title={t('pages.userManagement.modal.createUser')}
         open={createOpen}
         onOk={() => void onCreate()}
         onCancel={() => setCreateOpen(false)}
-        okText="创建"
+        okText={t('pages.userManagement.modal.createOk')}
         destroyOnClose
       >
         <Form form={createForm} name="createUser" layout="vertical">
           <Form.Item
             name="username"
-            label="用户名"
+            label={t('pages.userManagement.form.username')}
             rules={[
-              { required: true, message: '请输入用户名' },
-              { pattern: /^[a-zA-Z0-9_]{3,50}$/, message: '3~50 位字母/数字/下划线' },
+              { required: true, message: t('pages.userManagement.form.usernameRequired') },
+              { pattern: /^[a-zA-Z0-9_]{3,50}$/, message: t('pages.userManagement.form.usernamePattern') },
             ]}
           >
             <Input />
           </Form.Item>
-          <Form.Item name="displayName" label="显示名" rules={[{ required: true, message: '请输入显示名' }]}>
+          <Form.Item name="displayName" label={t('pages.userManagement.form.displayName')} rules={[{ required: true, message: t('pages.userManagement.form.displayNameRequired') }]}>
             <Input />
           </Form.Item>
           <Form.Item
             name="role"
-            label="角色"
+            label={t('pages.userManagement.form.role')}
             initialValue="SALES"
-            rules={[{ required: true, message: '请选择角色' }]}
+            rules={[{ required: true, message: t('pages.userManagement.form.roleRequired') }]}
           >
             <Select
               options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
@@ -280,12 +282,12 @@ export default function UserManagementPage() {
           </Form.Item>
           <Form.Item
             name="password"
-            label="初始密码"
+            label={t('pages.userManagement.form.initialPassword')}
             rules={[
-              { required: true, message: '请输入初始密码' },
-              { min: 8, max: 64, message: '8~64 位' },
+              { required: true, message: t('pages.userManagement.form.initialPasswordRequired') },
+              { min: 8, max: 64, message: t('pages.userManagement.form.initialPasswordLength') },
             ]}
-            extra="须同时包含字母与数字"
+            extra={t('pages.userManagement.form.initialPasswordExtra')}
           >
             <Input.Password />
           </Form.Item>
@@ -293,40 +295,40 @@ export default function UserManagementPage() {
       </Modal>
 
       <Modal
-        title={editing ? `编辑用户：${editing.username}` : ''}
+        title={editing ? t('pages.userManagement.modal.editUser', { username: editing.username }) : ''}
         open={editOpen}
         onOk={() => void onEdit()}
         onCancel={() => setEditOpen(false)}
-        okText="保存"
+        okText={t('pages.userManagement.modal.editOk')}
         destroyOnClose
       >
         <Form form={editForm} name="editUser" layout="vertical">
-          <Form.Item name="displayName" label="显示名" rules={[{ required: true, message: '请输入显示名' }]}>
+          <Form.Item name="displayName" label={t('pages.userManagement.form.displayName')} rules={[{ required: true, message: t('pages.userManagement.form.displayNameRequired') }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="role" label="角色" rules={[{ required: true, message: '请选择角色' }]}>
-            <Select options={roleOptions} placeholder="选择角色" />
+          <Form.Item name="role" label={t('pages.userManagement.form.role')} rules={[{ required: true, message: t('pages.userManagement.form.roleRequired') }]}>
+            <Select options={roleOptions} placeholder={t('pages.userManagement.form.rolePlaceholder')} />
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title={editing ? `重置密码：${editing.username}` : ''}
+        title={editing ? t('pages.userManagement.modal.resetPassword', { username: editing.username }) : ''}
         open={resetOpen}
         onOk={() => void onReset()}
         onCancel={() => setResetOpen(false)}
-        okText="重置"
+        okText={t('pages.userManagement.modal.resetOk')}
         destroyOnClose
       >
         <Form form={resetForm} name="resetPasswordForm" layout="vertical">
           <Form.Item
             name="newPassword"
-            label="新密码"
+            label={t('pages.userManagement.form.newPassword')}
             rules={[
-              { required: true, message: '请输入新密码' },
-              { min: 8, max: 64, message: '8~64 位' },
+              { required: true, message: t('pages.userManagement.form.newPasswordRequired') },
+              { min: 8, max: 64, message: t('pages.userManagement.form.newPasswordLength') },
             ]}
-            extra="重置后旧令牌立即失效"
+            extra={t('pages.userManagement.form.newPasswordExtra')}
           >
             <Input.Password />
           </Form.Item>
@@ -334,18 +336,18 @@ export default function UserManagementPage() {
       </Modal>
 
       <Modal
-        title={editing ? `数据权限：${editing.username}` : ''}
+        title={editing ? t('pages.userManagement.modal.dataPermission', { username: editing.username }) : ''}
         open={permOpen}
         onOk={() => void onPermission()}
         onCancel={() => setPermOpen(false)}
-        okText="保存"
+        okText={t('pages.userManagement.modal.dataPermissionOk')}
         destroyOnClose
       >
         <Form form={permForm} name="permUser" layout="vertical">
-          <Form.Item name="departmentId" label="所属部门">
-            <Select allowClear placeholder="选择部门" options={deptOptions} />
+          <Form.Item name="departmentId" label={t('pages.userManagement.form.department')}>
+            <Select allowClear placeholder={t('pages.userManagement.form.departmentPlaceholder')} options={deptOptions} />
           </Form.Item>
-          <Form.Item name="dataScope" label="数据权限范围" rules={[{ required: true, message: '请选择范围' }]}>
+          <Form.Item name="dataScope" label={t('pages.userManagement.form.dataScope')} rules={[{ required: true, message: t('pages.userManagement.form.dataScopeRequired') }]}>
             <Select options={Object.entries(DATA_SCOPE_LABELS).map(([value, label]) => ({ value, label }))} />
           </Form.Item>
         </Form>

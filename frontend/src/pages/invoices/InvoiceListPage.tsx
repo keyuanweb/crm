@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -25,19 +26,20 @@ import {
 import { extractErrorMessage } from '../../services/apiClient'
 import type { Invoice } from '../../types/invoice'
 
-const STATUS_META: Record<string, { text: string; color: string }> = {
-  DRAFT: { text: '待开', color: 'default' },
-  ISSUED: { text: '已开', color: 'green' },
-  VOID: { text: '已作废', color: 'red' },
-}
+const getSTATUS_META = (t: (key: string, params?: Record<string, unknown>) => string): Record<string, { text: string; color: string }> => ({
+  DRAFT: { text: t('pages.invoiceList.status.draft'), color: 'default' },
+  ISSUED: { text: t('pages.invoiceList.status.issued'), color: 'green' },
+  VOID: { text: t('pages.invoiceList.status.void'), color: 'red' },
+})
 
-const TYPE_LABELS: Record<string, string> = {
-  GENERAL: '普票',
-  SPECIAL: '专票',
-}
+const getTYPE_LABELS = (t: (key: string, params?: Record<string, unknown>) => string): Record<string, string> => ({
+  GENERAL: t('pages.invoiceList.type.general'),
+  SPECIAL: t('pages.invoiceList.type.special'),
+})
 
 export default function InvoiceListPage() {
   const actionRef = useRef<ActionType>()
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [createOpen, setCreateOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -82,11 +84,11 @@ export default function InvoiceListPage() {
     setSaving(true)
     try {
       await createInvoice({ ...values, amount: Math.round(values.amount * 100) })
-      message.success('开票成功')
+      message.success(t('pages.invoiceList.messages.created'))
       setCreateOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '开票失败'))
+      message.error(extractErrorMessage(err, t('pages.invoiceList.messages.createFailed')))
     } finally {
       setSaving(false)
     }
@@ -95,63 +97,63 @@ export default function InvoiceListPage() {
   const onVoid = async () => {
     if (!voidRow) return
     if (!voidReason.trim()) {
-      message.warning('请填写作废原因')
+      message.warning(t('pages.invoiceList.voidForm.reasonRequired'))
       return
     }
     setSaving(true)
     try {
       await voidInvoice(voidRow.id, voidReason.trim())
-      message.success('已作废')
+      message.success(t('pages.invoiceList.messages.voided'))
       setVoidRow(null)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '作废失败'))
+      message.error(extractErrorMessage(err, t('pages.invoiceList.messages.voidFailed')))
     } finally {
       setSaving(false)
     }
   }
 
   const columns: ProColumns<Invoice>[] = [
-    { title: '发票编号', dataIndex: 'invoiceNo' },
-    { title: '订单', dataIndex: 'orderNo', width: 140, render: (_, row) => row.orderNo || '-' },
-    { title: '抬头', dataIndex: 'title', ellipsis: true },
+    { title: t('pages.invoiceList.colInvoiceNo'), dataIndex: 'invoiceNo' },
+    { title: t('pages.invoiceList.colOrder'), dataIndex: 'orderNo', width: 140, render: (_, row) => row.orderNo || '-' },
+    { title: t('pages.invoiceList.colTitle'), dataIndex: 'title', ellipsis: true },
     {
-      title: '金额（元）',
+      title: t('pages.invoiceList.colAmount'),
       dataIndex: 'amount',
       width: 110,
       search: false,
       render: (_, row) => (row.amount / 100).toFixed(2),
     },
     {
-      title: '类型',
+      title: t('pages.invoiceList.colType'),
       dataIndex: 'invoiceType',
       width: 70,
-      render: (_, row) => <Tag color="blue">{TYPE_LABELS[row.invoiceType] ?? row.invoiceType}</Tag>,
+      render: (_, row) => <Tag color="blue">{getTYPE_LABELS(t)[row.invoiceType] ?? row.invoiceType}</Tag>,
     },
     {
-      title: '状态',
+      title: t('pages.invoiceList.colStatus'),
       dataIndex: 'status',
       width: 90,
       render: (_, row) => {
-        const m = STATUS_META[row.status] ?? { text: row.status, color: 'default' }
+        const m = getSTATUS_META(t)[row.status] ?? { text: row.status, color: 'default' }
         return <Tag color={m.color}>{m.text}</Tag>
       },
     },
     {
-      title: '开票时间',
+      title: t('pages.invoiceList.colIssuedAt'),
       dataIndex: 'issuedAt',
       width: 140,
       search: false,
       render: (_, row) => (row.issuedAt ? row.issuedAt.replace('T', ' ').slice(0, 16) : '-'),
     },
     {
-      title: '操作',
+      title: t('pages.invoiceList.colAction'),
       valueType: 'option',
       width: 90,
       render: (_, row) =>
         row.status === 'ISSUED' ? (
           <a style={{ color: '#ff4d4f' }} onClick={() => setVoidRow(row)}>
-            作废
+            {t('pages.invoiceList.status.void')}
           </a>
         ) : null,
     },
@@ -162,24 +164,26 @@ export default function InvoiceListPage() {
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={8}>
           <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-            <Statistic title="开票率" value={stats.invoiceRate} suffix="%" valueStyle={{ color: '#1677ff' }} />
+            <Statistic title={t('pages.invoiceList.statCards.invoiceRate')} value={stats.invoiceRate} suffix="%" valueStyle={{ color: '#1677ff' }} />
           </div>
         </Col>
         <Col span={8}>
           <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-            <Statistic title="已开票金额（元）" value={(stats.totalInvoiceAmount / 100).toFixed(2)} valueStyle={{ color: '#3f8600' }} />
+            <Statistic title={t('pages.invoiceList.statCards.totalInvoiceAmount')} value={(stats.totalInvoiceAmount / 100).toFixed(2)} valueStyle={{ color: '#3f8600' }} />
           </div>
         </Col>
         <Col span={8}>
           <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-            <Statistic title="订单总金额（元）" value={(stats.totalOrderAmount / 100).toFixed(2)} />
+            <Statistic title={t('pages.invoiceList.statCards.totalOrderAmount')} value={(stats.totalOrderAmount / 100).toFixed(2)} />
           </div>
         </Col>
       </Row>
 
+      <div style={{ height: 16 }} />
+
       <ProTable<Invoice>
         size="small"
-        headerTitle="发票管理"
+        headerTitle={t('pages.invoiceList.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -192,39 +196,39 @@ export default function InvoiceListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={() => void openCreate()}>
-            开票
+            {t('pages.invoiceList.toolbar.invoice')}
           </Button>,
         ]}
       />
 
       {/* 开票 */}
       <Modal
-        title="开具发票"
+        title={t('pages.invoiceList.modal.createInvoice')}
         open={createOpen}
         onOk={() => void onCreate()}
         confirmLoading={saving}
         onCancel={() => setCreateOpen(false)}
-        okText="开票"
+        okText={t('pages.invoiceList.modal.createOk')}
         destroyOnClose
       >
         <Form form={form} name="invoiceForm" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
-          <Form.Item name="orderId" label="订单" rules={[{ required: true, message: '请选择订单' }]}>
-            <Select showSearch optionFilterProp="label" placeholder="选择订单" options={orderOptions} />
+          <Form.Item name="orderId" label={t('pages.invoiceList.form.order')} rules={[{ required: true, message: t('pages.invoiceList.form.orderRequired') }]}>
+            <Select showSearch optionFilterProp="label" placeholder={t('pages.invoiceList.form.orderPlaceholder')} options={orderOptions} />
           </Form.Item>
-          <Form.Item name="title" label="抬头" rules={[{ required: true, message: '请输入抬头' }]}>
-            <Input placeholder="开票抬头" />
+          <Form.Item name="title" label={t('pages.invoiceList.form.title')} rules={[{ required: true, message: t('pages.invoiceList.form.titleRequired') }]}>
+            <Input placeholder={t('pages.invoiceList.form.titlePlaceholder')} />
           </Form.Item>
-          <Form.Item name="taxNo" label="税号">
-            <Input placeholder="纳税人识别号" />
+          <Form.Item name="taxNo" label={t('pages.invoiceList.form.taxNo')}>
+            <Input placeholder={t('pages.invoiceList.form.taxNoPlaceholder')} />
           </Form.Item>
-          <Form.Item name="amount" label="金额(元)" rules={[{ required: true, message: '请输入金额' }]}>
+          <Form.Item name="amount" label={t('pages.invoiceList.form.amount')} rules={[{ required: true, message: t('pages.invoiceList.form.amountRequired') }]}>
             <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="invoiceType" label="类型">
+          <Form.Item name="invoiceType" label={t('pages.invoiceList.form.invoiceType')}>
             <Select
               options={[
-                { value: 'GENERAL', label: '增值税普通发票' },
-                { value: 'SPECIAL', label: '增值税专用发票' },
+                { value: 'GENERAL', label: t('pages.invoiceList.type.generalFull') },
+                { value: 'SPECIAL', label: t('pages.invoiceList.type.specialFull') },
               ]}
             />
           </Form.Item>
@@ -233,20 +237,20 @@ export default function InvoiceListPage() {
 
       {/* 作废 */}
       <Modal
-        title={`作废发票 ${voidRow?.invoiceNo ?? ''}`}
+        title={t('pages.invoiceList.modal.voidInvoice', { invoiceNo: voidRow?.invoiceNo ?? '' })}
         open={!!voidRow}
         onOk={() => void onVoid()}
         confirmLoading={saving}
         onCancel={() => setVoidRow(null)}
-        okText="确认作废"
+        okText={t('pages.invoiceList.modal.voidOk')}
         okButtonProps={{ danger: true }}
         destroyOnClose
       >
         <Space direction="vertical" style={{ width: '100%' }}>
-          <div>作废后释放可开票额度，该发票不可恢复。</div>
+          <div>{t('pages.invoiceList.voidForm.description')}</div>
           <Input.TextArea
             rows={3}
-            placeholder="作废原因（必填）"
+            placeholder={t('pages.invoiceList.voidForm.reasonPlaceholder')}
             value={voidReason}
             onChange={(e) => setVoidReason(e.target.value)}
           />

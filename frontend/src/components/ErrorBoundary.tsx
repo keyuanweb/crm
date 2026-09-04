@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react'
 import { Component, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Result } from 'antd'
+import i18n from '../i18n'
 
 interface Props {
   children: ReactNode
@@ -10,7 +13,7 @@ interface State {
 }
 
 /** 全局错误边界：任一页面渲染异常时展示友好错误页，避免整页白屏。 */
-export default class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundaryInner extends Component<Props, State> {
   state: State = { hasError: false }
 
   static getDerivedStateFromError(): State {
@@ -19,19 +22,27 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      return (
-        <Result
-          status="error"
-          title="页面发生错误"
-          subTitle="请刷新重试；若问题持续出现，请联系管理员"
-          extra={
-            <Button type="primary" onClick={() => window.location.reload()}>
-              刷新页面
-            </Button>
-          }
-        />
-      )
+      return <ErrorBoundaryContent />
     }
     return this.props.children
   }
 }
+
+function ErrorBoundaryContent() {
+  const { t } = useTranslation()
+  const [version, setVersion] = useState(0)
+
+  // 监听语言变化，语言切换时强制重新渲染
+  useEffect(() => {
+    i18n.on('languageChanged', () => setVersion((v) => v + 1))
+    return () => {
+      // cleanup
+    }
+  }, [])
+
+  return (
+    <Result key={version} status="error" title={t('pages.errorBoundary.title')} subTitle={t('pages.errorBoundary.subTitle')} extra={<Button type="primary" onClick={() => window.location.reload()}>{t('pages.errorBoundary.btnRefresh')}</Button>} />
+  )
+}
+
+export default ErrorBoundaryInner

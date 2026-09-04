@@ -93,6 +93,18 @@ const WorkflowLogListPage = lazy(() => import('./pages/workflows/WorkflowLogList
 const UserManagementPage = lazy(() => import('./pages/users/UserManagementPage'))
 const ChangePasswordPage = lazy(() => import('./pages/account/ChangePasswordPage'))
 const PersonalCenterPage = lazy(() => import('./pages/personal/PersonalCenterPage'))
+const QuotaListPage = lazy(() => import('./pages/quotas/QuotaListPage'))
+const QuotaBreakdownPage = lazy(() => import('./pages/quotas/QuotaBreakdownPage'))
+const QuotaAchievementPage = lazy(() => import('./pages/quotas/QuotaAchievementPage'))
+const QuotaVersionPage = lazy(() => import('./pages/quotas/QuotaVersionPage'))
+const QuotaComparisonPage = lazy(() => import('./pages/quotas/QuotaComparisonPage'))
+const ScheduledExportListPage = lazy(() => import('./pages/exports/ScheduledExportListPage'))
+const ScheduledExportCreatePage = lazy(() => import('./pages/exports/ScheduledExportCreatePage'))
+const ScheduledExportExecutionHistoryPage = lazy(() => import('./pages/exports/ScheduledExportExecutionHistoryPage'))
+const DataRetentionPolicyListPage = lazy(() => import('./pages/data-retention/DataRetentionPolicyListPage'))
+const DataRetentionPolicyCreatePage = lazy(() => import('./pages/data-retention/DataRetentionPolicyCreatePage'))
+const DataRetentionExecutionHistoryPage = lazy(() => import('./pages/data-retention/DataRetentionExecutionHistoryPage'))
+const ComplianceExportPage = lazy(() => import('./pages/data-retention/ComplianceExportPage'))
 const AuditLogPage = lazy(() => import('./pages/audit/AuditLogPage'))
 const CampaignListPage = lazy(() => import('./pages/marketing/CampaignListPage'))
 const ChannelRoiPage = lazy(() => import('./pages/marketing/ChannelRoiPage'))
@@ -177,6 +189,7 @@ const MENU_I18N_KEYS: Record<string, string> = {
   '/tags': 'tags',
   '/audit-logs': 'auditLogs',
   '/recycle-bin': 'recycleBin',
+  '/data-vision': 'dataVision',
 }
 
 /**
@@ -388,11 +401,11 @@ function Shell() {
     { path: '/quotes', name: '报价单', icon: <FileTextOutlined /> },
     { path: '/visits', name: '外勤拜访', icon: <EnvironmentOutlined /> },
     { path: '/products', name: '产品', icon: <ShoppingOutlined /> },
-    { path: '/playbook', name: '销售Playbook', icon: <FundOutlined /> },
+    { path: '/playbook', name: t('menu.playbook'), icon: <FundOutlined /> },
   ]
   const dealRoutes = [
     { path: '/contracts', name: '合同', icon: <FileProtectOutlined /> },
-    { path: '/contract-renewal', name: '续约管理', icon: <FileTextOutlined /> },
+    { path: '/contract-renewal', name: t('menu.renewal'), icon: <FileTextOutlined /> },
     { path: '/orders', name: '订单', icon: <ProfileOutlined /> },
     { path: '/invoices', name: '发票', icon: <FileTextOutlined /> },
   ]
@@ -425,7 +438,7 @@ function Shell() {
     { path: '/exports', name: '导出中心', icon: <DownloadOutlined /> },
   ]
   // 首页置顶（首位独立菜单项，指向统计仪表盘 /stats）
-  const statsRoute = { path: '/stats', name: '首页', icon: <HomeOutlined /> }
+  const statsRoute = { path: '/stats', name: t('menu.home'), icon: <HomeOutlined /> }
   // 042：系统管理扁平化——三个一级分组（系统管理/流程与配置/审计与维护）
   const adminOrgRoutes = [
     { path: '/users', name: '用户管理', icon: <UserOutlined /> },
@@ -811,6 +824,18 @@ export default function App() {
         <Route path="recycle-bin" element={<RecycleBinPage />} />
         <Route path="account/password" element={<ChangePasswordPage />} />
         <Route path="personal-center" element={<PersonalCenterPage />} />
+        <Route path="quotas" element={<QuotaListPage />} />
+        <Route path="quotas/:id/breakdown" element={<QuotaBreakdownPage />} />
+        <Route path="quotas/:id/achievement" element={<QuotaAchievementPage />} />
+        <Route path="quotas/:id/versions" element={<QuotaVersionPage />} />
+        <Route path="quotas/comparison" element={<QuotaComparisonPage />} />
+        <Route path="exports/scheduled" element={<ScheduledExportListPage />} />
+        <Route path="exports/scheduled/create" element={<ScheduledExportCreatePage />} />
+        <Route path="exports/scheduled/:id/executions" element={<ScheduledExportExecutionHistoryPage />} />
+        <Route path="data-retention" element={<DataRetentionPolicyListPage />} />
+        <Route path="data-retention/create" element={<DataRetentionPolicyCreatePage />} />
+        <Route path="data-retention/:id/executions" element={<DataRetentionExecutionHistoryPage />} />
+        <Route path="data-retention/compliance-export" element={<ComplianceExportPage />} />
         {/* 布局优化：Shell 内未知路径 → 带菜单的 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>

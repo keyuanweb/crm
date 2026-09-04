@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Badge, Button, Calendar, Card, Empty, List, Modal, Tag, Typography } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
@@ -9,6 +10,7 @@ import { fetchTaskCalendar } from '../../services/taskService'
 import { PRIORITY_COLORS, PRIORITY_LABELS, REMINDER_COLORS, REMINDER_LABELS, type TaskItem } from '../../types/task'
 
 export default function TaskCalendarPage() {
+  const { t } = useTranslation()
   const [month, setMonth] = useState(dayjs().format('YYYY-MM'))
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null)
 
@@ -43,7 +45,7 @@ export default function TaskCalendarPage() {
             />
           </li>
         ))}
-        {tasks.length > 3 && <li style={{ fontSize: 12, color: '#8c8c8c' }}>+{tasks.length - 3} 项</li>}
+        {tasks.length > 3 && <li style={{ fontSize: 12, color: '#8c8c8c' }}>+{tasks.length - 3} {t('pages.taskCalendar.colAction')}</li>}
       </ul>
     )
   }
@@ -52,11 +54,11 @@ export default function TaskCalendarPage() {
     <div>
       <Link to="/tasks" style={{ marginBottom: 16, display: 'inline-block' }}>
         <Button type="link" icon={<ArrowLeftOutlined />}>
-          返回任务列表
+          {t('pages.taskCalendar.title')}
         </Button>
       </Link>
 
-      <Card title="任务日历" style={{ borderRadius: 10 }}>
+      <Card title={t('pages.taskCalendar.title')} style={{ borderRadius: 10 }}>
         <Calendar
           cellRender={(date, info) => (info.type === 'date' ? dateCellRender(date) : null)}
           onPanelChange={(date) => setMonth(date.format('YYYY-MM'))}
@@ -65,7 +67,7 @@ export default function TaskCalendarPage() {
       </Card>
 
       <Modal
-        title={selectedDate ? `任务：${selectedDate.format('YYYY-MM-DD')}` : '任务'}
+        title={selectedDate ? `${t('pages.taskCalendar.title')}：${selectedDate.format('YYYY-MM-DD')}` : t('pages.taskCalendar.title')}
         open={selectedDate !== null}
         onCancel={() => setSelectedDate(null)}
         footer={null}

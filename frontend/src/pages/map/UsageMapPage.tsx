@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Alert, Button, Card, Space, Tabs, Typography } from 'antd'
+import { Alert, Button, Card, Drawer, Modal, Space, Tabs, Typography } from 'antd'
+import { Grid } from 'antd'
 import {
   CalendarOutlined,
   CommentOutlined,
@@ -10,7 +11,7 @@ import {
   TeamOutlined,
 } from '@ant-design/icons'
 import { Graph } from '@antv/g6'
-import { ALL_FLOWS, MAIN_FLOW, QUICK_ACTIONS, STATE_FLOWS, type FlowDef, type QuickAction } from '../../types/usageMap'
+import { ALL_FLOWS, MAIN_FLOW, QUICK_ACTIONS, STATE_FLOWS, type FlowDef, type FlowNode, type QuickAction } from '../../types/usageMap'
 import { useAuthStore } from '../../store/authStore'
 
 const { Title, Paragraph } = Typography
@@ -34,6 +35,12 @@ export default function UsageMapPage() {
   const [viewTab, setViewTab] = useState<'process' | 'state'>('process')
   const [stateFlowId, setStateFlowId] = useState<string>(STATE_FLOWS[0].id)
   const [renderFailed, setRenderFailed] = useState(false)
+  
+  // 节点详情弹窗状态
+  const [modalOpen, setModalOpen] = useState(false)
+  const [selectedNode, setSelectedNode] = useState<FlowNode | null>(null)
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.lg
 
   // 当前渲染的流程（业务流程 or 状态流转）
   const activeDef = viewTab === 'state' ? STATE_FLOWS.find((f) => f.id === stateFlowId) ?? STATE_FLOWS[0] : activeFlow
@@ -64,8 +71,18 @@ export default function UsageMapPage() {
         graphRef.current?.destroy()
         const nodes = activeDef.nodes.map((n) => ({
           id: n.id,
-          data: { label: n.title, desc: n.desc, color: n.color ?? '#1677ff', path: n.path, edgeLabel: n.desc },
+          data: {
+            label: n.title,
+            desc: n.desc,
+            color: n.color ?? '#1677ff',
+            path: n.path,
+            edgeLabel: n.desc,
+            warning: n.warning,
+          },
         }))
+        // 移动端适配：节点尺寸和文字大小
+        const nodeSize = isMobile ? [110, 38] as [number, number] : [130, 46] as [number, number]
+        const labelFontSize = isMobile ? 12 : 14
         const edges = activeDef.edges.map((e) => ({
           source: e.source,
           target: e.target,
@@ -90,14 +107,16 @@ export default function UsageMapPage() {
           node: {
             style: {
               fill: '#ffffff',
-              stroke: ((d: { data: { color: string } }) => d.data.color) as never,
-              lineWidth: 2,
-              radius: 8,
+              stroke: ((d: { data: { color: string; warning?: boolean } }) =>
+                d.data.warning ? '#cf1322' : (d.data.color ?? '#1677ff')) as never,
+              lineWidth: ((d: { data: { warning?: boolean } }) => (d.data.warning ? 3 : 2)) as never,
+              radius: 12,
+              shadow: '0 2px 8px rgba(0,0,0,0.15)',
               labelText: ((d: { data: { label: string } }) => d.data.label) as never,
               labelFill: '#1f1f1f',
               labelFontWeight: 600,
-              labelFontSize: 13,
-              size: [125, 42],
+              labelFontSize: labelFontSize,
+              size: nodeSize,
             },
           },
           edge: {
@@ -130,11 +149,41 @@ export default function UsageMapPage() {
           },
         })
         // 事件注册（render 前）
+        // 悬停效果：阴影加深 + 边框高亮（无尺寸变化）
+        graph.on('node:mouseenter', ((evt: { target: { id?: string } }) => {
+          const nodeId = evt.target?.id
+          if (!nodeId) return
+          // G6 v5 API: 使用 graph.find() 查找节点，graph.updateItem() 更新 + 刷新
+          const node = (graph as any).find('node', (n: any) => n.id === nodeId)
+          if (node) {
+            ;(graph as any).updateItem(nodeId, {
+              style: {
+                shadow: '0 4px 12px rgba(0,0,0,0.25)',
+                lineWidth: 3,
+              },
+            })
+          }
+        }) as never)
+        graph.on('node:mouseleave', ((evt: { target: { id?: string } }) => {
+          const nodeId = evt.target?.id
+          if (!nodeId) return
+          // G6 v5 API: 使用 graph.find() 查找节点，graph.updateItem() 更新 + 刷新
+          const node = (graph as any).find('node', (n: any) => n.id === nodeId)
+          if (node) {
+            ;(graph as any).updateItem(nodeId, {
+              style: {
+                shadow: '0 2px 8px rgba(0,0,0,0.15)',
+                lineWidth: 2,
+              },
+            })
+          }
+        }) as never)
         graph.on('node:click', ((evt: { target: { id?: string } }) => {
           const nodeId = evt.target?.id
           const node = activeDef.nodes.find((n) => n.id === nodeId)
-          if (node?.path) {
-            navigate(node.path)
+          if (node) {
+            setSelectedNode(node)
+            setModalOpen(true)
           }
         }) as never)
         graphRef.current = graph
@@ -273,12 +322,31 @@ export default function UsageMapPage() {
         }
         style={{ borderRadius: 12, marginTop: 16, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
       >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(140px, 1fr))',
+          gap: 12,
+        }}>
           {quickActions.map((a) => (
             <Button
               key={a.key}
               icon={a.icon as React.ReactNode}
-              style={{ height: 40, minWidth: 120 }}
+              style={{
+                height: isMobile ? 44 : 48,
+                borderRadius: 10,
+                background: '#f5f5f5',
+                borderColor: '#f5f5f5',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#e6f4ff'
+                e.currentTarget.style.borderColor = '#1677ff'
+                e.currentTarget.style.color = '#1677ff'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#f5f5f5'
+                e.currentTarget.style.borderColor = '#f5f5f5'
+                e.currentTarget.style.color = 'rgba(0,0,0,0.88)'
+              }}
               onClick={() => navigate(a.path)}
             >
               {a.label}
@@ -286,6 +354,59 @@ export default function UsageMapPage() {
           ))}
         </div>
       </Card>
+
+      {/* 节点详情弹窗（桌面端 Modal）*/}
+      <Modal
+        title={selectedNode?.title}
+        open={modalOpen && !isMobile}
+        onCancel={() => setModalOpen(false)}
+        footer={[
+          selectedNode?.path && (
+            <Button
+              key="jump"
+              type="primary"
+              icon={<FileTextOutlined />}
+              onClick={() => {
+                navigate(selectedNode!.path!)
+                setModalOpen(false)
+              }}
+            >
+              跳转到对应模块
+            </Button>
+          ),
+          <Button key="close" onClick={() => setModalOpen(false)}>
+            关闭
+          </Button>,
+        ]}
+      >
+        <p>{selectedNode?.desc}</p>
+      </Modal>
+
+      {/* 节点详情抽屉（移动端 Drawer）*/}
+      <Drawer
+        title={selectedNode?.title}
+        open={modalOpen && isMobile}
+        onClose={() => setModalOpen(false)}
+        placement="bottom"
+        height={'auto'}
+        styles={{ body: { paddingBottom: 20 } }}
+      >
+        <p>{selectedNode?.desc}</p>
+        {selectedNode?.path && (
+          <Button
+            type="primary"
+            icon={<FileTextOutlined />}
+            block
+            onClick={() => {
+              navigate(selectedNode!.path!)
+              setModalOpen(false)
+            }}
+            style={{ marginTop: 16 }}
+          >
+            跳转到对应模块
+          </Button>
+        )}
+      </Drawer>
     </div>
   )
 }

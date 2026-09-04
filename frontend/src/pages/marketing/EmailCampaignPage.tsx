@@ -14,6 +14,7 @@ import {
   Tag,
 } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import {
   createEmailCampaign,
   fetchCampaignDetail,
@@ -41,6 +42,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function EmailCampaignPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -80,11 +82,11 @@ export default function EmailCampaignPage() {
     setSaving(true)
     try {
       const c = await createEmailCampaign(payload as never)
-      message.success(`已发送 ${c.totalCount} 封`)
+      message.success(t('pages.marketing.emailCampaign.msgSent', { count: c.totalCount }))
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '发送失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.emailCampaign.msgSendFailed')))
     } finally {
       setSaving(false)
     }
@@ -92,14 +94,14 @@ export default function EmailCampaignPage() {
 
   const onTestSend = async (row: EmailCampaign) => {
     if (!testEmail) {
-      message.warning('请先输入测试邮箱')
+      message.warning(t('pages.marketing.emailCampaign.msgEnterTestEmail'))
       return
     }
     try {
       await testSendCampaign(row.id, testEmail)
-      message.success('测试邮件已发送')
+      message.success(t('pages.marketing.emailCampaign.msgTestSent'))
     } catch (err) {
-      message.error(extractErrorMessage(err, '发送失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.emailCampaign.msgSendFailed')))
     }
   }
 
@@ -110,26 +112,26 @@ export default function EmailCampaignPage() {
   }
 
   const columns: ProColumns<EmailCampaign>[] = [
-    { title: '活动名', dataIndex: 'name' },
+    { title: t('pages.marketing.emailCampaign.colName'), dataIndex: 'name' },
     {
-      title: '状态',
+      title: t('pages.marketing.emailCampaign.colStatus'),
       dataIndex: 'status',
       width: 90,
       search: false,
       render: (_, row) => <Tag color={STATUS_COLORS[row.status] ?? 'default'}>{row.status}</Tag>,
     },
-    { title: '收件人', dataIndex: 'totalCount', width: 80, search: false },
-    { title: '成功', dataIndex: 'sentCount', width: 70, search: false, render: (_, row) => <Tag color="green">{row.sentCount}</Tag> },
-    { title: '失败', dataIndex: 'failedCount', width: 70, search: false, render: (_, row) => <Tag color="red">{row.failedCount}</Tag> },
-    { title: '打开', dataIndex: 'openCount', width: 70, search: false, render: (_, row) => <Tag color="blue">{row.openCount}</Tag> },
-    { title: '点击', dataIndex: 'clickCount', width: 70, search: false, render: (_, row) => <Tag color="geekblue">{row.clickCount}</Tag> },
+    { title: t('pages.marketing.emailCampaign.colRecipients'), dataIndex: 'totalCount', width: 80, search: false },
+    { title: t('pages.marketing.emailCampaign.colSuccess'), dataIndex: 'sentCount', width: 70, search: false, render: (_, row) => <Tag color="green">{row.sentCount}</Tag> },
+    { title: t('pages.marketing.emailCampaign.colFailed'), dataIndex: 'failedCount', width: 70, search: false, render: (_, row) => <Tag color="red">{row.failedCount}</Tag> },
+    { title: t('pages.marketing.emailCampaign.colOpened'), dataIndex: 'openCount', width: 70, search: false, render: (_, row) => <Tag color="blue">{row.openCount}</Tag> },
+    { title: t('pages.marketing.emailCampaign.colClicked'), dataIndex: 'clickCount', width: 70, search: false, render: (_, row) => <Tag color="geekblue">{row.clickCount}</Tag> },
     {
-      title: '操作',
+      title: t('pages.marketing.emailCampaign.colAction'),
       valueType: 'option',
       width: 150,
       render: (_, row) => [
         <a key="detail" onClick={() => void openDetail(row)}>
-          记录
+          {t('pages.marketing.emailCampaign.btnRecords')}
         </a>,
         <a
           key="test"
@@ -138,7 +140,7 @@ export default function EmailCampaignPage() {
             void onTestSend(row)
           }}
         >
-          测试
+          {t('pages.marketing.emailCampaign.btnTest')}
         </a>,
       ],
     },
@@ -148,7 +150,7 @@ export default function EmailCampaignPage() {
     <>
       <ProTable<EmailCampaign>
         size="small"
-        headerTitle="邮件群发"
+        headerTitle={t('pages.marketing.emailCampaign.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -162,46 +164,46 @@ export default function EmailCampaignPage() {
         toolBarRender={() => [
           <Space key="test-box">
             <Input
-              placeholder="测试邮箱"
+              placeholder={t('pages.marketing.emailCampaign.phTestEmail')}
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
               style={{ width: 180 }}
             />
           </Space>,
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建群发
+            {t('pages.marketing.emailCampaign.btnCreate')}
           </Button>,
         ]}
       />
 
       <Modal
-        title="新建邮件群发"
+        title={t('pages.marketing.emailCampaign.modalCreateTitle')}
         open={modalOpen}
         onOk={() => void onSend()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="发送"
+        okText={t('pages.marketing.emailCampaign.btnSend')}
         destroyOnClose
       >
         <Form form={form} name="campaignForm" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
-          <Form.Item name="name" label="活动名" rules={[{ required: true, message: '请输入活动名' }]}>
-            <Input placeholder="如：老客户召回" />
+          <Form.Item name="name" label={t('pages.marketing.emailCampaign.formName')} rules={[{ required: true, message: t('pages.marketing.emailCampaign.msgNameRequired') }]}>
+            <Input placeholder={t('pages.marketing.emailCampaign.formNamePlaceholder')} />
           </Form.Item>
-          <Form.Item name="templateId" label="模板" rules={[{ required: true, message: '请选择模板' }]}>
-            <Select placeholder="选择邮件模板" options={templateOptions} />
+          <Form.Item name="templateId" label={t('pages.marketing.emailCampaign.formTemplate')} rules={[{ required: true, message: t('pages.marketing.emailCampaign.msgTemplateRequired') }]}>
+            <Select placeholder={t('pages.marketing.emailCampaign.formTemplatePlaceholder')} options={templateOptions} />
           </Form.Item>
-          <Form.Item name="sourceType" label="收件人" rules={[{ required: true }]}>
+          <Form.Item name="sourceType" label={t('pages.marketing.emailCampaign.formSource')} rules={[{ required: true }]}>
             <Radio.Group>
-              <Radio value="SEGMENT">客户细分</Radio>
-              <Radio value="CUSTOMER_IDS">全部客户（邮箱非空）</Radio>
+              <Radio value="SEGMENT">{t('pages.marketing.emailCampaign.sourceSegment')}</Radio>
+              <Radio value="CUSTOMER_IDS">{t('pages.marketing.emailCampaign.sourceAllCustomers')}</Radio>
             </Radio.Group>
           </Form.Item>
           <Form.Item noStyle shouldUpdate={(p, c) => p.sourceType !== c.sourceType}>
             {({ getFieldValue }) =>
               getFieldValue('sourceType') === 'SEGMENT' ? (
-                <Form.Item name="segmentId" label="细分" rules={[{ required: true, message: '请选择细分' }]}>
+                <Form.Item name="segmentId" label={t('pages.marketing.emailCampaign.formSegment')} rules={[{ required: true, message: t('pages.marketing.emailCampaign.msgSegmentRequired') }]}>
                   <Select
-                    placeholder="选择客户细分"
+                    placeholder={t('pages.marketing.emailCampaign.formSegmentPlaceholder')}
                     options={segmentOptions.map((s) => ({ label: `${s.name}（${s.memberCount}）`, value: s.id }))}
                   />
                 </Form.Item>
@@ -212,7 +214,7 @@ export default function EmailCampaignPage() {
       </Modal>
 
       <Drawer
-        title={`发送记录：${detailDrawer?.name ?? ''}`}
+        title={t('pages.marketing.emailCampaign.drawerTitle', { name: detailDrawer?.name ?? '' })}
         open={!!detailDrawer}
         onClose={() => setDetailDrawer(null)}
         width={560}
@@ -223,17 +225,17 @@ export default function EmailCampaignPage() {
           dataSource={detailLogs}
           pagination={false}
           columns={[
-            { title: '邮箱', dataIndex: 'email' },
-            { title: '主题', dataIndex: 'subject', ellipsis: true },
+            { title: t('pages.marketing.emailCampaign.colEmail'), dataIndex: 'email' },
+            { title: t('pages.marketing.emailCampaign.colSubject'), dataIndex: 'subject', ellipsis: true },
             {
-              title: '状态',
+              title: t('pages.marketing.emailCampaign.colStatus'),
               dataIndex: 'status',
               width: 80,
               render: (v: string) =>
-                v === 'SENT' ? <Tag color="green">成功</Tag> : <Tag color="red">失败</Tag>,
+                v === 'SENT' ? <Tag color="green">{t('pages.marketing.emailCampaign.statusSuccess')}</Tag> : <Tag color="red">{t('pages.marketing.emailCampaign.statusFailed')}</Tag>,
             },
             {
-              title: '时间',
+              title: t('pages.marketing.emailCampaign.colTime'),
               dataIndex: 'createdAt',
               width: 140,
               render: (v?: string) => (v ? v.replace('T', ' ').slice(0, 16) : '-'),

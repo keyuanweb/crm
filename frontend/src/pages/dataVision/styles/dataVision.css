@@ -1,0 +1,142 @@
+/**
+ * 酷炫数据大屏基础样式
+ */
+
+/* 流光边框动画 */
+@keyframes glowBorder {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* 数字滚动动画 */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 数据大屏页面容器 */
+.data-vision-page {
+  position: relative;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #122a52 0%, #0a1830 60%, #060d1e 100%);
+  color: #e6f0ff;
+  overflow: hidden;
+}
+
+/* 全屏模式 */
+.data-vision-page:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+
+.data-vision-page:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+}
+
+/* 标题栏 */
+.data-vision-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  background: rgba(13, 32, 66, 0.6);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(77, 163, 255, 0.2);
+}
+
+/* KPI 指标卡行 */
+.kpi-metrics-row {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  padding: 20px 30px;
+}
+
+/* 图表区域 */
+.charts-grid {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(var(--columns, 3), 1fr);
+  gap: 20px;
+  padding: 20px 30px;
+}
+
+/* 底部区域 */
+.data-vision-footer {
+  position: relative;
+  z-index: 10;
+  padding: 15px 30px;
+  background: rgba(13, 32, 66, 0.6);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(77, 163, 255, 0.2);
+  text-align: center;
+  color: #5a7cb8;
+  font-size: 12px;
+}
+
+/* 响应式布局 */
+@media (min-width: 2560px) {
+  .kpi-metrics-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .charts-grid {
+    --columns: 4;
+  }
+}
+
+@media (min-width: 3840px) {
+  .kpi-metrics-row {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  
+  .charts-grid {
+    --columns: 5;
+  }
+}
+
+/* 滚动条样式 */
+.data-vision-page::-webkit-scrollbar {
+  width: 8px;
+}
+
+.data-vision-page::-webkit-scrollbar-track {
+  background: rgba(13, 32, 66, 0.3);
+}
+
+.data-vision-page::-webkit-scrollbar-thumb {
+  background: rgba(77, 163, 255, 0.3);
+  border-radius: 4px;
+}
+
+.data-vision-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(77, 163, 255, 0.5);
+}

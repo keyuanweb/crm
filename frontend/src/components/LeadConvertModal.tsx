@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { App, Form, Input, InputNumber, Modal } from 'antd'
 import { convertLead, type ConvertPayload } from '../services/leadService'
 import { extractErrorMessage } from '../services/apiClient'
@@ -16,6 +17,7 @@ interface FormValues {
 }
 
 export default function LeadConvertModal({ open, leadId, onCancel, onSuccess }: Props) {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [form] = Form.useForm<FormValues>()
 
@@ -29,43 +31,43 @@ export default function LeadConvertModal({ open, leadId, onCancel, onSuccess }: 
     }
     try {
       await convertLead(leadId, payload)
-      message.success('转化成功')
+      message.success(t('pages.leadConvertModal.msgConverted'))
       form.resetFields()
       onSuccess()
     } catch (err) {
-      message.error(extractErrorMessage(err, '转化失败'))
+      message.error(extractErrorMessage(err, t('pages.leadConvertModal.msgConvertFailed')))
     }
   }
 
   return (
     <Modal
-      title="转化线索"
+      title={t('pages.leadConvertModal.title')}
       open={open}
       onOk={() => void handleOk()}
       onCancel={() => {
         form.resetFields()
         onCancel()
       }}
-      okText="确认转化"
+      okText={t('pages.leadConvertModal.btnConfirm')}
       destroyOnClose
     >
       <Form form={form} layout="vertical">
         <Form.Item
           name="opportunityName"
-          label="商机名称"
-          rules={[{ required: true, message: '请输入商机名称' }]}
+          label={t('pages.leadConvertModal.labelOpportunityName')}
+          rules={[{ required: true, message: t('pages.leadConvertModal.labelOpportunityName') }]}
         >
-          <Input placeholder="请输入商机名称" />
+          <Input placeholder={t('pages.leadConvertModal.placeholderOpportunityName')} />
         </Form.Item>
         <Form.Item
           name="expectedAmount"
-          label="预期金额（元）"
-          rules={[{ required: true, message: '请输入预期金额' }]}
+          label={t('pages.leadConvertModal.labelExpectedAmount')}
+          rules={[{ required: true, message: t('pages.leadConvertModal.labelExpectedAmount') }]}
         >
-          <InputNumber style={{ width: '100%' }} min={0} placeholder="请输入预期金额" />
+          <InputNumber style={{ width: '100%' }} min={0} placeholder={t('pages.leadConvertModal.placeholderExpectedAmount')} />
         </Form.Item>
-        <Form.Item name="remark" label="备注">
-          <Input.TextArea rows={2} placeholder="可选备注" />
+        <Form.Item name="remark" label={t('pages.leadConvertModal.labelRemark')}>
+          <Input.TextArea rows={2} placeholder={t('pages.leadConvertModal.placeholderRemark')} />
         </Form.Item>
       </Form>
     </Modal>

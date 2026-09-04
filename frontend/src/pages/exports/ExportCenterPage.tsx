@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Popconfirm, Select, Tag } from 'antd'
 import { DownloadOutlined, PlusOutlined } from '@ant-design/icons'
@@ -16,6 +17,7 @@ import {
 } from '../../types/export'
 
 export default function ExportCenterPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [exportType, setExportType] = useState<ExportType>('LEAD')
@@ -23,10 +25,10 @@ export default function ExportCenterPage() {
   const onExport = async () => {
     try {
       await createExportJob({ exportType })
-      message.success('导出任务已创建，稍后可在列表下载')
+      message.success(t('pages.exportCenter.msgExported'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '创建导出任务失败'))
+      message.error(extractErrorMessage(err, t('pages.exportCenter.msgCreateFailed')))
     }
   }
 
@@ -34,7 +36,7 @@ export default function ExportCenterPage() {
     try {
       await downloadExportJob(row.id)
     } catch (err) {
-      message.error(extractErrorMessage(err, '下载失败'))
+      message.error(extractErrorMessage(err, t('pages.exportCenter.msgDownloadFailed')))
     }
   }
 
@@ -43,42 +45,42 @@ export default function ExportCenterPage() {
 
   const columns: ProColumns<ExportJob>[] = [
     {
-      title: '导出类型',
+      title: t('pages.exportCenter.colType'),
       dataIndex: 'exportType',
       search: false,
       render: (_, row) => EXPORT_TYPE_LABELS[row.exportType as ExportType],
     },
     {
-      title: '状态',
+      title: t('pages.exportCenter.colStatus'),
       dataIndex: 'status',
       search: false,
       render: (_, row) => (
         <Tag color={statusColor(row.status)}>{EXPORT_STATUS_LABELS[row.status as ExportJob['status']]}</Tag>
       ),
     },
-    { title: '行数', dataIndex: 'rowCount', search: false },
-    { title: '文件名', dataIndex: 'fileName', search: false },
+    { title: t('pages.exportCenter.colRowCount'), dataIndex: 'rowCount', search: false },
+    { title: t('pages.exportCenter.colFileName'), dataIndex: 'fileName', search: false },
     {
-      title: '创建时间',
+      title: t('pages.exportCenter.colCreated'),
       dataIndex: 'createdAt',
       search: false,
       valueType: 'dateTime',
     },
     {
-      title: '操作',
+      title: t('pages.exportCenter.colAction'),
       valueType: 'option',
       width: 100,
       render: (_, row) => [
         row.status === 'DONE' ? (
           <a key="download" onClick={() => void onDownload(row)}>
-            <DownloadOutlined /> 下载
+            <DownloadOutlined /> {t('pages.exportCenter.btnDownload')}
           </a>
         ) : row.status === 'FAILED' ? (
           <span key="failed" style={{ color: '#ff4d4f' }}>
-            {row.errorMessage ?? '失败'}
+            {row.errorMessage ?? t('pages.exportCenter.statusFailed')}
           </span>
         ) : (
-          <span key="pending">生成中...</span>
+          <span key="pending">{t('pages.exportCenter.statusPending')}</span>
         ),
       ],
     },
@@ -94,12 +96,12 @@ export default function ExportCenterPage() {
           options={Object.entries(EXPORT_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
         />
         <Button type="primary" icon={<PlusOutlined />} onClick={() => void onExport()}>
-          发起导出
+          {t('pages.exportCenter.btnExport')}
         </Button>
       </div>
       <ProTable<ExportJob>
         size="small"
-        headerTitle="导出记录"
+        headerTitle={t('pages.exportCenter.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -112,10 +114,10 @@ export default function ExportCenterPage() {
         toolBarRender={() => [
           <Popconfirm
             key="refresh"
-            title="刷新状态？"
+            title={t('pages.exportCenter.confirmRefresh')}
             onConfirm={() => actionRef.current?.reload()}
           >
-            <Button>刷新</Button>
+            <Button>{t('pages.exportCenter.btnRefresh')}</Button>
           </Popconfirm>,
         ]}
       />

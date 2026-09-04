@@ -40,7 +40,7 @@ crm:
 
 # CORS：允许的前端 Origin（逗号分隔），生产环境通过环境变量覆盖
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:5175}
 
 # JWT secrets MUST be overridden via environment in non-dev environments
 jwt:
@@ -81,3 +81,11 @@ management:
 logging:
   level:
     com.crm: INFO
+
+# 定时任务调度配置
+crm:
+  scheduler:
+    # 定时导出扫描间隔（cron 表达式），默认每 5 分钟
+    export-cron: ${CRM_SCHEDULER_EXPORT_CRON:0 0/5 * * * ?}
+    # 数据保留归档扫描间隔（cron 表达式），默认每天凌晨 2 点
+    retention-cron: ${CRM_SCHEDULER_RETENTION_CRON:0 0 2 * * ?}

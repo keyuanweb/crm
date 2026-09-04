@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Space, Typography } from 'antd'
 import { MobileOutlined } from '@ant-design/icons'
 
@@ -15,6 +16,7 @@ interface BeforeInstallPromptEvent extends Event {
  * 监听 beforeinstallprompt，触发时显示"安装到主屏幕"提示；appinstalled 后隐藏。
  */
 export default function InstallPrompt() {
+  const { t } = useTranslation()
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
   const [dismissed, setDismissed] = useState(false)
 
@@ -66,13 +68,13 @@ export default function InstallPrompt() {
       }}
     >
       <MobileOutlined style={{ color: '#1677ff', fontSize: 20 }} />
-      <Text style={{ fontSize: 13 }}>安装 CRM 到主屏幕，随时随地访问</Text>
+      <Text style={{ fontSize: 13 }}>{t('pages.installPrompt.text')}</Text>
       <Space>
         <Button size="small" type="primary" onClick={() => void onInstall()}>
-          安装
+          {t('pages.installPrompt.btnInstall')}
         </Button>
         <Button size="small" onClick={() => setDismissed(true)}>
-          稍后
+          {t('pages.installPrompt.btnLater')}
         </Button>
       </Space>
     </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Form, Input, Modal, Select, Tag, Typography } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import { fetchAtRiskCustomers } from '../../services/customerService'
 import { createFollowUp } from '../../services/followUpService'
 import { extractErrorMessage } from '../../services/apiClient'
@@ -11,19 +12,20 @@ import type { FollowUpMethod } from '../../types/followUp'
 
 const { Title, Paragraph } = Typography
 
-const METHOD_LABELS: Record<string, string> = {
-  PHONE: '电话',
-  EMAIL: '邮件',
-  MEETING: '会议',
-  OTHER: '其他',
-}
-
 interface FollowUpFormValues {
   method: FollowUpMethod
   content: string
 }
 
 export default function AtRiskCustomersPage() {
+  const { t } = useTranslation()
+
+  const METHOD_LABELS: Record<string, string> = {
+    PHONE: t('pages.atRiskCustomers.methodPhone'),
+    EMAIL: t('pages.atRiskCustomers.methodEmail'),
+    MEETING: t('pages.atRiskCustomers.methodMeeting'),
+    OTHER: t('pages.atRiskCustomers.methodOther'),
+  }
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const navigate = useNavigate()
@@ -48,21 +50,21 @@ export default function AtRiskCustomersPage() {
         method: values.method,
         content: values.content,
       })
-      message.success('跟进已记录，客户已移出预警列表')
+      message.success(t('pages.atRiskCustomers.msgFollowSaved'))
       setFollowOpen(false)
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '跟进失败'))
+      message.error(extractErrorMessage(err, t('pages.atRiskCustomers.msgFollowFailed')))
     } finally {
       setSaving(false)
     }
   }
 
   const columns: ProColumns<CustomerHealthBrief>[] = [
-    { title: '客户', dataIndex: 'name', render: (_, row) => <a onClick={() => navigate(`/customers/${row.id}`)}>{row.name}</a> },
-    { title: '公司', dataIndex: 'company', search: false },
+    { title: t('pages.atRiskCustomers.colName'), dataIndex: 'name', render: (_, row) => <a onClick={() => navigate(`/customers/${row.id}`)}>{row.name}</a> },
+    { title: t('pages.atRiskCustomers.colCompany'), dataIndex: 'company', search: false },
     {
-      title: '健康度',
+      title: t('pages.atRiskCustomers.colHealthScore'),
       dataIndex: 'healthScore',
       search: false,
       width: 100,
@@ -72,21 +74,21 @@ export default function AtRiskCustomersPage() {
         return <Tag color={color}>{score}</Tag>
       },
     },
-    { title: '无活动天数', dataIndex: 'daysInactive', search: false, width: 110 },
+    { title: t('pages.atRiskCustomers.colDaysInactive'), dataIndex: 'daysInactive', search: false, width: 110 },
     {
-      title: '最近跟进',
+      title: t('pages.atRiskCustomers.colLastFollowUp'),
       dataIndex: 'lastFollowUpAt',
       search: false,
       render: (_, row) => (row.lastFollowUpAt ? row.lastFollowUpAt.replace('T', ' ').slice(0, 16) : '-'),
     },
-    { title: '负责人', dataIndex: 'ownerName', search: false, render: (_, row) => row.ownerName ?? '-' },
+    { title: t('pages.atRiskCustomers.colOwner'), dataIndex: 'ownerName', search: false, render: (_, row) => row.ownerName ?? '-' },
     {
-      title: '操作',
+      title: t('pages.atRiskCustomers.colAction'),
       valueType: 'option',
       width: 120,
       render: (_, row) => [
         <a key="follow" onClick={() => openFollow(row)}>
-          <PlusOutlined /> 跟进
+          <PlusOutlined /> {t('pages.atRiskCustomers.btnFollow')}
         </a>,
       ],
     },
@@ -96,16 +98,16 @@ export default function AtRiskCustomersPage() {
     <>
       <div style={{ marginBottom: 12 }}>
         <Title level={4} style={{ marginBottom: 4 }}>
-          客户流失预警
+          {t('pages.atRiskCustomers.title')}
         </Title>
         <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 13 }}>
-          超过阈值天数无跟进且无新订单的客户，按健康度升序；建议优先跟进低分客户。
+          {t('pages.atRiskCustomers.description')}
         </Paragraph>
       </div>
 
       <ProTable<CustomerHealthBrief>
         size="small"
-        headerTitle="预警列表"
+        headerTitle={t('pages.atRiskCustomers.listTitle')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -123,23 +125,23 @@ export default function AtRiskCustomersPage() {
       />
 
       <Modal
-        title={current ? `跟进「${current.name}」` : '跟进'}
+        title={current ? t('pages.atRiskCustomers.followUpTitle', { name: current.name }) : t('pages.atRiskCustomers.btnFollow')}
         open={followOpen}
         onOk={() => void onFollow()}
         onCancel={() => setFollowOpen(false)}
-        okText="保存"
+        okText={t('pages.atRiskCustomers.btnSave')}
         confirmLoading={saving}
         destroyOnClose
       >
         <Form form={form} name="atRiskFollowUp" layout="vertical">
-          <Form.Item name="method" label="跟进方式" rules={[{ required: true, message: '请选择跟进方式' }]}>
+          <Form.Item name="method" label={t('pages.atRiskCustomers.followUpMethod')} rules={[{ required: true, message: t('pages.atRiskCustomers.followUpMethodRequired') }]}>
             <Select
-              placeholder="选择跟进方式"
+              placeholder={t('pages.atRiskCustomers.followUpMethodPlaceholder')}
               options={Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label }))}
             />
           </Form.Item>
-          <Form.Item name="content" label="跟进内容" rules={[{ required: true, message: '请输入跟进内容' }]}>
-            <Input.TextArea rows={3} placeholder="记录本次跟进情况" />
+          <Form.Item name="content" label={t('pages.atRiskCustomers.followUpContent')} rules={[{ required: true, message: t('pages.atRiskCustomers.followUpContentRequired') }]}>
+            <Input.TextArea rows={3} placeholder={t('pages.atRiskCustomers.followUpContentPlaceholder')} />
           </Form.Item>
         </Form>
       </Modal>

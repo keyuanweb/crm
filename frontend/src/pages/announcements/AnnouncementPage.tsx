@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -34,6 +35,7 @@ interface FormValues {
 
 export default function AnnouncementPage() {
   const actionRef = useRef<ActionType>()
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -72,15 +74,15 @@ export default function AnnouncementPage() {
       }
       if (editing) {
         await updateAnnouncement(editing.id, payload)
-        message.success('已保存')
+        message.success(t('pages.announcement.messages.saved'))
       } else {
         await createAnnouncement(payload)
-        message.success('已发布')
+        message.success(t('pages.announcement.messages.published'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.announcement.messages.saveFailed')))
     } finally {
       setSaving(false)
     }
@@ -89,64 +91,64 @@ export default function AnnouncementPage() {
   const onDelete = async (row: Announcement) => {
     try {
       await deleteAnnouncement(row.id)
-      message.success('已删除')
+      message.success(t('pages.announcement.messages.deleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.announcement.messages.deleteFailed')))
     }
   }
 
   const onRead = async (row: Announcement) => {
     try {
       await markAnnouncementRead(row.id)
-      message.success('已读')
+      message.success(t('pages.announcement.messages.markedRead'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.announcement.messages.operationFailed')))
     }
   }
 
   const columns: ProColumns<Announcement>[] = [
     {
-      title: '标题',
+      title: t('pages.announcement.colTitle'),
       dataIndex: 'title',
       render: (_, row) => (
         <Space size={6}>
-          {row.pinned ? <Tag color="orange">置顶</Tag> : null}
-          {!row.read ? <Tag color="red">未读</Tag> : null}
+          {row.pinned ? <Tag color="orange">{t('pages.announcement.tags.pinned')}</Tag> : null}
+          {!row.read ? <Tag color="red">{t('pages.announcement.tags.unread')}</Tag> : null}
           <Typography.Text strong>{row.title}</Typography.Text>
         </Space>
       ),
     },
     {
-      title: '内容',
+      title: t('pages.announcement.colContent'),
       dataIndex: 'content',
       search: false,
       ellipsis: true,
       render: (_, row) => row.content.replace(/<[^>]*>/g, ''),
     },
     {
-      title: '发布时间',
+      title: t('pages.announcement.colCreatedAt'),
       dataIndex: 'createdAt',
       width: 150,
       search: false,
       render: (_, row) => (row.createdAt ? row.createdAt.replace('T', ' ').slice(0, 16) : '-'),
     },
     {
-      title: '操作',
+      title: t('pages.announcement.colAction'),
       valueType: 'option',
       width: 190,
       render: (_, row) => [
         !row.read ? (
           <a key="read" onClick={() => void onRead(row)}>
-            标记已读
+            {t('pages.announcement.action.markRead')}
           </a>
         ) : null,
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.announcement.action.edit')}
         </a>,
-        <Popconfirm key="delete" title="确定删除该公告？" onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm key="delete" title={t('pages.announcement.confirmDelete')} onConfirm={() => onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.announcement.action.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -156,7 +158,7 @@ export default function AnnouncementPage() {
     <>
       <ProTable<Announcement>
         size="small"
-        headerTitle="团队公告"
+        headerTitle={t('pages.announcement.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -169,34 +171,34 @@ export default function AnnouncementPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            发布公告
+            {t('pages.announcement.toolbar.publish')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑公告' : '发布公告'}
+        title={editing ? t('pages.announcement.modal.edit') : t('pages.announcement.modal.publish')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.announcement.modal.save')}
         destroyOnClose
         width={640}
       >
         <Form form={form} name="announceForm" layout="vertical">
-          <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
-            <Input placeholder="如：季度目标发布" />
+          <Form.Item name="title" label={t('pages.announcement.form.title')} rules={[{ required: true, message: t('pages.announcement.form.titleRequired') }]}>
+            <Input placeholder={t('pages.announcement.form.titlePlaceholder')} />
           </Form.Item>
-          <Form.Item name="content" label="正文" rules={[{ required: true, message: '请输入正文' }]}>
-            <Input.TextArea rows={6} placeholder="支持 HTML" />
+          <Form.Item name="content" label={t('pages.announcement.form.content')} rules={[{ required: true, message: t('pages.announcement.form.contentRequired') }]}>
+            <Input.TextArea rows={6} placeholder={t('pages.announcement.form.contentPlaceholder')} />
           </Form.Item>
           <Space size={32}>
-            <Form.Item name="pinned" label="置顶" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Form.Item name="pinned" label={t('pages.announcement.form.pinned')} valuePropName="checked" style={{ marginBottom: 0 }}>
               <Switch />
             </Form.Item>
-            <Form.Item name="expiresAt" label="过期时间（留空永久）" style={{ marginBottom: 0 }}>
-              <DatePicker showTime placeholder="选择过期时间" />
+            <Form.Item name="expiresAt" label={t('pages.announcement.form.expiresAt')} style={{ marginBottom: 0 }}>
+              <DatePicker showTime placeholder={t('pages.announcement.form.expiresAtPlaceholder')} />
             </Form.Item>
           </Space>
         </Form>

@@ -15,5 +15,11 @@ public class Department extends BaseEntity {
   /** 上级部门（空 = 顶级）。 */
   private Long parentId;
 
+  /** 部门描述。 */
+  private String description;
+
+  /** 排序号（值越小越靠前）。 */
+  private Integer sortOrder;
+
   private Long createdBy;
 }

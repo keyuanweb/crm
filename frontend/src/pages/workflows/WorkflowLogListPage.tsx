@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+﻿import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { Button, Tag } from 'antd'
@@ -61,6 +61,7 @@ export default function WorkflowLogListPage() {
           返回规则管理
         </Button>
       </Link>
+      <div style={{ height: 16 }} />
       <ProTable<ExecutionLog>
         size="small"
         headerTitle="工作流执行日志"

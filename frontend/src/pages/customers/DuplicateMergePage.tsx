@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   App,
   Alert,
@@ -24,6 +25,7 @@ const SIM_COLORS: Record<number, string> = {
 }
 
 export default function DuplicateMergePage() {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [groups, setGroups] = useState<DuplicateGroup[]>([])
   const [scanning, setScanning] = useState(false)
@@ -36,9 +38,9 @@ export default function DuplicateMergePage() {
       const result = await fetchDuplicates()
       setGroups(result)
       setScanned(true)
-      message.success(`扫描完成，发现 ${result.length} 组疑似重复`)
+      message.success(t('pages.duplicateMerge.scanSuccess', { count: result.length }))
     } catch (err) {
-      message.error(extractErrorMessage(err, '扫描失败'))
+      message.error(extractErrorMessage(err, t('pages.duplicateMerge.scanFailed')))
     } finally {
       setScanning(false)
     }
@@ -49,13 +51,19 @@ export default function DuplicateMergePage() {
     try {
       const r = await mergeCustomers(group.primaryId, item.customerId)
       message.success(
-        `已合并：转移订单 ${r.movedOrders} / 商机 ${r.movedOpportunities} / 联系人 ${r.movedContacts} / 跟进 ${r.movedFollowUps} / 工单 ${r.movedTickets}`,
+        t('pages.duplicateMerge.mergeSuccess', {
+          orders: r.movedOrders,
+          opportunities: r.movedOpportunities,
+          contacts: r.movedContacts,
+          followUps: r.movedFollowUps,
+          tickets: r.movedTickets,
+        }),
       )
       // 重新扫描
       const result = await fetchDuplicates()
       setGroups(result)
     } catch (err) {
-      message.error(extractErrorMessage(err, '合并失败'))
+      message.error(extractErrorMessage(err, t('pages.duplicateMerge.msgMergeFailed')))
     } finally {
       setMerging(false)
     }
@@ -67,23 +75,23 @@ export default function DuplicateMergePage() {
         <Space direction="vertical" style={{ width: '100%' }}>
           <Space>
             <Button type="primary" icon={<ScanOutlined />} loading={scanning} onClick={() => void onScan()}>
-              扫描疑似重复客户
+              {t('pages.duplicateMerge.btnScan')}
             </Button>
             <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-              按名称（归一化）+ 电话/邮箱精确匹配；扫描全部可见客户
+              {t('pages.duplicateMerge.scanHint')}
             </Typography.Text>
           </Space>
           <Alert
             type="info"
             showIcon
-            message="合并规则：主记录保留（字段优先），从记录关联数据（订单/商机/联系人/跟进/工单）转移至主记录，从记录进入回收站可恢复。"
+            message={t('pages.duplicateMerge.mergeRule')}
           />
         </Space>
       </Card>
 
       {scanned && !scanning && groups.length === 0 ? (
         <Card style={{ borderRadius: 10 }}>
-          <Empty description="未发现重复客户 🎉" />
+          <Empty description={t('pages.duplicateMerge.noDuplicates')} />
         </Card>
       ) : null}
 
@@ -95,10 +103,10 @@ export default function DuplicateMergePage() {
             title={
               <Space>
                 <Typography.Text strong>{g.primaryName}</Typography.Text>
-                <Tag color="blue">主记录 #{g.primaryId}</Tag>
+                <Tag color="blue">{t('pages.duplicateMerge.primaryLabel')} #{g.primaryId}</Tag>
               </Space>
             }
-            extra={`疑似重复 ${g.duplicates.length} 条`}
+            extra={t('pages.duplicateMerge.duplicateCount', { count: g.duplicates.length })}
           >
             <Table<DuplicateItem>
               size="small"
@@ -106,31 +114,31 @@ export default function DuplicateMergePage() {
               dataSource={g.duplicates}
               pagination={false}
               columns={[
-                { title: '重复客户', dataIndex: 'name' },
-                { title: '公司', dataIndex: 'company', render: (v?: string) => v || '-' },
+                { title: t('pages.duplicateMerge.colDuplicateCustomer'), dataIndex: 'name' },
+                { title: t('pages.duplicateMerge.colCompany'), dataIndex: 'company', render: (v?: string) => v || '-' },
                 {
-                  title: '相似度',
+                  title: t('pages.duplicateMerge.colScore'),
                   dataIndex: 'similarity',
                   width: 90,
                   render: (v: number) => <Tag color={SIM_COLORS[v] ?? 'default'}>{v}%</Tag>,
                 },
                 {
-                  title: '关联数据',
+                  title: t('pages.duplicateMerge.colRelatedData'),
                   dataIndex: 'relatedCount',
                   width: 90,
-                  render: (v: number) => <Tag color={v > 0 ? 'orange' : 'default'}>{v} 条</Tag>,
+                  render: (v: number) => <Tag color={v > 0 ? 'orange' : 'default'}>{v} {t('pages.duplicateMerge.relatedCountSuffix')}</Tag>,
                 },
                 {
-                  title: '操作',
+                  title: t('pages.duplicateMerge.colAction'),
                   width: 90,
                   render: (_, item) => (
                     <Popconfirm
-                      title={`将「${item.name}」合并到「${g.primaryName}」？`}
-                      description="关联数据将转移，从记录进回收站"
+                      title={t('pages.duplicateMerge.mergeConfirmTitle', { name: item.name, primary: g.primaryName })}
+                      description={t('pages.duplicateMerge.mergeConfirmDesc')}
                       onConfirm={() => void onMerge(g, item)}
                     >
                       <Button size="small" type="primary" danger loading={merging}>
-                        合并
+                        {t('pages.duplicateMerge.btnMerge')}
                       </Button>
                     </Popconfirm>
                   ),

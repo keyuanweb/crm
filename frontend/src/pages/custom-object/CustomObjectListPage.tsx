@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Form, Input, Modal, Popconfirm, Select, Switch, Tag } from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
+import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons'
 import {
   createCustomObject,
   deleteCustomObject,
@@ -22,6 +23,7 @@ interface FormValues {
 
 /** 自定义对象定义页（059，仅 ADMIN）。 */
 export default function CustomObjectListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -29,30 +31,30 @@ export default function CustomObjectListPage() {
   const [form] = Form.useForm<FormValues>()
 
   const columns: ProColumns<CustomObject>[] = [
-    { title: '名称', dataIndex: 'name' },
-    { title: '编码', dataIndex: 'code', render: (_, row) => <Tag color="blue">{row.code}</Tag> },
-    { title: '字段数', dataIndex: 'fields', search: false, render: (_, row) => row.fields.length },
+    { title: t('pages.customObject.colName'), dataIndex: 'name' },
+    { title: t('pages.customObject.colCode'), dataIndex: 'code', render: (_, row) => <Tag color="blue">{row.code}</Tag> },
+    { title: t('pages.customObject.colFieldCount'), dataIndex: 'fields', search: false, render: (_, row) => row.fields.length },
     {
-      title: '状态',
+      title: t('pages.customObject.colStatus'),
       dataIndex: 'enabled',
       search: false,
-      render: (_, row) => (row.enabled ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>),
+      render: (_, row) => (row.enabled ? <Tag color="green">{t('pages.customObject.enabled')}</Tag> : <Tag>{t('pages.customObject.disabled')}</Tag>),
     },
     {
-      title: '操作',
+      title: t('pages.customObject.colAction'),
       valueType: 'option',
       render: (_, row) => [
         <Link key="records" to={`/custom-objects/${row.id}/records`}>
-          记录
+          {t('pages.customObject.records')}
         </Link>,
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.customObject.edit')}
         </a>,
         <a key="toggle" onClick={() => void onToggle(row)}>
-          {row.enabled ? '停用' : '启用'}
+          {row.enabled ? t('pages.customObject.disable') : t('pages.customObject.enable')}
         </a>,
-        <Popconfirm key="del" title="删除对象？（记录保留）" onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm key="del" title={t('pages.customObject.confirmDelete')} onConfirm={() => void onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.customObject.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -74,42 +76,42 @@ export default function CustomObjectListPage() {
     try {
       if (editing) {
         await updateCustomObject(editing.id, { ...values, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.customObject.msgSaved'))
       } else {
         await createCustomObject(values)
-        message.success('已创建')
+        message.success(t('pages.customObject.msgCreated'))
       }
       setModalOpen(false)
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.customObject.msgSaveFailed')))
     }
   }
 
   const onToggle = async (row: CustomObject) => {
     try {
       await toggleCustomObject(row.id)
-      message.success(row.enabled ? '已停用' : '已启用')
+      message.success(row.enabled ? t('pages.customObject.msgDisabled') : t('pages.customObject.msgEnabled'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.customObject.msgOperationFailed')))
     }
   }
 
   const onDelete = async (row: CustomObject) => {
     try {
       await deleteCustomObject(row.id)
-      message.success('已删除')
+      message.success(t('pages.customObject.msgDeleted'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.customObject.msgDeleteFailed')))
     }
   }
 
   return (
     <>
       <ProTable<CustomObject>
-        headerTitle="自定义对象"
+        headerTitle={t('pages.customObject.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -129,77 +131,69 @@ export default function CustomObjectListPage() {
               form.resetFields()
               form.setFieldsValue({
                 enabled: true,
-                fields: [{ field: 'name', label: '名称', type: 'TEXT', required: true }],
+                fields: [{ field: 'name', label: t('pages.customObject.fieldName'), type: 'TEXT', required: true }],
               })
               setModalOpen(true)
             }}
           >
-            新建对象
+            {t('pages.customObject.btnAdd')}
           </Button>,
         ]}
       />
       <Modal
-        title={editing ? '编辑对象' : '新建对象'}
+        title={editing ? t('pages.customObject.modalEditTitle') : t('pages.customObject.modalAddTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.customObject.btnSave')}
         destroyOnClose
         width={640}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="name" label="对象名称" rules={[{ required: true, message: '请输入名称' }]}>
-            <Input maxLength={100} placeholder="如：项目" />
+          <Form.Item name="name" label={t('pages.customObject.formNameLabel')} rules={[{ required: true, message: t('pages.customObject.formNameRequired') }]}>
+            <Input maxLength={100} placeholder={t('pages.customObject.formNamePlaceholder')} />
           </Form.Item>
-          <Form.Item name="code" label="对象编码" rules={[{ required: true, pattern: /^[A-Z][A-Z0-9_]*$/, message: '大写字母开头，含数字/下划线' }]}>
-            <Input maxLength={50} placeholder="如：PROJECT" disabled={!!editing} />
+          <Form.Item name="code" label={t('pages.customObject.formCodeLabel')} rules={[{ required: true, pattern: /^[A-Z][A-Z0-9_]*$/, message: t('pages.customObject.formCodeRequired') }]}>
+            <Input maxLength={50} placeholder={t('pages.customObject.formCodePlaceholder')} disabled={!!editing} />
           </Form.Item>
-          <Form.List name="fields" rules={[{ validator: async (_, v) => { if (!v || v.length === 0) throw new Error('至少一个字段') } }]}>
+          <Form.List name="fields" rules={[{ validator: async (_, v) => { if (!v || v.length === 0) throw new Error(t('pages.customObject.formFieldsRequired')) } }]}>
             {(fieldList, { add, remove }) => (
               <>
                 {fieldList.map((field) => (
                   <div key={field.key} style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 8 }}>
-                    <Form.Item name={[field.name, 'field']} rules={[{ required: true, message: '字段名' }]} style={{ flex: 1 }}>
-                      <Input placeholder="字段名（英文）" />
+                    <Form.Item name={[field.name, 'field']} rules={[{ required: true, message: t('pages.customObject.fieldNameRequired') }]} style={{ flex: 1 }}>
+                      <Input placeholder={t('pages.customObject.fieldNamePlaceholder')} />
                     </Form.Item>
-                    <Form.Item name={[field.name, 'label']} rules={[{ required: true, message: '标签' }]} style={{ flex: 1 }}>
-                      <Input placeholder="显示标签" />
+                    <Form.Item name={[field.name, 'label']} rules={[{ required: true, message: t('pages.customObject.fieldLabelRequired') }]} style={{ flex: 1 }}>
+                      <Input placeholder={t('pages.customObject.fieldLabelPlaceholder')} />
                     </Form.Item>
                     <Form.Item name={[field.name, 'type']} rules={[{ required: true }]} style={{ width: 120 }}>
                       <Select
                         options={[
-                          { value: 'TEXT', label: '文本' },
-                          { value: 'NUMBER', label: '数字' },
-                          { value: 'DATE', label: '日期' },
-                          { value: 'SELECT', label: '下拉' },
+                          { value: 'TEXT', label: t('pages.customObject.fieldTypeText') },
+                          { value: 'NUMBER', label: t('pages.customObject.fieldTypeNumber') },
+                          { value: 'DATE', label: t('pages.customObject.fieldTypeDate') },
+                          { value: 'SELECT', label: t('pages.customObject.fieldTypeSelect') },
                         ]}
                       />
                     </Form.Item>
                     <Form.Item name={[field.name, 'required']} valuePropName="checked">
-                      <Switch checkedChildren="必填" unCheckedChildren="可选" />
+                      <Switch checkedChildren={t('pages.customObject.required')} unCheckedChildren={t('pages.customObject.optional')} />
                     </Form.Item>
-                    <MinusCircle onClick={() => remove(field.name)} />
+                    <MinusCircleOutlined onClick={() => remove(field.name)} style={{ fontSize: 16, color: '#ff4d4f', cursor: 'pointer' }} />
                   </div>
                 ))}
                 <Button type="dashed" onClick={() => add({ field: '', label: '', type: 'TEXT', required: false })} icon={<PlusOutlined />} block>
-                  添加字段
+                  {t('pages.customObject.btnAddField')}
                 </Button>
               </>
             )}
           </Form.List>
-          <Form.Item name="enabled" label="启用" valuePropName="checked">
+          <Form.Item name="enabled" label={t('pages.customObject.formEnabledLabel')} valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>
       </Modal>
     </>
-  )
-}
-
-function MinusCircle({ onClick }: { onClick: () => void }) {
-  return (
-    <Button danger type="text" size="small" onClick={onClick}>
-      移除
-    </Button>
   )
 }
