@@ -21,6 +21,9 @@ import com.crm.repository.ProductMapper;
 import com.crm.repository.QuoteItemMapper;
 import com.crm.repository.QuoteMapper;
 import com.crm.security.SecurityUtil;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -47,6 +50,11 @@ class QuoteServiceTest {
 
   @BeforeEach
   void setUp() {
+    // Initialize MyBatis-Plus lambda cache for Quote entity
+    MybatisConfiguration configuration = new MybatisConfiguration();
+    MapperBuilderAssistant assistant = new MapperBuilderAssistant(configuration, "");
+    TableInfoHelper.initTableInfo(assistant, Quote.class);
+
     quoteMapper = mock(QuoteMapper.class);
     quoteItemMapper = mock(QuoteItemMapper.class);
     customerMapper = mock(CustomerMapper.class);
