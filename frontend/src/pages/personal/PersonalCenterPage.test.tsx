@@ -1,20 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { renderWithProviders } from '../../test/renderWithProviders'
 import PersonalCenterPage from './PersonalCenterPage'
 import * as personalService from '../../services/personalService'
 import * as userService from '../../services/userService'
 
 vi.mock('../../services/personalService')
 vi.mock('../../services/userService')
-
-function renderPage() {
-  return render(
-    <MemoryRouter initialEntries={['/personal-center']}>
-      <PersonalCenterPage />
-    </MemoryRouter>,
-  )
-}
 
 describe('PersonalCenterPage', () => {
   beforeEach(() => {
@@ -37,7 +29,7 @@ describe('PersonalCenterPage', () => {
       }
       vi.mocked(personalService.fetchPersonalInfo).mockResolvedValue(mockInfo)
 
-      renderPage()
+      renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
         // 使用 data-testid 或更具体的选择器避免重复文本
@@ -59,7 +51,7 @@ describe('PersonalCenterPage', () => {
       }
       vi.mocked(personalService.fetchPersonalInfo).mockResolvedValue(mockInfo)
 
-      renderPage()
+      renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
         // 使用包含"未分配"的描述项
@@ -79,7 +71,7 @@ describe('PersonalCenterPage', () => {
       }
       vi.mocked(personalService.fetchPersonalInfo).mockResolvedValue(mockInfo)
 
-      renderPage()
+      renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
         expect(screen.getByText('编辑显示名')).toBeInTheDocument()
@@ -98,7 +90,7 @@ describe('PersonalCenterPage', () => {
       }
       vi.mocked(personalService.fetchPersonalInfo).mockResolvedValue(mockInfo)
 
-      renderPage()
+      renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
         expect(screen.getByText('编辑显示名')).toBeInTheDocument()
@@ -123,7 +115,7 @@ describe('PersonalCenterPage', () => {
       }
       vi.mocked(personalService.fetchPersonalInfo).mockResolvedValue(mockInfo)
 
-      renderPage()
+      renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
         expect(screen.getByText('编辑显示名')).toBeInTheDocument()
@@ -151,7 +143,7 @@ describe('PersonalCenterPage', () => {
       }
       vi.mocked(personalService.fetchPersonalInfo).mockResolvedValue(mockInfo)
 
-      renderPage()
+      renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
         expect(screen.getByText('修改密码')).toBeInTheDocument()
@@ -172,7 +164,7 @@ describe('PersonalCenterPage', () => {
       }
       vi.mocked(personalService.fetchPersonalInfo).mockResolvedValue(mockInfo)
 
-      renderPage()
+      renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
         expect(screen.getByText('修改密码')).toBeInTheDocument()
@@ -202,7 +194,7 @@ describe('PersonalCenterPage', () => {
       vi.mocked(personalService.fetchPersonalInfo).mockResolvedValue(mockInfo)
       vi.mocked(userService.changeOwnPassword).mockResolvedValue(undefined)
 
-      renderPage()
+      renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
         expect(screen.getByText('修改密码')).toBeInTheDocument()
@@ -231,7 +223,7 @@ describe('PersonalCenterPage', () => {
       }
       vi.mocked(personalService.fetchPersonalInfo).mockResolvedValue(mockInfo)
 
-      renderPage()
+      renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
         expect(screen.getByText('最后登录时间')).toBeInTheDocument()
@@ -249,7 +241,7 @@ describe('PersonalCenterPage', () => {
       }
       vi.mocked(personalService.fetchPersonalInfo).mockResolvedValue(mockInfo)
 
-      renderPage()
+      renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
         // 使用正则表达式匹配"从未"上下文
