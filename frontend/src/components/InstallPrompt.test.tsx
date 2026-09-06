@@ -21,7 +21,7 @@ describe('InstallPrompt (027 PWA install prompt)', () => {
         <InstallPrompt />
       </ConfigProvider>,
     )
-    expect(screen.queryByText(/install CRM|安装 CRM/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/pages\.installPrompt\.text/)).not.toBeInTheDocument()
   })
 
   it('renders after beforeinstallprompt event', () => {
@@ -30,8 +30,9 @@ describe('InstallPrompt (027 PWA install prompt)', () => {
         <InstallPrompt />
       </ConfigProvider>,
     )
+    // 先渲染组件（挂载事件监听器），再派发事件
     dispatchPrompt()
-    expect(screen.getByText(/安装 CRM/)).toBeInTheDocument()
+    expect(screen.getByText(/pages\.installPrompt\.text/)).toBeInTheDocument()
   })
 
   it('dismiss hides prompt', () => {
@@ -41,13 +42,13 @@ describe('InstallPrompt (027 PWA install prompt)', () => {
       </ConfigProvider>,
     )
     dispatchPrompt()
-    fireEvent.click(screen.getByRole('button', { name: /稍\s*后/ }))
-    expect(screen.queryByText(/安装 CRM/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /pages\.installPrompt\.btnLater/ }))
+    expect(screen.queryByText(/pages\.installPrompt\.text/)).not.toBeInTheDocument()
   })
 
   it('install click calls prompt', () => {
     const promptMock = vi.fn().mockResolvedValue(undefined)
-    const userChoiceMock = vi.fn().mockResolvedValue({ outcome: 'accepted' })
+    const userChoiceMock = vi.fn().mockResolvedValue({ outcome: 'accepted' as const })
     const evt = new Event('beforeinstallprompt')
     Object.defineProperty(evt, 'prompt', { value: promptMock })
     Object.defineProperty(evt, 'userChoice', { value: userChoiceMock })
@@ -60,7 +61,7 @@ describe('InstallPrompt (027 PWA install prompt)', () => {
     act(() => {
       window.dispatchEvent(evt)
     })
-    fireEvent.click(screen.getByRole('button', { name: /安\s*装/ }))
+    fireEvent.click(screen.getByRole('button', { name: /pages\.installPrompt\.btnInstall/ }))
     expect(promptMock).toHaveBeenCalled()
   })
 })

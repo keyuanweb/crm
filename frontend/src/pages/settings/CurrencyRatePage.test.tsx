@@ -23,7 +23,7 @@ describe('CurrencyRatePage', () => {
   it('应该渲染汇率管理页面标题', async () => {
     renderWithProviders(<CurrencyRatePage />)
     await waitFor(() => {
-      expect(screen.getByText('币种与汇率')).toBeInTheDocument()
+      expect(screen.getByText('pages.currency.title')).toBeInTheDocument()
     })
   })
 
@@ -38,7 +38,7 @@ describe('CurrencyRatePage', () => {
   it('应该显示新增币种按钮', async () => {
     renderWithProviders(<CurrencyRatePage />)
     await waitFor(() => {
-      expect(screen.getByText('新增币种')).toBeInTheDocument()
+      expect(screen.getByText('pages.currency.btnAdd')).toBeInTheDocument()
     })
   })
 
@@ -57,22 +57,22 @@ describe('CurrencyRatePage', () => {
     renderWithProviders(<CurrencyRatePage />)
 
     await waitFor(() => {
-      expect(screen.getByText('新增币种')).toBeInTheDocument()
+      expect(screen.getByText('pages.currency.btnAdd')).toBeInTheDocument()
     })
 
     // 点击新增按钮
-    const addButton = screen.getByText('新增币种')
+    const addButton = screen.getByText('pages.currency.btnAdd')
     addButton.click()
 
     await waitFor(() => {
-      expect(screen.getByText('新增币种')).toBeInTheDocument()
+      expect(screen.getByText('pages.currency.btnAdd')).toBeInTheDocument()
     })
   })
 
   it('基准币种应该显示不可编辑提示', async () => {
     renderWithProviders(<CurrencyRatePage />)
     await waitFor(() => {
-      expect(screen.getByText('基准不可编辑')).toBeInTheDocument()
+      expect(screen.getByText('pages.currency.baseNotEditable')).toBeInTheDocument()
     })
   })
 })

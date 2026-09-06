@@ -22,9 +22,10 @@ describe('AuditLogPage（T071，antd ProTable 版）', () => {
 
   it('渲染标题与空状态', async () => {
     renderWithProviders(<AuditLogPage />)
-    expect(await screen.findByText('审计日志', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText(/pages\.auditLog\.title/, {}, { timeout: 5000 })).toBeInTheDocument()
+    // ProTable 在 antd zhCN locale 下显示"暂无数据"（可能出现在 title 标签中）
     await waitFor(
-      () => expect(screen.getAllByText('暂无数据').length).toBeGreaterThan(0),
+      () => expect(screen.queryAllByText('暂无数据').length).toBeGreaterThan(1),
       { timeout: 5000 },
     )
   })
@@ -48,8 +49,9 @@ describe('AuditLogPage（T071，antd ProTable 版）', () => {
     renderWithProviders(<AuditLogPage />)
     const table = await screen.findByRole('table')
     await waitFor(() => expect(within(table).getByText('admin')).toBeInTheDocument())
-    expect(within(table).getByText('创建')).toBeInTheDocument()
-    expect(within(table).getByText('客户')).toBeInTheDocument()
+    // action 和 entity 使用 i18n key
+    expect(within(table).getByText(/pages\.auditLog\.actionCreate/)).toBeInTheDocument()
+    expect(within(table).getByText(/pages\.auditLog\.entityCustomer/)).toBeInTheDocument()
     expect(within(table).getByText('42')).toBeInTheDocument()
   })
 })

@@ -70,17 +70,17 @@ describe('CustomerListPage（交互测试：列表 + 新增客户）', () => {
     renderWithProviders(<CustomerListPage />)
 
     // 打开新增弹窗
-    fireEvent.click(screen.getByRole('button', { name: /新增客户/ }))
+    fireEvent.click(screen.getByRole('button', { name: /pages\.customer\.list\.create/ }))
     // 弹窗出现（标题含"新增客户"，用 dialog 定位）
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toBeInTheDocument()
 
     // 在弹窗范围内填写必填字段（避免与搜索表单的"客户名称"标签冲突）
-    fireEvent.change(within(dialog).getByLabelText('客户名称'), { target: { value: '新客户' } })
-    fireEvent.change(within(dialog).getByLabelText('公司'), { target: { value: '新公司' } })
+    fireEvent.change(within(dialog).getByLabelText(/pages\.customer\.list\.formName/), { target: { value: '新客户' } })
+    fireEvent.change(within(dialog).getByLabelText(/pages\.customer\.list\.formCompany/), { target: { value: '新公司' } })
 
     // 提交
-    fireEvent.click(within(dialog).getByRole('button', { name: /保\s*存/ }))
+    fireEvent.click(within(dialog).getByRole('button', { name: /common\.button\.save/ }))
 
     await waitFor(() => {
       expect(createCustomer).toHaveBeenCalledWith(

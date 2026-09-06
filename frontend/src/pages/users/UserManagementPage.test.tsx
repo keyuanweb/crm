@@ -30,9 +30,10 @@ describe('UserManagementPage（T019，antd ProTable 版）', () => {
 
   it('渲染标题与空状态', async () => {
     renderWithProviders(<UserManagementPage />)
-    expect(await screen.findByText('用户管理', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText('pages.userManagement.title', {}, { timeout: 5000 })).toBeInTheDocument()
+    // ProTable 在 antd zhCN locale 下显示"暂无数据"
     await waitFor(
-      () => expect(screen.getAllByText('暂无数据').length).toBeGreaterThan(0),
+      () => expect(screen.queryAllByText('暂无数据').length).toBeGreaterThan(1),
       { timeout: 5000 },
     )
   })
@@ -49,16 +50,16 @@ describe('UserManagementPage（T019，antd ProTable 版）', () => {
     vi.mocked(createUser).mockResolvedValue(created)
     renderWithProviders(<UserManagementPage />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /新增用户/ }, { timeout: 5000 }))
+    fireEvent.click(await screen.findByRole('button', { name: /pages\.userManagement\.toolbar\.newUser/ }, { timeout: 5000 }))
     // 限定在 Modal 容器内查询（工具栏按钮与弹窗标题同名；ProTable 搜索表单也有"用户名"等字段）
-    const titles = await screen.findAllByText('新增用户', {}, { timeout: 5000 })
+    const titles = await screen.findAllByText('pages.userManagement.modal.createUser', {}, { timeout: 5000 })
     const modalTitle = titles.find((el) => el.closest('.ant-modal')) ?? titles[titles.length - 1]
     const modalRoot = modalTitle.closest('.ant-modal') as HTMLElement
     const inDialog = within(modalRoot)
-    fireEvent.change(inDialog.getByLabelText(/用户名/), { target: { value: 'sales01' } })
-    fireEvent.change(inDialog.getByLabelText(/显示名/), { target: { value: '销售一' } })
-    fireEvent.change(inDialog.getByLabelText(/初始密码/), { target: { value: 'pass1234' } })
-    fireEvent.click(inDialog.getByRole('button', { name: /创\s*建/ }))
+    fireEvent.change(inDialog.getByLabelText(/pages\.userManagement\.form\.username/), { target: { value: 'sales01' } })
+    fireEvent.change(inDialog.getByLabelText(/pages\.userManagement\.form\.displayName/), { target: { value: '销售一' } })
+    fireEvent.change(inDialog.getByLabelText(/pages\.userManagement\.form\.initialPassword/), { target: { value: 'pass1234' } })
+    fireEvent.click(inDialog.getByRole('button', { name: /pages\.userManagement\.modal\.createOk/ }))
 
     await waitFor(() =>
       expect(createUser).toHaveBeenCalledWith(
@@ -83,7 +84,7 @@ describe('UserManagementPage（T019，antd ProTable 版）', () => {
     })
     renderWithProviders(<UserManagementPage />)
 
-    fireEvent.click(await screen.findByText('停用'))
+    fireEvent.click(await screen.findByText('pages.userManagement.disable'))
 
     await waitFor(() => expect(updateUser).not.toHaveBeenCalled())
   })

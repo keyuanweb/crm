@@ -24,13 +24,13 @@ describe('ChangePasswordPage（T019）', () => {
 
   it('两次新密码不一致时提示错误且不提交（FR-006）', async () => {
     renderPage()
-    fireEvent.change(screen.getByLabelText(/旧密码/), { target: { value: 'oldPass123' } })
-    fireEvent.change(screen.getByLabelText(/^新密码/), { target: { value: 'newPass456' } })
-    fireEvent.change(screen.getByLabelText(/确认新密码/), { target: { value: 'diffPass789' } })
-    fireEvent.click(screen.getByRole('button', { name: /确认修改/ }))
+    fireEvent.change(screen.getByLabelText(/pages\.changePassword\.currentPassword/), { target: { value: 'oldPass123' } })
+    fireEvent.change(screen.getByLabelText(/pages\.changePassword\.newPassword/), { target: { value: 'newPass456' } })
+    fireEvent.change(screen.getByLabelText(/pages\.changePassword\.confirmPassword/), { target: { value: 'diffPass789' } })
+    fireEvent.click(screen.getByRole('button', { name: /pages\.changePassword\.btnSubmit/ }))
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent('两次输入的新密码不一致'),
+      expect(screen.getByRole('alert')).toHaveTextContent('pages.changePassword.msgPasswordMismatch'),
     )
     expect(changeOwnPassword).not.toHaveBeenCalled()
   })
@@ -41,10 +41,10 @@ describe('ChangePasswordPage（T019）', () => {
     vi.mocked(changeOwnPassword).mockResolvedValue(undefined)
 
     renderPage()
-    fireEvent.change(screen.getByLabelText(/旧密码/), { target: { value: 'oldPass123' } })
-    fireEvent.change(screen.getByLabelText(/^新密码/), { target: { value: 'newPass456' } })
-    fireEvent.change(screen.getByLabelText(/确认新密码/), { target: { value: 'newPass456' } })
-    fireEvent.click(screen.getByRole('button', { name: /确认修改/ }))
+    fireEvent.change(screen.getByLabelText(/pages\.changePassword\.currentPassword/), { target: { value: 'oldPass123' } })
+    fireEvent.change(screen.getByLabelText(/pages\.changePassword\.newPassword/), { target: { value: 'newPass456' } })
+    fireEvent.change(screen.getByLabelText(/pages\.changePassword\.confirmPassword/), { target: { value: 'newPass456' } })
+    fireEvent.click(screen.getByRole('button', { name: /pages\.changePassword\.btnSubmit/ }))
 
     await waitFor(() =>
       expect(changeOwnPassword).toHaveBeenCalledWith('oldPass123', 'newPass456'),

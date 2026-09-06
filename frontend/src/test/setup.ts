@@ -1,6 +1,6 @@
+import { afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
 
 // RTL 自动清理（未启用 vitest globals 时需手动注册）
 afterEach(() => cleanup())
@@ -80,3 +80,17 @@ class XhrNoop {
   }
 }
 Object.defineProperty(window, 'XMLHttpRequest', { writable: true, value: XhrNoop })
+
+// react-i18next mock：测试中 t(key) 直接返回 key，避免查找中文文本失败。
+// 此 mock 会被 Vitest 提升到文件顶部，确保在组件导入前已生效。
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'zh', changeLanguage: () => Promise.resolve() },
+  }),
+  Trans: ({ children }: { children: React.ReactNode }) => children,
+  initReactI18next: {
+    type: '3rdParty',
+    init: () => {},
+  },
+}))

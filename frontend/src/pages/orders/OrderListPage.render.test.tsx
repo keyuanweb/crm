@@ -28,6 +28,6 @@ describe('OrderListPage 渲染冒烟 + 弹窗表单 2 列（FR-S19）', () => {
 
   it('首次渲染不抛异常并显示标题', async () => {
     expect(() => renderWithProviders(<OrderListPage />, { route: '/orders' })).not.toThrow()
-    expect(await screen.findByText('订单管理', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText('pages.order.list.title', {}, { timeout: 5000 })).toBeInTheDocument()
   })
 })

@@ -28,14 +28,14 @@ describe('LoginPage', () => {
 
     renderWithProviders(<LoginPage />)
 
-    expect(screen.getByLabelText('用户名')).toBeInTheDocument()
-    expect(screen.getByLabelText('密码')).toBeInTheDocument()
-    expect(await screen.findByLabelText('验证码')).toBeInTheDocument()
+    expect(screen.getByLabelText('login.username')).toBeInTheDocument()
+    expect(screen.getByLabelText('login.password')).toBeInTheDocument()
+    expect(await screen.findByLabelText('login.captcha')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'admin' } })
-    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'admin123' } })
-    fireEvent.change(screen.getByLabelText('验证码'), { target: { value: '7gk2' } })
-    fireEvent.click(screen.getByRole('button', { name: /登\s*录/ }))
+    fireEvent.change(screen.getByLabelText('login.username'), { target: { value: 'admin' } })
+    fireEvent.change(screen.getByLabelText('login.password'), { target: { value: 'admin123' } })
+    fireEvent.change(screen.getByLabelText('login.captcha'), { target: { value: '7gk2' } })
+    fireEvent.click(screen.getByRole('button', { name: /login\.submit/ }))
 
     await waitFor(() => {
       expect(login).toHaveBeenCalledWith('admin', 'admin123', 'captcha-1', '7gk2')
@@ -45,7 +45,8 @@ describe('LoginPage', () => {
   it('点击验证码图片触发刷新', async () => {
     renderWithProviders(<LoginPage />)
 
-    const img = await screen.findByRole('img', { name: /验证码/ })
+    // 验证码图片的 alt/aria-label 是硬编码中文（非 i18n）
+    const img = await screen.findByRole('img', { name: /验证码图片/ })
     fireEvent.click(img)
 
     await waitFor(() => {
@@ -54,17 +55,18 @@ describe('LoginPage', () => {
   })
 
   it('登录失败时展示错误信息并刷新验证码', async () => {
-    vi.mocked(login).mockRejectedValue({
-      isAxiosError: true,
-      response: { data: { error: { message: '用户名或密码错误' } } },
-    })
+    // 模拟一个真正的 Axios 错误对象
+    const axiosError = new Error('用户名或密码错误') as any
+    axiosError.isAxiosError = true
+    axiosError.response = { data: { error: { message: '用户名或密码错误' } } }
+    vi.mocked(login).mockRejectedValue(axiosError)
 
     renderWithProviders(<LoginPage />)
 
-    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'admin' } })
-    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'wrong' } })
-    fireEvent.change(screen.getByLabelText('验证码'), { target: { value: '7gk2' } })
-    fireEvent.click(screen.getByRole('button', { name: /登\s*录/ }))
+    fireEvent.change(screen.getByLabelText('login.username'), { target: { value: 'admin' } })
+    fireEvent.change(screen.getByLabelText('login.password'), { target: { value: 'wrong' } })
+    fireEvent.change(screen.getByLabelText('login.captcha'), { target: { value: '7gk2' } })
+    fireEvent.click(screen.getByRole('button', { name: /login\.submit/ }))
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('用户名或密码错误')
