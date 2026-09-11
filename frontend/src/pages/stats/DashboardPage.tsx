@@ -19,6 +19,7 @@ import {
   Tag,
   Typography,
   Timeline,
+  type TableProps,
 } from 'antd'
 import {
   BulbOutlined,
@@ -487,31 +488,7 @@ export default function DashboardPage() {
     onError: (err) => message.error(extractErrorMessage(err, t('pages.dashboard.modal.saveFailed'))),
   })
 
-  if (error || (!isLoading && !data)) {
-    return (
-      <Result
-        status="error"
-        title={t('pages.dashboard.error.loadFailed')}
-        extra={
-          <Button type="primary" icon={<ReloadOutlined />} onClick={() => void refetch()}>
-            {t('pages.dashboard.error.retry')}
-          </Button>
-        }
-      />
-    )
-  }
-
-  const onSaveTarget = async () => {
-    const values = await form.validateFields()
-    targetMutation.mutate(values.targetAmount)
-  }
-
-  // 漏斗数据
-  const funnelStages = funnel?.stages ?? []
-  const funnelMaxAmount = Math.max(1, ...funnelStages.map((st) => st.amountTotal ?? 0))
-  const funnelGrandTotal = funnel?.grandTotal?.amountTotal ?? funnelStages.reduce((a, st) => a + (st.amountTotal ?? 0), 0)
-
-  // AI 建议数据
+  // AI 建议数据（hooks 必须在 early return 之前调用，否则渲染次数不一致）
   const aiStats = useMemo(() => [
     {
       label: t('pages.dashboard.aiSuggestions.atRiskCustomers'),
@@ -544,7 +521,7 @@ export default function DashboardPage() {
     { id: 1, type: 'approval', title: t('pages.dashboard.todo.mockApproval'), deadline: '2026-08-30', priority: 'high' as const },
     { id: 2, type: 'followup', title: t('pages.dashboard.todo.mockFollowup'), deadline: '2026-08-31', priority: 'medium' as const },
     { id: 3, type: 'task', title: t('pages.dashboard.todo.mockTask'), deadline: '2026-09-01', priority: 'medium' as const },
-  ], [])
+  ], [t])
 
   // 模拟活动动态（实际应从 API 获取）
   const activities = useMemo(() => [
@@ -552,7 +529,31 @@ export default function DashboardPage() {
     { id: 2, type: 'opportunity', content: t('pages.dashboard.activity.mockOpportunity'), user: t('pages.dashboard.activity.userLiSi'), createdAt: dayjs().subtract(30, 'minute').toISOString() },
     { id: 3, type: 'contract', content: t('pages.dashboard.activity.mockContract'), user: t('pages.dashboard.activity.userWangWu'), createdAt: dayjs().subtract(2, 'hour').toISOString() },
     { id: 4, type: 'task', content: t('pages.dashboard.activity.mockTask'), user: t('pages.dashboard.activity.userZhaoLiu'), createdAt: dayjs().subtract(4, 'hour').toISOString() },
-  ], [])
+  ], [t])
+
+  if (error || (!isLoading && !data)) {
+    return (
+      <Result
+        status="error"
+        title={t('pages.dashboard.error.loadFailed')}
+        extra={
+          <Button type="primary" icon={<ReloadOutlined />} onClick={() => void refetch()}>
+            {t('pages.dashboard.error.retry')}
+          </Button>
+        }
+      />
+    )
+  }
+
+  const onSaveTarget = async () => {
+    const values = await form.validateFields()
+    targetMutation.mutate(values.targetAmount)
+  }
+
+  // 漏斗数据
+  const funnelStages = funnel?.stages ?? []
+  const funnelMaxAmount = Math.max(1, ...funnelStages.map((st) => st.amountTotal ?? 0))
+  const funnelGrandTotal = funnel?.grandTotal?.amountTotal ?? funnelStages.reduce((a, st) => a + (st.amountTotal ?? 0), 0)
 
   const stalledColumns = [
     { title: t('pages.dashboard.stalledOpportunities.opportunity'), dataIndex: 'opportunityName', width: 150, render: (v?: string) => v ?? '-' },
@@ -892,13 +893,13 @@ export default function DashboardPage() {
             label={t('pages.dashboard.modal.targetAmount', { month: currentMonth })}
             rules={[{ required: true, message: t('pages.dashboard.modal.amountRequired') }]}
           >
-            <InputNumber
+            <InputNumber<number>
               min={0}
               precision={2}
               style={{ width: '100%' }}
               placeholder={t('pages.dashboard.modal.placeholder')}
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={((value: string | undefined) => Number(value!.replace(/\$\s?|(,*)/g, '')) || 0) as any}
+              parser={(value) => Number(String(value ?? '').replace(/\$\s?|(,*)/g, '')) || 0}
             />
           </Form.Item>
         </Form>
@@ -914,7 +915,7 @@ const StalledTable = memo(function StalledTable({
   t,
 }: {
   stalled: StalledOpportunity[]
-  columns: any[]
+  columns: TableProps<StalledOpportunity>['columns']
   t: (key: string, params?: Record<string, unknown>) => string
 }) {
   if (stalled.length === 0) {

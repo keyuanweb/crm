@@ -190,14 +190,14 @@
 1. **全局搜索已接入顶栏**：`GlobalSearch` 现由 `App.tsx` 的 Header 渲染，回车进入 `/search` 结果页。
 2. **菜单补齐**：销售配额、定时导出（数据分析组）、渠道 ROI（营销中心组）、工作流日志（流程与配置组）、数据保留（审计与维护组）。
 3. **子页入口补齐**：配额列表页新增「配额对比」按钮；数据保留列表页新增「合规导出」按钮。
-4. **文档索引滞后**：见第八节。
+4. **DashboardPage hooks 违规**：三个 `useMemo` 已上移至 early return 之前，错误的 React 渲染问题消除，被 skip 的错误态测试恢复为通过（该文件 eslint 0 problems）。
+5. **文档索引滞后**：见第八节。
 
 **仍待处理**
 
 1. **迁移编号空缺**：V72 未使用（V71 → V73）；spec 目录缺 069。
 2. **配额列表页占位数据**：顶部「总配额 / 总实际 / 总达成率」三张卡片仍为 `--` 硬编码；「创建配额」按钮没有 `onClick`。
 3. **数据保留编辑入口失效**：列表页「编辑」跳转 `/data-retention/:id/edit`，但 `App.tsx` 未定义该路由（点击落到 404）。
-4. **DashboardPage hooks 违规**：`DashboardPage.tsx` 存在 early return 之后的条件 hooks（eslint `react-hooks/rules-of-hooks` 报 3 处），使对应的错误态测试被 skip。
 
 ---
 *本文件由代码核对生成，如需按此更新 README / specs/README.md，可基于第八节表格直接修改。*

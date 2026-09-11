@@ -106,10 +106,7 @@ describe('DashboardPage（006 统计仪表盘，FR-S18 首页布局与漏斗可�
     expect(await screen.findByText('pages.dashboard.funnel.empty', {}, { timeout: 5000 })).toBeInTheDocument()
   })
 
-  it.skip('接口失败时渲染错误 Result 与重试按钮', async () => {
-    // DashboardPage 在 error 时有 early return 导致 hooks 数量不一致，
-    // 组件会抛出 "Rendered fewer hooks than expected"。
-    // 此测试暂 skip，需修复 DashboardPage 组件的 early return 设计。
+  it('接口失败时渲染错误 Result 与重试按钮', async () => {
     vi.mocked(fetchDashboardStats).mockRejectedValue(new Error('network'))
     renderWithProviders(<DashboardPage />)
     expect(await screen.findByText('pages.dashboard.error.loadFailed', {}, { timeout: 5000 })).toBeInTheDocument()
