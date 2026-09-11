@@ -51,4 +51,20 @@ public interface SalesQuotaRepository extends BaseMapper<SalesQuota> {
           + "COALESCE((SELECT SUM(amount) FROM sales_quota WHERE year = #{year} AND parent_id IS NULL), 0) AS total_quota, "
           + "COALESCE((SELECT SUM(amount) / 1000000 FROM sales_opportunity WHERE stage = 'CLOSED_WON' AND YEAR(closed_at) = #{year}), 0) AS total_actual")
   Map<String, Object> getSummary(@Param("year") Integer year);
+
+  /** 批量查询配额达成率（列表页填充实际销售额与达成率）。 */
+  @Select(
+      "<script>"
+          + "SELECT sq.id, "
+          + "COALESCE(SUM(so.amount), 0) / 1000000 as actual_amount, "
+          + "CASE WHEN sq.amount > 0 THEN ROUND(COALESCE(SUM(so.amount), 0) / 1000000 / sq.amount * 100, 2) ELSE 0 END as achievement_rate "
+          + "FROM sales_quota sq "
+          + "LEFT JOIN sales_opportunity so ON so.created_by = sq.user_id "
+          + "AND so.stage = 'CLOSED_WON' "
+          + "AND so.closed_at BETWEEN sq.period_start AND sq.period_end "
+          + "WHERE sq.id IN "
+          + "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach> "
+          + "GROUP BY sq.id, sq.amount"
+          + "</script>")
+  List<Map<String, Object>> getAchievementBatch(@Param("ids") List<Long> ids);
 }

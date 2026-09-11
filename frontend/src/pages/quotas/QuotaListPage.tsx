@@ -138,14 +138,14 @@ const QuotaListPage: React.FC = () => {
         columns={columns}
         request={async (params) => {
           const res = await quotaApi.list({
-            page: params.current ? Math.floor((params.current - 1) / (params.pageSize || 20)) : 0,
+            page: params.current || 1,
             size: params.pageSize || 20,
             year,
             status: params.status,
           });
           return {
-            data: res.content,
-            total: res.totalElements,
+            data: res.records,
+            total: res.total,
             success: true,
           };
         }}

@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -79,7 +80,30 @@ public class SalesQuotaServiceImpl implements SalesQuotaService {
     if (StringUtils.hasText(status)) wrapper.eq(SalesQuota::getStatus, status);
     wrapper.orderByDesc(SalesQuota::getCreatedAt);
     IPage<SalesQuota> result = salesQuotaRepository.selectPage(pageParam, wrapper);
-    return result.convert(this::toResponse);
+    IPage<SalesQuotaResponse> responsePage = result.convert(this::toResponse);
+    fillAchievement(responsePage.getRecords());
+    return responsePage;
+  }
+
+  private void fillAchievement(List<SalesQuotaResponse> records) {
+    if (records == null || records.isEmpty()) {
+      return;
+    }
+    List<Long> ids =
+        records.stream().map(SalesQuotaResponse::getId).collect(Collectors.toList());
+    List<Map<String, Object>> achievements = salesQuotaRepository.getAchievementBatch(ids);
+    Map<Long, Map<String, Object>> byId =
+        achievements.stream()
+            .collect(
+                Collectors.toMap(
+                    m -> ((Number) m.get("id")).longValue(), m -> m, (a, b) -> a));
+    for (SalesQuotaResponse record : records) {
+      Map<String, Object> a = byId.get(record.getId());
+      if (a != null) {
+        record.setActualAmount(toBigDecimal(a.get("actual_amount")));
+        record.setAchievementRate(toBigDecimal(a.get("achievement_rate")));
+      }
+    }
   }
 
   @Override
@@ -216,24 +240,26 @@ public class SalesQuotaServiceImpl implements SalesQuotaService {
 
   @Override
   public SalesQuotaAchievementResponse getAchievement(Long quotaId) {
+    SalesQuota quota = salesQuotaRepository.selectById(quotaId);
+    if (quota == null) {
+      throw new RuntimeException("Quota not found: " + quotaId);
+    }
     Map<String, Object> achievement = salesQuotaRepository.getAchievement(quotaId);
     SalesQuotaAchievementResponse response = new SalesQuotaAchievementResponse();
     response.setQuotaId(quotaId);
-    response.setQuotaAmount((BigDecimal) achievement.get("quota_amount"));
-    response.setActualAmount((BigDecimal) achievement.get("actual_amount"));
-    response.setAchievementRate((BigDecimal) achievement.get("achievement_rate"));
+    response.setQuotaAmount(toBigDecimal(achievement.get("quota_amount")));
+    response.setActualAmount(toBigDecimal(achievement.get("actual_amount")));
+    response.setAchievementRate(toBigDecimal(achievement.get("achievement_rate")));
     response.setCalculatedAt(LocalDateTime.now());
 
     // Determine status
-    BigDecimal rate = (BigDecimal) achievement.get("achievement_rate");
-    if (rate != null) {
-      if (rate.compareTo(new BigDecimal("80")) >= 0) {
-        response.setStatus("ON_TRACK");
-      } else if (rate.compareTo(new BigDecimal("60")) >= 0) {
-        response.setStatus("AT_RISK");
-      } else {
-        response.setStatus("BELOW_TARGET");
-      }
+    BigDecimal rate = response.getAchievementRate();
+    if (rate.compareTo(new BigDecimal("80")) >= 0) {
+      response.setStatus("ON_TRACK");
+    } else if (rate.compareTo(new BigDecimal("60")) >= 0) {
+      response.setStatus("AT_RISK");
+    } else {
+      response.setStatus("BELOW_TARGET");
     }
     return response;
   }

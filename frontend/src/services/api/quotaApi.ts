@@ -89,11 +89,11 @@ export const quotaApi = {
     status?: string;
   }) =>
     request<{
-      content: SalesQuotaResponse[];
-      totalElements: number;
-      totalPages: number;
+      records: SalesQuotaResponse[];
+      total: number;
       size: number;
-      number: number;
+      current: number;
+      pages: number;
     }>(`${API_BASE}?${new URLSearchParams(params as any).toString()}`),
 
   /** 获取配额详情。 */
