@@ -39,6 +39,7 @@ const GROUPED_ROUTES: { group: string; routes: { path: string; name: string }[] 
     group: 'marketingAndService',
     routes: [
       { path: '/marketing', name: 'marketing' },
+      { path: '/marketing/roi', name: 'channelRoi' },
       { path: '/marketing/email', name: 'emailMarketing' },
       { path: '/email-unsubscribes', name: 'emailUnsubscribes' },
       { path: '/online-forms', name: 'onlineForms' },
@@ -67,7 +68,9 @@ const GROUPED_ROUTES: { group: string; routes: { path: string; name: string }[] 
     routes: [
       { path: '/reports', name: 'reports' },
       { path: '/stats/leaderboard', name: 'leaderboard' },
+      { path: '/quotas', name: 'quotas' },
       { path: '/exports', name: 'exports' },
+      { path: '/exports/scheduled', name: 'scheduledExports' },
     ],
   },
   {
@@ -79,6 +82,7 @@ const GROUPED_ROUTES: { group: string; routes: { path: string; name: string }[] 
       { path: '/field-permissions', name: 'fieldPermissions' },
       { path: '/currencies', name: 'currencies' },
       { path: '/workflows', name: 'workflows' },
+      { path: '/workflows/logs', name: 'workflowLogs' },
       { path: '/approval-flows', name: 'approvalFlows' },
       { path: '/sla-policies', name: 'slaPolicies' },
       { path: '/contract-templates', name: 'contractTemplates' },
@@ -89,6 +93,7 @@ const GROUPED_ROUTES: { group: string; routes: { path: string; name: string }[] 
       { path: '/tags', name: 'tags' },
       { path: '/audit-logs', name: 'auditLogs' },
       { path: '/recycle-bin', name: 'recycleBin' },
+      { path: '/data-retention', name: 'dataRetention' },
     ],
   },
 ]
@@ -114,6 +119,7 @@ const MENU_KEY_MAP: Record<string, string> = {
   '/orders': 'menu.orders',
   '/invoices': 'menu.invoices',
   '/marketing': 'menu.marketing',
+  '/marketing/roi': 'menu.channelRoi',
   '/marketing/email': 'menu.emailMarketing',
   '/email-unsubscribes': 'menu.emailUnsubscribes',
   '/online-forms': 'menu.onlineForms',
@@ -133,12 +139,15 @@ const MENU_KEY_MAP: Record<string, string> = {
   '/reports': 'menu.reports',
   '/stats/leaderboard': 'menu.leaderboard',
   '/exports': 'menu.exports',
+  '/exports/scheduled': 'menu.scheduledExports',
+  '/quotas': 'menu.quotas',
   '/users': 'menu.users',
   '/roles': 'menu.roles',
   '/departments': 'menu.departments',
   '/field-permissions': 'menu.fieldPermissions',
   '/currencies': 'menu.currencies',
   '/workflows': 'menu.workflows',
+  '/workflows/logs': 'menu.workflowLogs',
   '/approval-flows': 'menu.approvalFlows',
   '/sla-policies': 'menu.slaPolicies',
   '/contract-templates': 'menu.contractTemplates',
@@ -149,6 +158,7 @@ const MENU_KEY_MAP: Record<string, string> = {
   '/tags': 'menu.tags',
   '/audit-logs': 'menu.auditLogs',
   '/recycle-bin': 'menu.recycleBin',
+  '/data-retention': 'menu.dataRetention',
 }
 
 /** 面包屑导航：首页 / 分组 / 页面（详情页显示 列表名 / 详情）。 */

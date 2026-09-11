@@ -77,6 +77,7 @@ const AnnouncementPage = lazy(() => import('./pages/announcements/AnnouncementPa
 const InvoiceListPage = lazy(() => import('./pages/invoices/InvoiceListPage'))
 import InstallPrompt from './components/InstallPrompt'
 import BreadcrumbNav from './components/BreadcrumbNav'
+import GlobalSearch from './components/GlobalSearch'
 const ProductListPage = lazy(() => import('./pages/products/ProductListPage'))
 const QuoteListPage = lazy(() => import('./pages/quotes/QuoteListPage'))
 const QuoteDetailPage = lazy(() => import('./pages/quotes/QuoteDetailPage'))
@@ -155,6 +156,7 @@ const MENU_I18N_KEYS: Record<string, string> = {
   '/orders': 'orders',
   '/invoices': 'invoices',
   '/marketing': 'marketingActivity',
+  '/marketing/roi': 'channelRoi',
   '/marketing/email': 'emailMarketing',
   '/email-unsubscribes': 'unsubscribe',
   '/online-forms': 'onlineForms',
@@ -172,12 +174,15 @@ const MENU_I18N_KEYS: Record<string, string> = {
   '/reports': 'reports',
   '/stats/leaderboard': 'leaderboard',
   '/exports': 'exports',
+  '/exports/scheduled': 'scheduledExports',
+  '/quotas': 'quotas',
   '/users': 'users',
   '/roles': 'roles',
   '/departments': 'departments',
   '/field-permissions': 'fieldPermissions',
   '/currencies': 'currencies',
   '/workflows': 'workflows',
+  '/workflows/logs': 'workflowLogs',
   '/approval-flows': 'approvalFlows',
   '/sla-policies': 'slaPolicies',
   '/sla-calendar': 'slaCalendar',
@@ -189,6 +194,7 @@ const MENU_I18N_KEYS: Record<string, string> = {
   '/tags': 'tags',
   '/audit-logs': 'auditLogs',
   '/recycle-bin': 'recycleBin',
+  '/data-retention': 'dataRetention',
   '/data-vision': 'dataVision',
 }
 
@@ -411,6 +417,7 @@ function Shell() {
   ]
   const marketingRoutes = [
     { path: '/marketing', name: '营销活动', icon: <NotificationOutlined /> },
+    { path: '/marketing/roi', name: '渠道 ROI', icon: <BarChartOutlined /> },
     { path: '/marketing/email', name: '邮件营销', icon: <MailOutlined /> },
     { path: '/email-unsubscribes', name: '邮件退订', icon: <MailOutlined /> },
     { path: '/online-forms', name: '在线表单', icon: <FormOutlined /> },
@@ -435,7 +442,9 @@ function Shell() {
   const dataRoutes = [
     { path: '/reports', name: '自定义报表', icon: <BarChartOutlined /> },
     { path: '/stats/leaderboard', name: '团队排行', icon: <RiseOutlined /> },
+    { path: '/quotas', name: '销售配额', icon: <RiseOutlined /> },
     { path: '/exports', name: '导出中心', icon: <DownloadOutlined /> },
+    { path: '/exports/scheduled', name: '定时导出', icon: <DownloadOutlined /> },
   ]
   // 首页置顶（首位独立菜单项，指向统计仪表盘 /stats）
   const statsRoute = { path: '/stats', name: t('menu.home'), icon: <HomeOutlined /> }
@@ -449,6 +458,7 @@ function Shell() {
   ]
   const adminConfigRoutes = [
     { path: '/workflows', name: '工作流', icon: <ThunderboltOutlined /> },
+    { path: '/workflows/logs', name: '工作流日志', icon: <AuditOutlined /> },
     { path: '/approval-flows', name: '审批流配置', icon: <AuditOutlined /> },
     { path: '/sla-policies', name: 'SLA 策略', icon: <AuditOutlined /> },
     { path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> },
@@ -461,6 +471,7 @@ function Shell() {
     { path: '/tags', name: '标签与细分', icon: <TagsOutlined /> },
     { path: '/audit-logs', name: '审计日志', icon: <AuditOutlined /> },
     { path: '/recycle-bin', name: '回收站', icon: <DeleteOutlined /> },
+    { path: '/data-retention', name: '数据保留', icon: <FileProtectOutlined /> },
   ]
   const adminRoutes = [...adminOrgRoutes, ...adminConfigRoutes, ...adminAuditRoutes]
   // 占位项不注册路由（不参与 selectedKey 匹配与路由渲染）
@@ -527,6 +538,7 @@ function Shell() {
       '/tasks': 'tasks',
       '/products': 'products',
       '/marketing': 'marketing',
+      '/marketing/roi': 'marketing',
       '/marketing/email': 'marketing',
       '/online-forms': 'marketing',
       '/tickets': 'tickets',
@@ -537,6 +549,7 @@ function Shell() {
       '/users': 'users',
       '/departments': 'departments',
       '/workflows': 'workflows',
+      '/workflows/logs': 'workflows',
       '/approvals': 'workflows',
       '/approval-flows': 'workflows',
     }
@@ -637,6 +650,7 @@ function Shell() {
           </div>
           {/* 右侧：通知 + 用户头像 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!isMobile && <GlobalSearch />}
             <NotificationCenter />
             <Dropdown
               menu={{

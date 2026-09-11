@@ -16,7 +16,7 @@ vi.mock('../../components/AnnouncementCard', () => ({
 import { screen } from '@testing-library/react'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import DashboardPage from './DashboardPage'
-import { fetchDashboardStats, saveSalesTarget } from '../../services/statsService'
+import { fetchDashboardStats } from '../../services/statsService'
 import { useAuthStore } from '../../store/authStore'
 import type { DashboardStats } from '../../types/stats'
 import type { SuggestionSummary } from '../../types/suggestion'

@@ -1,13 +1,15 @@
 /** 配额列表页面（078-sales-quota，MVP - User Story 1）。 */
 
 import { quotaApi, type SalesQuotaResponse } from '../../services/api/quotaApi';
-import { PlusOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, TeamOutlined, UserOutlined, BarChartOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import { Button, Card, Col, Flex, Row } from 'antd';
 import type { ProColumns } from '@ant-design/pro-components';
 import React, { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const QuotaListPage: React.FC = () => {
+  const navigate = useNavigate();
   const actionRef = useRef<any>();
   const [year] = useState(new Date().getFullYear());
 
@@ -144,6 +146,13 @@ const QuotaListPage: React.FC = () => {
         dateFormatter="string"
         toolbar={{
           actions: [
+            <Button
+              key="comparison"
+              icon={<BarChartOutlined />}
+              onClick={() => navigate('/quotas/comparison')}
+            >
+              配额对比
+            </Button>,
             <Button key="add" type="primary" icon={<PlusOutlined />}>
               创建配额
             </Button>,

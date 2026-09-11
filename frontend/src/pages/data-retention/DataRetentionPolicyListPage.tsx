@@ -3,7 +3,7 @@
 import { dataRetentionApi } from '../../services/api/dataRetentionApi';
 import type { DataRetentionPolicyResponse } from '../../types/dataRetention';
 import { ENTITY_TYPE_LABELS, ACTION_TYPE_LABELS, POLICY_STATUS_LABELS } from '../../types/dataRetention';
-import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EditOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { Button, Card, Popconfirm, Space, Table, Tag, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -95,6 +95,9 @@ const DataRetentionPolicyListPage: React.FC = () => {
     <div>
       <Space style={{ marginBottom: 16 }}>
         <Card title="数据保留策略" style={{ flex: 1 }} />
+        <Button icon={<FileProtectOutlined />} onClick={() => navigate('/data-retention/compliance-export')}>
+          合规导出
+        </Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/data-retention/create')}>
           创建策略
         </Button>
