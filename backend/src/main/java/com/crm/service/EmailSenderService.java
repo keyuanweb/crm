@@ -22,7 +22,7 @@ public class EmailSenderService {
   private final EmailSendLogMapper sendLogMapper;
   private final JavaMailSender mailSender;
 
-  public EmailSenderService(EmailSendLogMapper sendLogMapper, JavaMailSender mailSender) {
+  public EmailSenderService(EmailSendLogMapper sendLogMapper, @org.springframework.beans.factory.annotation.Autowired(required = false) JavaMailSender mailSender) {
     this.sendLogMapper = sendLogMapper;
     this.mailSender = mailSender;
   }

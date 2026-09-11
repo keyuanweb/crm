@@ -37,6 +37,11 @@ crm:
   captcha:
     # 048：验证码默认关闭（开发/演示直接登录）；生产可通过环境变量 CAPTCHA_ENABLED=true 强制开启
     enabled: ${CAPTCHA_ENABLED:false}
+  scheduler:
+    # 定时导出扫描间隔（cron 表达式），默认每 5 分钟
+    export-cron: ${CRM_SCHEDULER_EXPORT_CRON:0 0/5 * * * ?}
+    # 数据保留归档扫描间隔（cron 表达式），默认每天凌晨 2 点
+    retention-cron: ${CRM_SCHEDULER_RETENTION_CRON:0 0 2 * * ?}
 
 # CORS：允许的前端 Origin（逗号分隔），生产环境通过环境变量覆盖
 cors:
@@ -81,11 +86,3 @@ management:
 logging:
   level:
     com.crm: INFO
-
-# 定时任务调度配置
-crm:
-  scheduler:
-    # 定时导出扫描间隔（cron 表达式），默认每 5 分钟
-    export-cron: ${CRM_SCHEDULER_EXPORT_CRON:0 0/5 * * * ?}
-    # 数据保留归档扫描间隔（cron 表达式），默认每天凌晨 2 点
-    retention-cron: ${CRM_SCHEDULER_RETENTION_CRON:0 0 2 * * ?}

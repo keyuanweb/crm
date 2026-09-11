@@ -44,4 +44,9 @@ contract-files/
 dump.rdb
 *.bak
 
+# 命令行重定向误产物（例如 `curl ... > null` 落下的 Vite dev 页面）
+/null
+backend/null
+frontend/null
+
 .pnpm-store/

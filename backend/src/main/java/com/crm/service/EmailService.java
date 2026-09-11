@@ -3,6 +3,7 @@ package com.crm.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
@@ -17,8 +18,9 @@ public class EmailService {
   private final JavaMailSender mailSender;
   private final String fromAddress;
 
+  @Autowired
   public EmailService(
-      JavaMailSender mailSender, @Value("${spring.mail.from:crm@example.com}") String fromAddress) {
+      @Autowired(required = false) JavaMailSender mailSender, @Value("${spring.mail.from:crm@example.com}") String fromAddress) {
     this.mailSender = mailSender;
     this.fromAddress = fromAddress;
   }

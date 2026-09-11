@@ -14,6 +14,8 @@ public class Opportunity extends BaseEntity {
   private String name;
   private Long expectedAmountMin;
   private Long expectedAmountMax;
+  /** 商机金额（用于合规导出汇总）。 */
+  private Long amount;
   private String remark;
 
   /** ACTIVE / ARCHIVED。 */

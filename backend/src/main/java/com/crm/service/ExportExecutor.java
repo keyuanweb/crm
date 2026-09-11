@@ -299,6 +299,11 @@ public class ExportExecutor {
     }
   }
 
+  /** 统计导出行数（用于定时导出）。 */
+  private int countRows(ExportJob job) {
+    return estimateRowCount(job);
+  }
+
   private String nvl(String s) {
     return s == null ? "" : s;
   }

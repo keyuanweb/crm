@@ -21,6 +21,7 @@ public class ExportJob extends BaseEntity {
   private String status;
 
   private String filePath;
+  private String exportFormat;
   private Long rowCount;
   private String errorMessage;
   private Long createdBy;

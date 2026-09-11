@@ -14,6 +14,7 @@ public class User extends BaseEntity {
   private String username;
   private String passwordHash;
   private String displayName;
+  private String email;
   private String role;
 
   /** 所属部门（012）。 */
