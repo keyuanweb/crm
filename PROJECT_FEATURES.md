@@ -1,0 +1,203 @@
+# CRM 项目功能全景整理
+
+> 核对基准：**当前工作区代码**（`backend/`、`frontend/`、`specs/`），非既有文档描述。
+> 与 README / specs/README.md 不一致之处见「八、文档与代码的偏差」。
+
+## 一、规模速览
+
+| 维度 | 实测值 | 依据 |
+|---|---|---|
+| 后端 REST Controller | **65** | `backend/src/main/java/**/*Controller.java` |
+| 数据库表 | **84** | `db/migration/*.sql` 中 `CREATE TABLE` 去重 |
+| Flyway 迁移 | **76 个（V1–V77，缺 V72）** | `backend/src/main/resources/db/migration` |
+| 后端测试类 | **141** | `backend/src/test/**/*.java` |
+| 前端页面组件 | **110 个 tsx** | `frontend/src/pages` |
+| 前端路由定义 | **86 个 `<Route>`** | `frontend/src/App.tsx` |
+| 前端 service | **54 个**（+`apiClient.ts`） | `frontend/src/services` |
+| 前端单测 / E2E | **17 / 3** | `frontend/tests`、`frontend/e2e` |
+| i18n 资源 | zh-CN 2397 行 / en 2405 行 | `frontend/src/i18n` |
+| Spec 模块 | **81 个（001–081，缺 069）** | `specs/` |
+
+## 二、技术栈
+
+| 层级 | 技术 |
+|---|---|
+| 后端 | Java 17、Spring Boot 3.2、MyBatis-Plus 3.5、MySQL 8、Redis 7、Spring Security + JWT、Flyway、springdoc-openapi |
+| 前端 | React 18、TypeScript、Vite 5、React Router、React Query、Zustand、Ant Design v5 + Pro Components、ECharts、G6 |
+| 测试 | JUnit 5 / Spring Boot Test、Vitest + React Testing Library、Playwright |
+| 构建部署 | Maven、pnpm、Docker Compose（frontend + backend + MySQL + Redis + Nginx） |
+
+## 三、功能地图（左侧菜单：首页置顶 + 10 个业务分组）
+
+### 0. 首页（置顶独立项）
+| 菜单 | 路由 | 说明 |
+|---|---|---|
+| 首页/统计仪表盘 | `/stats` | KPI 指标卡、销售漏斗、成交预测、客户分析、业绩趋势，内嵌「使用地图」入口 |
+
+### 1. 客户管理（g-customer）
+| 菜单 | 路由 | 后端能力 |
+|---|---|---|
+| 线索 | `/leads`、`/leads/:id` | 线索池、分配、评分规则、转化客户/联系人/商机、Excel 导入导出 |
+| 客户 | `/customers`、`/customers/:id` | CRUD（逻辑删除）、分页搜索筛选、查重、360 全景详情、公海池 |
+| 联系人 | `/contacts` | 联系人 CRUD、角色、关联客户 |
+| 查重合并 | `/customer-merge` | 重复识别 + 合并（`CustomerMergeController`） |
+| 流失预警 | `/customers/at-risk` | 健康评分配置、风险客户清单 |
+
+### 2. 销售管理（g-sales）
+| 菜单 | 路由 | 后端能力 |
+|---|---|---|
+| 商机 | `/opportunities` | 阶段管道、赢单/输单关闭、金额 |
+| 销售机会 | `/sales-opportunities` | 子实体、阶段动作 |
+| 报价单 | `/quotes`、`/quotes/:id` | CPQ、报价明细、版本、PDF、审批、电子签署 |
+| 外勤拜访 | `/visits` | 拜访计划、签到、位置记录 |
+| 产品 | `/products` | 产品目录、标准售价、多币种价格折算 |
+| 销售 Playbook | `/playbook` | 阶段动作模板、必做项校验 |
+
+### 3. 成交与回款（g-deal）
+| 菜单 | 路由 | 后端能力 |
+|---|---|---|
+| 合同 | `/contracts`、`/contracts/:id` | 合同 CRUD、审批、附件、签署记录 |
+| 合同续约 | `/contract-renewal` | 到期提醒、续约链、续约漏斗 |
+| 订单 | `/orders`、`/orders/:id` | 订单、分期回款计划、回款记录、应收账款 |
+| 发票 | `/invoices` | 开票、状态跟踪 |
+
+### 4. 营销管理（g-marketing）
+| 菜单 | 路由 | 后端能力 |
+|---|---|---|
+| 营销活动 | `/marketing` | Campaign 管理、归因；渠道 ROI 子页 `/marketing/roi` |
+| 邮件营销 | `/marketing/email` | 邮件模板、群发、发送日志、打开/点击追踪、A-B 主题测试 |
+| 邮件退订 | `/email-unsubscribes` | 退订名单管理、公开退订接口 |
+| 在线表单 | `/online-forms` | 自定义表单；公开提交页 `/f/:id` |
+| 落地页 | `/landing-pages` | 托管落地页 + UTM 归因；公开渲染页 `/lp/:id` |
+
+### 5. 客户服务（g-service）
+| 菜单 | 路由 | 后端能力 |
+|---|---|---|
+| 客户服务 | `/tickets`、`/tickets/:id` | 工单池、回复、状态流转 |
+| 知识库 | `/knowledge` | 文章分类、发布 |
+| 公告管理 | `/announcements` | 公告发布、已读、评论 @提及 |
+| 我的审批 | `/approvals` | 待我审批/我发起的、审批中心 |
+| 客户门户 | `/portal` | 自助门户（知识库浏览、在线提单、进度查询，公开路由） |
+| 满意度调查 | `/satisfaction` | CSAT / NPS 统计 |
+| SLA 日历 | `/sla-calendar` | 工作时间、节假日配置 |
+
+### 6. 工作台（g-workbench）
+| 菜单 | 路由 | 后端能力 |
+|---|---|---|
+| 任务 | `/tasks`、`/tasks/calendar` | 待办、日历视图、提醒、跟进计划 |
+| 智能建议 | `/suggestions` | 规则型建议、停滞商机/流失预警 |
+| 酷炫大屏 | `/data-vision` | 全屏数据大屏（独立路由，隐藏菜单/顶栏） |
+| 通话记录 | `/call-records` | CTI 数据模型与记录 |
+| 邮件同步 | `/mail-sync` | 邮件账户配置、同步记录框架 |
+
+### 7. 数据分析（g-data）
+| 菜单 | 路由 | 后端能力 |
+|---|---|---|
+| 自定义报表 | `/reports` | 报表模板、多维聚合、报表中心 |
+| 团队排行 | `/stats/leaderboard` | 销售业绩排行榜 |
+| 导出中心 | `/exports` | 导出任务（Excel）；定时导出见「四」 |
+
+### 8. 系统管理（g-admin）
+| 菜单 | 路由 | 后端能力 |
+|---|---|---|
+| 用户管理 | `/users` | 用户 CRUD、启停、密码重置、令牌失效 |
+| 角色权限 | `/roles` | 角色-菜单-权限点（RBAC，含 081 更新） |
+| 部门 | `/departments` | 组织架构、层级、排序 |
+| 字段权限 | `/field-permissions` | 字段级隐藏/只读/可编辑 |
+| 多币种 | `/currencies` | 汇率管理、自动折算 |
+
+### 9. 流程与配置（g-config）
+| 菜单 | 路由 | 后端能力 |
+|---|---|---|
+| 工作流 | `/workflows`、`/workflows/logs` | 规则引擎、触发器、执行日志 |
+| 审批流配置 | `/approval-flows` | 多级条件审批模板 |
+| SLA 策略 | `/sla-policies` | 响应/解决时限、升级策略 |
+| 合同模板 | `/contract-templates` | 模板管理、合同生成 |
+| 自定义字段 | `/settings/custom-fields` | 动态字段、动态表单 |
+| 自定义对象 | `/custom-objects`、`/custom-objects/:id/records` | 低代码元数据建模 |
+| 开放平台 | `/open-platform` | API Key 管理、Webhook 事件订阅 |
+| 集成中心 | `/integration-hub` | 第三方通知通道、事件推送 |
+
+### 10. 审计与维护（g-audit）
+| 菜单 | 路由 | 后端能力 |
+|---|---|---|
+| 标签与细分 | `/tags` | 标签、客户分群、动态细分 |
+| 审计日志 | `/audit-logs` | 操作追踪、合规查询 |
+| 回收站 | `/recycle-bin` | 软删恢复、彻底删除 |
+
+## 四、不在左侧菜单的功能（页面内或直连入口）
+
+| 功能 | 路由 | 入口方式 |
+|---|---|---|
+| 销售配额分解（078） | `/quotas`、`/quotas/:id/breakdown`、`/quotas/:id/achievement`、`/quotas/:id/versions`、`/quotas/comparison` | 仅路由可达；页面间互跳 |
+| 定时导出订阅（079） | `/exports/scheduled`、`/exports/scheduled/create`、`/exports/scheduled/:id/executions` | 仅路由可达 |
+| 数据保留策略（080） | `/data-retention`、`/data-retention/create`、`/data-retention/:id/executions` | 仅路由可达 |
+| 合规导出（GDPR） | `/data-retention/compliance-export` | 页面内跳转 |
+| 个人中心 | `/personal-center` | 顶栏头像下拉菜单 |
+| 修改密码 | `/account/password` | 顶栏头像下拉菜单 |
+| 使用地图 | `/usage-map` | 头像下拉 + 首页卡片 |
+| 全局搜索 | `/search` | 组件 `GlobalSearch.tsx` 已实现但**未被任何页面引用** |
+
+## 五、免登录公开页面
+
+| 页面 | 路由 |
+|---|---|
+| 登录（含图形验证码，可开关） | `/login` |
+| 在线表单提交 | `/f/:id` |
+| 托管落地页 | `/lp/:id` |
+| 客户自助门户 | `/portal` |
+| 公开 API 域 | `/api/v1/public/portal`、`/api/v1/public/track`、`/api/v1/public/email` |
+
+## 六、后端 API 域（65 个 Controller 归组）
+
+- **认证与组织**：Auth、User、Role、Department、PersonalCenter、FieldPermission、CustomerShare
+- **客户域**：Customer、CustomerPool、CustomerMerge、Contact、Lead、FollowUp、Tag、Segment、Comment
+- **销售域**：Opportunity、SalesOpportunity、Product、ProductPrice、Quote、Playbook、SalesQuota、CurrencyRate
+- **成交域**：Contract、ContractAttachment、ContractTemplate、ContractRenewal、Signature、Order、Invoice
+- **营销域**：Marketing、Email、EmailTrack、EmailUnsubscribe、Form、LandingPage
+- **服务域**：Ticket、TicketSurvey、KnowledgeArticle、SlaPolicy、SlaCalendar、CustomerPortal
+- **协作与工作台**：Task、Announcement、Approval、Workflow、Notification、CallRecord、MailAccount、FieldVisit
+- **数据与分析**：Stats、Report、Suggestion、Search、Export、ScheduledExport、AuditLog、RecycleBin、DataRetentionPolicy、ComplianceExport
+- **平台与扩展**：CustomField、CustomObject、IntegrationChannel、OpenPlatform
+
+统一前缀 `/api/v1`，Swagger UI：`http://localhost:8081/swagger-ui.html`。
+
+## 七、非功能能力
+
+- **权限体系**：JWT 认证 + RBAC（角色-菜单-权限点）+ 字段级权限（056）+ 行级数据权限/客户共享（012、063）+ 登录验证码可开关（048）。
+- **安全加固**：唯一约束（生成列）、导出安全、Redis 缓存、异常统一处理（003、063）。
+- **性能与完整性**：预警批量聚合、默认负责人、只读事务（064）。
+- **国际化**：zh-CN / en 双语，菜单、列表页、ProTable 搜索表单均已资源化（060、066、074–076）。
+- **PWA**：Service Worker、离线缓存、安装提示（027）。
+- **前端体验**：路由懒加载 + chunk 预加载、骨架屏、滚动复位、淡入过渡、移动端横向菜单（039、072）。
+- **可视化**：ECharts（仪表盘/大屏/报表）、G6（使用地图状态机）。
+- **部署**：Docker Compose 一键启动（前端 80、后端 8081、Swagger、MySQL 3306、Redis 6379），Nginx 反代。
+
+## 八、文档与代码的偏差（2026-09-11 已同步修正）
+
+| 位置 | 原描述 | 修正后 |
+|---|---|---|
+| `README.md` | 「Flyway 会自动创建全部 75 张表」 | 84 张表（迁移 V1–V77） |
+| `README.md` | 「specs/（573 个功能模块）」 | 81 个模块目录（001–081，缺 069） |
+| `specs/README.md` 模块表 | 收录到 066 | 补录 067–081 |
+| `specs/README.md` 迁移对照 | 收录到 V54 | 补录 V55–V77（含 V72 空缺标注） |
+| `specs/roadmap.md` 进度 | 收录到 066 | 补录 067–081 |
+
+## 九、代码核对发现的可达性缺口
+
+**已修复（2026-09-11）**
+
+1. **全局搜索已接入顶栏**：`GlobalSearch` 现由 `App.tsx` 的 Header 渲染，回车进入 `/search` 结果页。
+2. **菜单补齐**：销售配额、定时导出（数据分析组）、渠道 ROI（营销中心组）、工作流日志（流程与配置组）、数据保留（审计与维护组）。
+3. **子页入口补齐**：配额列表页新增「配额对比」按钮；数据保留列表页新增「合规导出」按钮。
+4. **文档索引滞后**：见第八节。
+
+**仍待处理**
+
+1. **迁移编号空缺**：V72 未使用（V71 → V73）；spec 目录缺 069。
+2. **配额列表页占位数据**：顶部「总配额 / 总实际 / 总达成率」三张卡片仍为 `--` 硬编码；「创建配额」按钮没有 `onClick`。
+3. **数据保留编辑入口失效**：列表页「编辑」跳转 `/data-retention/:id/edit`，但 `App.tsx` 未定义该路由（点击落到 404）。
+4. **DashboardPage hooks 违规**：`DashboardPage.tsx` 存在 early return 之后的条件 hooks（eslint `react-hooks/rules-of-hooks` 报 3 处），使对应的错误态测试被 skip。
+
+---
+*本文件由代码核对生成，如需按此更新 README / specs/README.md，可基于第八节表格直接修改。*

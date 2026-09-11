@@ -1,6 +1,6 @@
 # SDD 规格驱动开发文档索引
 
-**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V54 迁移）
+**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V77 迁移，84 张表）
 
 > 本文档是全部 Spec-Driven Development 产物的导航入口。每个模块按统一流程
 > `spec → plan → tasks → implement → verify` 迭代，文档遵守 [章程](../../.specify/memory/constitution.md) 的
@@ -95,13 +95,29 @@
 | 064 | 性能与数据完整性（预警批量聚合/默认负责人/只读事务） | 安全 | ✅ | [目录](./064-performance-integrity/) | —（行为加固） |
 | 065 | 体验优化批次（预测去重/详情编辑/多币种价/布局/文案） | 体验 | ✅ | [目录](./065-ux-optimizations/) | —（行为/展示优化） |
 | 066 | 更多页面国际化（7 列表页 + 公共文案） | 体验 | ✅ | [目录](./066-i18n-pages/) | —（前端文案） |
+| 067 | 使用地图视觉样式优化 | 体验 | ✅ | [目录](./067-usage-map-ux/) | —（纯前端） |
+| 068 | 部门管理页面优化（描述/排序/层级） | 体验 | ✅ | [目录](./068-department-management-optimization/) | departments |
+| 070 | 个人中心（资料/安全/偏好） | 体验 | ✅ | [目录](./070-personal-center/) | personal |
+| 071 | 酷炫数据大屏（Data Vision 全屏看板） | 体验 | ✅ | [目录](./071-data-vision/) | —（复用 stats） |
+| 072 | 后台布局重设计（菜单/内容区/防闪烁） | 体验 | ✅ | [目录](./072-backend-layout-redesign/) | —（纯前端） |
+| 073 | 首页仪表盘重设计 | 体验 | ✅ | [目录](./073-dashboard-redesign/) | —（纯前端） |
+| 074 | 全项目中英文国际化补全 | 体验 | ✅ | [目录](./074-full-i18n/) | —（前端文案） |
+| 075 | 全页面中英文国际化补全 | 体验 | ✅ | [目录](./075-page-i18n/) | —（前端文案） |
+| 076 | ProTable 搜索表单按钮国际化 | 体验 | ✅ | [目录](./076-protable-i18n/) | —（前端文案） |
+| 077 | 核心销售链路页面重设计（现代化风格） | 体验 | ✅ | [目录](./077-core-sales-redesign/) | —（纯前端） |
+| 078 | 销售配额分解（逐层分解/达成率/版本/对比） | P1 | ✅ | [目录](./078-sales-quota/) | sales-quota-api |
+| 079 | 定时导出订阅（Cron 调度/邮件通知/执行历史） | P1 | ✅ | [目录](./079-scheduled-export/) | scheduled-export-api |
+| 080 | 数据保留策略（归档/执行历史/合规导出） | P2 | ✅ | [目录](./080-data-retention/) | data-retention-api |
+| 081 | 角色权限更新（11 个预置角色 + 权限矩阵） | P2 | ✅ | [目录](./081-role-permissions-update/) | —（design/tasks，无 spec） |
+
+> 编号说明：`069` 未创建（编号空缺）；`081` 仅有 `design.md` / `tasks.md`，未按标准流程产出 `spec.md`。
 
 > 阶段：P0=核心销售链路补全；P1=成交链路延伸 / 效率与自动化；P2=扩展模块；
 > P3=智能化与平台增强；P4=营销闭环与协作扩展（批次建议见 [roadmap-p0p1.md](./roadmap-p0p1.md)）；
 > P5=体验优化（前端）。
 > 完整阶段定义与依赖关系见 [roadmap.md](./roadmap.md)。
 
-## 数据库迁移对照（Flyway V1~V54）
+## 数据库迁移对照（Flyway V1~V77）
 
 | 迁移 | 模块 | 内容 |
 |---|---|---|
@@ -124,9 +140,22 @@
 | V47~V49 | 031/030/033 | tag、customer_tag、segment；email_campaign/send_log/template/track；approval_* |
 | V50~V53 | 035-038 | field_visit；form、form_submission；announcement、announcement_read、comment；invoice |
 | V54 | 032 | 全局搜索索引 |
+| V55~V58 | 045/046/047 | stage_action_template、sales_opportunity_action、contract_renewal、signature_record |
+| V59~V60 | 051/052 | ticket_survey、email_unsubscribe |
+| V61~V62 | 054/053 | sla_calendar_config、landing_page |
+| V63~V66 | 055/056/057/058 | open_platform、field_permission、multi_currency、integration_channel |
+| V67~V69 | 059/061/062 | custom_object、call_record、mail_sync |
+| V70 | 068 | department.description / sort_order |
+| V71 | 078 | sales_quota（配额/明细/版本） |
+| V72 | — | 编号空缺（未使用） |
+| V73 | 079 | scheduled_export（订阅/执行记录） |
+| V74 | 080 | data_retention（策略/执行记录） |
+| V75 | 081 | role_permissions_update（预置角色与权限矩阵） |
+| V76 | 修复 | user.email（登录 500 修复） |
+| V77 | 修复 | opportunity.amount（首页 500 修复） |
 
 ## 使用建议
 
 - **新功能开发**：遵循 `/speckit-specify → /speckit-plan → /speckit-tasks → /speckit-implement → /speckit-converge` 全流程，产物落在新目录 `specs/<NNN>-<name>/`。
 - **查阅某模块**：从上方模块表进入，按 spec（业务）→ plan（技术）→ contracts（接口）→ tasks（实施记录）顺序阅读。
-- **改动已应用迁移**：禁止编辑已应用 migration（Flyway checksum），需新增迁移号 V55+ 并同步 `backend/src/test/resources/schema-h2.sql`。
+- **改动已应用迁移**：禁止编辑已应用 migration（Flyway checksum），需新增迁移号 V78+ 并同步 `backend/src/test/resources/schema-h2.sql`。

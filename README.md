@@ -41,10 +41,9 @@
 ### 数据与分析
 - **数据大屏**：KPI 实时看板、ECharts 可视化
 - **仪表盘**：KPI 指标、销售漏斗、预测成交
-- **自定义报表**：报表模板、多维分析
+- **自定义报表**：报表模板、多维分析、灵活配置查询维度
 - **团队排行**：销售业绩排行榜
 - **智能建议**：规则型智能建议、健康评分、流失预警、停滞商机预警
-- **自定义报表**：灵活配置查询维度
 
 ### 系统管理
 - **用户/角色/部门**：完整的组织架构管理
@@ -61,6 +60,7 @@
 
 ### 体验增强
 - **国际化**：中文 / English（1000+ 翻译键）
+- **全局搜索**：顶栏跨实体统一搜索（客户/线索/商机/工单/知识库）
 - **PWA**：Service Worker、离线缓存、安装提示
 - **使用地图**：G6 状态机、功能依赖可视化
 - **个人设置**：修改密码、个人中心
@@ -81,7 +81,7 @@ CREATE USER 'crm_user'@'localhost' IDENTIFIED BY 'crm123456';
 GRANT ALL PRIVILEGES ON crm_db.* TO 'crm_user'@'localhost';
 ```
 
-> ⚠️ 只需创建空数据库，无需手动导入 SQL。Flyway 会在后端启动时自动创建全部 75 张表。
+> ⚠️ 只需创建空数据库，无需手动导入 SQL。Flyway 会在后端启动时自动创建全部 84 张表。
 
 启动 Redis（`redis-server`）。
 
@@ -152,20 +152,21 @@ cd frontend && pnpm run test:e2e
 crm/
 ├── backend/                    # Spring Boot 后端
 │   ├── src/main/java/com/crm/ # controller/service/repository/entity/dto
-│   ├── src/main/resources/    # application.yml、db/migration（V1~V75）
+│   ├── src/main/resources/    # application.yml、db/migration（V1~V77）
 │   └── pom.xml
 ├── frontend/                   # React 前端
 │   ├── src/                   # pages/components/services/types/store/hooks
 │   ├── tests/                 # 单元测试
 │   ├── e2e/                   # 端到端测试
 │   └── package.json
-├── specs/                      # Spec Kit 设计文档（573 个功能模块）
+├── specs/                      # Spec Kit 设计文档（81 个功能模块，001~081）
 ├── .specify/                   # Spec Kit 配置与模板
 ├── docker-compose.yml          # Docker 编排
 ├── Dockerfile                  # 后端镜像（多阶段构建）
 ├── nginx.conf                  # Nginx 反向代理
 ├── .env.example                # 环境变量模板
 ├── INSTALL.md                  # 详细安装指南
+├── PROJECT_FEATURES.md         # 代码核对版功能全景整理
 ├── CRM_FEATURE_COMPARISON.md   # 功能对比分析
 └── README.md                   # 项目说明（本文件）
 ```
