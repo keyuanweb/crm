@@ -99,11 +99,13 @@ const QuotaBreakdownPage = lazy(() => import('./pages/quotas/QuotaBreakdownPage'
 const QuotaAchievementPage = lazy(() => import('./pages/quotas/QuotaAchievementPage'))
 const QuotaVersionPage = lazy(() => import('./pages/quotas/QuotaVersionPage'))
 const QuotaComparisonPage = lazy(() => import('./pages/quotas/QuotaComparisonPage'))
+const QuotaCreatePage = lazy(() => import('./pages/quotas/QuotaCreatePage'))
 const ScheduledExportListPage = lazy(() => import('./pages/exports/ScheduledExportListPage'))
 const ScheduledExportCreatePage = lazy(() => import('./pages/exports/ScheduledExportCreatePage'))
 const ScheduledExportExecutionHistoryPage = lazy(() => import('./pages/exports/ScheduledExportExecutionHistoryPage'))
 const DataRetentionPolicyListPage = lazy(() => import('./pages/data-retention/DataRetentionPolicyListPage'))
 const DataRetentionPolicyCreatePage = lazy(() => import('./pages/data-retention/DataRetentionPolicyCreatePage'))
+const DataRetentionPolicyEditPage = lazy(() => import('./pages/data-retention/DataRetentionPolicyEditPage'))
 const DataRetentionExecutionHistoryPage = lazy(() => import('./pages/data-retention/DataRetentionExecutionHistoryPage'))
 const ComplianceExportPage = lazy(() => import('./pages/data-retention/ComplianceExportPage'))
 const AuditLogPage = lazy(() => import('./pages/audit/AuditLogPage'))
@@ -843,12 +845,14 @@ export default function App() {
         <Route path="quotas/:id/achievement" element={<QuotaAchievementPage />} />
         <Route path="quotas/:id/versions" element={<QuotaVersionPage />} />
         <Route path="quotas/comparison" element={<QuotaComparisonPage />} />
+        <Route path="quotas/create" element={<QuotaCreatePage />} />
         <Route path="exports/scheduled" element={<ScheduledExportListPage />} />
         <Route path="exports/scheduled/create" element={<ScheduledExportCreatePage />} />
         <Route path="exports/scheduled/:id/executions" element={<ScheduledExportExecutionHistoryPage />} />
         <Route path="data-retention" element={<DataRetentionPolicyListPage />} />
         <Route path="data-retention/create" element={<DataRetentionPolicyCreatePage />} />
         <Route path="data-retention/:id/executions" element={<DataRetentionExecutionHistoryPage />} />
+        <Route path="data-retention/:id/edit" element={<DataRetentionPolicyEditPage />} />
         <Route path="data-retention/compliance-export" element={<ComplianceExportPage />} />
         {/* 布局优化：Shell 内未知路径 → 带菜单的 404 */}
         <Route path="*" element={<NotFoundPage />} />

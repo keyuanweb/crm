@@ -7,6 +7,7 @@ import com.crm.dto.quota.SalesQuotaAchievementResponse;
 import com.crm.dto.quota.SalesQuotaBreakdownRequest;
 import com.crm.dto.quota.SalesQuotaRequest;
 import com.crm.dto.quota.SalesQuotaResponse;
+import com.crm.dto.quota.SalesQuotaSummaryResponse;
 import com.crm.entity.SalesQuota;
 import com.crm.entity.SalesQuotaBreakdown;
 import com.crm.entity.SalesQuotaVersion;
@@ -20,6 +21,7 @@ import com.crm.repository.quota.SalesQuotaRepository;
 import com.crm.repository.quota.SalesQuotaVersionRepository;
 import com.crm.service.AuditService;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -259,6 +261,35 @@ public class SalesQuotaServiceImpl implements SalesQuotaService {
   @Override
   public List<Map<String, Object>> getTeamRanking(Integer year) {
     return salesQuotaRepository.getTeamRanking(year);
+  }
+
+  @Override
+  public SalesQuotaSummaryResponse getSummary(Integer year) {
+    Map<String, Object> summary = salesQuotaRepository.getSummary(year);
+    BigDecimal totalQuota = toBigDecimal(summary.get("total_quota"));
+    BigDecimal totalActual = toBigDecimal(summary.get("total_actual"));
+    SalesQuotaSummaryResponse response = new SalesQuotaSummaryResponse();
+    response.setTotalQuota(totalQuota);
+    response.setTotalActual(totalActual);
+    if (totalQuota.compareTo(BigDecimal.ZERO) > 0) {
+      response.setAchievementRate(
+          totalActual
+              .multiply(new BigDecimal("100"))
+              .divide(totalQuota, 2, RoundingMode.HALF_UP));
+    } else {
+      response.setAchievementRate(BigDecimal.ZERO);
+    }
+    return response;
+  }
+
+  private BigDecimal toBigDecimal(Object value) {
+    if (value == null) {
+      return BigDecimal.ZERO;
+    }
+    if (value instanceof BigDecimal) {
+      return (BigDecimal) value;
+    }
+    return new BigDecimal(value.toString());
   }
 
   private SalesQuotaResponse toResponse(SalesQuota quota) {

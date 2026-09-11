@@ -5,6 +5,7 @@ import com.crm.dto.quota.SalesQuotaAchievementResponse;
 import com.crm.dto.quota.SalesQuotaBreakdownRequest;
 import com.crm.dto.quota.SalesQuotaRequest;
 import com.crm.dto.quota.SalesQuotaResponse;
+import com.crm.dto.quota.SalesQuotaSummaryResponse;
 import java.util.List;
 import java.util.Map;
 
@@ -38,4 +39,7 @@ public interface SalesQuotaService {
 
   /** 获取团队排名。 */
   List<Map<String, Object>> getTeamRanking(Integer year);
+
+  /** 获取年度配额汇总。 */
+  SalesQuotaSummaryResponse getSummary(Integer year);
 }

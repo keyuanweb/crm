@@ -44,4 +44,11 @@ public interface SalesQuotaRepository extends BaseMapper<SalesQuota> {
           + "ORDER BY achievement_rate DESC"
           + "</script>")
   List<Map<String, Object>> getTeamRanking(@Param("year") Integer year);
+
+  /** 查询年度配额汇总：顶层配额总额 + 年度已成交商机总额。 */
+  @Select(
+      "SELECT "
+          + "COALESCE((SELECT SUM(amount) FROM sales_quota WHERE year = #{year} AND parent_id IS NULL), 0) AS total_quota, "
+          + "COALESCE((SELECT SUM(amount) FROM opportunity WHERE status = 'CLOSED_WON' AND close_date BETWEEN CONCAT(#{year}, '-01-01') AND CONCAT(#{year}, '-12-31')), 0) AS total_actual")
+  Map<String, Object> getSummary(@Param("year") Integer year);
 }

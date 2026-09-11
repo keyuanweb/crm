@@ -5,6 +5,7 @@ import com.crm.dto.quota.SalesQuotaAchievementResponse;
 import com.crm.dto.quota.SalesQuotaBreakdownRequest;
 import com.crm.dto.quota.SalesQuotaRequest;
 import com.crm.dto.quota.SalesQuotaResponse;
+import com.crm.dto.quota.SalesQuotaSummaryResponse;
 import com.crm.service.quota.SalesQuotaService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -93,5 +94,11 @@ public class SalesQuotaController {
   @GetMapping("/ranking")
   public ResponseEntity<List<Map<String, Object>>> getTeamRanking(@RequestParam Integer year) {
     return ResponseEntity.ok(salesQuotaService.getTeamRanking(year));
+  }
+
+  /** 获取年度配额汇总（总配额 / 总实际 / 总达成率）。 */
+  @GetMapping("/summary")
+  public ResponseEntity<SalesQuotaSummaryResponse> getSummary(@RequestParam Integer year) {
+    return ResponseEntity.ok(salesQuotaService.getSummary(year));
   }
 }

@@ -48,6 +48,12 @@ export interface SalesQuotaAchievementResponse {
   status: 'ON_TRACK' | 'AT_RISK' | 'BELOW_TARGET';
 }
 
+export interface SalesQuotaSummary {
+  totalQuota: number;
+  totalActual: number;
+  achievementRate: number;
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('token');
   const response = await fetch(url, {
@@ -122,4 +128,8 @@ export const quotaApi = {
   /** 获取团队排名。 */
   getTeamRanking: (year: number) =>
     request<any[]>(`${API_BASE}/ranking?year=${year}`),
+
+  /** 获取年度配额汇总。 */
+  getSummary: (year: number) =>
+    request<SalesQuotaSummary>(`${API_BASE}/summary?year=${year}`),
 };

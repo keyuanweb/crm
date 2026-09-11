@@ -1,17 +1,25 @@
 /** 配额列表页面（078-sales-quota，MVP - User Story 1）。 */
 
-import { quotaApi, type SalesQuotaResponse } from '../../services/api/quotaApi';
+import { quotaApi, type SalesQuotaResponse, type SalesQuotaSummary } from '../../services/api/quotaApi';
 import { PlusOutlined, TeamOutlined, UserOutlined, BarChartOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import { Button, Card, Col, Flex, Row } from 'antd';
 import type { ProColumns } from '@ant-design/pro-components';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const QuotaListPage: React.FC = () => {
   const navigate = useNavigate();
   const actionRef = useRef<any>();
   const [year] = useState(new Date().getFullYear());
+  const [summary, setSummary] = useState<SalesQuotaSummary | null>(null);
+
+  useEffect(() => {
+    quotaApi
+      .getSummary(year)
+      .then(setSummary)
+      .catch((err) => console.error(err));
+  }, [year]);
 
   const columns: ProColumns<SalesQuotaResponse>[] = [
     {
@@ -88,7 +96,9 @@ const QuotaListPage: React.FC = () => {
               <TeamOutlined style={{ fontSize: 24, color: '#1890ff' }} />
               <div>
                 <div style={{ color: '#8c8c8c', fontSize: 12 }}>总配额</div>
-                <div style={{ fontSize: 20, fontWeight: 600 }}>-- 万</div>
+                <div style={{ fontSize: 20, fontWeight: 600 }}>
+                  {summary ? summary.totalQuota.toFixed(2) : '--'} 万
+                </div>
               </div>
             </Flex>
           </Card>
@@ -99,7 +109,9 @@ const QuotaListPage: React.FC = () => {
               <UserOutlined style={{ fontSize: 24, color: '#52c41a' }} />
               <div>
                 <div style={{ color: '#8c8c8c', fontSize: 12 }}>总实际</div>
-                <div style={{ fontSize: 20, fontWeight: 600 }}>-- 万</div>
+                <div style={{ fontSize: 20, fontWeight: 600 }}>
+                  {summary ? summary.totalActual.toFixed(2) : '--'} 万
+                </div>
               </div>
             </Flex>
           </Card>
@@ -110,7 +122,9 @@ const QuotaListPage: React.FC = () => {
               <span style={{ fontSize: 24 }}>📊</span>
               <div>
                 <div style={{ color: '#8c8c8c', fontSize: 12 }}>总达成率</div>
-                <div style={{ fontSize: 20, fontWeight: 600 }}>--%</div>
+                <div style={{ fontSize: 20, fontWeight: 600 }}>
+                  {summary ? summary.achievementRate.toFixed(1) : '--'}%
+                </div>
               </div>
             </Flex>
           </Card>
@@ -153,7 +167,7 @@ const QuotaListPage: React.FC = () => {
             >
               配额对比
             </Button>,
-            <Button key="add" type="primary" icon={<PlusOutlined />}>
+            <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => navigate('/quotas/create')}>
               创建配额
             </Button>,
           ],
