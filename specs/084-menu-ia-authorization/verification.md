@@ -671,3 +671,70 @@ FR-005 用例（两次新密码不一致）的 `waitFor` 用默认 1 s，在**�
 本规格的后端侧改动由 `MenuAccessGrantAlignmentTest`（surefire，离线、不起上下文）与
 `SchemaParityIT`（已镜像进测试库）在构建内覆盖，但这两者是**静态断言**，不能替代活库端到端验证——
 这一点如实记为**未完成项**，不混入上面的 37/37。
+
+## T039–T040 收口：两处治理记录的补齐（2026-09-12）
+
+`/speckit-converge` 在本次复核中报出两条 CRITICAL，都不是"代码没写"，而是**记录不合规格要求**。
+两项均由项目负责人裁决后补齐，记录如下。
+
+### T039：第二处端点授权语义变更的契约与署名
+
+**缺口**：084 有两处同类的端点判定语义变更，但只有第一处（自定义对象）进了契约与批准记录。
+第二处（多币种）**唯一留痕是 `V86` 的 SQL 注释，且那条注释只写「已批准」、无批准人姓名**——
+而 FR-N24 的措辞是"必须在本规格内记录批准人与批准日期"，SQL 注释不是规格文档。
+
+**处置**：新增**第二份**最小契约 `contracts/currency-endpoint-authorization.md`（§6 记批准人 **龙星**、
+批准日期 **2026-09-12**），并把同一条款补进 `plan.md` 的「FR-N24 批准位」（放行能力由 1 处扩为 2 处）与
+`spec.md` 的「批准记录（FR-N24）」；plan 的偏差 D2 行、`spec.md` 假设 2 的订正处各加一处交叉引用。
+
+**为什么不改写契约一**：契约一的 §1 范围声明与 §6 批准记录是**已批准的在案文本**。把它改成"涵盖多币种"
+需要修改一段已生效的批准记录，并让「批准了 A」与「批准了 A+B」在同一段落里混为一谈。两处变更分属不同
+模块、不同权限码集合、不同受影响角色，各自独立可评审，故按模块各留一份。
+
+**契约内逐条核对的事实依据**（均为本次实测，不是转述既有结论）：
+
+| 断言 | 依据 |
+|---|---|
+| 变更前 5 个守卫是角色字面量 | `git show b44a2ca~1:backend/.../CurrencyRateController.java`：`:39`、`:70` 为 `hasAnyRole('ADMIN','SALES')`（列表、折算），`:47`、`:54`、`:62` 为 `hasRole('ADMIN')`（增、改、删） |
+| `currency:manage` 全仓仅一处授予 | `grep -rn` 迁移目录 → 仅 `V75:228`（`FINANCE_MANAGER` 块内）；`schema-h2.sql:1711` 是同一句的镜像 |
+| `currency:read` 已在字典中定义 | `common/RoleConstants.java:333`；`:332` 的注释即本次"读写分码"的判据，故不存在"授予了一个未定义的码" |
+| `ADMIN` 的可访问性不依赖 `V86` | `security/PermissionAspect.checkPermission` 对 `ADMIN` 内建恒放行（`"ADMIN".equals(principal.role())` 即 return）；`V86` 仍把 ADMIN 列入授予，是为让角色页勾选状态与字典一致 |
+
+**未改任何代码**：`V86` 与 Controller 的改动在 T020 已完成，本次只补记录与署名。
+
+### T040：`mvn -B verify` 红的显式偏差批准
+
+**缺口**：构建以 failsafe 4 例业务类失败告终，而章程原则四不可协商、治理节要求偏差"经批准"——
+此前既未修复、也**未获批准**，主分支处于"已知违反不可协商原则且无批准"的状态。
+
+**裁决**：取 083 `tasks.md` T068 的**选项①**——批准为**显式偏差**。批准记录写入
+`specs/083-engineering-consolidation/spec.md` 的新增小节「### 偏差批准记录（T068…，2026-09-12）」，
+批准人 **龙星**、批准日期 **2026-09-12**。083 的 T068 随之勾选。
+
+**批准不是免责**——记录里写死了三条边界与三条失效条件（只覆盖那 4 例、出现第 5 例即越界；
+不下调覆盖率阈值；不覆盖全绿的前端五道门禁），并明确**不主张 `verify` 已通过、`SC-G01` 判定口径不变**。
+本规格的 T037 据此解除"未经批准不得勾选"这一条阻塞，但**并不因此**宣告后端门禁通过——两者的区别见下节。
+
+### T037 收口：全量门禁的最终判定，已无遗留未知项
+
+| 门禁 | 判定 | 依据 |
+|---|---|---|
+| 前端 `lint` / `typecheck` / `i18n:check` / `menu:check` / `test:coverage` | ✅ 全绿 | 见上「### T037 前端五项门禁：全过」（`test:coverage` 退出码 0，20 文件 / 79 用例） |
+| 后端 `spotless:check` | ✅ 通过 | 本次复跑日志：`Spotless.Java is keeping 724 files clean - 0 needs changes to be clean` |
+| 后端 `surefire` | ✅ 548 run / 0F / 0E | 见上「### T037 后端门禁」 |
+| 后端 `failsafe` | ⚠️ **259 run / 4F / 0E** | 失败集合与 083 记录**逐项逐行号一致**（`IntegrationHubIT.integrationFlow:93`、`OpportunityIT.closeWithoutResultReturns422:175`、`UserIT.disableUserRevokesAccess:117`、`UserIT.userLifecycle:74`） |
+| 后端 `jacoco:check`（覆盖率门槛） | ✅ **通过——本次首次取得判定** | `mvn -B verify -Dmaven.test.failure.ignore=true` → 构建越过 `failsafe:verify` 后**首次实际执行**该 check，报 `All coverage checks have been met.`；实测 `INSTRUCTION covered 44 080 / total 56 288 = 0.7831` ≥ 阈值 `0.73`（阈值未下调） |
+| e2e（SC-N07） | ✅ 37 passed / 0 failed | 适用范围限定见上节，不重复 |
+
+**"覆盖率阈值不得下调"这一条此前只能证成一半**：配置确实没改，但**门槛是否通过从未被判定过**——
+`jacoco:check` 与 `failsafe:verify` 同处 `verify` 相位且声明在其后，构建在 failsafe 处即中止。
+本次补测把这一半补齐：**门槛实测通过**。
+
+**由此得到的收口结论**：`mvn -B verify` 的红**完全**由那 4 例业务类失败造成，与覆盖率门槛无关，
+与前端门禁无关，与格式（spotless）无关。那 4 例已作为**显式偏差获批准**（T040，批准人 龙星 / 2026-09-12，
+记录于 `specs/083-engineering-consolidation/spec.md`）。**判定已完全确定，无遗留未知项。**
+
+**T037 勾选的含义必须写清，以免被读大**：勾选＝"全量门禁已执行、判定已作出、无未知项"，
+**不**表示"后端构建为绿"。后端构建**仍然是红的**——那条红是一条有署名、有边界、有失效条件的
+**已批准偏差**，登记在 083 而非本规格；它的对象是产品决策（投递时序、两层校验优先级、登录副作用），
+本规格无权也不打算替它决定。
