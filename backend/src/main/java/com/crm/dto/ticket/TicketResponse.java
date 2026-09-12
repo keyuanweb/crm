@@ -23,6 +23,19 @@ public class TicketResponse {
   private LocalDateTime slaRespondDeadline;
   private LocalDateTime slaResolveDeadline;
   private String slaStatus;
+
+  /** 首次响应时刻（1.3）；null 表示尚未响应。 */
+  private LocalDateTime slaRespondedAt;
+
+  /** 解决时刻（1.3）。 */
+  private LocalDateTime resolvedAt;
+
+  /** SLA 升级级别 0/1/2/3+（1.3）。 */
+  private Integer escalateLevel;
+
+  /** 最近一次升级时刻（1.3）。 */
+  private LocalDateTime lastEscalatedAt;
+
   private Long replyCount;
   private String remark;
 

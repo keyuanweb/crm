@@ -15,7 +15,6 @@ import com.crm.entity.Ticket;
 import com.crm.entity.TicketReply;
 import com.crm.entity.User;
 import com.crm.repository.CustomerMapper;
-import com.crm.repository.SlaPolicyMapper;
 import com.crm.repository.TicketMapper;
 import com.crm.repository.TicketReplyMapper;
 import com.crm.repository.UserMapper;
@@ -26,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -43,15 +43,19 @@ public class TicketService {
   public static final String SLA_WARNING = "WARNING";
   public static final String SLA_OVERDUE = "OVERDUE";
 
-  /** 即将超时阈值：剩余 ≤ min(总时限×25%, 2h)。 */
-  private static final long WARNING_MIN_HOURS = 2;
-
-  private static final double WARNING_RATIO = 0.25;
+  /**
+   * 即将超时阈值（小时）：剩余 ≤ 该值 → WARNING。可经 {@code crm.sla.warning-min-hours} 覆盖（1.3）。
+   *
+   * <p>⚠️ 本字段是<b>静态可变</b>的：{@link #computeSlaStatus} 是 public static（既有契约，SlaPolicyService
+   * 与多个测试直接调用）， 静态方法读不到实例字段，故配置值只能经下面的 setter 落到静态字段。默认值 2 与 {@code @Value} 冒号后的默认值一致， 因此未经 Spring
+   * 注入（如单测直接 new）时行为与改造前完全相同。
+   */
+  private static long warningMinHours = 2;
 
   private final TicketMapper ticketMapper;
   private final TicketReplyMapper replyMapper;
   private final CustomerMapper customerMapper;
-  private final SlaPolicyMapper slaPolicyMapper;
+  private final SlaPolicyService slaPolicyService;
   private final UserMapper userMapper;
   private final AuditService auditService;
   private final CustomFieldService customFieldService;
@@ -63,7 +67,7 @@ public class TicketService {
       TicketMapper ticketMapper,
       TicketReplyMapper replyMapper,
       CustomerMapper customerMapper,
-      SlaPolicyMapper slaPolicyMapper,
+      SlaPolicyService slaPolicyService,
       UserMapper userMapper,
       AuditService auditService,
       CustomFieldService customFieldService,
@@ -73,13 +77,24 @@ public class TicketService {
     this.ticketMapper = ticketMapper;
     this.replyMapper = replyMapper;
     this.customerMapper = customerMapper;
-    this.slaPolicyMapper = slaPolicyMapper;
+    this.slaPolicyService = slaPolicyService;
     this.userMapper = userMapper;
     this.auditService = auditService;
     this.customFieldService = customFieldService;
     this.notificationService = notificationService;
     this.slaCalendarService = slaCalendarService;
     this.integrationChannelService = integrationChannelService;
+  }
+
+  /** 配置注入：见 {@link #warningMinHours} 的说明（静态方法是既有契约，故落到静态字段）。 */
+  @Value("${crm.sla.warning-min-hours:2}")
+  void setWarningMinHours(long hours) {
+    warningMinHours = hours;
+  }
+
+  /** 即将超时阈值（小时）；供 SLA 升级扫描复用同一配置值，避免两处各读一次配置而漂移（1.3）。 */
+  public static long warningWindowHours() {
+    return warningMinHours;
   }
 
   @Transactional(readOnly = true)
@@ -172,7 +187,12 @@ public class TicketService {
   @Transactional
   public TicketResponse update(Long id, TicketRequest req) {
     Ticket existing = require(id);
+    String previousPriority = existing.getPriority();
     apply(req, existing);
+    // 1.3：改优先级后按新策略重算到期时间与状态（改造前改优先级不重算，SLA 停留旧策略口径）
+    if (!java.util.Objects.equals(previousPriority, existing.getPriority())) {
+      applySla(existing, LocalDateTime.now());
+    }
     existing.setVersion(req.getVersion());
     int rows = ticketMapper.updateById(existing);
     if (rows == 0) {
@@ -224,6 +244,15 @@ public class TicketService {
     reply.setContent(req.getContent().trim());
     reply.setCreatedAt(LocalDateTime.now());
     replyMapper.insert(reply);
+    // 1.3：首条回复即视为「已响应」，写入 slaRespondedAt 并同步刷新 SLA 状态。
+    // 必须先于 computeSlaStatus 的 respond 侧 OVERDUE 判定生效——否则已答复工单会被误判为响应超时。
+    if (ticket.getSlaRespondedAt() == null) {
+      ticket.setSlaRespondedAt(LocalDateTime.now());
+      if (!STATUS_CLOSED.equals(ticket.getStatus())) {
+        ticket.setSlaStatus(computeSlaStatus(ticket, LocalDateTime.now()));
+      }
+      ticketMapper.updateById(ticket);
+    }
     auditService.record("REPLY", "TICKET", id, "工单回复");
     // 016：通知处理人（本人除外）
     Long current = SecurityUtil.currentUserId();
@@ -259,6 +288,11 @@ public class TicketService {
       throw new BusinessException(ErrorCode.TICKET_INVALID_STATE);
     }
     ticket.setStatus(targetStatus);
+    // 1.3：解决时刻（SLA 解决达成率的数据基础）；只写一次，CLOSED 不覆盖 RESOLVED 的时刻
+    if ((STATUS_RESOLVED.equals(targetStatus) || STATUS_CLOSED.equals(targetStatus))
+        && ticket.getResolvedAt() == null) {
+      ticket.setResolvedAt(LocalDateTime.now());
+    }
     ticketMapper.updateById(ticket);
     auditService.record("TRANSITION", "TICKET", id, from + " → " + targetStatus);
     return toResponse(ticketMapper.selectById(id));
@@ -310,14 +344,14 @@ public class TicketService {
     return PageResult.of(items, p.getTotal(), page, pageSize);
   }
 
-  /** 按 SLA 策略计算到期时间并刷新状态。 */
-  private void applySla(Ticket ticket, LocalDateTime now) {
-    SlaPolicy policy =
-        slaPolicyMapper.selectOne(
-            new LambdaQueryWrapper<SlaPolicy>()
-                .eq(SlaPolicy::getPriority, ticket.getPriority())
-                .eq(SlaPolicy::getEnabled, 1)
-                .last("LIMIT 1"));
+  /**
+   * 按 SLA 策略计算到期时间并刷新状态。
+   *
+   * <p>1.3：由 private 提为 public（SLA 升级路径与优先级变更后的重算需要复用），取策略改为经 {@link
+   * SlaPolicyService#resolvePolicyFor} —— 条件与原内联查询完全一致，行为等价。
+   */
+  public void applySla(Ticket ticket, LocalDateTime now) {
+    SlaPolicy policy = slaPolicyService.resolvePolicyFor(ticket.getPriority());
     if (policy == null) {
       ticket.setSlaRespondDeadline(null);
       ticket.setSlaResolveDeadline(null);
@@ -340,19 +374,36 @@ public class TicketService {
     ticket.setSlaStatus(computeSlaStatus(ticket, now));
   }
 
-  /** 计算 SLA 状态：已过 resolve 时限 → OVERDUE；剩余 ≤2h → WARNING；否则 NORMAL。 */
+  /**
+   * 计算 SLA 状态：已过 resolve 时限 → OVERDUE；未响应且已过 respond 时限 → OVERDUE；剩余 ≤ {@link #warningMinHours} 小时
+   * → WARNING；否则 NORMAL。
+   *
+   * <p>1.3 变更（响应侧超时判定）：原实现只认 resolve deadline，respond deadline 仅参与 WARNING，因此「响应超时」在数据上 不可判定。现在
+   * respond 一侧<b>仅在尚未响应时</b>有意义——已响应（{@code slaRespondedAt != null}）的工单绝不因 respond deadline 判
+   * OVERDUE，否则存量已答复工单会被批量误判（V78 的回填就是为此）。
+   *
+   * <p>同一前置条件也适用于 WARNING：已响应的工单只能因 <b>resolve</b> deadline 进入预警窗口。改造前 WARNING 分支对 已过期的 respond
+   * deadline 会取到负的剩余时长，恒 ≤ 阈值，于是「已答复、解决时限还早」的工单会一直停在 WARNING， 并让升级作业发出一封假的「即将超时」通知。
+   */
   public static String computeSlaStatus(Ticket ticket, LocalDateTime now) {
     LocalDateTime resolve = ticket.getSlaResolveDeadline();
     if (resolve != null && !resolve.isAfter(now)) {
       return SLA_OVERDUE;
     }
     LocalDateTime respond = ticket.getSlaRespondDeadline();
+    if (ticket.getSlaRespondedAt() == null && respond != null && !respond.isAfter(now)) {
+      return SLA_OVERDUE;
+    }
+    // respond 一侧同样只在「尚未响应」时有意义：respond deadline 一旦过期，Duration 为负必然 ≤ 阈值，
+    // 不加这个前置条件的话，任何「已按时答复、但解决时限还早」的工单都会恒判 WARNING——升级作业会据此
+    // 发出一封假的「即将超时」通知（每张已答复工单一封）。与上面的 OVERDUE 判定同一个道理。
     boolean respondWarning =
-        respond != null
-            && java.time.Duration.between(now, respond).toMinutes() <= WARNING_MIN_HOURS * 60;
+        ticket.getSlaRespondedAt() == null
+            && respond != null
+            && java.time.Duration.between(now, respond).toMinutes() <= warningMinHours * 60;
     boolean resolveWarning =
         resolve != null
-            && java.time.Duration.between(now, resolve).toMinutes() <= WARNING_MIN_HOURS * 60;
+            && java.time.Duration.between(now, resolve).toMinutes() <= warningMinHours * 60;
     if (respondWarning || resolveWarning) {
       return SLA_WARNING;
     }
@@ -447,6 +498,10 @@ public class TicketService {
     resp.setSlaRespondDeadline(ticket.getSlaRespondDeadline());
     resp.setSlaResolveDeadline(ticket.getSlaResolveDeadline());
     resp.setSlaStatus(ticket.getSlaStatus());
+    resp.setSlaRespondedAt(ticket.getSlaRespondedAt());
+    resp.setResolvedAt(ticket.getResolvedAt());
+    resp.setEscalateLevel(ticket.getEscalateLevel());
+    resp.setLastEscalatedAt(ticket.getLastEscalatedAt());
     resp.setRemark(ticket.getRemark());
     resp.setVersion(ticket.getVersion());
     resp.setCreatedAt(ticket.getCreatedAt());

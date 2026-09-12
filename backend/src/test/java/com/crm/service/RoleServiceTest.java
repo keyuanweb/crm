@@ -340,6 +340,24 @@ class RoleServiceTest {
   }
 
   @Test
+  @DisplayName("1.3：sla:manage 必须在权限字典里（否则 @RequirePermission 对非 ADMIN 恒 403）")
+  void permissionDefsShouldContainSlaManage() {
+    // SlaPolicyController 挂了 @RequirePermission("sla:manage")，而 V75 已把该码授给 SUPPORT_MANAGER。
+    // 码不在字典里时，非 ADMIN 走到 PermissionAspect 会因「角色权限列表不含该码」而 403，
+    // 且前端角色页也无从勾选——正是 1.5 要系统性消灭的「注解引用了字典里没有的码」。
+    boolean declared = false;
+    for (var group : service.permissionDefs()) {
+      @SuppressWarnings("unchecked")
+      var children = (java.util.List<java.util.Map<String, Object>>) group.get("children");
+      if (children.stream().anyMatch(p -> "sla:manage".equals(p.get("code")))) {
+        declared = true;
+        break;
+      }
+    }
+    assertThat(declared).isTrue();
+  }
+
+  @Test
   @DisplayName("081：ADMIN 角色应返回所有菜单")
   void adminRoleShouldReturnAllMenus() {
     when(roleMapper.selectOne(any())).thenReturn(role(1L, "ADMIN", "系统管理员", true));

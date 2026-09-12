@@ -14,8 +14,10 @@ import com.crm.common.ErrorCode;
 import com.crm.dto.sla.SlaPolicyRequest;
 import com.crm.entity.SlaPolicy;
 import com.crm.entity.Ticket;
+import com.crm.entity.User;
 import com.crm.repository.SlaPolicyMapper;
 import com.crm.repository.TicketMapper;
+import com.crm.repository.UserMapper;
 import com.crm.security.JwtAuthFilter.CrmPrincipal;
 import com.crm.security.SecurityUtil;
 import java.time.LocalDateTime;
@@ -34,6 +36,7 @@ class SlaPolicyServiceTest {
 
   private SlaPolicyMapper slaPolicyMapper;
   private TicketMapper ticketMapper;
+  private UserMapper userMapper;
   private AuditService auditService;
   private SlaPolicyService service;
   private MockedStatic<SecurityUtil> securityUtilMock;
@@ -50,8 +53,9 @@ class SlaPolicyServiceTest {
   void setUp() {
     slaPolicyMapper = mock(SlaPolicyMapper.class);
     ticketMapper = mock(TicketMapper.class);
+    userMapper = mock(UserMapper.class);
     auditService = mock(AuditService.class);
-    service = new SlaPolicyService(slaPolicyMapper, ticketMapper, auditService);
+    service = new SlaPolicyService(slaPolicyMapper, ticketMapper, userMapper, auditService);
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock
@@ -166,5 +170,80 @@ class SlaPolicyServiceTest {
     assertThat(resp.getOverdue()).isEqualTo(2);
     assertThat(resp.getOverdueRate()).isEqualTo(2.0 / 3.0);
     assertThat(resp.getByPriority()).hasSize(2);
+  }
+
+  @Test
+  @DisplayName("超时统计：响应/解决达成率（1.3）")
+  void overviewComplianceRates() {
+    Ticket onTime = new Ticket();
+    onTime.setPriority("HIGH");
+    onTime.setStatus("OPEN");
+    onTime.setSlaRespondDeadline(LocalDateTime.now().minusHours(2));
+    onTime.setSlaRespondedAt(LocalDateTime.now().minusHours(3)); // 提前响应 → 响应达标
+    onTime.setSlaResolveDeadline(LocalDateTime.now().plusHours(5));
+    Ticket lateRespond = new Ticket();
+    lateRespond.setPriority("HIGH");
+    lateRespond.setStatus("OPEN");
+    lateRespond.setSlaRespondDeadline(LocalDateTime.now().minusHours(3));
+    lateRespond.setSlaRespondedAt(LocalDateTime.now().minusHours(1)); // 迟于 deadline → 响应违约
+    lateRespond.setSlaResolveDeadline(LocalDateTime.now().minusHours(1)); // 且解决已过期 → 解决违约
+    when(ticketMapper.selectList(any())).thenReturn(List.of(onTime, lateRespond));
+
+    var resp = service.overview();
+
+    assertThat(resp.getRespondComplianceRate()).isEqualTo(0.5);
+    assertThat(resp.getResolveComplianceRate()).isEqualTo(0.5);
+  }
+
+  @Test
+  @DisplayName("超时统计：无未关闭工单时达成率为 null（不臆造 0%）")
+  void overviewComplianceRatesNullWhenNoTickets() {
+    when(ticketMapper.selectList(any())).thenReturn(List.of());
+
+    var resp = service.overview();
+
+    assertThat(resp.getTotalOpen()).isZero();
+    assertThat(resp.getRespondComplianceRate()).isNull();
+    assertThat(resp.getResolveComplianceRate()).isNull();
+    assertThat(resp.getByAssignee()).isEmpty();
+  }
+
+  @Test
+  @DisplayName("超时统计：按处理人维度含未分配分组与姓名（1.3）")
+  void overviewByAssignee() {
+    Ticket assigned = new Ticket();
+    assigned.setPriority("HIGH");
+    assigned.setStatus("OPEN");
+    assigned.setAssigneeId(7L);
+    assigned.setSlaResolveDeadline(LocalDateTime.now().minusHours(1)); // 超时
+    Ticket unassigned = new Ticket();
+    unassigned.setPriority("LOW");
+    unassigned.setStatus("OPEN");
+    unassigned.setSlaResolveDeadline(LocalDateTime.now().plusHours(10)); // 正常
+    when(ticketMapper.selectList(any())).thenReturn(List.of(assigned, unassigned));
+    User user = new User();
+    user.setId(7L);
+    user.setDisplayName("客服小张");
+    when(userMapper.selectBatchIds(any())).thenReturn(List.of(user));
+
+    var resp = service.overview();
+
+    assertThat(resp.getByAssignee()).hasSize(2);
+    // 超时多的排前面
+    assertThat(resp.getByAssignee().get(0).getAssigneeId()).isEqualTo(7L);
+    assertThat(resp.getByAssignee().get(0).getAssigneeName()).isEqualTo("客服小张");
+    assertThat(resp.getByAssignee().get(0).getOverdue()).isEqualTo(1);
+    assertThat(resp.getByAssignee().get(1).getAssigneeId()).isNull();
+    assertThat(resp.getByAssignee().get(1).getAssigneeName()).isEqualTo("未分配");
+  }
+
+  @Test
+  @DisplayName("取策略：按优先级返回启用策略，无策略返回 null（1.3 抽出）")
+  void resolvePolicyForPriority() {
+    when(slaPolicyMapper.selectOne(any())).thenReturn(policy(1L, "HIGH"));
+
+    assertThat(service.resolvePolicyFor("HIGH")).isNotNull();
+    assertThat(service.resolvePolicyFor("HIGH").getPriority()).isEqualTo("HIGH");
+    assertThat(service.resolvePolicyFor(null)).isNull();
   }
 }

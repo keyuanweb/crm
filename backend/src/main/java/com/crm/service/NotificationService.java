@@ -22,6 +22,12 @@ public class NotificationService {
   public static final String TYPE_TICKET_ASSIGN = "TICKET_ASSIGN";
   public static final String TYPE_TICKET_REPLY = "TICKET_REPLY";
 
+  /** SLA 即将超时（1.3-sla-escalation，升级 L1）。 */
+  public static final String TYPE_SLA_WARNING = "SLA_WARNING";
+
+  /** SLA 已超时/持续超时（1.3-sla-escalation，升级 L2 及以上）。 */
+  public static final String TYPE_SLA_OVERDUE = "SLA_OVERDUE";
+
   /** 每用户保留通知条数上限。 */
   private static final long MAX_PER_USER = 100;
 

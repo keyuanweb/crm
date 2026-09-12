@@ -24,6 +24,12 @@ spring:
     multipart:
       max-file-size: 20MB
       max-request-size: 20MB
+  # 默认调度器是单线程，所有 @Scheduled 串行——一个作业跑得久会拖住其余作业。
+  # 1.3 起有 3 个作业（定时导出、数据保留归档、SLA 升级），显式放开为 3 个线程。
+  task:
+    scheduling:
+      pool:
+        size: ${SCHEDULING_POOL_SIZE:3}
 
 server:
   port: ${SERVER_PORT:8081}
@@ -51,6 +57,11 @@ crm:
     export-cron: ${CRM_SCHEDULER_EXPORT_CRON:0 0/5 * * * ?}
     # 数据保留归档扫描间隔（cron 表达式），默认每天凌晨 2 点
     retention-cron: ${CRM_SCHEDULER_RETENTION_CRON:0 0 2 * * ?}
+    # SLA 升级扫描间隔（cron 表达式），默认每 10 分钟（1.3-sla-escalation）
+    sla-cron: ${CRM_SCHEDULER_SLA_CRON:0 */10 * * * ?}
+  sla:
+    # 即将超时阈值（小时）：剩余 ≤ 该值 → WARNING。默认 2，与改造前的硬编码一致（1.3）
+    warning-min-hours: ${CRM_SLA_WARNING_MIN_HOURS:2}
 
 # CORS：允许的前端 Origin（逗号分隔），生产环境通过环境变量覆盖
 cors:
