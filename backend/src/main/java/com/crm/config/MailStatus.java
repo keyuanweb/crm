@@ -10,8 +10,8 @@ import org.springframework.util.StringUtils;
  * <p>背景——{@link MailConfig} 在 {@code crm.mail.host} 为空时返回 null bean，而此前各发送路径在 null 时
  * <b>静默跳过发送、却把记录标记为 SENT</b>，导致界面上的"已发送 / 打开率 / 点击率"全部基于从未发出的邮件。
  *
- * <p>约定：所有发送路径必须先查本类；未配置时标记 {@code SKIPPED}（而非 SENT）并写入
- * {@link #NOT_CONFIGURED_MESSAGE}。本类是"邮件是否真发出"的唯一判据，不要在别处重复判断 host 是否为空。
+ * <p>约定：所有发送路径必须先查本类；未配置时标记 {@code SKIPPED}（而非 SENT）并写入 {@link
+ * #NOT_CONFIGURED_MESSAGE}。本类是"邮件是否真发出"的唯一判据，不要在别处重复判断 host 是否为空。
  */
 @Component
 public class MailStatus {

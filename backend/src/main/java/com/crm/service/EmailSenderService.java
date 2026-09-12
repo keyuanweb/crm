@@ -17,9 +17,8 @@ import org.springframework.stereotype.Service;
 /**
  * 邮件异步发送器（独立 bean 使 @Async 代理生效——B1 安全/性能审计修复： 原 EmailCampaignService 内自调用导致 @Async 失效、群发同步阻塞业务事务）。
  *
- * <p>一期诚信修复：本类是"邮件是否真发出"的唯一裁决处。未配置 SMTP 时一律标记 {@link EmailSendLog#STATUS_SKIPPED}
- * 并写入 {@link MailStatus#NOT_CONFIGURED_MESSAGE}，<b>绝不标记 SENT</b>；调用方也不得在发送前预置 SENT。
- * 每封邮件无论成功、失败还是跳过，状态都必定回写。
+ * <p>一期诚信修复：本类是"邮件是否真发出"的唯一裁决处。未配置 SMTP 时一律标记 {@link EmailSendLog#STATUS_SKIPPED} 并写入 {@link
+ * MailStatus#NOT_CONFIGURED_MESSAGE}，<b>绝不标记 SENT</b>；调用方也不得在发送前预置 SENT。 每封邮件无论成功、失败还是跳过，状态都必定回写。
  */
 @Service
 public class EmailSenderService {
@@ -45,8 +44,8 @@ public class EmailSenderService {
   /**
    * 群发异步发送（仅在 SMTP 已配置时由调用方使用）。
    *
-   * <p>@Async 使其在独立线程执行；发送完成后回写批次汇总。未配置 SMTP 时调用方应改用同步的 {@link #send}
-   * —— 配置检查是纯内存判断，无需异步，异步反而会与调用方未提交的事务竞争。
+   * <p>@Async 使其在独立线程执行；发送完成后回写批次汇总。未配置 SMTP 时调用方应改用同步的 {@link #send} ——
+   * 配置检查是纯内存判断，无需异步，异步反而会与调用方未提交的事务竞争。
    */
   @Async
   public void sendAsync(EmailCampaign campaign, List<EmailSendLog> logs) {
@@ -108,16 +107,17 @@ public class EmailSenderService {
   /**
    * 按每封的真实状态回写批次汇总：sentCount 只数真正发出的，批次状态由实际结果决定。
    *
-   * <p>直接改写传入的 campaign 对象（调用方在 fire-and-forget 之后不再写该行），避免重新查库
-   * —— 异步路径下重查会撞上调用方尚未提交的事务。
+   * <p>直接改写传入的 campaign 对象（调用方在 fire-and-forget 之后不再写该行），避免重新查库 —— 异步路径下重查会撞上调用方尚未提交的事务。
    */
   private void finalizeCampaign(EmailCampaign campaign, List<EmailSendLog> logs) {
     if (campaign == null || campaign.getId() == null) {
       return;
     }
     long sent = logs.stream().filter(l -> EmailSendLog.STATUS_SENT.equals(l.getStatus())).count();
-    long failed = logs.stream().filter(l -> EmailSendLog.STATUS_FAILED.equals(l.getStatus())).count();
-    long skipped = logs.stream().filter(l -> EmailSendLog.STATUS_SKIPPED.equals(l.getStatus())).count();
+    long failed =
+        logs.stream().filter(l -> EmailSendLog.STATUS_FAILED.equals(l.getStatus())).count();
+    long skipped =
+        logs.stream().filter(l -> EmailSendLog.STATUS_SKIPPED.equals(l.getStatus())).count();
     campaign.setSentCount((int) sent);
     campaign.setFailedCount((int) failed);
     // 有跳过则整批标记 SKIPPED，让界面能一眼看出"这批根本没发出去"

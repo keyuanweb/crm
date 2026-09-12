@@ -15,8 +15,8 @@ import org.springframework.stereotype.Service;
 /**
  * 事务性邮件服务（079-scheduled-export）：发送导出文件邮件。
  *
- * <p>一期诚信修复：未配置 SMTP 时<b>显式抛出</b> {@link MailNotConfiguredException}，不再"跳过发送 + 记录
- * sent successfully"。调用方据此记 SKIPPED 或让请求失败，而不是以为已发出。
+ * <p>一期诚信修复：未配置 SMTP 时<b>显式抛出</b> {@link MailNotConfiguredException}，不再"跳过发送 + 记录 sent
+ * successfully"。调用方据此记 SKIPPED 或让请求失败，而不是以为已发出。
  */
 @Service
 public class EmailService {

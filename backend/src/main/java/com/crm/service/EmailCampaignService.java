@@ -28,8 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * 邮件群发服务（030-email-marketing，FR-002/003/004）：创建批次 → 解析收件人 → 逐封发送（SMTP 已配置走 @Async，
- * 未配置则同步标记 SKIPPED）→ 打开/点击追踪记录。
+ * 邮件群发服务（030-email-marketing，FR-002/003/004）：创建批次 → 解析收件人 → 逐封发送（SMTP 已配置走 @Async， 未配置则同步标记
+ * SKIPPED）→ 打开/点击追踪记录。
  *
  * <p>一期诚信修复：本类不再自行判定"发送成功"——真实状态一律由 {@link EmailSenderService} 回写。
  */
@@ -92,9 +92,14 @@ public class EmailCampaignService {
       customerIds = customerIds.subList(0, BATCH_CAP);
     }
     Map<Long, String> emails = emailsOf(customerIds);
-    // 052：排除已退订邮箱
-    for (Long cid : unsubscribeService.filterUnsubscribed(emails)) {
-      emails.remove(cid);
+    // 052：排除已退订邮箱。
+    // filterUnsubscribed 返回的是"未退订"的 id（其单测 assert 的正是这个语义），此前的循环却把它们全部删除 ——
+    // 方向正好相反：群发只发给已退订的人，未退订的人一个都收不到；没人退订时收件人为 0（整批发空）。
+    // 改为在此显式逐个判定，意图不依赖对方法名或返回值的记忆。
+    for (Long cid : List.copyOf(emails.keySet())) {
+      if (unsubscribeService.isUnsubscribed(emails.get(cid))) {
+        emails.remove(cid);
+      }
     }
 
     EmailCampaign campaign = new EmailCampaign();
@@ -361,9 +366,13 @@ public class EmailCampaignService {
     return resp;
   }
 
-  /** 测试发送：渲染模板发给自己。发送结果由发送器回写（未配置 SMTP 记 SKIPPED）。 */
+  /**
+   * 测试发送：渲染模板发给自己。发送结果由发送器回写（未配置 SMTP 记 SKIPPED）。
+   *
+   * <p>返回是否真正发出：调用方（控制器→前端）此前无条件提示"测试邮件已发送"，与未配置 SMTP 时的实际行为相反， 故把真实结果上抛。
+   */
   @Transactional
-  public void testSend(Long campaignId, String email) {
+  public boolean testSend(Long campaignId, String email) {
     EmailCampaign c = campaignMapper.selectById(campaignId);
     EmailTemplate t = templateService.require(c.getTemplateId());
     EmailSendLog sendLog = new EmailSendLog();
@@ -375,7 +384,7 @@ public class EmailCampaignService {
     sendLog.setStatus(EmailSendLog.STATUS_PENDING);
     sendLog.setCreatedAt(java.time.LocalDateTime.now());
     sendLogMapper.insert(sendLog);
-    emailSender.sendOne(sendLog);
+    return emailSender.sendOne(sendLog);
   }
 
   private List<Long> resolveRecipients(CampaignRequest req) {

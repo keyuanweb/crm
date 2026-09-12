@@ -91,9 +91,10 @@ public class EmailController {
   @PostMapping("/email-campaigns/{id}/test")
   @RequirePermission("email:manage")
   @Operation(summary = "测试发送")
-  public ApiResponse<Void> testSend(@PathVariable Long id, @RequestBody Map<String, String> body) {
-    campaignService.testSend(id, body.get("email"));
-    return ApiResponse.ok(null);
+  public ApiResponse<Boolean> testSend(
+      @PathVariable Long id, @RequestBody Map<String, String> body) {
+    // 返回是否真正发出：未配置 SMTP 时为 false，前端据此提示"未发送"而不是"已发送"
+    return ApiResponse.ok(campaignService.testSend(id, body.get("email")));
   }
 
   @GetMapping("/email-campaigns")

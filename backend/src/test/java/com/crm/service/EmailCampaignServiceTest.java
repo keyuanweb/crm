@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
 /** EmailCampaignService 单元测试（030 T005）：群发收件人/统计/追踪。 */
@@ -85,6 +86,14 @@ class EmailCampaignServiceTest {
     customerMapper = mock(CustomerMapper.class);
     auditService = mock(AuditService.class);
     unsubscribeService = mock(EmailUnsubscribeService.class);
+    // MyBatis-Plus 在真实 insert 后回填自增主键；mock 必须模拟这一契约，
+    // 否则批次汇总回写会因 id 为空而跳过 —— 那正是本测试要覆盖的路径。
+    when(campaignMapper.insert(any(EmailCampaign.class)))
+        .thenAnswer(
+            inv -> {
+              inv.getArgument(0, EmailCampaign.class).setId(1L);
+              return 1;
+            });
     // 缺省：SMTP 未配置（crm.mail.host 为空）—— 正是此前被谎报成 SENT 的场景
     buildService(new MailStatus(""), null);
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
@@ -133,8 +142,74 @@ class EmailCampaignServiceTest {
     EmailCampaign campaign = service.createAndSend(req);
 
     assertThat(campaign.getTotalCount()).isEqualTo(1); // 仅 1 封（邮箱非空）
-    assertThat(campaign.getStatus()).isEqualTo("DONE");
+    // 一期诚信修复（本次核心回归）：未配置 SMTP 时批次必须是 SKIPPED、成功数必须为 0，
+    // 此前这里断言的是 DONE/1 —— 即"从未发出的邮件被统计成已发送"。
+    assertThat(campaign.getStatus()).isEqualTo(EmailCampaign.STATUS_SKIPPED);
+    assertThat(campaign.getSentCount()).isZero();
     verify(sendLogMapper).insert(any(EmailSendLog.class));
+    // 每封的真实状态也必须落库为 SKIPPED，而不是留在 PENDING/SENT
+    ArgumentCaptor<EmailSendLog> persisted = ArgumentCaptor.forClass(EmailSendLog.class);
+    verify(sendLogMapper).updateById(persisted.capture());
+    assertThat(persisted.getValue().getStatus()).isEqualTo(EmailSendLog.STATUS_SKIPPED);
+    assertThat(persisted.getValue().getErrorMessage()).contains("SMTP 未配置");
+  }
+
+  @Test
+  @DisplayName("退订过滤方向：排除的是已退订者，未退订者必须保留")
+  void excludesOnlyUnsubscribed() {
+    when(templateService.require(1L)).thenReturn(template());
+    Customer keep = new Customer();
+    keep.setId(1L);
+    keep.setEmail("keep@test.com");
+    Customer gone = new Customer();
+    gone.setId(2L);
+    gone.setEmail("gone@test.com");
+    when(customerMapper.selectBatchIds(List.of(1L, 2L))).thenReturn(List.of(keep, gone));
+    when(unsubscribeService.isUnsubscribed("gone@test.com")).thenReturn(true);
+    when(unsubscribeService.isUnsubscribed("keep@test.com")).thenReturn(false);
+
+    CampaignRequest req = new CampaignRequest();
+    req.setName("召回");
+    req.setTemplateId(1L);
+    req.setSourceType("CUSTOMER_IDS");
+    req.setCustomerIds(List.of(1L, 2L));
+
+    EmailCampaign campaign = service.createAndSend(req);
+
+    // 此前的实现按 filterUnsubscribed 的返回值（"未退订"的 id）做删除，方向正好相反：
+    // 结果是只发给已退订的人、未退订的人全部收不到，且没人退订时整批发空。
+    assertThat(campaign.getTotalCount()).isEqualTo(1);
+    ArgumentCaptor<EmailSendLog> inserted = ArgumentCaptor.forClass(EmailSendLog.class);
+    verify(sendLogMapper).insert(inserted.capture());
+    assertThat(inserted.getValue().getEmail()).isEqualTo("keep@test.com");
+  }
+
+  @Test
+  @DisplayName("SMTP 已配置：真正发出并记 SENT，批次汇总为 DONE")
+  void configuredSmtpMarksSent() {
+    JavaMailSender mailSender = mock(JavaMailSender.class);
+    buildService(new MailStatus("smtp.example.com"), mailSender);
+    when(templateService.require(1L)).thenReturn(template());
+    Customer c1 = new Customer();
+    c1.setId(1L);
+    c1.setEmail("a@test.com");
+    when(customerMapper.selectBatchIds(List.of(1L))).thenReturn(List.of(c1));
+
+    CampaignRequest req = new CampaignRequest();
+    req.setName("召回");
+    req.setTemplateId(1L);
+    req.setSourceType("CUSTOMER_IDS");
+    req.setCustomerIds(List.of(1L));
+
+    EmailCampaign campaign = service.createAndSend(req);
+
+    // 真正调用了 SMTP，且只有真发出才记 SENT / DONE
+    verify(mailSender).send(any(SimpleMailMessage.class));
+    assertThat(campaign.getStatus()).isEqualTo(EmailCampaign.STATUS_DONE);
+    assertThat(campaign.getSentCount()).isEqualTo(1);
+    ArgumentCaptor<EmailSendLog> persisted = ArgumentCaptor.forClass(EmailSendLog.class);
+    verify(sendLogMapper).updateById(persisted.capture());
+    assertThat(persisted.getValue().getStatus()).isEqualTo(EmailSendLog.STATUS_SENT);
   }
 
   @Test
