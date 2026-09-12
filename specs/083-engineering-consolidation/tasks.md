@@ -849,4 +849,29 @@ Task: "新增 backend/src/test/java/com/crm/integration/PerformanceRegressionIT.
      - 之所以要加这句而非只换数字：把裸计数写进文档正是本规格开头点名的失效模式——一个没人再核对、也不该被核对具体值的数字，下次失配时会被当成"文档又过期了"，而真正的判据（0 失败）反而被忽略。
      - 本记录第 1 条中的 `488` 按 T062 规则**保留原样**（它是 2026-09-12 的时点记录），不追改。
 
+  6. **补记（同日）：第 3 条所述"覆盖率门禁至今仍未被执行过"已不再成立——它被执行了，且通过了。** 以 `mvn -B -o verify -Dmaven.test.failure.ignore=true -Dspotless.check.skip=true` 跑到断言末，日志出现 `jacoco:0.8.11:check (coverage-check)`、`BUILD SUCCESS`。这是本规格内该 check **首次被实际判定**（此前一直被 `failsafe:verify` 挡在前面）。同步刷新 `pom.xml`：实测由 0.7516 更新为 **0.7818**（covered 44 008 / total 56 288），并写明"余量单向上移、固定阈值必然逐渐变松"——同日已由 2.2 个百分点变宽到约 5 个百分点。本次 failsafe 实测 **258 run / 4F / 0E**（较原记录 +3 例，即 T063 新增的三条越权 IT；失败集不变）。
+     > 这条补记同时说明第 3 条的结论要**限定条件**才准确：门禁的判定能力是存在的、且当前能过；挡在它前面的不是"门禁不工作"，而是"上游用例失败使构建提前中止"。二者常被混为一谈，而处置方式完全不同——前者要修门禁，后者要修用例或改流水线口径。
+
 - [ ] T067 在**具备 Docker 的环境**按 `quickstart.md` 执行容器编排启动验证（干净检出 → `docker-compose up -d` → 首页返回非空白内容），并把实测结果回写 `quickstart.md`／`baseline.md`。当前环境无 Docker，SC-G06 自始至终**从未被执行**，FR-G19–G21 的改动至今只有静态证据 per SC-G06 (missing)
+
+## Phase 10: Convergence
+
+> 本节由 `/speckit-converge`（2026-09-12，第二次收敛）追加，依据是对 **27 条 FR／7 条 SC 的逐条代码复核**（非仅看 tasks.md 的勾选状态）。五路并行复核的结论：**已实现且经代码证实满足**的为 FR-G01、G02、G03、G06、G11、G12、G15、G16、G17、G18、G19、G21、G22、G23、G24、G25、G26、G27 与 FR-G04/G05（V70–V84 逐条比对通过）。以下只列**仍存在的缺口**，按严重度排序；编号接续 T067。
+
+- [ ] T068 **CRITICAL**：为"主分支处于偏离章程原则四的状态"补**批准记录**或消除该状态。章程原则四（不可协商）要求"每次合并必须通过构建、单元测试、集成测试、Lint、类型检查以及已配置的覆盖率门槛"；治理节要求任何偏差"必须明确说明理由**并经批准**"。现状：`mvn -B verify` 不通过（实测 failsafe 258 run / 4F / 0E，surefire 537/0F/0E；verify 相位内的 spotless 已通过），spec 已写明这 4 例需产品决策、属本规格范围外，但**未见批准**。请由项目负责人二选一：①对这 4 例作为显式偏差予以批准并在 `spec.md` 记录批准人与日期；②推动其产品决策并修复，使构建转绿。**未经批准前，主分支的状态是"已知违反不可协商原则"**——这不是流程洁癖：本规格的核心命题正是"名义上存在的门禁等于不存在"，而一个长期红的构建会让下一个人对红绿灯彻底失去信任。per Constitution IV / 治理节 (contradicts)
+
+- [ ] T069 让持续集成**真正可执行**，或显式声明门禁口径为"仅本地"。实测：`git remote -v` 为空（无任何远端），仅有 `master` 分支，环境亦无 `gh`——`.github/workflows/ci.yml` 定义的后端 `mvn -B verify`、前端 typecheck/lint/i18n parity/`test:coverage`/build、以及 e2e 作业**在本仓库中永不执行**。故 FR-G08/G09/G10 与 SC-G03/SC-G07 所声称的"门禁生效"当前是**名义的**——与本规格要消灭的形态同型。二选一：①配置远端使 CI 能触发，并在 CI 中留下一次真实运行记录（含 e2e）；②在 `spec.md`／`quickstart.md` 显式声明"CI 不可执行，门禁以本地命令为准"，并给出每道门禁的本地等效命令与**执行记录**要求（含 i18n parity 这道 1.4 新增的门禁）。无论选哪条，都不得让"ci.yml 里写着"充当已生效的证据。per FR-G10 / FR-G08 / FR-G09 (missing)
+
+- [ ] T070 对齐 `frontend/Dockerfile` 的基础镜像版本：`:9` 为 `FROM node:20-alpine`，而 `package.json:6` 的 `packageManager: pnpm@11.7.0` 要求 node ≥ **22.13**（`ci.yml:29-30` 已就此实测记录过：node 18 上 pnpm 无法运行、前端作业整体不可达，故 CI 升至 22）。同一约束在 CI 已知、在镜像里未同步，预期镜像构建在 `pnpm install` 处失败，**即 SC-G06"干净检出一键启动"不成立**。改为 `node:22-alpine`（与 CI 一致）。本项未实跑（本机无 Docker），故是"静态不一致 + 预期失败"；连同 T067 一起验证，且**以实跑为准**——若实跑反而通过，也要记录 pnpm 为何允许。per FR-G20 / SC-G06 (partial)
+
+- [ ] T071 处理 FR-G14 六个权限码的**预置授予**或显式记录其默认后果。实测：`export:scheduled`、`export:compliance`、`retention:create|update|delete|execute` 六个码**在字典中**（`RoleConstants` 内，故可在角色页授予，已排除"授不了权"——`RequirePermissionCatalogTest` 绿），但**全部迁移中零授予**（逐个 grep 0 命中），而矩阵中绝大多数同类码是有种子的。后果：升级后除 ADMIN 外**一律 403**，须管理员手工在角色页授予。二选一：①新增迁移把这六个码种进应当拥有它们的预置角色（须同步 `schema-h2.sql` 镜像，受 SchemaParityIT 约束）；②在 `spec.md` 显式记录"这三个模块默认仅 ADMIN，其余角色须授予"。**同时必须改验证方式**：`SecurityHardeningIT` 用自建持码角色（`ensureRole(..., List.of("export:scheduled"))`）验证的是**机制**，因此"预置矩阵实际不含这些码"这一后果至今无人看见——补一条以**预置角色**为视角的用例，否则同类缺口下次仍会被自建角色的用例掩盖。per FR-G14 (partial)
+
+- [ ] T072 让 FR-G07 的守卫与镜像文件**机械关联**。现状 `SchemaParityIT` 从不读 `schema-h2.sql`：它枚举迁移版本号，与硬编码的 `MIRRORED_MIGRATIONS`（`:32-39`）比对。因此"新增迁移但未镜像 SQL、同时把版本号加进清单"会**静默通过**——守卫强制的是"新迁移⇒清单更新"，不是"新迁移⇒SQL 已镜像"。其 javadoc（`:20-23`）自承不覆盖内容漂移，故这是**有意的设计取舍**而非疏漏；但本规格的核心命题就是"防复发"，而这道唯一的防复发机制可以被一次清单编辑绕过。建议加一道低脆弱的机械检查：要求 `schema-h2.sql` 中出现每个已声明版本的显式标记（如 `-- V85`），使"镜像文件本身必须被改动"成为机械事实；解析 DDL 文本的方案脆弱，不必强求。**反向验证须做**（T020 立下的规矩）：先确认该检查在"只改清单不镜像"时确实变红。per FR-G07 (partial)
+
+- [ ] T073 补强 SC-G04 的自动化证据：`frontend/e2e/module-page-auth.spec.ts` 的三条断言是①带真实令牌②**不得出现 401**③`bodyLen > 0`。列表接口返回 **500 或 404 同样通过**（均非 401、页面仍有骨架文本），而 `/quotas` 的空表在历史上正是由 500 或 401 同样产生的——即该用例**测不出它要防的症状**。`settle()` 已采集 `rows` 与 `empty`（`:60-64`）却从不断言。请在列表页补：模块接口返回 2xx、"行数>0 或明确的空状态"二者之一，并让空状态与"请求失败"可区分（这是本页症状的本质）。注意勿把"行数>0"写成硬断言——空库上它本就可以为 0，写死会制造假红。per SC-G04 (partial)
+
+- [ ] T074 为 `sales_quota*` 与 `data_retention*` 两组表补最小集成测试。镜像本身已逐条比对通过（V71/V73/V74 的建表、列、唯一约束与索引均在 `schema-h2.sql` 中），但**没有任何 IT 在读这两组表**（无 SalesQuotaIT／ScheduledExportIT／DataRetentionIT；`scheduled_export` 仅被 `SecurityHardeningIT` 顺带触碰）。即"为支撑集成测试而镜像的表"缺运行证据——镜像若与 V71/V73/V74 有实质偏差（H2 方言、类型替换、约束语义）不会被任何用例发现。FR-G04 的目的是让这些模块可被集成测试覆盖，不只是让脚本被翻译一遍。per FR-G04 / FR-G05 (partial)
+
+- [ ] T075 在投递时对**当前地址**也做一次出站校验：`WebhookDeliverer.java:107-109` 取已落库的 `callbackUrl` 直接 `postForEntity`，只有**重定向的后续跳**过 `resolveRedirect` 校验；`WebhookService.publishToUrl:170` 也直接 `setCallbackUrl`。新建路径已在写入时校验（`WebhookService.java:64`），故影响面是**修复前已落库的行**与内部通道。属纵深防御：校验成本极低，且这是"所有出站 URL 统一校验"（FR-G13）唯一的漏点。per FR-G13 (partial)
+
+- [ ] T076 对齐 `specs/README.md` 的迁移事实：`:3` 版本行写"V1~V78 迁移，85 张表"，`:122` 表格标题写"Flyway V1~V78"且止于 V78，而实测为 **V1~V84、83 个脚本、无 V72**（`ls V*.sql | wc -l` = 83，最大 V84）。T065 已把 `INSTALL.md` 更正为同一组实测值，两份文档现在互相矛盾。"85 张表"与 INSTALL.md 原件中已删除的"75 张表"同属无法从仓库核实的数字（权威结果只存在于运行中的库），按 T062 规则应改为可核实的"脚本数 + 末条版本号"。V79–V84 的模块归属由各自特性登记，不在本项范围。per FR-G04 登记面 / T062 (partial)
