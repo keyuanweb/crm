@@ -54,8 +54,8 @@ describe('PersonalCenterPage', () => {
       renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
-        // 使用包含"未分配"的描述项
-        const descriptions = screen.getAllByText(/未分配/)
+        // 使用包含"未分配"的描述项（文案已外化，断言键名）
+        const descriptions = screen.getAllByText(/pages\.personalCenter\.unassigned/)
         expect(descriptions.length).toBeGreaterThan(0)
       })
     })
@@ -74,11 +74,11 @@ describe('PersonalCenterPage', () => {
       renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('编辑显示名')).toBeInTheDocument()
+        expect(screen.getByText('pages.personalCenter.btnEditDisplayName')).toBeInTheDocument()
       })
 
-      fireEvent.click(screen.getByText('编辑显示名'))
-      expect(screen.getByLabelText('显示名')).toBeInTheDocument()
+      fireEvent.click(screen.getByText('pages.personalCenter.btnEditDisplayName'))
+      expect(screen.getByLabelText('pages.personalCenter.colDisplayName')).toBeInTheDocument()
     })
 
     it('保存显示名时进行表单验证（FR-008）', async () => {
@@ -93,16 +93,16 @@ describe('PersonalCenterPage', () => {
       renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('编辑显示名')).toBeInTheDocument()
+        expect(screen.getByText('pages.personalCenter.btnEditDisplayName')).toBeInTheDocument()
       })
 
-      fireEvent.click(screen.getByText('编辑显示名'))
-      fireEvent.click(screen.getByText('保存'))
+      fireEvent.click(screen.getByText('pages.personalCenter.btnEditDisplayName'))
+      fireEvent.click(screen.getByText('pages.personalCenter.btnSave'))
 
       // Ant Design Form 验证错误会显示在 Form.Item 中
       await waitFor(() => {
         // 验证触发后应该有错误提示或表单处于验证状态
-        expect(screen.getByLabelText('显示名')).toBeInTheDocument()
+        expect(screen.getByLabelText('pages.personalCenter.colDisplayName')).toBeInTheDocument()
       })
     })
 
@@ -118,12 +118,14 @@ describe('PersonalCenterPage', () => {
       renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('编辑显示名')).toBeInTheDocument()
+        expect(screen.getByText('pages.personalCenter.btnEditDisplayName')).toBeInTheDocument()
       })
 
-      fireEvent.click(screen.getByText('编辑显示名'))
-      fireEvent.change(screen.getByLabelText('显示名'), { target: { value: '新显示名' } })
-      fireEvent.click(screen.getByText('保存'))
+      fireEvent.click(screen.getByText('pages.personalCenter.btnEditDisplayName'))
+      fireEvent.change(screen.getByLabelText('pages.personalCenter.colDisplayName'), {
+        target: { value: '新显示名' },
+      })
+      fireEvent.click(screen.getByText('pages.personalCenter.btnSave'))
 
       await waitFor(() => {
         expect(personalService.updateDisplayName).toHaveBeenCalledWith({
@@ -146,13 +148,13 @@ describe('PersonalCenterPage', () => {
       renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('修改密码')).toBeInTheDocument()
+        expect(screen.getByText('pages.personalCenter.btnChangePassword')).toBeInTheDocument()
       })
 
-      fireEvent.click(screen.getByText('修改密码'))
-      expect(screen.getByLabelText('旧密码')).toBeInTheDocument()
-      expect(screen.getByLabelText('新密码')).toBeInTheDocument()
-      expect(screen.getByLabelText('确认新密码')).toBeInTheDocument()
+      fireEvent.click(screen.getByText('pages.personalCenter.btnChangePassword'))
+      expect(screen.getByLabelText('pages.changePassword.currentPassword')).toBeInTheDocument()
+      expect(screen.getByLabelText('pages.changePassword.newPassword')).toBeInTheDocument()
+      expect(screen.getByLabelText('pages.changePassword.confirmPassword')).toBeInTheDocument()
     })
 
     it('两次新密码不一致时提示错误（FR-005）', async () => {
@@ -167,17 +169,17 @@ describe('PersonalCenterPage', () => {
       renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('修改密码')).toBeInTheDocument()
+        expect(screen.getByText('pages.personalCenter.btnChangePassword')).toBeInTheDocument()
       })
 
-      fireEvent.click(screen.getByText('修改密码'))
-      fireEvent.change(screen.getByLabelText(/旧密码/), { target: { value: 'oldPass123' } })
-      fireEvent.change(screen.getByLabelText(/^新密码/), { target: { value: 'newPass456' } })
-      fireEvent.change(screen.getByLabelText(/确认新密码/), { target: { value: 'diffPass789' } })
-      fireEvent.click(screen.getByRole('button', { name: /确认修改/ }))
+      fireEvent.click(screen.getByText('pages.personalCenter.btnChangePassword'))
+      fireEvent.change(screen.getByLabelText(/pages\.changePassword\.currentPassword/), { target: { value: 'oldPass123' } })
+      fireEvent.change(screen.getByLabelText(/^pages\.changePassword\.newPassword$/), { target: { value: 'newPass456' } })
+      fireEvent.change(screen.getByLabelText(/pages\.changePassword\.confirmPassword/), { target: { value: 'diffPass789' } })
+      fireEvent.click(screen.getByRole('button', { name: /pages\.changePassword\.btnSubmit/ }))
 
       await waitFor(() => {
-        expect(screen.getByText('两次输入的新密码不一致')).toBeInTheDocument()
+        expect(screen.getByText('pages.changePassword.msgPasswordMismatch')).toBeInTheDocument()
         expect(userService.changeOwnPassword).not.toHaveBeenCalled()
       })
     })
@@ -197,14 +199,14 @@ describe('PersonalCenterPage', () => {
       renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('修改密码')).toBeInTheDocument()
+        expect(screen.getByText('pages.personalCenter.btnChangePassword')).toBeInTheDocument()
       })
 
-      fireEvent.click(screen.getByText('修改密码'))
-      fireEvent.change(screen.getByLabelText(/旧密码/), { target: { value: 'oldPass123' } })
-      fireEvent.change(screen.getByLabelText(/^新密码/), { target: { value: 'newPass456' } })
-      fireEvent.change(screen.getByLabelText(/确认新密码/), { target: { value: 'newPass456' } })
-      fireEvent.click(screen.getByRole('button', { name: /确认修改/ }))
+      fireEvent.click(screen.getByText('pages.personalCenter.btnChangePassword'))
+      fireEvent.change(screen.getByLabelText(/pages\.changePassword\.currentPassword/), { target: { value: 'oldPass123' } })
+      fireEvent.change(screen.getByLabelText(/^pages\.changePassword\.newPassword$/), { target: { value: 'newPass456' } })
+      fireEvent.change(screen.getByLabelText(/pages\.changePassword\.confirmPassword/), { target: { value: 'newPass456' } })
+      fireEvent.click(screen.getByRole('button', { name: /pages\.changePassword\.btnSubmit/ }))
 
       await waitFor(() => {
         expect(userService.changeOwnPassword).toHaveBeenCalledWith('oldPass123', 'newPass456')
@@ -226,7 +228,7 @@ describe('PersonalCenterPage', () => {
       renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('最后登录时间')).toBeInTheDocument()
+        expect(screen.getByText('pages.personalCenter.colLastLoginAt')).toBeInTheDocument()
       })
     })
 
@@ -244,9 +246,9 @@ describe('PersonalCenterPage', () => {
       renderWithProviders(<PersonalCenterPage />)
 
       await waitFor(() => {
-        // 使用正则表达式匹配"从未"上下文
+        // 文案已外化，断言键名（测试环境 t(key) 返回 key 本身）
         const allText = screen.getByTestId('security-card')
-        expect(allText.textContent).toContain('从未')
+        expect(allText.textContent).toContain('pages.personalCenter.neverLoggedIn')
       })
     })
   })

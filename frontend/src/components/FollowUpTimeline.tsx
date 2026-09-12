@@ -10,7 +10,8 @@ import {
   type FollowUpPayload,
 } from '../services/followUpService'
 import { extractErrorMessage } from '../services/apiClient'
-import { METHOD_LABELS, type FollowUp, type FollowUpMethod } from '../types/followUp'
+import { type FollowUp, type FollowUpMethod } from '../types/followUp'
+import { ENUM_KEYS, labelOf } from '../constants/enumLabels'
 import { useAuthStore } from '../store/authStore'
 
 interface Props {
@@ -117,7 +118,7 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
             color: f.method === 'PHONE' ? 'blue' : f.method === 'EMAIL' ? 'green' : 'gray',
             children: (
               <div>
-                <Typography.Text strong>{METHOD_LABELS[f.method]}</Typography.Text>{' '}
+                <Typography.Text strong>{labelOf(t, ENUM_KEYS.followUpMethod, f.method)}</Typography.Text>{' '}
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   {f.followUpByName ?? t('pages.followUpTimeline.unknown')} ·{' '}
                   {f.createdAt ? dayjs(f.createdAt).format('YYYY-MM-DD HH:mm') : ''}
@@ -148,9 +149,9 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
         <Form form={form} name="followUpForm" layout="vertical">
           <Form.Item name="method" label={t('pages.followUpTimeline.labelMethod')} rules={[{ required: true, message: t('pages.followUpTimeline.labelMethod') }]}>
             <Select
-              options={Object.entries(METHOD_LABELS).map(([value, label]) => ({
-                value,
-                label,
+              options={Object.keys(ENUM_KEYS.followUpMethod).map((code) => ({
+                value: code,
+                label: labelOf(t, ENUM_KEYS.followUpMethod, code),
               }))}
             />
           </Form.Item>

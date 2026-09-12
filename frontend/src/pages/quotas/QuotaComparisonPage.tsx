@@ -5,11 +5,13 @@ import { ArrowLeftOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Button, Card, Col, Flex, message, Progress, Row, Select, Space, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
 const QuotaComparisonPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [ranking, setRanking] = useState<TeamRanking[]>([]);
@@ -35,7 +37,7 @@ const QuotaComparisonPage: React.FC = () => {
 
   const columns: ColumnsType<TeamRanking> = [
     {
-      title: '排名',
+      title: t('pages.quotaComparison.colRank'),
       width: 80,
       render: (_, __, index) => (
         <Text strong style={{ color: index < 3 ? '#faad14' : '#595959' }}>
@@ -44,26 +46,26 @@ const QuotaComparisonPage: React.FC = () => {
       ),
     },
     {
-      title: '团队',
+      title: t('pages.quotaComparison.colTeam'),
       dataIndex: 'teamName',
       width: 200,
     },
     {
-      title: '配额金额（万）',
+      title: t('pages.quotaComparison.colQuotaAmount'),
       dataIndex: 'quotaAmount',
       width: 150,
       sorter: (a, b) => a.quotaAmount - b.quotaAmount,
       render: (val) => val?.toFixed(2),
     },
     {
-      title: '实际销售额（万）',
+      title: t('pages.quotaComparison.colActualAmount'),
       dataIndex: 'actualAmount',
       width: 150,
       sorter: (a, b) => a.actualAmount - b.actualAmount,
       render: (val) => val?.toFixed(2),
     },
     {
-      title: '达成率',
+      title: t('pages.quotaComparison.colAchievementRate'),
       dataIndex: 'achievementRate',
       width: 200,
       sorter: (a, b) => (a.achievementRate || 0) - (b.achievementRate || 0),
@@ -100,14 +102,14 @@ const QuotaComparisonPage: React.FC = () => {
     <div>
       <Space style={{ marginBottom: 16 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/quotas')}>
-          返回
+          {t('pages.quotaComparison.btnBack')}
         </Button>
-        <Title level={4}>配额对比分析</Title>
+        <Title level={4}>{t('pages.quotaComparison.title')}</Title>
       </Space>
 
       <Card style={{ marginBottom: 16 }}>
         <Flex gap={16} align="center">
-          <Text>年份：</Text>
+          <Text>{t('pages.quotaComparison.labelYear')}</Text>
           <Select<number>
             value={year}
             onChange={setYear}
@@ -117,8 +119,8 @@ const QuotaComparisonPage: React.FC = () => {
               value: new Date().getFullYear() - 2 + i,
             }))}
           />
-          <Button icon={<DownloadOutlined />} onClick={() => message.info('导出功能开发中')}>
-            导出报表
+          <Button icon={<DownloadOutlined />} onClick={() => message.info(t('pages.quotaComparison.msgExportWip'))}>
+            {t('pages.quotaComparison.btnExport')}
           </Button>
         </Flex>
       </Card>
@@ -129,8 +131,8 @@ const QuotaComparisonPage: React.FC = () => {
             <Flex gap={8} align="center">
               <span style={{ fontSize: 24 }}>📊</span>
               <div>
-                <div style={{ color: '#8c8c8c', fontSize: 12 }}>总配额</div>
-                <div style={{ fontSize: 20, fontWeight: 600 }}>{totalQuota.toFixed(2)} 万</div>
+                <div style={{ color: '#8c8c8c', fontSize: 12 }}>{t('pages.quotaComparison.statTotalQuota')}</div>
+                <div style={{ fontSize: 20, fontWeight: 600 }}>{totalQuota.toFixed(2)} {t('pages.quotaComparison.unitWan')}</div>
               </div>
             </Flex>
           </Card>
@@ -140,8 +142,8 @@ const QuotaComparisonPage: React.FC = () => {
             <Flex gap={8} align="center">
               <span style={{ fontSize: 24 }}>💰</span>
               <div>
-                <div style={{ color: '#8c8c8c', fontSize: 12 }}>总实际</div>
-                <div style={{ fontSize: 20, fontWeight: 600 }}>{totalActual.toFixed(2)} 万</div>
+                <div style={{ color: '#8c8c8c', fontSize: 12 }}>{t('pages.quotaComparison.statTotalActual')}</div>
+                <div style={{ fontSize: 20, fontWeight: 600 }}>{totalActual.toFixed(2)} {t('pages.quotaComparison.unitWan')}</div>
               </div>
             </Flex>
           </Card>
@@ -151,7 +153,7 @@ const QuotaComparisonPage: React.FC = () => {
             <Flex gap={8} align="center">
               <span style={{ fontSize: 24 }}>📈</span>
               <div>
-                <div style={{ color: '#8c8c8c', fontSize: 12 }}>总达成率</div>
+                <div style={{ color: '#8c8c8c', fontSize: 12 }}>{t('pages.quotaComparison.statTotalRate')}</div>
                 <div style={{ fontSize: 20, fontWeight: 600, color: overallRate >= 80 ? '#52c41a' : overallRate >= 60 ? '#faad14' : '#ff4d4f' }}>
                   {overallRate.toFixed(1)}%
                 </div>
@@ -161,7 +163,7 @@ const QuotaComparisonPage: React.FC = () => {
         </Col>
       </Row>
 
-      <Card title="团队达成率排名">
+      <Card title={t('pages.quotaComparison.cardRanking')}>
         <Table<TeamRanking>
           columns={columns}
           dataSource={ranking}

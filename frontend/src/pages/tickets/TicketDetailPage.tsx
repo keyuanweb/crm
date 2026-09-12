@@ -17,14 +17,12 @@ import { extractErrorMessage } from '../../services/apiClient'
 import SurveyBlock from '../../components/SurveyBlock'
 import {
   TICKET_PRIORITY_COLORS,
-  TICKET_PRIORITY_LABELS,
   TICKET_SLA_COLORS,
-  TICKET_SLA_LABELS,
   TICKET_STATUS_COLORS,
-  TICKET_STATUS_LABELS,
   type Ticket,
   type TicketReply,
 } from '../../types/ticket'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
 export default function TicketDetailPage() {
   const { t } = useTranslation()
@@ -184,17 +182,21 @@ export default function TicketDetailPage() {
             {ticket.customerName ?? `#${ticket.customerId}`}
           </Descriptions.Item>
           <Descriptions.Item label={t('pages.ticket.detail.labelStatus')}>
-            <Tag color={TICKET_STATUS_COLORS[ticket.status]}>{TICKET_STATUS_LABELS[ticket.status]}</Tag>
+            <Tag color={TICKET_STATUS_COLORS[ticket.status]}>
+              {labelOf(t, ENUM_KEYS.ticketStatus, ticket.status)}
+            </Tag>
           </Descriptions.Item>
           <Descriptions.Item label={t('pages.ticket.detail.labelPriority')}>
             <Tag color={TICKET_PRIORITY_COLORS[ticket.priority]}>
-              {TICKET_PRIORITY_LABELS[ticket.priority]}
+              {labelOf(t, ENUM_KEYS.ticketPriority, ticket.priority)}
             </Tag>
           </Descriptions.Item>
         <Descriptions.Item label={t('pages.ticket.detail.labelAssignee')}>{ticket.assigneeName ?? t('pages.ticket.detail.unassigned')}</Descriptions.Item>
         <Descriptions.Item label={t('pages.ticket.detail.labelSlaStatus')}>
           {ticket.slaStatus ? (
-            <Tag color={TICKET_SLA_COLORS[ticket.slaStatus]}>{TICKET_SLA_LABELS[ticket.slaStatus]}</Tag>
+            <Tag color={TICKET_SLA_COLORS[ticket.slaStatus]}>
+              {labelOf(t, ENUM_KEYS.ticketSla, ticket.slaStatus)}
+            </Tag>
           ) : (
             '-'
           )}

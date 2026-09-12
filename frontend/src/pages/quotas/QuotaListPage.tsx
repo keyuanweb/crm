@@ -6,9 +6,11 @@ import { ProTable } from '@ant-design/pro-components';
 import { Button, Card, Col, Flex, Row } from 'antd';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 const QuotaListPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const actionRef = useRef<ActionType>();
   const [year] = useState(new Date().getFullYear());
@@ -23,63 +25,63 @@ const QuotaListPage: React.FC = () => {
 
   const columns: ProColumns<SalesQuotaResponse>[] = [
     {
-      title: '年份',
+      title: t('pages.quotaList.colYear'),
       dataIndex: 'year',
       width: 80,
       search: false,
     },
     {
-      title: '季度',
+      title: t('pages.quotaList.colQuarter'),
       dataIndex: 'quarter',
       width: 80,
       search: false,
-      render: (val) => val ? `Q${val}` : '年度',
+      render: (val) => val ? `Q${val}` : t('pages.quotaList.annual'),
     },
     {
-      title: '团队',
+      title: t('pages.quotaList.colTeam'),
       dataIndex: 'teamName',
       width: 120,
       search: false,
     },
     {
-      title: '销售',
+      title: t('pages.quotaList.colSales'),
       dataIndex: 'userName',
       width: 100,
       search: false,
     },
     {
-      title: '配额金额（万）',
+      title: t('pages.quotaList.colQuotaAmount'),
       dataIndex: 'amount',
       width: 120,
       search: false,
       render: (val) => (typeof val === 'number' ? val.toFixed(2) : val),
     },
     {
-      title: '实际销售额（万）',
+      title: t('pages.quotaList.colActualAmount'),
       dataIndex: 'actualAmount',
       width: 120,
       search: false,
       render: (val) => (typeof val === 'number' ? val.toFixed(2) : '-'),
     },
     {
-      title: '达成率',
+      title: t('pages.quotaList.colAchievementRate'),
       dataIndex: 'achievementRate',
       width: 100,
       search: false,
       render: (val) => (typeof val === 'number' ? `${val.toFixed(1)}%` : '-'),
     },
     {
-      title: '状态',
+      title: t('pages.quotaList.colStatus'),
       dataIndex: 'status',
       width: 100,
       valueEnum: {
-        ACTIVE: { text: '活跃', status: 'Success' },
-        DRAFT: { text: '草稿', status: 'Warning' },
-        CLOSED: { text: '已关闭', status: 'Error' },
+        ACTIVE: { text: t('pages.quotaList.statusActive'), status: 'Success' },
+        DRAFT: { text: t('common.status.draft'), status: 'Warning' },
+        CLOSED: { text: t('common.status.closed'), status: 'Error' },
       },
     },
     {
-      title: '创建时间',
+      title: t('pages.quotaList.colCreatedAt'),
       dataIndex: 'createdAt',
       width: 160,
       search: false,
@@ -95,9 +97,9 @@ const QuotaListPage: React.FC = () => {
             <Flex gap={8} align="center">
               <TeamOutlined style={{ fontSize: 24, color: '#1890ff' }} />
               <div>
-                <div style={{ color: '#8c8c8c', fontSize: 12 }}>总配额</div>
+                <div style={{ color: '#8c8c8c', fontSize: 12 }}>{t('pages.quotaList.statTotalQuota')}</div>
                 <div style={{ fontSize: 20, fontWeight: 600 }}>
-                  {summary ? summary.totalQuota.toFixed(2) : '--'} 万
+                  {summary ? summary.totalQuota.toFixed(2) : '--'} {t('pages.quotaList.unitWan')}
                 </div>
               </div>
             </Flex>
@@ -108,9 +110,9 @@ const QuotaListPage: React.FC = () => {
             <Flex gap={8} align="center">
               <UserOutlined style={{ fontSize: 24, color: '#52c41a' }} />
               <div>
-                <div style={{ color: '#8c8c8c', fontSize: 12 }}>总实际</div>
+                <div style={{ color: '#8c8c8c', fontSize: 12 }}>{t('pages.quotaList.statTotalActual')}</div>
                 <div style={{ fontSize: 20, fontWeight: 600 }}>
-                  {summary ? summary.totalActual.toFixed(2) : '--'} 万
+                  {summary ? summary.totalActual.toFixed(2) : '--'} {t('pages.quotaList.unitWan')}
                 </div>
               </div>
             </Flex>
@@ -121,7 +123,7 @@ const QuotaListPage: React.FC = () => {
             <Flex gap={8} align="center">
               <span style={{ fontSize: 24 }}>📊</span>
               <div>
-                <div style={{ color: '#8c8c8c', fontSize: 12 }}>总达成率</div>
+                <div style={{ color: '#8c8c8c', fontSize: 12 }}>{t('pages.quotaList.statTotalRate')}</div>
                 <div style={{ fontSize: 20, fontWeight: 600 }}>
                   {summary ? summary.achievementRate.toFixed(1) : '--'}%
                 </div>
@@ -133,7 +135,7 @@ const QuotaListPage: React.FC = () => {
 
       <ProTable<SalesQuotaResponse>
         actionRef={actionRef}
-        headerTitle="配额列表"
+        headerTitle={t('pages.quotaList.title')}
         rowKey="id"
         columns={columns}
         request={async (params) => {
@@ -165,10 +167,10 @@ const QuotaListPage: React.FC = () => {
               icon={<BarChartOutlined />}
               onClick={() => navigate('/quotas/comparison')}
             >
-              配额对比
+              {t('pages.quotaList.btnComparison')}
             </Button>,
             <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => navigate('/quotas/create')}>
-              创建配额
+              {t('pages.quotaList.btnCreate')}
             </Button>,
           ],
         }}

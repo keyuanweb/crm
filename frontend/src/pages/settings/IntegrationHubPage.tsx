@@ -12,7 +12,8 @@ import {
   updateChannel,
 } from '../../services/integrationService'
 import { extractErrorMessage } from '../../services/apiClient'
-import { CHANNEL_TYPE_LABELS, type IntegrationChannel } from '../../types/integration'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { type IntegrationChannel } from '../../types/integration'
 
 interface FormValues {
   channelType: string
@@ -35,8 +36,8 @@ export default function IntegrationHubPage() {
     {
       title: t('pages.integrationHub.colType'),
       dataIndex: 'channelType',
-      valueEnum: Object.fromEntries(Object.entries(CHANNEL_TYPE_LABELS).map(([k, v]) => [k, { text: v }])),
-      render: (_, row) => <Tag color="blue">{CHANNEL_TYPE_LABELS[row.channelType] ?? row.channelType}</Tag>,
+      valueEnum: Object.fromEntries(Object.keys(ENUM_KEYS.channelType).map((code) => [code, { text: labelOf(t, ENUM_KEYS.channelType, code) }])),
+      render: (_, row) => <Tag color="blue">{labelOf(t, ENUM_KEYS.channelType, row.channelType)}</Tag>,
     },
     { title: t('pages.integrationHub.colName'), dataIndex: 'name' },
     { title: t('pages.integrationHub.colWebhookUrl'), dataIndex: 'webhookUrl', search: false, ellipsis: true },
@@ -149,7 +150,7 @@ export default function IntegrationHubPage() {
       >
         <Form form={form} layout="vertical">
           <Form.Item name="channelType" label={t('pages.integrationHub.formChannelTypeLabel')} rules={[{ required: true, message: t('pages.integrationHub.formChannelTypeRequired') }]}>
-            <Select options={Object.entries(CHANNEL_TYPE_LABELS).map(([value, label]) => ({ value, label }))} />
+            <Select options={Object.keys(ENUM_KEYS.channelType).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.channelType, code) }))} />
           </Form.Item>
           <Form.Item name="name" label={t('pages.integrationHub.formNameLabel')} rules={[{ required: true, message: t('pages.integrationHub.formNameRequired') }]}>
             <Input placeholder={t('pages.integrationHub.formNamePlaceholder')} maxLength={100} />

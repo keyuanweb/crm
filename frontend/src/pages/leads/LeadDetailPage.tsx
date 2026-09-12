@@ -18,11 +18,8 @@ import {
 } from '@ant-design/icons'
 import { fetchLead } from '../../services/leadService'
 import { extractErrorMessage } from '../../services/apiClient'
-import {
-  SOURCE_LABELS,
-  STATUS_LABELS,
-  type LeadDetail,
-} from '../../types/lead'
+import type { LeadDetail } from '../../types/lead'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import FollowUpTimeline from '../../components/FollowUpTimeline'
 import LeadConvertModal from '../../components/LeadConvertModal'
 import { StatusTag } from '../../components/ui'
@@ -85,14 +82,14 @@ export default function LeadDetailPage() {
       QUALIFIED: 'success',
       DISQUALIFIED: 'danger',
     }
-    const label = STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status
+    const label = labelOf(t, ENUM_KEYS.leadStatus, status)
     return <StatusTag type={type[status] ?? 'default'}>{label}</StatusTag>
   }
 
   // 来源 Tag
   const renderSource = (source?: string) => {
     if (!source) return <StatusTag>-</StatusTag>
-    const label = SOURCE_LABELS[source as keyof typeof SOURCE_LABELS] || source
+    const label = labelOf(t, ENUM_KEYS.source, source)
     return <StatusTag type="info">{label}</StatusTag>
   }
 
@@ -160,7 +157,7 @@ export default function LeadDetailPage() {
                   {lead.name}
                 </Typography.Title>
                 <StatusTag type={lead.status === 'QUALIFIED' ? 'success' : lead.status === 'WORKING' ? 'warning' : lead.status === 'NEW' ? 'info' : 'default'}>
-                  {STATUS_LABELS[lead.status as keyof typeof STATUS_LABELS] || lead.status}
+                  {labelOf(t, ENUM_KEYS.leadStatus, lead.status)}
                 </StatusTag>
                 {isConverted && (
                   <StatusTag type="success">

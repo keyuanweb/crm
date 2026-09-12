@@ -25,21 +25,24 @@ import {
 } from '../../services/approvalService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { fetchUsers } from '../../services/userService'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import type { ApprovalDetail, ApprovalTask } from '../../types/approval'
 
-const STATUS_LABELS: Record<string, { text: string; color: string }> = {
-  PENDING: { text: '待审批', color: 'processing' },
-  APPROVED: { text: '已通过', color: 'green' },
-  REJECTED: { text: '已驳回', color: 'red' },
-  TRANSFERRED: { text: '已转交', color: 'default' },
-}
-
-const ACTION_LABELS: Record<string, string> = {
-  SUBMIT: '提交审批',
-  APPROVE: '通过',
-  REJECT: '驳回',
-  TRANSFER: '转交',
-  RENEW: '重提',
+/**
+ * 审批状态 Tag 颜色。文案走 i18n，这里只留颜色。
+ *
+ * <p>实例与任务的状态码几乎同名，颜色可以共用一份（同一个码在两边就是同一个语义）；
+ * 但**文案不能共用一份映射**——`TRANSFERRED` 只出现在任务上、`CANCELED` 只出现在实例上，
+ * 见 `ENUM_KEYS.approvalInstanceStatus` / `approvalTaskStatus` 的说明。
+ */
+const STATUS_COLORS: Record<string, string> = {
+  PENDING: 'processing',
+  APPROVED: 'green',
+  REJECTED: 'red',
+  // 重提审批时旧实例被作废（`ApprovalEngineService` L231）
+  CANCELED: 'default',
+  // 转交只发生在任务上
+  TRANSFERRED: 'default',
 }
 
 export default function ApprovalCenterPage() {
@@ -130,10 +133,12 @@ export default function ApprovalCenterPage() {
       dataIndex: 'status',
       width: 90,
       search: false,
-      render: (_, row) => {
-        const s = STATUS_LABELS[row.status] ?? { text: row.status, color: 'default' }
-        return <Tag color={s.color}>{s.text}</Tag>
-      },
+      // 这一列是**审批任务**（行类型 `ApprovalTask`），走的必须是 approvalTaskStatus。
+      render: (_, row) => (
+        <Tag color={STATUS_COLORS[row.status] ?? 'default'}>
+          {labelOf(t, ENUM_KEYS.approvalTaskStatus, row.status)}
+        </Tag>
+      ),
     },
     { title: t('pages.approval.list.colComment'), dataIndex: 'comment', search: false, ellipsis: true, render: (_, row) => row.comment || '-' },
     {
@@ -236,8 +241,8 @@ export default function ApprovalCenterPage() {
               <Typography.Title level={5} style={{ marginBottom: 4 }}>
                 {detail.instance.title}
               </Typography.Title>
-              <Tag color={STATUS_LABELS[detail.instance.status]?.color ?? 'default'}>
-                {STATUS_LABELS[detail.instance.status]?.text ?? detail.instance.status}
+              <Tag color={STATUS_COLORS[detail.instance.status] ?? 'default'}>
+                {labelOf(t, ENUM_KEYS.approvalInstanceStatus, detail.instance.status)}
               </Tag>
             </div>
 
@@ -245,10 +250,13 @@ export default function ApprovalCenterPage() {
               <Steps
                 size="small"
                 direction="vertical"
-                current={detail.tasks.filter((t) => t.status !== 'PENDING').length}
-                items={detail.tasks.map((t) => ({
-                  title: t.nodeName,
-                  description: `${STATUS_LABELS[t.status]?.text ?? t.status}${t.comment ? '：' + t.comment : ''}`,
+                current={detail.tasks.filter((task) => task.status !== 'PENDING').length}
+                items={detail.tasks.map((task) => ({
+                  title: task.nodeName,
+                  // 注意：回调形参必须叫 task 而不是 t——叫 t 会遮蔽 useTranslation 的 t，
+                  // labelOf 就拿不到翻译函数了（同 TaskCalendarPage 的坑）。
+                  // 这里的每一步是一个「任务」，故用 approvalTaskStatus（含 TRANSFERRED）。
+                  description: `${labelOf(t, ENUM_KEYS.approvalTaskStatus, task.status)}${task.comment ? '：' + task.comment : ''}`,
                 }))}
               />
             </div>
@@ -260,7 +268,7 @@ export default function ApprovalCenterPage() {
                 items={detail.logs.map((l) => ({
                   children: (
                     <span>
-                      {ACTION_LABELS[l.action] ?? l.action} · 操作人 #{l.operator}
+                      {labelOf(t, ENUM_KEYS.approvalAction, l.action)} · 操作人 #{l.operator}
                       {l.comment ? `：「${l.comment}」` : ''}
                       <Typography.Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
                         {l.createdAt?.replace('T', ' ').slice(0, 16)}

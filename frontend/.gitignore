@@ -1,0 +1,3 @@
+# i18n 并行转换的临时键文件（scripts/merge-i18n-keys.mjs 的输入，合并后即弃）。
+# 加进忽略是为了防止并行会话的 `git add -A` 把中间产物提交进来。
+.i18n-keys/

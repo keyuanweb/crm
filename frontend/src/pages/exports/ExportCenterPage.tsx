@@ -9,12 +9,8 @@ import {
   fetchExportJobs,
 } from '../../services/exportService'
 import { extractErrorMessage } from '../../services/apiClient'
-import {
-  EXPORT_STATUS_LABELS,
-  EXPORT_TYPE_LABELS,
-  type ExportJob,
-  type ExportType,
-} from '../../types/export'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { type ExportJob, type ExportType } from '../../types/export'
 
 export default function ExportCenterPage() {
   const { t } = useTranslation()
@@ -48,14 +44,14 @@ export default function ExportCenterPage() {
       title: t('pages.exportCenter.colType'),
       dataIndex: 'exportType',
       search: false,
-      render: (_, row) => EXPORT_TYPE_LABELS[row.exportType as ExportType],
+      render: (_, row) => labelOf(t, ENUM_KEYS.exportType, row.exportType),
     },
     {
       title: t('pages.exportCenter.colStatus'),
       dataIndex: 'status',
       search: false,
       render: (_, row) => (
-        <Tag color={statusColor(row.status)}>{EXPORT_STATUS_LABELS[row.status as ExportJob['status']]}</Tag>
+        <Tag color={statusColor(row.status)}>{labelOf(t, ENUM_KEYS.exportStatus, row.status)}</Tag>
       ),
     },
     { title: t('pages.exportCenter.colRowCount'), dataIndex: 'rowCount', search: false },
@@ -93,7 +89,7 @@ export default function ExportCenterPage() {
           style={{ width: 180 }}
           value={exportType}
           onChange={setExportType}
-          options={Object.entries(EXPORT_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+          options={Object.keys(ENUM_KEYS.exportType).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.exportType, code) }))}
         />
         <Button type="primary" icon={<PlusOutlined />} onClick={() => void onExport()}>
           {t('pages.exportCenter.btnExport')}

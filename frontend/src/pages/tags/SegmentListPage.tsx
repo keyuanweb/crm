@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -36,13 +37,8 @@ interface FilterRow {
   value?: number
 }
 
-const FIELD_LABELS: Record<string, string> = {
-  tag: '标签',
-  amount: '订单金额（元）',
-  lastFollowUpDays: '距最近跟进天数',
-}
-
 export default function SegmentListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -55,6 +51,13 @@ export default function SegmentListPage() {
   const [memberDrawer, setMemberDrawer] = useState<Segment | null>(null)
   const [memberData, setMemberData] = useState<{ id: number; name: string; company?: string }[]>([])
   const nextKey = useRef(1)
+
+  // 条件字段下拉的显示名（原为模块级常量，含中文需 t()，故搬入组件内）
+  const fieldLabels: Record<string, string> = {
+    tag: t('pages.segmentList.fieldTag'),
+    amount: t('pages.segmentList.fieldAmount'),
+    lastFollowUpDays: t('pages.segmentList.fieldLastFollowUpDays'),
+  }
 
   useEffect(() => {
     void import('../../services/tagService').then(async ({ fetchTags }) => {
@@ -130,15 +133,15 @@ export default function SegmentListPage() {
     try {
       if (editing) {
         await updateSegment(editing.id, payload)
-        message.success('已保存')
+        message.success(t('common.message.saved'))
       } else {
         await createSegment(payload)
-        message.success('已创建')
+        message.success(t('pages.segmentList.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.segmentList.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -149,10 +152,10 @@ export default function SegmentListPage() {
   const onDelete = async (row: Segment) => {
     try {
       await deleteSegment(row.id)
-      message.success('已删除')
+      message.success(t('pages.segmentList.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.segmentList.msgDeleteFailed')))
     }
   }
 
@@ -163,28 +166,32 @@ export default function SegmentListPage() {
   }
 
   const columns: ProColumns<Segment>[] = [
-    { title: '名称', dataIndex: 'name' },
-    { title: '描述', dataIndex: 'description', search: false, ellipsis: true, render: (_, row) => row.description || '-' },
+    { title: t('pages.segmentList.colName'), dataIndex: 'name' },
+    { title: t('pages.segmentList.colDescription'), dataIndex: 'description', search: false, ellipsis: true, render: (_, row) => row.description || '-' },
     {
-      title: '成员数',
+      title: t('pages.segmentList.colMemberCount'),
       dataIndex: 'memberCount',
       width: 90,
       search: false,
       render: (_, row) => <Tag color="blue">{row.memberCount}</Tag>,
     },
     {
-      title: '操作',
+      title: t('pages.segmentList.colAction'),
       valueType: 'option',
       width: 180,
       render: (_, row) => [
         <a key="members" onClick={() => void openMembers(row)}>
-          成员
+          {t('pages.segmentList.members')}
         </a>,
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('common.button.edit')}
         </a>,
-        <Popconfirm key="delete" title={`确定删除细分「${row.name}」吗？`} onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm
+          key="delete"
+          title={t('pages.segmentList.confirmDelete', { name: row.name })}
+          onConfirm={() => onDelete(row)}
+        >
+          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -194,7 +201,7 @@ export default function SegmentListPage() {
     <>
       <ProTable<Segment>
         size="small"
-        headerTitle="客户细分"
+        headerTitle={t('pages.segmentList.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -207,31 +214,35 @@ export default function SegmentListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增细分
+            {t('pages.segmentList.btnAdd')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑细分' : '新增细分'}
+        title={editing ? t('pages.segmentList.modalEditTitle') : t('pages.segmentList.modalAddTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         destroyOnClose
         width={680}
       >
         <Form form={form} name="segmentForm" layout="horizontal" labelCol={{ flex: '80px' }} wrapperCol={{ flex: 1 }}>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="name" label="细分名" rules={[{ required: true, message: '请输入细分名' }]}>
-                <Input placeholder="如：高价值未跟进" />
+              <Form.Item
+                name="name"
+                label={t('pages.segmentList.formNameLabel')}
+                rules={[{ required: true, message: t('pages.segmentList.formNameRequired') }]}
+              >
+                <Input placeholder={t('pages.segmentList.formNamePlaceholder')} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="description" label="描述">
-                <Input placeholder="细分用途说明" />
+              <Form.Item name="description" label={t('pages.segmentList.formDescriptionLabel')}>
+                <Input placeholder={t('pages.segmentList.formDescriptionPlaceholder')} />
               </Form.Item>
             </Col>
           </Row>
@@ -239,10 +250,10 @@ export default function SegmentListPage() {
 
         <div style={{ marginBottom: 8 }}>
           <Space>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>条件逻辑：</span>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>{t('pages.segmentList.conditionLogicLabel')}</span>
             <Radio.Group value={logic} onChange={(e) => setLogic(e.target.value)} size="small">
-              <Radio.Button value="AND">满足全部（AND）</Radio.Button>
-              <Radio.Button value="OR">满足任一（OR）</Radio.Button>
+              <Radio.Button value="AND">{t('pages.segmentList.logicAnd')}</Radio.Button>
+              <Radio.Button value="OR">{t('pages.segmentList.logicOr')}</Radio.Button>
             </Radio.Group>
           </Space>
         </div>
@@ -255,7 +266,7 @@ export default function SegmentListPage() {
                   value={f.field}
                   onChange={(v) => updateFilter(f.key, { field: v, op: v === 'tag' ? 'IN' : 'GT' })}
                   style={{ width: '100%' }}
-                  options={Object.entries(FIELD_LABELS).map(([value, label]) => ({ value, label }))}
+                  options={Object.entries(fieldLabels).map(([value, label]) => ({ value, label }))}
                 />
               </Col>
               <Col span={5}>
@@ -265,12 +276,12 @@ export default function SegmentListPage() {
                   style={{ width: '100%' }}
                   options={
                     f.field === 'tag'
-                      ? [{ value: 'IN', label: '包含' }]
+                      ? [{ value: 'IN', label: t('pages.segmentList.opIn') }]
                       : [
-                          { value: 'GT', label: '大于' },
-                          { value: 'GTE', label: '大于等于' },
-                          { value: 'LT', label: '小于' },
-                          { value: 'LTE', label: '小于等于' },
+                          { value: 'GT', label: t('pages.segmentList.opGt') },
+                          { value: 'GTE', label: t('pages.segmentList.opGte') },
+                          { value: 'LT', label: t('pages.segmentList.opLt') },
+                          { value: 'LTE', label: t('pages.segmentList.opLte') },
                         ]
                   }
                 />
@@ -281,7 +292,7 @@ export default function SegmentListPage() {
                     mode="tags"
                     value={f.values}
                     onChange={(v) => updateFilter(f.key, { values: v as string[] })}
-                    placeholder="选择/输入标签名"
+                    placeholder={t('pages.segmentList.tagPlaceholder')}
                     style={{ width: '100%' }}
                     options={tagOptions}
                   />
@@ -289,32 +300,38 @@ export default function SegmentListPage() {
                   <InputNumber
                     value={f.value}
                     onChange={(v) => updateFilter(f.key, { value: v ?? undefined })}
-                    placeholder={f.field === 'lastFollowUpDays' ? '天数，如 30' : '金额，如 100000'}
+                    placeholder={
+                      f.field === 'lastFollowUpDays'
+                        ? t('pages.segmentList.daysPlaceholder')
+                        : t('pages.segmentList.amountPlaceholder')
+                    }
                     style={{ width: '100%' }}
                   />
                 )}
               </Col>
               <Col span={3}>
                 <Button size="small" danger onClick={() => removeFilter(f.key)}>
-                  删
+                  {t('pages.segmentList.btnRemoveCondition')}
                 </Button>
               </Col>
             </Row>
           ))}
           <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={addFilter} block>
-            添加条件
+            {t('pages.segmentList.btnAddCondition')}
           </Button>
         </div>
       </Modal>
 
       <Drawer
-        title={`细分成员：${memberDrawer?.name ?? ''}`}
+        title={t('pages.segmentList.memberDrawerTitle', { name: memberDrawer?.name ?? '' })}
         open={!!memberDrawer}
         onClose={() => setMemberDrawer(null)}
         width={420}
       >
         {memberData.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#8c8c8c', padding: 40 }}>暂无成员</div>
+          <div style={{ textAlign: 'center', color: '#8c8c8c', padding: 40 }}>
+            {t('pages.segmentList.emptyMembers')}
+          </div>
         ) : (
           memberData.map((m) => (
             <div key={m.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>

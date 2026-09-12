@@ -58,6 +58,10 @@ export default function ProductListPage() {
   const [editing, setEditing] = useState<Product | null>(null)
   const [form] = Form.useForm<FormValues>()
   const user = useAuthStore((s) => s.user)
+  // 保留角色判断：ProductController 的 create / update / delete 目前仍是
+  // @PreAuthorize("hasRole('ADMIN')")，字典里虽然已有 product:create / update / delete 三个码，
+  // 但没有任何端点在校验它们（`grep @RequirePermission ProductController` 为空）。
+  // 现在改成按码放行，等于把按钮发给一个后端还不认的角色——那正是本次要消灭的 403 形态。
   const isAdmin = user?.role === 'ADMIN'
   // 多币种价格（057 集成）
   const [currencyOptions, setCurrencyOptions] = useState<{ value: string; label: string }[]>([])

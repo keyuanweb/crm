@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Spin, Tag, Typography } from 'antd'
 import { FullscreenExitOutlined, FullscreenOutlined, ReloadOutlined } from '@ant-design/icons'
 import { fetchKpiBoard } from '../../services/kpiBoardService'
@@ -29,6 +30,7 @@ const Panel = ({ title, children }: { title: string; children: React.ReactNode }
 )
 
 export default function DataVisionPage() {
+  const { t } = useTranslation()
   const [data, setData] = useState<KpiBoard | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -46,10 +48,10 @@ export default function DataVisionPage() {
       setLastUpdated(new Date())
       setLoading(false)
     } catch {
-      setError('刷新失败，保留上次数据')
+      setError(t('pages.dataVision.refreshFailed'))
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -79,17 +81,17 @@ export default function DataVisionPage() {
       <div className="data-vision-header">
         <div>
           <NeonText color="#4da3ff" intensity={1.5} style={{ fontSize: 28 }}>
-            销售经营数据大屏
+            {t('pages.dataVision.title')}
           </NeonText>
           <Text style={{ color: '#5a7cb8', fontSize: 12, marginLeft: 16 }}>
-            数据自动刷新（30 秒）{error && <span style={{ color: '#ff4d4f' }}> · {error}</span>}
+            {t('pages.dataVision.autoRefreshHint')}{error && <span style={{ color: '#ff4d4f' }}> · {error}</span>}
           </Text>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Text style={{ color: '#7db4ff', fontSize: 14 }}>{nowStr}</Text>
           {lastUpdated && (
             <Tag color="blue" style={{ margin: 0, fontSize: 11 }}>
-              更新于 {lastUpdated.toLocaleTimeString('zh-CN')}
+              {t('pages.dataVision.refreshedAt', { time: lastUpdated.toLocaleTimeString('zh-CN') })}
             </Tag>
           )}
           <Button
@@ -98,14 +100,14 @@ export default function DataVisionPage() {
             onClick={handleManualRefresh}
             disabled={loading}
           >
-            刷新
+            {t('pages.dataVision.refresh')}
           </Button>
           <Button
             size="small"
             icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
             onClick={toggleFullscreen}
           >
-            {isFullscreen ? '退出全屏' : '全屏'}
+            {isFullscreen ? t('pages.dataVision.exitFullscreen') : t('pages.dataVision.fullscreen')}
           </Button>
         </div>
       </div>
@@ -133,19 +135,19 @@ export default function DataVisionPage() {
             } as React.CSSProperties}
           >
             {/* 第一行：销售漏斗 + 团队排行 + 客户健康度 */}
-            <Panel title="销售漏斗">
+            <Panel title={t('pages.dataVision.panel.salesFunnel')}>
               <FunnelChart stages={data.funnel.stages} />
             </Panel>
 
-            <Panel title="团队排行 TOP10">
+            <Panel title={t('pages.dataVision.panel.teamTop10')}>
               <LeaderboardChart data={data.leaderboard} />
             </Panel>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <Panel title="客户健康度分布">
+              <Panel title={t('pages.dataVision.panel.healthDistribution')}>
                 <HealthChart data={data.healthDistribution} />
               </Panel>
-              <Panel title="智能建议摘要">
+              <Panel title={t('pages.dataVision.panel.suggestionSummary')}>
                 <SuggestionCards data={data.suggestions} />
               </Panel>
             </div>
@@ -156,7 +158,7 @@ export default function DataVisionPage() {
                 gridColumn: `1 / ${columns + 1}`,
               }}
             >
-              <Panel title="近 30 天商机金额趋势">
+              <Panel title={t('pages.dataVision.panel.trend30d')}>
                 <TrendChart data={data.trend} />
               </Panel>
             </div>
@@ -164,13 +166,13 @@ export default function DataVisionPage() {
         </>
       ) : (
         <div style={{ textAlign: 'center', padding: 40, zIndex: 10, position: 'relative', color: '#ff4d4f' }}>
-          数据加载失败，请检查网络连接
+          {t('pages.dataVision.loadFailed')}
         </div>
       )}
 
       {/* 底部区域 */}
       <div className="data-vision-footer">
-        <span>数据大屏 v1.0 | 数据每 30 秒自动刷新 | 按 ESC 退出全屏</span>
+        <span>{t('pages.dataVision.footer')}</span>
       </div>
     </div>
   )

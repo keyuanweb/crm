@@ -47,23 +47,10 @@ export interface CalendarResponse {
   days: CalendarDay[]
 }
 
-export const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  HIGH: '高',
-  MEDIUM: '中',
-  LOW: '低',
-}
-
 export const PRIORITY_COLORS: Record<TaskPriority, string> = {
   HIGH: 'red',
   MEDIUM: 'gold',
   LOW: 'default',
-}
-
-export const REMINDER_LABELS: Record<TaskReminder, string> = {
-  OVERDUE: '逾期',
-  TODAY: '今日到期',
-  NORMAL: '正常',
-  DONE: '已完成',
 }
 
 export const REMINDER_COLORS: Record<TaskReminder, string> = {
@@ -71,11 +58,4 @@ export const REMINDER_COLORS: Record<TaskReminder, string> = {
   TODAY: 'gold',
   NORMAL: 'default',
   DONE: 'green',
-}
-
-export const LINKED_TYPE_LABELS: Record<LinkedType, string> = {
-  CUSTOMER: '客户',
-  LEAD: '线索',
-  CONTRACT: '合同',
-  ORDER: '订单',
 }

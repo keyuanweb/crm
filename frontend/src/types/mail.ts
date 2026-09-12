@@ -22,8 +22,3 @@ export interface MailSyncRecord {
   externalId?: string
   syncTime?: string
 }
-
-export const SYNC_DIRECTION_LABELS: Record<string, string> = {
-  INBOUND: '收件',
-  OUTBOUND: '发件',
-}

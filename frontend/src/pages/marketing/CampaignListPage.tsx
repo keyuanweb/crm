@@ -1,4 +1,5 @@
 ﻿import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Tag } from 'antd'
@@ -15,13 +16,12 @@ import {
 } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
 import {
-  CAMPAIGN_CHANNEL_LABELS,
   CAMPAIGN_STATUS_COLORS,
-  CAMPAIGN_STATUS_LABELS,
   type CampaignChannel,
   type CampaignStatus,
   type MarketingCampaign,
 } from '../../types/marketing'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
 interface FormValues {
   name: string
@@ -33,6 +33,7 @@ interface FormValues {
 }
 
 export default function CampaignListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -75,15 +76,15 @@ export default function CampaignListPage() {
     try {
       if (editing) {
         await updateCampaign(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.marketing.campaign.msgSaved'))
       } else {
         await createCampaign(payload)
-        message.success('已创建')
+        message.success(t('pages.marketing.campaign.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.campaign.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -92,97 +93,110 @@ export default function CampaignListPage() {
   const onStart = async (row: MarketingCampaign) => {
     try {
       await startCampaign(row.id)
-      message.success('活动已开始')
+      message.success(t('pages.marketing.campaign.msgStarted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.campaign.msgOperationFailed')))
     }
   }
 
   const onEnd = async (row: MarketingCampaign) => {
     try {
       await endCampaign(row.id)
-      message.success('活动已结束')
+      message.success(t('pages.marketing.campaign.msgEnded'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.campaign.msgOperationFailed')))
     }
   }
 
   const onDelete = async (row: MarketingCampaign) => {
     try {
       await deleteCampaign(row.id)
-      message.success('已删除')
+      message.success(t('pages.marketing.campaign.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.campaign.msgDeleteFailed')))
     }
   }
 
   const columns: ProColumns<MarketingCampaign>[] = [
-    { title: '活动名称', dataIndex: 'name' },
+    { title: t('pages.marketing.campaign.colName'), dataIndex: 'name' },
     {
-      title: '渠道',
+      title: t('pages.marketing.campaign.colChannel'),
       dataIndex: 'channel',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(CAMPAIGN_CHANNEL_LABELS).map(([k, v]) => [k, { text: v }]),
+        Object.keys(ENUM_KEYS.campaignChannel).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.campaignChannel, code) },
+        ]),
       ),
-      render: (_, row) => <Tag color="blue">{CAMPAIGN_CHANNEL_LABELS[row.channel]}</Tag>,
+      render: (_, row) => <Tag color="blue">{labelOf(t, ENUM_KEYS.campaignChannel, row.channel)}</Tag>,
     },
     {
-      title: '状态',
+      title: t('pages.marketing.campaign.colStatus'),
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(CAMPAIGN_STATUS_LABELS).map(([k, v]) => [
-          k,
-          { text: v, status: CAMPAIGN_STATUS_COLORS[k as CampaignStatus] },
+        Object.keys(ENUM_KEYS.campaignStatus).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.campaignStatus, code), status: CAMPAIGN_STATUS_COLORS[code as CampaignStatus] },
         ]),
       ),
     },
-    { title: '预算', dataIndex: 'budget', search: false },
-    { title: '成本', dataIndex: 'cost', search: false },
+    { title: t('pages.marketing.campaign.colBudget'), dataIndex: 'budget', search: false },
+    { title: t('pages.marketing.campaign.colCost'), dataIndex: 'cost', search: false },
     {
-      title: '归因线索',
+      title: t('pages.marketing.campaign.colAttributionLeads'),
       dataIndex: 'leadCount',
       search: false,
       render: (_, row) => row.leadCount ?? 0,
     },
     {
-      title: '归因客户',
+      title: t('pages.marketing.campaign.colAttributionCustomers'),
       dataIndex: 'customerCount',
       search: false,
       render: (_, row) => row.customerCount ?? 0,
     },
-    { title: '开始日期', dataIndex: 'startDate', search: false, valueType: 'date' },
-    { title: '结束日期', dataIndex: 'endDate', search: false, valueType: 'date' },
     {
-      title: '操作',
+      title: t('pages.marketing.campaign.colStartDate'),
+      dataIndex: 'startDate',
+      search: false,
+      valueType: 'date',
+    },
+    {
+      title: t('pages.marketing.campaign.colEndDate'),
+      dataIndex: 'endDate',
+      search: false,
+      valueType: 'date',
+    },
+    {
+      title: t('pages.marketing.campaign.colAction'),
       valueType: 'option',
       width: 200,
       render: (_, row) => [
         row.status === 'PLANNING' && (
           <a key="start" onClick={() => onStart(row)}>
-            开始
+            {t('pages.marketing.campaign.btnStart')}
           </a>
         ),
         row.status === 'RUNNING' && (
           <a key="end" onClick={() => onEnd(row)}>
-            结束
+            {t('pages.marketing.campaign.btnEnd')}
           </a>
         ),
         row.status !== 'ENDED' && (
           <a key="edit" onClick={() => openEdit(row)}>
-            编辑
+            {t('pages.marketing.campaign.btnEdit')}
           </a>
         ),
         <Popconfirm
           key="delete"
-          title={`确定删除活动「${row.name}」吗？有归因数据时将被拒绝。`}
+          title={t('pages.marketing.campaign.confirmDelete', { name: row.name })}
           onConfirm={() => onDelete(row)}
         >
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.marketing.campaign.btnDelete')}</a>
         </Popconfirm>,
       ],
     },
@@ -192,7 +206,7 @@ export default function CampaignListPage() {
     <>
       <ProTable<MarketingCampaign>
         size="small"
-        headerTitle="营销活动"
+        headerTitle={t('pages.marketing.campaign.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -211,21 +225,25 @@ export default function CampaignListPage() {
         }}
         toolBarRender={() => [
           <Link key="roi" to="/marketing/roi">
-            <Button>渠道 ROI</Button>
+            <Button>{t('pages.marketing.campaign.btnRoi')}</Button>
           </Link>,
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增活动
+            {t('pages.marketing.campaign.btnCreate')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑活动' : '新增活动'}
+        title={
+          editing
+            ? t('pages.marketing.campaign.modalEditTitle')
+            : t('pages.marketing.campaign.modalCreateTitle')
+        }
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.marketing.campaign.btnSave')}
         destroyOnClose
         width={640}
       >
@@ -238,32 +256,45 @@ export default function CampaignListPage() {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="name" label="活动名称" rules={[{ required: true, message: '请输入活动名称' }]}>
+              <Form.Item
+                name="name"
+                label={t('pages.marketing.campaign.formName')}
+                rules={[{ required: true, message: t('pages.marketing.campaign.msgNameRequired') }]}
+              >
                 <Input maxLength={100} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="channel" label="渠道" rules={[{ required: true, message: '请选择渠道' }]}>
-                <Select options={Object.entries(CAMPAIGN_CHANNEL_LABELS).map(([value, label]) => ({ value, label }))} />
+              <Form.Item
+                name="channel"
+                label={t('pages.marketing.campaign.formChannel')}
+                rules={[{ required: true, message: t('pages.marketing.campaign.msgChannelRequired') }]}
+              >
+                <Select
+                  options={Object.keys(ENUM_KEYS.campaignChannel).map((code) => ({
+                    value: code,
+                    label: labelOf(t, ENUM_KEYS.campaignChannel, code),
+                  }))}
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="budget" label="预算">
+              <Form.Item name="budget" label={t('pages.marketing.campaign.formBudget')}>
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="cost" label="成本">
+              <Form.Item name="cost" label={t('pages.marketing.campaign.formCost')}>
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="startDate" label="开始日期">
+              <Form.Item name="startDate" label={t('pages.marketing.campaign.formStartDate')}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="endDate" label="结束日期">
+              <Form.Item name="endDate" label={t('pages.marketing.campaign.formEndDate')}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>

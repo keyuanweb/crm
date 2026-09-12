@@ -1,4 +1,4 @@
-export type QuoteStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'
+export type QuoteStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'SIGNED'
 
 export interface QuoteItem {
   id: number
@@ -51,16 +51,12 @@ export interface QuoteListParams {
   pageSize: number
 }
 
-export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
-  DRAFT: '草稿',
-  PENDING_APPROVAL: '待审批',
-  APPROVED: '已通过',
-  REJECTED: '已拒绝',
-}
-
 export const QUOTE_STATUS_COLORS: Record<QuoteStatus, string> = {
   DRAFT: 'default',
   PENDING_APPROVAL: 'processing',
   APPROVED: 'success',
   REJECTED: 'error',
+  // 签署后是终态，用 cyan 与 APPROVED 的 success（同色系的绿）区分开。
+  // 与 `CONTRACT_STATUS_COLORS.SIGNED` 保持一致。
+  SIGNED: 'cyan',
 }

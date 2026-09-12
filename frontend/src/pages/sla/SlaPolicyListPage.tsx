@@ -12,7 +12,8 @@ import {
   type SlaPolicyPayload,
 } from '../../services/slaService'
 import { extractErrorMessage } from '../../services/apiClient'
-import { TICKET_PRIORITY_LABELS, type TicketPriority } from '../../types/ticket'
+import { type TicketPriority } from '../../types/ticket'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import type { SlaPolicy } from '../../types/sla'
 
 interface FormValues {
@@ -107,7 +108,9 @@ export default function SlaPolicyListPage() {
     {
       title: t('pages.slaPolicy.colPriority'),
       dataIndex: 'priority',
-      render: (_, row) => <Tag color="blue">{TICKET_PRIORITY_LABELS[row.priority]}</Tag>,
+      render: (_, row) => (
+        <Tag color="blue">{labelOf(t, ENUM_KEYS.ticketPriority, row.priority)}</Tag>
+      ),
     },
     {
       title: t('pages.slaPolicy.colRespondHours'),
@@ -138,7 +141,7 @@ export default function SlaPolicyListPage() {
         </a>,
         <Popconfirm
           key="delete"
-          title={t('pages.slaPolicy.confirmDelete', { priority: TICKET_PRIORITY_LABELS[row.priority] })}
+          title={t('pages.slaPolicy.confirmDelete', { priority: labelOf(t, ENUM_KEYS.ticketPriority, row.priority) })}
           onConfirm={() => onDelete(row)}
         >
           <a style={{ color: '#ff4d4f' }}>{t('pages.slaPolicy.delete')}</a>
@@ -194,7 +197,10 @@ export default function SlaPolicyListPage() {
           >
             <Select
               disabled={!!editing}
-              options={Object.entries(TICKET_PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
+              options={Object.keys(ENUM_KEYS.ticketPriority).map((code) => ({
+                value: code,
+                label: labelOf(t, ENUM_KEYS.ticketPriority, code),
+              }))}
             />
           </Form.Item>
           <div style={{ display: 'flex', gap: 12 }}>

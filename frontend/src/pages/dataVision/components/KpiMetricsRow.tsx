@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { KpiMetrics } from '../types'
 import KpiMetricCard from './KpiMetricCard'
 
@@ -13,6 +14,7 @@ interface KpiMetricsRowProps {
  * 展示 6 个核心 KPI 指标
  */
 export default function KpiMetricsRow({ kpi, style }: KpiMetricsRowProps) {
+  const { t } = useTranslation()
   return (
     <div
       className="kpi-metrics-row"
@@ -27,36 +29,36 @@ export default function KpiMetricsRow({ kpi, style }: KpiMetricsRowProps) {
       }}
     >
       <KpiMetricCard
-        label="商机总数"
+        label={t('pages.dataVision.kpi.opportunityCount')}
         value={kpi.opportunityCount}
         color="#4da3ff"
       />
       <KpiMetricCard
-        label="金额合计"
+        label={t('pages.dataVision.kpi.amountTotal')}
         value={kpi.amountTotal}
-        unit="元"
+        unit={t('pages.dataVision.kpi.unitYuan')}
         color="#7dd3fc"
         decimals={2}
       />
       <KpiMetricCard
-        label="赢单率"
+        label={t('pages.dataVision.kpi.winRate')}
         value={kpi.winRate * 100}
         unit="%"
         color="#52c41a"
         decimals={1}
       />
       <KpiMetricCard
-        label="客户总数"
+        label={t('pages.dataVision.kpi.customerCount')}
         value={kpi.customerCount}
         color="#fa8c16"
       />
       <KpiMetricCard
-        label="活跃客户"
+        label={t('pages.dataVision.kpi.activeCustomerCount')}
         value={kpi.activeCustomerCount}
         color="#b37feb"
       />
       <KpiMetricCard
-        label="本月新增客户"
+        label={t('pages.dataVision.kpi.newCustomersThisMonth')}
         value={kpi.newCustomersThisMonth}
         color="#ff85c0"
       />

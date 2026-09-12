@@ -59,13 +59,6 @@ export interface TicketReply {
   createdAt?: string
 }
 
-export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
-  OPEN: '待处理',
-  IN_PROGRESS: '处理中',
-  RESOLVED: '已解决',
-  CLOSED: '已关闭',
-}
-
 export const TICKET_STATUS_COLORS: Record<TicketStatus, string> = {
   OPEN: 'red',
   IN_PROGRESS: 'processing',
@@ -73,24 +66,11 @@ export const TICKET_STATUS_COLORS: Record<TicketStatus, string> = {
   CLOSED: 'default',
 }
 
-export const TICKET_PRIORITY_LABELS: Record<TicketPriority, string> = {
-  LOW: '低',
-  MEDIUM: '中',
-  HIGH: '高',
-  URGENT: '紧急',
-}
-
 export const TICKET_PRIORITY_COLORS: Record<TicketPriority, string> = {
   LOW: 'default',
   MEDIUM: 'blue',
   HIGH: 'orange',
   URGENT: 'red',
-}
-
-export const TICKET_SLA_LABELS: Record<TicketSlaStatus, string> = {
-  NORMAL: '正常',
-  WARNING: '即将超时',
-  OVERDUE: '已超时',
 }
 
 export const TICKET_SLA_COLORS: Record<TicketSlaStatus, string> = {

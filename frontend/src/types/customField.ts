@@ -29,18 +29,3 @@ export interface CustomFieldValue {
   fieldName?: string
   value?: string
 }
-
-export const FIELD_ENTITY_LABELS: Record<FieldEntityType, string> = {
-  LEAD: '线索',
-  CUSTOMER: '客户',
-  OPPORTUNITY: '商机',
-  TICKET: '工单',
-}
-
-export const FIELD_TYPE_LABELS: Record<FieldType, string> = {
-  TEXT: '单行文本',
-  TEXTAREA: '多行文本',
-  NUMBER: '数字',
-  DATE: '日期',
-  SELECT: '下拉选择',
-}

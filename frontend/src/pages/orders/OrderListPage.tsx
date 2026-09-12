@@ -29,12 +29,10 @@ import { fetchCustomers } from '../../services/customerService'
 import { fetchContracts } from '../../services/contractService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
-import {
-  ORDER_STATUS_COLORS,
-  ORDER_STATUS_LABELS,
-  type Order,
-  type PlanItemPayload,
-} from '../../types/order'
+import { hasPerm } from '../../hooks/usePermission'
+import { PERMS } from '../../constants/permissions'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { ORDER_STATUS_COLORS, type Order, type PlanItemPayload } from '../../types/order'
 
 interface FormValues {
   title: string
@@ -63,7 +61,8 @@ export default function OrderListPage() {
   const [contractOptions, setContractOptions] = useState<{ value: number; label: string }[]>([])
   const [planModalOpen, setPlanModalOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.role === 'ADMIN'
+  // 删除订单按权限码而不是角色名：OrderController.delete 标的是 order:delete。
+  const canDelete = hasPerm(PERMS.orderDelete, user)
 
   const reload = () => actionRef.current?.reload()
 
@@ -181,10 +180,15 @@ export default function OrderListPage() {
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(ORDER_STATUS_LABELS).map(([k, v]) => [k, { text: v }]),
+        Object.keys(ENUM_KEYS.orderStatus).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.orderStatus, code) },
+        ]),
       ),
       render: (_, row) => (
-        <Tag color={ORDER_STATUS_COLORS[row.status]}>{ORDER_STATUS_LABELS[row.status]}</Tag>
+        <Tag color={ORDER_STATUS_COLORS[row.status]}>
+          {labelOf(t, ENUM_KEYS.orderStatus, row.status)}
+        </Tag>
       ),
     },
     {
@@ -204,7 +208,7 @@ export default function OrderListPage() {
       valueType: 'option',
       width: 100,
       render: (_, row) =>
-        isAdmin
+        canDelete
           ? [
               <Popconfirm key="delete" title={t('pages.order.list.deleteConfirm', { name: row.title })} onConfirm={() => onDelete(row)}>
                 <a style={{ color: '#ff4d4f' }}>

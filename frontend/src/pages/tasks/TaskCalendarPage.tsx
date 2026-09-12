@@ -7,7 +7,8 @@ import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { useQuery } from '@tanstack/react-query'
 import { fetchTaskCalendar } from '../../services/taskService'
-import { PRIORITY_COLORS, PRIORITY_LABELS, REMINDER_COLORS, REMINDER_LABELS, type TaskItem } from '../../types/task'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { PRIORITY_COLORS, REMINDER_COLORS, type TaskItem } from '../../types/task'
 
 export default function TaskCalendarPage() {
   const { t } = useTranslation()
@@ -78,21 +79,25 @@ export default function TaskCalendarPage() {
         ) : (
           <List
             dataSource={selectedTasks}
-            renderItem={(t) => (
+            renderItem={(task) => (
               <List.Item>
                 <List.Item.Meta
                   title={
                     <span>
-                      {t.title}{' '}
-                      <Tag color={REMINDER_COLORS[t.reminderStatus]}>{REMINDER_LABELS[t.reminderStatus]}</Tag>
+                      {task.title}{' '}
+                      <Tag color={REMINDER_COLORS[task.reminderStatus]}>
+                        {labelOf(t, ENUM_KEYS.taskReminder, task.reminderStatus)}
+                      </Tag>
                     </span>
                   }
                   description={
                     <>
                       <Typography.Text type="secondary">
-                        截止：{t.dueAt ? t.dueAt.replace('T', ' ').slice(0, 16) : '-'}
+                        截止：{task.dueAt ? task.dueAt.replace('T', ' ').slice(0, 16) : '-'}
                       </Typography.Text>{' '}
-                      <Tag color={PRIORITY_COLORS[t.priority]}>{PRIORITY_LABELS[t.priority]}</Tag>
+                      <Tag color={PRIORITY_COLORS[task.priority]}>
+                        {labelOf(t, ENUM_KEYS.priority, task.priority)}
+                      </Tag>
                     </>
                   }
                 />

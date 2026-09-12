@@ -5,11 +5,13 @@ import { ArrowLeftOutlined, CheckOutlined, CloseOutlined, PlusOutlined } from '@
 import { Button, Card, message, Space, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
 const QuotaBreakdownPage: React.FC = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [quota, setQuota] = useState<SalesQuotaResponse | null>(null);
@@ -35,33 +37,33 @@ const QuotaBreakdownPage: React.FC = () => {
 
   const columns: ColumnsType<SalesQuotaBreakdownRequest> = [
     {
-      title: '季度',
+      title: t('pages.quotaBreakdown.colQuarter'),
       dataIndex: 'quarter',
       width: 100,
       render: (val) => (val ? `Q${val}` : '-'),
     },
     {
-      title: '团队',
+      title: t('pages.quotaBreakdown.colTeam'),
       dataIndex: 'teamId',
       width: 100,
     },
     {
-      title: '销售',
+      title: t('pages.quotaBreakdown.colSales'),
       dataIndex: 'userId',
       width: 100,
     },
     {
-      title: '分解金额（万）',
+      title: t('pages.quotaBreakdown.colAmount'),
       dataIndex: 'amount',
       width: 150,
       render: (val) => val?.toFixed(2),
     },
     {
-      title: '操作',
+      title: t('pages.quotaBreakdown.colAction'),
       width: 80,
       render: (_, __, index) => (
         <Button danger size="small" onClick={() => setBreakdowns(breakdowns.filter((_, i) => i !== index))}>
-          删除
+          {t('common.button.delete')}
         </Button>
       ),
     },
@@ -73,14 +75,14 @@ const QuotaBreakdownPage: React.FC = () => {
 
   const handleConfirm = () => {
     if (!isBalanced) {
-      message.error(`分解总和与上级配额不一致（偏差：${diff.toFixed(2)} 万）`);
+      message.error(t('pages.quotaBreakdown.msgUnbalanced', { diff: diff.toFixed(2) }));
       return;
     }
     setConfirmLoading(true);
     quotaApi
       .breakdown(Number(id), breakdowns)
       .then(() => {
-        message.success('分解成功');
+        message.success(t('pages.quotaBreakdown.msgSuccess'));
         navigate('/quotas');
       })
       .catch((err) => {
@@ -97,29 +99,34 @@ const QuotaBreakdownPage: React.FC = () => {
     <div>
       <Space style={{ marginBottom: 16 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/quotas')}>
-          返回
+          {t('pages.quotaBreakdown.btnBack')}
         </Button>
-        <Title level={4}>配额分解 - {quota.year}年 {quota.quarter ? `Q${quota.quarter}` : '年度'}</Title>
+        <Title level={4}>
+          {t('pages.quotaBreakdown.title', {
+            year: quota.year,
+            period: quota.quarter ? `Q${quota.quarter}` : t('pages.quotaBreakdown.annual'),
+          })}
+        </Title>
       </Space>
 
-      <Card title="上级配额" style={{ marginBottom: 16 }}>
+      <Card title={t('pages.quotaBreakdown.cardParent')} style={{ marginBottom: 16 }}>
         <Space size="large">
           <div>
-            <Text type="secondary">配额金额：</Text>
-            <Text strong>{quota.amount?.toFixed(2)} 万</Text>
+            <Text type="secondary">{t('pages.quotaBreakdown.labelQuotaAmount')}</Text>
+            <Text strong>{quota.amount?.toFixed(2)} {t('pages.quotaBreakdown.unitWan')}</Text>
           </div>
           <div>
-            <Text type="secondary">期间：</Text>
+            <Text type="secondary">{t('pages.quotaBreakdown.labelPeriod')}</Text>
             <Text>{quota.periodStart} ~ {quota.periodEnd}</Text>
           </div>
         </Space>
       </Card>
 
       <Card
-        title="分解明细"
+        title={t('pages.quotaBreakdown.cardDetail')}
         extra={
           <Button type="dashed" icon={<PlusOutlined />} onClick={handleAdd}>
-            添加分解
+            {t('pages.quotaBreakdown.btnAdd')}
           </Button>
         }
         style={{ marginBottom: 16 }}
@@ -133,24 +140,24 @@ const QuotaBreakdownPage: React.FC = () => {
         />
       </Card>
 
-      <Card title="汇总校验" style={{ marginBottom: 16 }}>
+      <Card title={t('pages.quotaBreakdown.cardValidation')} style={{ marginBottom: 16 }}>
         <Space size="large">
           <div>
-            <Text type="secondary">分解总和：</Text>
+            <Text type="secondary">{t('pages.quotaBreakdown.labelTotalBreakdown')}</Text>
             <Text strong style={{ color: isBalanced ? '#52c41a' : '#ff4d4f' }}>
-              {totalBreakdown.toFixed(2)} 万
+              {totalBreakdown.toFixed(2)} {t('pages.quotaBreakdown.unitWan')}
             </Text>
           </div>
           <div>
-            <Text type="secondary">偏差：</Text>
+            <Text type="secondary">{t('pages.quotaBreakdown.labelDiff')}</Text>
             <Text strong style={{ color: isBalanced ? '#52c41a' : '#ff4d4f' }}>
-              {diff.toFixed(2)} 万
+              {diff.toFixed(2)} {t('pages.quotaBreakdown.unitWan')}
             </Text>
           </div>
           <div>
-            <Text type="secondary">状态：</Text>
+            <Text type="secondary">{t('pages.quotaBreakdown.labelStatus')}</Text>
             <Text strong style={{ color: isBalanced ? '#52c41a' : '#ff4d4f' }}>
-              {isBalanced ? '平衡' : '不平衡'}
+              {isBalanced ? t('pages.quotaBreakdown.statusBalanced') : t('pages.quotaBreakdown.statusUnbalanced')}
             </Text>
           </div>
         </Space>
@@ -159,10 +166,10 @@ const QuotaBreakdownPage: React.FC = () => {
       <Card>
         <Space>
           <Button type="primary" loading={confirmLoading} disabled={!isBalanced || breakdowns.length === 0} icon={<CheckOutlined />} onClick={handleConfirm}>
-            确认分解
+            {t('pages.quotaBreakdown.btnConfirm')}
           </Button>
           <Button icon={<CloseOutlined />} onClick={() => navigate('/quotas')}>
-            取消
+            {t('common.button.cancel')}
           </Button>
         </Space>
       </Card>

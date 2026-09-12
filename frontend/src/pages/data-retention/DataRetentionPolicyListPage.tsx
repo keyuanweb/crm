@@ -2,16 +2,33 @@
 
 import { dataRetentionApi } from '../../services/api/dataRetentionApi';
 import type { DataRetentionPolicyResponse } from '../../types/dataRetention';
-import { ENTITY_TYPE_LABELS, ACTION_TYPE_LABELS, POLICY_STATUS_LABELS } from '../../types/dataRetention';
 import { PlusOutlined, DeleteOutlined, EditOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { Button, Card, Popconfirm, Space, Table, Tag, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 const DataRetentionPolicyListPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<DataRetentionPolicyResponse[]>([]);
+
+  const entityTypeLabels: Record<string, string> = {
+    CUSTOMER: t('pages.dataRetention.common.entityTypeLabels.CUSTOMER'),
+    OPPORTUNITY: t('pages.dataRetention.common.entityTypeLabels.OPPORTUNITY'),
+    CONTRACT: t('pages.dataRetention.common.entityTypeLabels.CONTRACT'),
+    ORDER: t('pages.dataRetention.common.entityTypeLabels.ORDER'),
+    AUDIT_LOG: t('pages.dataRetention.common.entityTypeLabels.AUDIT_LOG'),
+  };
+  const actionTypeLabels: Record<string, string> = {
+    ARCHIVE: t('pages.dataRetention.common.actionTypeLabels.ARCHIVE'),
+    DELETE: t('pages.dataRetention.common.actionTypeLabels.DELETE'),
+  };
+  const policyStatusLabels: Record<string, string> = {
+    ACTIVE: t('pages.dataRetention.common.policyStatusLabels.ACTIVE'),
+    INACTIVE: t('pages.dataRetention.common.policyStatusLabels.INACTIVE'),
+  };
 
   useEffect(() => {
     loadList();
@@ -32,60 +49,60 @@ const DataRetentionPolicyListPage: React.FC = () => {
   const handleDelete = async (id: number) => {
     try {
       await dataRetentionApi.deletePolicy(id);
-      message.success('删除成功');
+      message.success(t('pages.dataRetention.list.msgDeleted'));
       loadList();
     } catch (error) {
       console.error(error);
-      message.error('删除失败');
+      message.error(t('pages.dataRetention.list.msgDeleteFailed'));
     }
   };
 
   const columns = [
     {
-      title: '实体',
+      title: t('pages.dataRetention.common.entity'),
       dataIndex: 'entityType',
       width: 120,
-      render: (text: string) => ENTITY_TYPE_LABELS[text as keyof typeof ENTITY_TYPE_LABELS] || text,
+      render: (text: string) => entityTypeLabels[text] || text,
     },
     {
-      title: '保留期限',
+      title: t('pages.dataRetention.common.retentionPeriod'),
       dataIndex: 'retentionDays',
       width: 100,
-      render: (text: number) => text ? `${text} 天` : '-',
+      render: (text: number) => text ? t('pages.dataRetention.common.days', { count: text }) : '-',
     },
     {
-      title: '归档方式',
+      title: t('pages.dataRetention.common.actionType'),
       dataIndex: 'actionType',
       width: 100,
-      render: (text: string) => ACTION_TYPE_LABELS[text as keyof typeof ACTION_TYPE_LABELS] || text,
+      render: (text: string) => actionTypeLabels[text] || text,
     },
     {
-      title: '状态',
+      title: t('pages.dataRetention.common.status'),
       dataIndex: 'status',
       width: 100,
       render: (text: string) => {
         const color = text === 'ACTIVE' ? 'green' : 'default';
-        return <Tag color={color}>{POLICY_STATUS_LABELS[text as keyof typeof POLICY_STATUS_LABELS]}</Tag>;
+        return <Tag color={color}>{policyStatusLabels[text]}</Tag>;
       },
     },
     {
-      title: '创建时间',
+      title: t('pages.dataRetention.common.createdAt'),
       dataIndex: 'createdAt',
       width: 180,
       render: (text: string) => text ? new Date(text).toLocaleString('zh-CN') : '-',
     },
     {
-      title: '操作',
+      title: t('pages.dataRetention.common.action'),
       width: 200,
       render: (_: unknown, record: DataRetentionPolicyResponse) => [
         <a key="executions" onClick={() => navigate(`/data-retention/${record.id}/executions`)}>
-          执行历史
+          {t('pages.dataRetention.common.executionHistory')}
         </a>,
         <a key="edit" onClick={() => navigate(`/data-retention/${record.id}/edit`)}>
-          <EditOutlined /> 编辑
+          <EditOutlined /> {t('common.button.edit')}
         </a>,
-        <Popconfirm key="delete" title="删除此策略？" onConfirm={() => handleDelete(record.id)}>
-          <a style={{ color: '#ff4d4f' }}><DeleteOutlined /> 删除</a>
+        <Popconfirm key="delete" title={t('pages.dataRetention.list.deleteConfirm')} onConfirm={() => handleDelete(record.id)}>
+          <a style={{ color: '#ff4d4f' }}><DeleteOutlined /> {t('common.button.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -94,12 +111,12 @@ const DataRetentionPolicyListPage: React.FC = () => {
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
-        <Card title="数据保留策略" style={{ flex: 1 }} />
+        <Card title={t('pages.dataRetention.list.title')} style={{ flex: 1 }} />
         <Button icon={<FileProtectOutlined />} onClick={() => navigate('/data-retention/compliance-export')}>
-          合规导出
+          {t('pages.dataRetention.list.complianceExport')}
         </Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/data-retention/create')}>
-          创建策略
+          {t('pages.dataRetention.common.createPolicy')}
         </Button>
       </Space>
 

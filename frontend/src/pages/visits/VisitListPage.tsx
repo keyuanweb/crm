@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -32,15 +33,16 @@ import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
 import type { FieldVisit, VisitPayload } from '../../types/visit'
 
-const STATUS_META: Record<string, { text: string; color: string }> = {
-  PLANNED: { text: '计划中', color: 'processing' },
-  DONE: { text: '已完成', color: 'green' },
-  CANCELED: { text: '已取消', color: 'default' },
-}
-
 export default function VisitListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
+
+  const STATUS_META: Record<string, { text: string; color: string }> = {
+    PLANNED: { text: t('pages.visit.statusPlanned'), color: 'processing' },
+    DONE: { text: t('common.status.completed'), color: 'green' },
+    CANCELED: { text: t('pages.visit.statusCanceled'), color: 'default' },
+  }
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<FieldVisit | null>(null)
@@ -98,16 +100,16 @@ export default function VisitListPage() {
     try {
       if (editing) {
         await updateVisit(editing.id, payload)
-        message.success('已保存')
+        message.success(t('common.message.saved'))
       } else {
         await createVisit(payload)
-        message.success('已创建')
+        message.success(t('pages.visit.msgCreated'))
       }
       setModalOpen(false)
       reload()
       void loadStats()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.visit.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -116,11 +118,11 @@ export default function VisitListPage() {
   const onCancel = async (row: FieldVisit) => {
     try {
       await cancelVisit(row.id)
-      message.success('已取消')
+      message.success(t('pages.visit.msgCanceled'))
       reload()
       void loadStats()
     } catch (err) {
-      message.error(extractErrorMessage(err, '取消失败'))
+      message.error(extractErrorMessage(err, t('pages.visit.msgCancelFailed')))
     }
   }
 
@@ -146,33 +148,33 @@ export default function VisitListPage() {
         locationText: values.locationText || (position ? `${position.latitude.toFixed(6)}, ${position.longitude.toFixed(6)}` : undefined),
         summary: values.summary,
       })
-      message.success('签到成功，小结已写入客户跟进')
+      message.success(t('pages.visit.msgCheckInSuccess'))
       setCheckInVisitRow(null)
       reload()
       void loadStats()
     } catch (err) {
-      message.error(extractErrorMessage(err, '签到失败'))
+      message.error(extractErrorMessage(err, t('pages.visit.msgCheckInFailed')))
     } finally {
       setSaving(false)
     }
   }
 
   const columns: ProColumns<FieldVisit>[] = [
-    { title: '主题', dataIndex: 'theme' },
+    { title: t('pages.visit.colTheme'), dataIndex: 'theme' },
     {
-      title: '客户',
+      title: t('pages.visit.colCustomer'),
       dataIndex: 'customerName',
       width: 160,
       render: (_, row) => <a href={`#/customers/${row.customerId}`}>{row.customerName}</a>,
     },
     {
-      title: '计划时间',
+      title: t('pages.visit.colVisitTime'),
       dataIndex: 'visitTime',
       width: 150,
       render: (_, row) => (row.visitTime ? row.visitTime.replace('T', ' ').slice(0, 16) : '-'),
     },
     {
-      title: '状态',
+      title: t('pages.visit.colStatus'),
       dataIndex: 'status',
       width: 90,
       render: (_, row) => {
@@ -181,33 +183,33 @@ export default function VisitListPage() {
       },
     },
     {
-      title: '签到',
+      title: t('pages.visit.checkIn'),
       search: false,
       width: 180,
       render: (_, row) =>
         row.checkInTime ? (
           <Space size={4} direction="vertical" style={{ fontSize: 12 }}>
             <span>{row.checkInTime.replace('T', ' ').slice(0, 16)}</span>
-            {row.lateFlag ? <Tag color="orange" style={{ fontSize: 11 }}>补签</Tag> : null}
+            {row.lateFlag ? <Tag color="orange" style={{ fontSize: 11 }}>{t('pages.visit.tagLateCheckIn')}</Tag> : null}
           </Space>
         ) : (
           <span style={{ color: '#bfbfbf' }}>-</span>
         ),
     },
     {
-      title: '操作',
+      title: t('pages.visit.colAction'),
       valueType: 'option',
       width: 170,
       render: (_, row) => [
         row.status === 'PLANNED' ? (
           <a key="checkin" onClick={() => openCheckIn(row)}>
-            <EnvironmentOutlined /> 签到
+            <EnvironmentOutlined /> {t('pages.visit.checkIn')}
           </a>
         ) : null,
-        row.status === 'PLANNED' ? <a key="edit" onClick={() => openEdit(row)}>编辑</a> : null,
+        row.status === 'PLANNED' ? <a key="edit" onClick={() => openEdit(row)}>{t('common.button.edit')}</a> : null,
         row.status === 'PLANNED' ? (
-          <Popconfirm key="cancel" title="确定取消该拜访？" onConfirm={() => onCancel(row)}>
-            <a style={{ color: '#ff4d4f' }}>取消</a>
+          <Popconfirm key="cancel" title={t('pages.visit.confirmCancel')} onConfirm={() => onCancel(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('common.button.cancel')}</a>
           </Popconfirm>
         ) : null,
       ],
@@ -219,19 +221,18 @@ export default function VisitListPage() {
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-            <Statistic title="本月拜访计划" value={stats.totalPlanned} valueStyle={{ color: '#1677ff' }} />
+            <Statistic title={t('pages.visit.statPlanned')} value={stats.totalPlanned} valueStyle={{ color: '#1677ff' }} />
           </div>
         </Col>
         <Col span={6}>
           <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-            <Statistic title="已完成拜访" value={stats.totalDone} valueStyle={{ color: '#3f8600' }} />
+            <Statistic title={t('pages.visit.statDone')} value={stats.totalDone} valueStyle={{ color: '#3f8600' }} />
           </div>
         </Col>
         <Col span={12}>
           <div style={{ background: '#fff', borderRadius: 10, padding: '12px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', height: '100%' }}>
             <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-              外勤拜访：计划 → 到达定位签到 → 小结自动写入客户跟进时间线（method=拜访）。
-              重复签到会被拦截；过期签到自动标记"补签"。
+              {t('pages.visit.hint')}
             </Typography.Text>
           </div>
         </Col>
@@ -241,7 +242,7 @@ export default function VisitListPage() {
 
       <ProTable<FieldVisit>
         size="small"
-        headerTitle="拜访计划"
+        headerTitle={t('pages.visit.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -254,32 +255,32 @@ export default function VisitListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建拜访
+            {t('pages.visit.create')}
           </Button>,
         ]}
       />
 
       {/* 新建/编辑 */}
       <Modal
-        title={editing ? '编辑拜访' : '新建拜访'}
+        title={editing ? t('pages.visit.edit') : t('pages.visit.create')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         destroyOnClose
       >
         <Form form={form} name="visitForm" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
-          <Form.Item name="customerId" label="客户" rules={[{ required: true, message: '请选择客户' }]}>
-            <Select showSearch optionFilterProp="label" placeholder="选择客户" options={customerOptions} />
+          <Form.Item name="customerId" label={t('pages.visit.colCustomer')} rules={[{ required: true, message: t('pages.visit.msgCustomerRequired') }]}>
+            <Select showSearch optionFilterProp="label" placeholder={t('pages.visit.placeholderCustomer')} options={customerOptions} />
           </Form.Item>
-          <Form.Item name="theme" label="主题" rules={[{ required: true, message: '请输入拜访主题' }]}>
-            <Input placeholder="如：谈续约、售后回访" />
+          <Form.Item name="theme" label={t('pages.visit.colTheme')} rules={[{ required: true, message: t('pages.visit.msgThemeRequired') }]}>
+            <Input placeholder={t('pages.visit.placeholderTheme')} />
           </Form.Item>
-          <Form.Item name="visitTime" label="拜访时间" rules={[{ required: true, message: '请选择时间' }]}>
+          <Form.Item name="visitTime" label={t('pages.visit.formVisitTime')} rules={[{ required: true, message: t('pages.visit.msgTimeRequired') }]}>
             <DatePicker showTime style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="durationMinutes" label="预计时长(分)">
+          <Form.Item name="durationMinutes" label={t('pages.visit.formDuration')}>
             <InputNumber min={10} step={10} style={{ width: '100%' }} />
           </Form.Item>
         </Form>
@@ -287,20 +288,20 @@ export default function VisitListPage() {
 
       {/* 签到 */}
       <Modal
-        title={`拜访签到：${checkInVisitRow?.theme ?? ''}`}
+        title={t('pages.visit.modalCheckInTitle', { theme: checkInVisitRow?.theme ?? '' })}
         open={!!checkInVisitRow}
         onOk={() => void onCheckIn()}
         confirmLoading={saving}
         onCancel={() => setCheckInVisitRow(null)}
-        okText="确认签到"
+        okText={t('pages.visit.btnConfirmCheckIn')}
         destroyOnClose
       >
         <Form form={checkInForm} name="checkInForm" layout="vertical">
-          <Form.Item name="locationText" label="位置">
-            <Input placeholder="自动定位获取坐标，也可手动填写地址" />
+          <Form.Item name="locationText" label={t('pages.visit.formLocation')}>
+            <Input placeholder={t('pages.visit.placeholderLocation')} />
           </Form.Item>
-          <Form.Item name="summary" label="拜访小结">
-            <Input.TextArea rows={3} placeholder="本次拜访内容、客户反馈…保存后写入客户跟进时间线" />
+          <Form.Item name="summary" label={t('pages.visit.formSummary')}>
+            <Input.TextArea rows={3} placeholder={t('pages.visit.placeholderSummary')} />
           </Form.Item>
         </Form>
       </Modal>

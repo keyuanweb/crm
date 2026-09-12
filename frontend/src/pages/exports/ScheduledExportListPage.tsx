@@ -2,15 +2,32 @@
 
 import { scheduledExportApi } from '../../services/api/scheduledExportApi';
 import type { ScheduledExportResponse } from '../../types/scheduledExport';
-import { ENTITY_TYPE_LABELS, EXPORT_FORMAT_LABELS, TASK_STATUS_LABELS } from '../../types/scheduledExport';
 import { PlusOutlined, PauseCircleOutlined, PlayCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Button, Card, Popconfirm, Space, Table, Tag, message } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 
 const ScheduledExportListPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const entityTypeLabels: Record<string, string> = {
+    CUSTOMER: t('pages.scheduledExport.common.entityTypeLabels.CUSTOMER'),
+    OPPORTUNITY: t('pages.scheduledExport.common.entityTypeLabels.OPPORTUNITY'),
+    CONTRACT: t('pages.scheduledExport.common.entityTypeLabels.CONTRACT'),
+    ORDER: t('pages.scheduledExport.common.entityTypeLabels.ORDER'),
+    INVOICE: t('pages.scheduledExport.common.entityTypeLabels.INVOICE'),
+  };
+  const exportFormatLabels: Record<string, string> = {
+    CSV: t('pages.scheduledExport.common.exportFormatLabels.CSV'),
+    XLSX: t('pages.scheduledExport.common.exportFormatLabels.XLSX'),
+  };
+  const taskStatusLabels: Record<string, string> = {
+    ACTIVE: t('pages.scheduledExport.common.taskStatusLabels.ACTIVE'),
+    SUSPENDED: t('pages.scheduledExport.common.taskStatusLabels.SUSPENDED'),
+    DELETED: t('pages.scheduledExport.common.taskStatusLabels.DELETED'),
+  };
   // 改造前这里写死 `useParams().id ?? 1`，而本页路由（`/exports/scheduled`）根本没有 `:id` 参数，
   // 于是**恒定请求 1 号用户**的列表。服务端已按登录身份限定范围并对不符的参数返回 403（FR-G16），
   // 故必须改传当前登录用户——写死 1 会让非 1 号用户看到 403 而非自己的任务。
@@ -41,77 +58,77 @@ const ScheduledExportListPage: React.FC = () => {
   const handleStatusChange = async (id: number, status: string) => {
     try {
       await scheduledExportApi.updateStatus(id, status);
-      message.success('状态更新成功');
+      message.success(t('pages.scheduledExport.list.msgStatusUpdated'));
       loadList();
     } catch (error) {
       console.error(error);
-      message.error('状态更新失败');
+      message.error(t('pages.scheduledExport.list.msgStatusUpdateFailed'));
     }
   };
 
   const handleDelete = async (id: number) => {
     try {
       await scheduledExportApi.delete(id);
-      message.success('删除成功');
+      message.success(t('pages.scheduledExport.list.msgDeleted'));
       loadList();
     } catch (error) {
       console.error(error);
-      message.error('删除失败');
+      message.error(t('pages.scheduledExport.list.msgDeleteFailed'));
     }
   };
 
   const columns = [
     {
-      title: '实体',
+      title: t('pages.scheduledExport.common.entity'),
       dataIndex: 'entityType',
       width: 100,
-      render: (text: string) => ENTITY_TYPE_LABELS[text as keyof typeof ENTITY_TYPE_LABELS] || text,
+      render: (text: string) => entityTypeLabels[text] || text,
     },
     {
-      title: '格式',
+      title: t('pages.scheduledExport.common.format'),
       dataIndex: 'exportFormat',
       width: 80,
-      render: (text: string) => EXPORT_FORMAT_LABELS[text as keyof typeof EXPORT_FORMAT_LABELS] || text,
+      render: (text: string) => exportFormatLabels[text] || text,
     },
     {
-      title: '状态',
+      title: t('pages.scheduledExport.common.status'),
       dataIndex: 'status',
       width: 100,
       render: (text: string) => {
         const color = text === 'ACTIVE' ? 'green' : text === 'SUSPENDED' ? 'orange' : 'default';
-        return <Tag color={color}>{TASK_STATUS_LABELS[text as keyof typeof TASK_STATUS_LABELS]}</Tag>;
+        return <Tag color={color}>{taskStatusLabels[text]}</Tag>;
       },
     },
     {
-      title: '下次执行',
+      title: t('pages.scheduledExport.common.nextExecution'),
       dataIndex: 'nextExecutionTime',
       width: 180,
       render: (text: string) => text ? new Date(text).toLocaleString('zh-CN') : '-',
     },
     {
-      title: '创建时间',
+      title: t('pages.scheduledExport.common.createdAt'),
       dataIndex: 'createdAt',
       width: 180,
       render: (text: string) => text ? new Date(text).toLocaleString('zh-CN') : '-',
     },
     {
-      title: '操作',
+      title: t('pages.scheduledExport.common.action'),
       width: 300,
       render: (_: unknown, record: ScheduledExportResponse) => [
         <a key="executions" onClick={() => navigate(`/exports/scheduled/${record.id}/executions`)}>
-          执行历史
+          {t('pages.scheduledExport.common.executionHistory')}
         </a>,
         record.status === 'ACTIVE' ? (
-          <Popconfirm key="pause" title="暂停此任务？" onConfirm={() => handleStatusChange(record.id, 'SUSPENDED')}>
-            <a><PauseCircleOutlined /> 暂停</a>
+          <Popconfirm key="pause" title={t('pages.scheduledExport.list.pauseConfirm')} onConfirm={() => handleStatusChange(record.id, 'SUSPENDED')}>
+            <a><PauseCircleOutlined /> {t('pages.scheduledExport.list.pause')}</a>
           </Popconfirm>
         ) : record.status === 'SUSPENDED' ? (
-          <Popconfirm key="resume" title="恢复此任务？" onConfirm={() => handleStatusChange(record.id, 'ACTIVE')}>
-            <a><PlayCircleOutlined /> 恢复</a>
+          <Popconfirm key="resume" title={t('pages.scheduledExport.list.resumeConfirm')} onConfirm={() => handleStatusChange(record.id, 'ACTIVE')}>
+            <a><PlayCircleOutlined /> {t('pages.scheduledExport.list.resume')}</a>
           </Popconfirm>
         ) : null,
-        <Popconfirm key="delete" title="删除此任务？" onConfirm={() => handleDelete(record.id)}>
-          <a style={{ color: '#ff4d4f' }}><DeleteOutlined /> 删除</a>
+        <Popconfirm key="delete" title={t('pages.scheduledExport.list.deleteConfirm')} onConfirm={() => handleDelete(record.id)}>
+          <a style={{ color: '#ff4d4f' }}><DeleteOutlined /> {t('common.button.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -120,9 +137,9 @@ const ScheduledExportListPage: React.FC = () => {
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
-        <Card title="定时导出订阅" style={{ flex: 1 }} />
+        <Card title={t('pages.scheduledExport.list.title')} style={{ flex: 1 }} />
         <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/exports/scheduled/create')}>
-          创建任务
+          {t('pages.scheduledExport.common.createTask')}
         </Button>
       </Space>
 

@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Switch, Tag } from 'antd'
@@ -13,7 +14,8 @@ import {
 } from '../../services/workflowService'
 import { fetchUsers } from '../../services/userService'
 import { extractErrorMessage } from '../../services/apiClient'
-import { ACTION_LABELS, EVENT_LABELS, type WorkflowActionType, type WorkflowEventType, type WorkflowRule } from '../../types/workflow'
+import { type WorkflowActionType, type WorkflowEventType, type WorkflowRule } from '../../types/workflow'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
 interface FormValues {
   name: string
@@ -31,6 +33,7 @@ interface FormValues {
 }
 
 export default function WorkflowRuleListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -112,15 +115,15 @@ export default function WorkflowRuleListPage() {
     try {
       if (editing) {
         await updateWorkflowRule(editing.id, { ...payload, version: editing.version })
-        message.success('已保存')
+        message.success(t('pages.workflowRule.msgSaved'))
       } else {
         await createWorkflowRule(payload)
-        message.success('已创建')
+        message.success(t('pages.workflowRule.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.workflowRule.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -129,64 +132,68 @@ export default function WorkflowRuleListPage() {
   const onToggle = async (row: WorkflowRule) => {
     try {
       await toggleWorkflowRule(row.id)
-      message.success(row.enabled ? '已停用' : '已启用')
+      message.success(row.enabled ? t('pages.workflowRule.msgDisabled') : t('pages.workflowRule.msgEnabled'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.workflowRule.msgOperationFailed')))
     }
   }
 
   const onDelete = async (row: WorkflowRule) => {
     try {
       await deleteWorkflowRule(row.id)
-      message.success('已删除')
+      message.success(t('pages.workflowRule.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.workflowRule.msgDeleteFailed')))
     }
   }
 
   const columns: ProColumns<WorkflowRule>[] = [
-    { title: '名称', dataIndex: 'name' },
+    { title: t('pages.workflowRule.colName'), dataIndex: 'name' },
     {
-      title: '触发事件',
+      title: t('pages.workflowRule.colEventType'),
       dataIndex: 'eventType',
       valueType: 'select',
-      valueEnum: Object.fromEntries(Object.entries(EVENT_LABELS).map(([k, v]) => [k, { text: v }])),
-      render: (_, row) => <Tag color="blue">{EVENT_LABELS[row.eventType]}</Tag>,
+      valueEnum: Object.fromEntries(
+        Object.keys(ENUM_KEYS.workflowEvent).map((code) => [code, { text: labelOf(t, ENUM_KEYS.workflowEvent, code) }]),
+      ),
+      render: (_, row) => <Tag color="blue">{labelOf(t, ENUM_KEYS.workflowEvent, row.eventType)}</Tag>,
     },
     {
-      title: '条件',
+      title: t('pages.workflowRule.colCondition'),
       dataIndex: 'condition',
       search: false,
-      render: (_, row) => (row.condition ? `${row.condition.field} = ${row.condition.value}` : '无条件'),
+      render: (_, row) => (row.condition ? `${row.condition.field} = ${row.condition.value}` : t('pages.workflowRule.noCondition')),
     },
     {
-      title: '动作',
+      title: t('pages.workflowRule.colAction'),
       dataIndex: 'actionType',
       valueType: 'select',
-      valueEnum: Object.fromEntries(Object.entries(ACTION_LABELS).map(([k, v]) => [k, { text: v }])),
-      render: (_, row) => <Tag>{ACTION_LABELS[row.actionType]}</Tag>,
+      valueEnum: Object.fromEntries(
+        Object.keys(ENUM_KEYS.workflowAction).map((code) => [code, { text: labelOf(t, ENUM_KEYS.workflowAction, code) }]),
+      ),
+      render: (_, row) => <Tag>{labelOf(t, ENUM_KEYS.workflowAction, row.actionType)}</Tag>,
     },
     {
-      title: '状态',
+      title: t('pages.workflowRule.colStatus'),
       dataIndex: 'enabled',
       search: false,
-      render: (_, row) => (row.enabled ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>),
+      render: (_, row) => (row.enabled ? <Tag color="green">{t('pages.workflowRule.enabled')}</Tag> : <Tag>{t('pages.workflowRule.disabled')}</Tag>),
     },
     {
-      title: '操作',
+      title: t('pages.workflowRule.colActions'),
       valueType: 'option',
       width: 200,
       render: (_, row) => [
         <a key="toggle" onClick={() => onToggle(row)}>
-          {row.enabled ? '停用' : '启用'}
+          {row.enabled ? t('pages.workflowRule.disable') : t('pages.workflowRule.enable')}
         </a>,
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.workflowRule.edit')}
         </a>,
-        <Popconfirm key="delete" title={`确定删除规则「${row.name}」吗？`} onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm key="delete" title={t('pages.workflowRule.confirmDelete', { name: row.name })} onConfirm={() => onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.workflowRule.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -196,7 +203,7 @@ export default function WorkflowRuleListPage() {
     <>
       <ProTable<WorkflowRule>
         size="small"
-        headerTitle="自动化规则"
+        headerTitle={t('pages.workflowRule.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -214,21 +221,21 @@ export default function WorkflowRuleListPage() {
         }}
         toolBarRender={() => [
           <Link key="logs" to="/workflows/logs">
-            <Button>执行日志</Button>
+            <Button>{t('pages.workflowRule.btnLogs')}</Button>
           </Link>,
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增规则
+            {t('pages.workflowRule.btnAdd')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑规则' : '新增规则'}
+        title={editing ? t('pages.workflowRule.modalEditTitle') : t('pages.workflowRule.modalAddTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.workflowRule.btnSave')}
         destroyOnClose
         width={640}
       >
@@ -241,41 +248,41 @@ export default function WorkflowRuleListPage() {
         >
           <Row gutter={16}>
             <Col span={24}>
-              <Form.Item name="name" label="规则名称" rules={[{ required: true, message: '请输入规则名称' }]}>
-                <Input placeholder="如：商机进入谈判阶段自动分配" />
+              <Form.Item name="name" label={t('pages.workflowRule.formNameLabel')} rules={[{ required: true, message: t('pages.workflowRule.formNameRequired') }]}>
+                <Input placeholder={t('pages.workflowRule.formNamePlaceholder')} />
               </Form.Item>
             </Col>
             <Col span={24}>
               <Form.Item
                 name="eventType"
-                label="触发事件"
-                rules={[{ required: true, message: '请选择触发事件' }]}
+                label={t('pages.workflowRule.formEventTypeLabel')}
+                rules={[{ required: true, message: t('pages.workflowRule.formEventTypeRequired') }]}
               >
                 <Select
-                  placeholder="选择触发事件"
-                  options={Object.entries(EVENT_LABELS).map(([value, label]) => ({ value, label }))}
+                  placeholder={t('pages.workflowRule.formEventTypePlaceholder')}
+                  options={Object.keys(ENUM_KEYS.workflowEvent).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.workflowEvent, code) }))}
                 />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item label="条件（可选）" style={{ marginBottom: 0 }}>
+              <Form.Item label={t('pages.workflowRule.formConditionLabel')} style={{ marginBottom: 0 }}>
                 <Row gutter={12}>
                   <Col span={12}>
                     <Form.Item name="conditionField">
                       <Select
-                        placeholder="条件字段"
+                        placeholder={t('pages.workflowRule.formConditionFieldPlaceholder')}
                         allowClear
                         options={[
-                          { value: 'stage', label: '阶段 stage' },
-                          { value: 'source', label: '来源 source' },
-                          { value: 'method', label: '方式 method' },
+                          { value: 'stage', label: t('pages.workflowRule.conditionStage') },
+                          { value: 'source', label: t('pages.workflowRule.conditionSource') },
+                          { value: 'method', label: t('pages.workflowRule.conditionMethod') },
                         ]}
                       />
                     </Form.Item>
                   </Col>
                   <Col span={12}>
                     <Form.Item name="conditionValue">
-                      <Input placeholder="条件值，如 NEGOTIATING" />
+                      <Input placeholder={t('pages.workflowRule.formConditionValuePlaceholder')} />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -284,12 +291,12 @@ export default function WorkflowRuleListPage() {
             <Col span={24}>
               <Form.Item
                 name="actionType"
-                label="动作类型"
-                rules={[{ required: true, message: '请选择动作类型' }]}
+                label={t('pages.workflowRule.formActionTypeLabel')}
+                rules={[{ required: true, message: t('pages.workflowRule.formActionTypeRequired') }]}
               >
                 <Select
-                  placeholder="选择动作类型"
-                  options={Object.entries(ACTION_LABELS).map(([value, label]) => ({ value, label }))}
+                  placeholder={t('pages.workflowRule.formActionTypePlaceholder')}
+                  options={Object.keys(ENUM_KEYS.workflowAction).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.workflowAction, code) }))}
                   onChange={(v) => {
                     // 切换动作类型时清除上一类型的参数残留
                     form.setFieldsValue({ targetUserId: undefined, titleTemplate: undefined, dueDays: undefined, message: undefined })
@@ -302,13 +309,13 @@ export default function WorkflowRuleListPage() {
               <Col span={24}>
                 <Form.Item
                   name="targetUserId"
-                  label="目标用户"
-                  rules={[{ required: true, message: '请选择目标用户' }]}
+                  label={t('pages.workflowRule.formTargetUserLabel')}
+                  rules={[{ required: true, message: t('pages.workflowRule.formTargetUserRequired') }]}
                 >
                   <Select
                     showSearch
                     optionFilterProp="label"
-                    placeholder="选择目标用户"
+                    placeholder={t('pages.workflowRule.formTargetUserPlaceholder')}
                     options={userOptions}
                   />
                 </Form.Item>
@@ -319,15 +326,15 @@ export default function WorkflowRuleListPage() {
                 <Col span={24}>
                   <Form.Item
                     name="titleTemplate"
-                    label="标题模板"
-                    rules={[{ required: true, message: '请输入标题模板' }]}
-                    extra="可用 {name} 替换实体名称，如：跟进{name}"
+                    label={t('pages.workflowRule.formTitleTemplateLabel')}
+                    rules={[{ required: true, message: t('pages.workflowRule.formTitleTemplateRequired') }]}
+                    extra={t('pages.workflowRule.formTitleTemplateExtra')}
                   >
-                    <Input placeholder="如：跟进{name}" />
+                    <Input placeholder={t('pages.workflowRule.formTitleTemplatePlaceholder')} />
                   </Form.Item>
                 </Col>
                 <Col span={24}>
-                  <Form.Item name="dueDays" label="截止天数" extra="默认 3 天">
+                  <Form.Item name="dueDays" label={t('pages.workflowRule.formDueDaysLabel')} extra={t('pages.workflowRule.formDueDaysExtra')}>
                     <InputNumber min={1} style={{ width: '100%' }} />
                   </Form.Item>
                 </Col>
@@ -337,10 +344,10 @@ export default function WorkflowRuleListPage() {
               <Col span={24}>
                 <Form.Item
                   name="message"
-                  label="通知内容"
-                  rules={[{ required: true, message: '请输入通知内容' }]}
+                  label={t('pages.workflowRule.formMessageLabel')}
+                  rules={[{ required: true, message: t('pages.workflowRule.formMessageRequired') }]}
                 >
-                  <Input placeholder="如：客户{name}已进入谈判阶段" />
+                  <Input placeholder={t('pages.workflowRule.formMessagePlaceholder')} />
                 </Form.Item>
               </Col>
             )}
@@ -348,11 +355,11 @@ export default function WorkflowRuleListPage() {
               <Col span={24}>
                 <Form.Item
                   name="templateId"
-                  label="邮件模板 ID"
-                  rules={[{ required: true, message: '请输入邮件模板 ID' }]}
-                  extra="发送模板邮件给线索邮箱（收件人取线索 email 字段）"
+                  label={t('pages.workflowRule.formTemplateIdLabel')}
+                  rules={[{ required: true, message: t('pages.workflowRule.formTemplateIdRequired') }]}
+                  extra={t('pages.workflowRule.formTemplateIdExtraRealEmail')}
                 >
-                  <InputNumber min={1} style={{ width: '100%' }} placeholder="如：1" />
+                  <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.workflowRule.formTemplateIdPlaceholder')} />
                 </Form.Item>
               </Col>
             )}
@@ -360,16 +367,16 @@ export default function WorkflowRuleListPage() {
               <Col span={24}>
                 <Form.Item
                   name="tag"
-                  label="标签名称"
-                  rules={[{ required: true, message: '请输入标签名称' }]}
-                  extra="为客户实体添加标签（需标签已存在）"
+                  label={t('pages.workflowRule.formTagLabel')}
+                  rules={[{ required: true, message: t('pages.workflowRule.formTagRequired') }]}
+                  extra={t('pages.workflowRule.formTagExtraNeedsExisting')}
                 >
-                  <Input placeholder="如：重点客户" />
+                  <Input placeholder={t('pages.workflowRule.formTagPlaceholder')} />
                 </Form.Item>
               </Col>
             )}
             <Col span={24}>
-              <Form.Item name="enabled" label="启用" valuePropName="checked" initialValue={true}>
+              <Form.Item name="enabled" label={t('pages.workflowRule.formEnabledLabel')} valuePropName="checked" initialValue={true}>
                 <Switch />
               </Form.Item>
             </Col>

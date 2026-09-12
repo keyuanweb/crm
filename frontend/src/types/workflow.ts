@@ -50,20 +50,3 @@ export interface Notification {
   read: boolean
   createdAt: string
 }
-
-export const EVENT_LABELS: Record<WorkflowEventType, string> = {
-  LEAD_CREATED: '线索创建',
-  OPPORTUNITY_STAGE_CHANGED: '商机阶段变更',
-  FOLLOW_UP_CREATED: '跟进创建',
-  PAYMENT_RECORDED: '回款登记',
-  LEAD_SCORE_THRESHOLD: '线索评分达阈值',
-  TAG_CHANGED: '标签变更',
-}
-
-export const ACTION_LABELS: Record<WorkflowActionType, string> = {
-  CREATE_TASK: '创建任务',
-  ASSIGN: '自动分配',
-  NOTIFY: '站内通知',
-  SEND_EMAIL: '发送邮件',
-  ADD_TAG: '添加标签',
-}

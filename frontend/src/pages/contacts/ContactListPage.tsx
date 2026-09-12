@@ -28,7 +28,8 @@ import {
 } from '../../services/contactService'
 import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
-import { ROLE_COLORS, ROLE_LABELS, type Contact, type ContactRole } from '../../types/contact'
+import { ROLE_COLORS, type Contact, type ContactRole } from '../../types/contact'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import type { ImportResult } from '../../types/importResult'
 
 interface FormValues {
@@ -157,10 +158,13 @@ export default function ContactListPage() {
       dataIndex: 'role',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(ROLE_LABELS).map(([k, v]) => [k, { text: v }]),
+        Object.keys(ENUM_KEYS.contactRole).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.contactRole, code) },
+        ]),
       ),
       render: (_, row) => (
-        <Tag color={ROLE_COLORS[row.role]}>{ROLE_LABELS[row.role] ?? row.role}</Tag>
+        <Tag color={ROLE_COLORS[row.role]}>{labelOf(t, ENUM_KEYS.contactRole, row.role)}</Tag>
       ),
     },
     {
@@ -295,7 +299,10 @@ export default function ContactListPage() {
                 <Select
                   allowClear
                   placeholder="Default: Other"
-                  options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
+                  options={Object.keys(ENUM_KEYS.contactRole).map((value) => ({
+                    value,
+                    label: labelOf(t, ENUM_KEYS.contactRole, value),
+                  }))}
                 />
               </Form.Item>
             </Col>

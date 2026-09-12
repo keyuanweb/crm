@@ -75,23 +75,10 @@ export interface OrderListParams {
   pageSize: number
 }
 
-export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  PENDING: '待回款',
-  PARTIAL: '部分回款',
-  PAID: '已结清',
-}
-
 export const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   PENDING: 'default',
   PARTIAL: 'processing',
   PAID: 'success',
-}
-
-export const REMINDER_LABELS: Record<ReminderStatus, string> = {
-  PAID: '已回款',
-  NORMAL: '正常',
-  DUE_SOON: '临期',
-  OVERDUE: '逾期',
 }
 
 export const REMINDER_COLORS: Record<ReminderStatus, string> = {
@@ -99,11 +86,4 @@ export const REMINDER_COLORS: Record<ReminderStatus, string> = {
   NORMAL: 'default',
   DUE_SOON: 'gold',
   OVERDUE: 'red',
-}
-
-export const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  TRANSFER: '转账',
-  CASH: '现金',
-  CHECK: '支票',
-  OTHER: '其他',
 }

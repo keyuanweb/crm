@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Alert, Button, Card, Drawer, Modal, Space, Tabs, Typography } from 'antd'
 import { Grid } from 'antd'
@@ -12,6 +13,7 @@ import { useAuthStore } from '../../store/authStore'
 const { Title, Paragraph } = Typography
 
 export default function UsageMapPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -225,10 +227,10 @@ export default function UsageMapPage() {
     <div>
       <div style={{ marginBottom: 16 }}>
         <Title level={3} style={{ marginBottom: 4, fontWeight: 600 }}>
-          🗺️ 员工使用地图
+          🗺️ {t('pages.usageMap.pageTitle')}
         </Title>
         <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 13 }}>
-          可视化系统业务流程 · 点击节点直达对应模块 · 切换角色查看操作链
+          {t('pages.usageMap.subtitle')}
         </Paragraph>
       </div>
 
@@ -236,7 +238,7 @@ export default function UsageMapPage() {
         <Alert
           type="warning"
           showIcon
-          message="地图渲染失败，请刷新页面重试"
+          message={t('pages.usageMap.renderFailed')}
           style={{ marginBottom: 16 }}
         />
       )}
@@ -248,7 +250,7 @@ export default function UsageMapPage() {
         items={[
           {
             key: 'process',
-            label: '业务流程',
+            label: t('pages.usageMap.tabProcess'),
             children: (
               <Tabs
                 activeKey={activeFlow.id}
@@ -260,7 +262,7 @@ export default function UsageMapPage() {
           },
           {
             key: 'state',
-            label: '状态流转',
+            label: t('pages.usageMap.tabState'),
             children: (
               <Tabs
                 activeKey={stateFlowId}
@@ -277,7 +279,7 @@ export default function UsageMapPage() {
         <div ref={containerRef} style={{ height: 200, width: '100%' }} />
         {renderFailed && (
           <Paragraph type="secondary" style={{ textAlign: 'center', marginTop: 8, marginBottom: 0 }}>
-            当前视图不可用，可切换上方流程或使用下方快捷入口
+            {t('pages.usageMap.viewUnavailable')}
           </Paragraph>
         )}
       </Card>
@@ -286,9 +288,9 @@ export default function UsageMapPage() {
       <Card
         title={
           <Space>
-            <span>⚡ 高频操作</span>
+            <span>⚡ {t('pages.usageMap.quickActionsTitle')}</span>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              一键直达常用功能
+              {t('pages.usageMap.quickActionsSubtitle')}
             </Typography.Text>
           </Space>
         }
@@ -343,11 +345,11 @@ export default function UsageMapPage() {
                 setModalOpen(false)
               }}
             >
-              跳转到对应模块
+              {t('pages.usageMap.gotoModule')}
             </Button>
           ),
           <Button key="close" onClick={() => setModalOpen(false)}>
-            关闭
+            {t('common.button.close')}
           </Button>,
         ]}
       >
@@ -375,7 +377,7 @@ export default function UsageMapPage() {
             }}
             style={{ marginTop: 16 }}
           >
-            跳转到对应模块
+            {t('pages.usageMap.gotoModule')}
           </Button>
         )}
       </Drawer>

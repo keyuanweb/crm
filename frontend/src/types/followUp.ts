@@ -24,10 +24,3 @@ export interface FollowUpPayload {
   createTask?: boolean
   version?: number
 }
-
-export const METHOD_LABELS: Record<FollowUpMethod, string> = {
-  PHONE: '电话',
-  EMAIL: '邮件',
-  MEETING: '面谈',
-  OTHER: '其他',
-}

@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProCard, Statistic } from '@ant-design/pro-components'
 import { App, Table, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { fetchChannelRoi } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
-import { CAMPAIGN_CHANNEL_LABELS, type ChannelRoi } from '../../types/marketing'
+import type { ChannelRoi } from '../../types/marketing'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
 export default function ChannelRoiPage() {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [loading, setLoading] = useState(false)
   const [rows, setRows] = useState<ChannelRoi[]>([])
@@ -16,7 +19,7 @@ export default function ChannelRoiPage() {
     try {
       setRows(await fetchChannelRoi())
     } catch (err) {
-      message.error(extractErrorMessage(err, '加载失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.channelRoi.msgLoadFailed')))
     } finally {
       setLoading(false)
     }
@@ -34,27 +37,27 @@ export default function ChannelRoiPage() {
 
   const columns: ColumnsType<ChannelRoi> = [
     {
-      title: '渠道',
+      title: t('pages.marketing.channelRoi.colChannel'),
       dataIndex: 'channel',
-      render: (_, row) => <Tag color="blue">{CAMPAIGN_CHANNEL_LABELS[row.channel] ?? row.channel}</Tag>,
+      render: (_, row) => <Tag color="blue">{labelOf(t, ENUM_KEYS.campaignChannel, row.channel)}</Tag>,
     },
-    { title: '活动数', dataIndex: 'campaignCount' },
-    { title: '总成本', dataIndex: 'totalCost' },
-    { title: '归因线索', dataIndex: 'leadCount' },
-    { title: '归因客户', dataIndex: 'customerCount' },
+    { title: t('pages.marketing.channelRoi.colCampaignCount'), dataIndex: 'campaignCount' },
+    { title: t('pages.marketing.channelRoi.colTotalCost'), dataIndex: 'totalCost' },
+    { title: t('pages.marketing.channelRoi.colLeadCount'), dataIndex: 'leadCount' },
+    { title: t('pages.marketing.channelRoi.colCustomerCount'), dataIndex: 'customerCount' },
     {
-      title: '转化率',
+      title: t('pages.marketing.channelRoi.colConversionRate'),
       dataIndex: 'conversionRate',
       render: (_, row) =>
         row.conversionRate == null ? '-' : `${(row.conversionRate * 100).toFixed(1)}%`,
     },
-    { title: '预估收益', dataIndex: 'estimatedRevenue' },
+    { title: t('pages.marketing.channelRoi.colEstimatedRevenue'), dataIndex: 'estimatedRevenue' },
     {
       title: 'ROI',
       dataIndex: 'roi',
       render: (_, row) =>
         row.roi == null ? (
-          <Tag>无成本</Tag>
+          <Tag>{t('pages.marketing.channelRoi.noCost')}</Tag>
         ) : (
           <Tag color={row.roi >= 1 ? 'green' : row.roi >= 0 ? 'gold' : 'red'}>
             {(row.roi * 100).toFixed(1)}%
@@ -66,17 +69,17 @@ export default function ChannelRoiPage() {
   return (
     <>
       <ProCard
-        title="渠道 ROI 统计"
+        title={t('pages.marketing.channelRoi.title')}
         loading={loading}
-        extra={<a onClick={() => void load()}>刷新</a>}
+        extra={<a onClick={() => void load()}>{t('pages.marketing.channelRoi.btnRefresh')}</a>}
         style={{ marginBottom: 16 }}
       >
         <div style={{ display: 'flex', gap: 24 }}>
-          <Statistic title="渠道数" value={rows.length} />
-          <Statistic title="总成本" value={totalCost} />
-          <Statistic title="归因线索" value={totalLeads} />
-          <Statistic title="归因客户" value={totalCustomers} />
-          <Statistic title="预估收益" value={totalRevenue} />
+          <Statistic title={t('pages.marketing.channelRoi.statChannelCount')} value={rows.length} />
+          <Statistic title={t('pages.marketing.channelRoi.statTotalCost')} value={totalCost} />
+          <Statistic title={t('pages.marketing.channelRoi.statLeadCount')} value={totalLeads} />
+          <Statistic title={t('pages.marketing.channelRoi.statCustomerCount')} value={totalCustomers} />
+          <Statistic title={t('pages.marketing.channelRoi.statEstimatedRevenue')} value={totalRevenue} />
         </div>
       </ProCard>
       <Table<ChannelRoi>
@@ -86,7 +89,7 @@ export default function ChannelRoiPage() {
         dataSource={rows}
         loading={loading}
         pagination={false}
-        locale={{ emptyText: '暂无活动数据，创建营销活动后自动归因统计' }}
+        locale={{ emptyText: t('pages.marketing.channelRoi.emptyText') }}
       />
     </>
   )

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, Col, DatePicker, Row, Statistic, Tag, Typography } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSurveyStats } from '../../services/ticketSurveyService'
@@ -6,6 +7,7 @@ import type { Dayjs } from 'dayjs'
 
 /** 满意度统计页（051）：CSAT 均值 + NPS 分布。 */
 export default function SatisfactionStatsPage() {
+  const { t } = useTranslation()
   const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null)
 
   const { data, isLoading, error } = useQuery({
@@ -21,16 +23,16 @@ export default function SatisfactionStatsPage() {
   const npsLabel =
     stats && stats.sampleCount > 0
       ? stats.npsScore >= 50
-        ? '优秀'
+        ? t('pages.survey.npsExcellent')
         : stats.npsScore >= 0
-          ? '良好'
-          : '需改进'
+          ? t('pages.survey.npsGood')
+          : t('pages.survey.npsNeedsImprovement')
       : '-'
 
   return (
     <div>
       <Card
-        title="工单满意度（CSAT / NPS）"
+        title={t('pages.survey.title')}
         style={{ borderRadius: 10 }}
         extra={
           <DatePicker.RangePicker
@@ -42,15 +44,15 @@ export default function SatisfactionStatsPage() {
         {isLoading ? (
           <Card loading />
         ) : error || !stats ? (
-          <Typography.Text type="danger">加载失败</Typography.Text>
+          <Typography.Text type="danger">{t('pages.survey.msgLoadFailed')}</Typography.Text>
         ) : (
           <Row gutter={[24, 24]}>
             <Col xs={12} md={6}>
-              <Statistic title="样本数" value={stats.sampleCount} />
+              <Statistic title={t('pages.survey.statSampleCount')} value={stats.sampleCount} />
             </Col>
             <Col xs={12} md={6}>
               <Statistic
-                title="CSAT 平均分（1-5）"
+                title={t('pages.survey.statCsatAvg')}
                 value={stats.csatAverage}
                 precision={1}
                 suffix="/ 5"
@@ -58,50 +60,57 @@ export default function SatisfactionStatsPage() {
             </Col>
             <Col xs={12} md={6}>
               <Statistic
-                title="NPS 得分"
+                title={t('pages.survey.statNps')}
                 value={stats.npsScore}
                 suffix={<Tag color={stats.npsScore >= 0 ? 'green' : 'red'}>{npsLabel}</Tag>}
               />
             </Col>
             <Col xs={12} md={6}>
-              <Statistic title="样本覆盖" value={stats.sampleCount > 0 ? '有效' : '暂无'} />
+              <Statistic
+                title={t('pages.survey.statSampleCoverage')}
+                value={stats.sampleCount > 0 ? t('pages.survey.coverageValid') : t('pages.survey.coverageNone')}
+              />
             </Col>
             <Col span={24}>
               <Typography.Title level={5} style={{ marginTop: 8 }}>
-                NPS 分布
+                {t('pages.survey.npsDistribution')}
               </Typography.Title>
               <Row gutter={16}>
                 <Col xs={8}>
                   <Statistic
-                    title="推荐者（5 分）"
+                    title={t('pages.survey.promoter')}
                     value={stats.promoter.percent}
                     precision={1}
                     suffix="%"
                     valueStyle={{ color: '#3f8600' }}
                   />
                   <Typography.Text type="secondary">
-                    {stats.promoter.count} 条
+                    {t('pages.survey.countUnit', { count: stats.promoter.count })}
                   </Typography.Text>
                 </Col>
                 <Col xs={8}>
                   <Statistic
-                    title="中立者（4 分）"
+                    title={t('pages.survey.passive')}
                     value={stats.passive.percent}
                     precision={1}
                     suffix="%"
                     valueStyle={{ color: '#faad14' }}
                   />
-                  <Typography.Text type="secondary">{stats.passive.count} 条</Typography.Text>
+                  <Typography.Text type="secondary">
+                    {t('pages.survey.countUnit', { count: stats.passive.count })}
+                  </Typography.Text>
                 </Col>
                 <Col xs={8}>
                   <Statistic
-                    title="贬损者（1-3 分）"
+                    title={t('pages.survey.detractor')}
                     value={stats.detractor.percent}
                     precision={1}
                     suffix="%"
                     valueStyle={{ color: '#cf1322' }}
                   />
-                  <Typography.Text type="secondary">{stats.detractor.count} 条</Typography.Text>
+                  <Typography.Text type="secondary">
+                    {t('pages.survey.countUnit', { count: stats.detractor.count })}
+                  </Typography.Text>
                 </Col>
               </Row>
             </Col>

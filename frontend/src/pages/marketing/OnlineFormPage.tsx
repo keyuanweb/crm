@@ -17,6 +17,7 @@ import {
   Tag,
 } from 'antd'
 import { CopyOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import {
   createForm,
   deleteForm,
@@ -32,14 +33,8 @@ interface FieldRow extends FormField {
   key: number
 }
 
-const FIELD_TYPES = [
-  { value: 'TEXT', label: '单行文本' },
-  { value: 'TEL', label: '手机号' },
-  { value: 'EMAIL', label: '邮箱' },
-  { value: 'TEXTAREA', label: '多行文本' },
-]
-
 export default function OnlineFormPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -50,6 +45,13 @@ export default function OnlineFormPage() {
   const [subDrawer, setSubDrawer] = useState<OnlineForm | null>(null)
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const nextKey = useRef(1)
+
+  const FIELD_TYPES = [
+    { value: 'TEXT', label: t('pages.marketing.onlineForm.fieldType.TEXT') },
+    { value: 'TEL', label: t('pages.marketing.onlineForm.fieldType.TEL') },
+    { value: 'EMAIL', label: t('pages.marketing.onlineForm.fieldType.EMAIL') },
+    { value: 'TEXTAREA', label: t('pages.marketing.onlineForm.fieldType.TEXTAREA') },
+  ]
 
   const reload = () => actionRef.current?.reload()
 
@@ -68,7 +70,15 @@ export default function OnlineFormPage() {
   const openCreate = () => {
     setEditing(null)
     form.resetFields()
-    setFields([{ key: nextKey.current++, field: 'name', label: '姓名', type: 'TEXT', required: true }])
+    setFields([
+      {
+        key: nextKey.current++,
+        field: 'name',
+        label: t('pages.marketing.onlineForm.defaultFieldName'),
+        type: 'TEXT',
+        required: true,
+      },
+    ])
     setModalOpen(true)
   }
 
@@ -88,7 +98,7 @@ export default function OnlineFormPage() {
     const values = await form.validateFields()
     const validFields = fields.filter((f) => f.field.trim() && f.label.trim())
     if (validFields.length === 0) {
-      message.warning('至少需要一个有效字段')
+      message.warning(t('pages.marketing.onlineForm.msgAtLeastOneField'))
       return
     }
     setSaving(true)
@@ -101,15 +111,15 @@ export default function OnlineFormPage() {
       }
       if (editing) {
         await updateForm(editing.id, payload)
-        message.success('已保存')
+        message.success(t('pages.marketing.onlineForm.msgSaved'))
       } else {
         await createForm(payload)
-        message.success('已创建')
+        message.success(t('pages.marketing.onlineForm.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -118,27 +128,29 @@ export default function OnlineFormPage() {
   const onDelete = async (row: OnlineForm) => {
     try {
       await deleteForm(row.id)
-      message.success('已删除')
+      message.success(t('pages.marketing.onlineForm.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.onlineForm.msgDeleteFailed')))
     }
   }
 
   const onToggle = async (row: OnlineForm, checked: boolean) => {
     try {
       await toggleForm(row.id)
-      message.success(checked ? '已启用' : '已停用')
+      message.success(
+        checked ? t('pages.marketing.onlineForm.msgEnabled') : t('pages.marketing.onlineForm.msgDisabled'),
+      )
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '操作失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.onlineForm.msgOperationFailed')))
     }
   }
 
   const copyLink = (row: OnlineForm) => {
     const url = `${window.location.origin}/f/${row.id}`
     void navigator.clipboard.writeText(url)
-    message.success(`外链已复制：${url}`)
+    message.success(t('pages.marketing.onlineForm.msgLinkCopied', { url }))
   }
 
   const openSubmissions = async (row: OnlineForm) => {
@@ -148,12 +160,27 @@ export default function OnlineFormPage() {
   }
 
   const columns: ProColumns<OnlineForm>[] = [
-    { title: '表单名', dataIndex: 'name' },
-    { title: '来源', dataIndex: 'source', width: 90, render: (_, row) => <Tag color="geekblue">{row.source}</Tag> },
-    { title: '字段数', search: false, width: 80, render: (_, row) => (JSON.parse(row.fields) as FormField[]).length },
-    { title: '提交数', dataIndex: 'submissionCount', width: 80, search: false },
+    { title: t('pages.marketing.onlineForm.colName'), dataIndex: 'name' },
     {
-      title: '状态',
+      title: t('pages.marketing.onlineForm.colSource'),
+      dataIndex: 'source',
+      width: 90,
+      render: (_, row) => <Tag color="geekblue">{row.source}</Tag>,
+    },
+    {
+      title: t('pages.marketing.onlineForm.colFieldCount'),
+      search: false,
+      width: 80,
+      render: (_, row) => (JSON.parse(row.fields) as FormField[]).length,
+    },
+    {
+      title: t('pages.marketing.onlineForm.colSubmissionCount'),
+      dataIndex: 'submissionCount',
+      width: 80,
+      search: false,
+    },
+    {
+      title: t('pages.marketing.onlineForm.colStatus'),
       dataIndex: 'status',
       width: 90,
       search: false,
@@ -162,21 +189,25 @@ export default function OnlineFormPage() {
       ),
     },
     {
-      title: '操作',
+      title: t('pages.marketing.onlineForm.colAction'),
       valueType: 'option',
       width: 200,
       render: (_, row) => [
         <a key="link" onClick={() => copyLink(row)}>
-          <CopyOutlined /> 外链
+          <CopyOutlined /> {t('pages.marketing.onlineForm.btnExternalLink')}
         </a>,
         <a key="subs" onClick={() => void openSubmissions(row)}>
-          记录
+          {t('pages.marketing.onlineForm.btnRecords')}
         </a>,
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('pages.marketing.onlineForm.btnEdit')}
         </a>,
-        <Popconfirm key="delete" title="确定删除该表单？" onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm
+          key="delete"
+          title={t('pages.marketing.onlineForm.confirmDelete')}
+          onConfirm={() => onDelete(row)}
+        >
+          <a style={{ color: '#ff4d4f' }}>{t('pages.marketing.onlineForm.btnDelete')}</a>
         </Popconfirm>,
       ],
     },
@@ -186,7 +217,7 @@ export default function OnlineFormPage() {
     <>
       <ProTable<OnlineForm>
         size="small"
-        headerTitle="在线表单"
+        headerTitle={t('pages.marketing.onlineForm.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -199,47 +230,57 @@ export default function OnlineFormPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建表单
+            {t('pages.marketing.onlineForm.btnCreate')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑表单' : '新建表单'}
+        title={
+          editing
+            ? t('pages.marketing.onlineForm.modalEditTitle')
+            : t('pages.marketing.onlineForm.modalCreateTitle')
+        }
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.marketing.onlineForm.btnSave')}
         destroyOnClose
         width={720}
       >
         <Form form={form} name="formDef" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="name" label="表单名" rules={[{ required: true, message: '请输入表单名' }]}>
-                <Input placeholder="如：产品试用申请" />
+              <Form.Item
+                name="name"
+                label={t('pages.marketing.onlineForm.formName')}
+                rules={[{ required: true, message: t('pages.marketing.onlineForm.msgNameRequired') }]}
+              >
+                <Input placeholder={t('pages.marketing.onlineForm.formNamePlaceholder')} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="source" label="线索来源">
+              <Form.Item name="source" label={t('pages.marketing.onlineForm.formSource')}>
                 <Select
                   options={[
-                    { value: 'WEBSITE', label: '官网' },
-                    { value: 'ADVERTISEMENT', label: '广告' },
-                    { value: 'EXHIBITION', label: '展会' },
-                    { value: 'OTHER', label: '其他' },
+                    { value: 'WEBSITE', label: t('pages.marketing.onlineForm.sourceWebsite') },
+                    { value: 'ADVERTISEMENT', label: t('pages.marketing.onlineForm.sourceAdvertisement') },
+                    { value: 'EXHIBITION', label: t('pages.marketing.onlineForm.sourceExhibition') },
+                    { value: 'OTHER', label: t('pages.marketing.onlineForm.sourceOther') },
                   ]}
                 />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="successMessage" label="成功提示">
-            <Input placeholder="如：已收到您的申请，我们将尽快联系您" />
+          <Form.Item name="successMessage" label={t('pages.marketing.onlineForm.formSuccessMessage')}>
+            <Input placeholder={t('pages.marketing.onlineForm.formSuccessMessagePlaceholder')} />
           </Form.Item>
         </Form>
 
-        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>表单字段（field 映射线索字段：name/company/phone/email）：</div>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+          {t('pages.marketing.onlineForm.formFieldsLabel')}
+        </div>
         <div style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 10, background: '#fafafa' }}>
           {fields.map((f) => (
             <Row key={f.key} gutter={8} style={{ marginBottom: 8 }} align="middle">
@@ -247,14 +288,20 @@ export default function OnlineFormPage() {
                 <Input value={f.field} onChange={(e) => updateField(f.key, { field: e.target.value })} placeholder="field" />
               </Col>
               <Col span={7}>
-                <Input value={f.label} onChange={(e) => updateField(f.key, { label: e.target.value })} placeholder="显示名" />
+                <Input
+                  value={f.label}
+                  onChange={(e) => updateField(f.key, { label: e.target.value })}
+                  placeholder={t('pages.marketing.onlineForm.phDisplayLabel')}
+                />
               </Col>
               <Col span={6}>
                 <Select value={f.type} onChange={(v) => updateField(f.key, { type: v })} style={{ width: '100%' }} options={FIELD_TYPES} />
               </Col>
               <Col span={3}>
                 <Space size={4}>
-                  <span style={{ fontSize: 12, color: '#8c8c8c' }}>必填</span>
+                  <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+                    {t('pages.marketing.onlineForm.labelRequired')}
+                  </span>
                   <Switch size="small" checked={f.required} onChange={(c) => updateField(f.key, { required: c })} />
                 </Space>
               </Col>
@@ -264,14 +311,21 @@ export default function OnlineFormPage() {
             </Row>
           ))}
           <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={addField} block>
-            添加字段
+            {t('pages.marketing.onlineForm.btnAddField')}
           </Button>
         </div>
       </Modal>
 
-      <Drawer title={`提交记录：${subDrawer?.name ?? ''}`} open={!!subDrawer} onClose={() => setSubDrawer(null)} width={560}>
+      <Drawer
+        title={t('pages.marketing.onlineForm.drawerTitle', { name: subDrawer?.name ?? '' })}
+        open={!!subDrawer}
+        onClose={() => setSubDrawer(null)}
+        width={560}
+      >
         {submissions.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#8c8c8c', padding: 40 }}>暂无提交</div>
+          <div style={{ textAlign: 'center', color: '#8c8c8c', padding: 40 }}>
+            {t('pages.marketing.onlineForm.emptySubmissions')}
+          </div>
         ) : (
           <Table<Submission>
             size="small"
@@ -280,7 +334,7 @@ export default function OnlineFormPage() {
             pagination={false}
             columns={[
               {
-                title: '提交内容',
+                title: t('pages.marketing.onlineForm.colSubmissionContent'),
                 dataIndex: 'payload',
                 render: (v: string) => {
                   try {
@@ -293,10 +347,20 @@ export default function OnlineFormPage() {
                   }
                 },
               },
-              { title: 'IP', dataIndex: 'clientIp', width: 120, render: (v?: string) => v || '-' },
-              { title: '线索', dataIndex: 'leadId', width: 70, render: (v?: number) => (v ? `#${v}` : '-') },
               {
-                title: '时间',
+                title: t('pages.marketing.onlineForm.colIp'),
+                dataIndex: 'clientIp',
+                width: 120,
+                render: (v?: string) => v || '-',
+              },
+              {
+                title: t('pages.marketing.onlineForm.colLead'),
+                dataIndex: 'leadId',
+                width: 70,
+                render: (v?: number) => (v ? `#${v}` : '-'),
+              },
+              {
+                title: t('pages.marketing.onlineForm.colTime'),
                 dataIndex: 'createdAt',
                 width: 140,
                 render: (v?: string) => (v ? v.replace('T', ' ').slice(0, 16) : '-'),

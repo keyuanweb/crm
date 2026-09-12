@@ -6,8 +6,9 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import { createUser, fetchUsers, resetPassword, updateUser } from '../../services/userService'
 import { fetchDepartmentTree, setUserDataPermission } from '../../services/departmentService'
 import { extractErrorMessage } from '../../services/apiClient'
-import { ROLE_LABELS, type User, type UserRole } from '../../types/user'
-import { DATA_SCOPE_LABELS, type DataScope } from '../../types/department'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { type User, type UserRole } from '../../types/user'
+import { type DataScope } from '../../types/department'
 import { useAuthStore } from '../../store/authStore'
 import dayjs from 'dayjs'
 
@@ -21,6 +22,24 @@ interface CreateValues {
 interface EditValues {
   displayName: string
   role: UserRole
+}
+
+/**
+ * 角色标签配色。
+ *
+ * <p>改造前是 `role === 'ADMIN' ? 'red' : role === 'SALES' ? 'blue' : 'default'`：只区分 3 个内建角色，
+ * 081 的 10 个角色（以及管理员自建的角色）一律落到 `default`，于是「销售总监」「销售代表」「客服主管」
+ * 「客服专员」四种截然不同的职责在列表里长得一模一样。按**前缀**分组而不是逐个枚举，是为了让
+ * 管理员自建的 `SALES_INTERN` 这类角色也能归到销售色系，而不是掉进 default。
+ */
+function roleTagColor(role: string): string {
+  if (role === 'ADMIN') return 'red'
+  if (role.startsWith('SALES')) return 'blue'
+  if (role.startsWith('SUPPORT')) return 'green'
+  if (role.startsWith('MARKETING')) return 'purple'
+  if (role.startsWith('FINANCE')) return 'gold'
+  if (role === 'ANALYST') return 'cyan'
+  return 'default'
 }
 
 export default function UserManagementPage() {
@@ -39,6 +58,12 @@ export default function UserManagementPage() {
   const [deptOptions, setDeptOptions] = useState<{ value: number; label: string }[]>([])
   // 028：角色下拉来自角色列表
   const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([])
+  // roleOptions 的加载在 useEffect 里，而 effect 在首帧之后才跑——首帧 roleOptions 是空数组，
+  // 若把创建表单的 Select 直接绑上去，用户看到的会是一个空下拉。用 ENUM_KEYS.userRole 兜底首帧
+  // （它覆盖 13 个内建角色），加载完成后自动切换成角色表（含管理员自建的角色）。
+  const roleSelectOptions = roleOptions.length
+    ? roleOptions
+    : Object.keys(ENUM_KEYS.userRole).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.userRole, code) }))
   const currentUser = useAuthStore((s) => s.user)
 
   const reload = () => actionRef.current?.reload()
@@ -162,10 +187,12 @@ export default function UserManagementPage() {
       title: t('pages.userManagement.colRole'),
       dataIndex: 'role',
       valueType: 'select',
+      // 筛选下拉用**角色表**而不是枚举表：枚举表只有内建的 13 个角色，管理员自建的角色
+      // （角色页可以新建）会永远筛不出来。roleOptions 来自 /roles/options，是同一个数据源。
       valueEnum: Object.fromEntries(
-        Object.entries(ROLE_LABELS).map(([value, text]) => [value, { text }]),
+        roleOptions.map((r) => [r.value, { text: r.label }]),
       ),
-      render: (_, row) => <Tag color={row.role === 'ADMIN' ? 'red' : row.role === 'SALES' ? 'blue' : 'default'}>{ROLE_LABELS[row.role]}</Tag>,
+      render: (_, row) => <Tag color={roleTagColor(row.role)}>{labelOf(t, ENUM_KEYS.userRole, row.role)}</Tag>,
     },
     {
       title: t('pages.userManagement.colStatus'),
@@ -186,7 +213,7 @@ export default function UserManagementPage() {
       dataIndex: 'dataScope',
       search: false,
       render: (_, row) => {
-        const label = row.dataScope ? DATA_SCOPE_LABELS[row.dataScope as DataScope] : t('pages.userManagement.dataScopeSelf')
+        const label = labelOf(t, ENUM_KEYS.dataScope, row.dataScope, t('pages.userManagement.dataScopeSelf'))
         return <Tag>{label}</Tag>
       },
     },
@@ -276,9 +303,7 @@ export default function UserManagementPage() {
             initialValue="SALES"
             rules={[{ required: true, message: t('pages.userManagement.form.roleRequired') }]}
           >
-            <Select
-              options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
-            />
+            <Select options={roleSelectOptions} />
           </Form.Item>
           <Form.Item
             name="password"
@@ -307,7 +332,7 @@ export default function UserManagementPage() {
             <Input />
           </Form.Item>
           <Form.Item name="role" label={t('pages.userManagement.form.role')} rules={[{ required: true, message: t('pages.userManagement.form.roleRequired') }]}>
-            <Select options={roleOptions} placeholder={t('pages.userManagement.form.rolePlaceholder')} />
+            <Select options={roleSelectOptions} placeholder={t('pages.userManagement.form.rolePlaceholder')} />
           </Form.Item>
         </Form>
       </Modal>
@@ -348,7 +373,7 @@ export default function UserManagementPage() {
             <Select allowClear placeholder={t('pages.userManagement.form.departmentPlaceholder')} options={deptOptions} />
           </Form.Item>
           <Form.Item name="dataScope" label={t('pages.userManagement.form.dataScope')} rules={[{ required: true, message: t('pages.userManagement.form.dataScopeRequired') }]}>
-            <Select options={Object.entries(DATA_SCOPE_LABELS).map(([value, label]) => ({ value, label }))} />
+            <Select options={Object.keys(ENUM_KEYS.dataScope).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.dataScope, code) }))} />
           </Form.Item>
         </Form>
       </Modal>

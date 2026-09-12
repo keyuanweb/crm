@@ -13,7 +13,8 @@ import {
   toggleWebhook,
 } from '../../services/openPlatformService'
 import { extractErrorMessage } from '../../services/apiClient'
-import { WEBHOOK_EVENT_LABELS, type ApiKey, type WebhookSubscription } from '../../types/openPlatform'
+import { type ApiKey, type WebhookSubscription } from '../../types/openPlatform'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
 /** 开放平台页（055，仅 ADMIN）：API Key + Webhook。 */
 export default function OpenPlatformPage() {
@@ -193,7 +194,7 @@ function WebhookTab() {
       {webhooks.map((w) => (
         <div key={w.id} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: '12px 16px' }}>
           <Space size={16}>
-            <Tag color="blue">{WEBHOOK_EVENT_LABELS[w.eventType] ?? w.eventType}</Tag>
+            <Tag color="blue">{labelOf(t, ENUM_KEYS.webhookEvent, w.eventType)}</Tag>
             <Typography.Text code>{w.callbackUrl}</Typography.Text>
             {w.enabled ? <Tag color="green">{t('pages.openPlatform.enabled')}</Tag> : <Tag>{t('pages.openPlatform.disabled')}</Tag>}
             <Button size="small" onClick={() => void toggle(w.id)}>
@@ -210,7 +211,7 @@ function WebhookTab() {
       <Modal title={t('pages.openPlatform.modalCreateWebhookTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.openPlatform.create')} destroyOnClose>
         <Form form={form} layout="vertical">
           <Form.Item name="eventType" label={t('pages.openPlatform.formEventTypeLabel')} rules={[{ required: true, message: t('pages.openPlatform.formEventTypeRequired') }]}>
-            <Select options={Object.entries(WEBHOOK_EVENT_LABELS).map(([value, label]) => ({ value, label }))} />
+            <Select options={Object.keys(ENUM_KEYS.webhookEvent).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.webhookEvent, code) }))} />
           </Form.Item>
           <Form.Item name="callbackUrl" label={t('pages.openPlatform.formCallbackUrlLabel')} rules={[{ required: true, message: t('pages.openPlatform.formCallbackUrlRequired') }]}>
             <Input placeholder={t('pages.openPlatform.formCallbackUrlPlaceholder')} />

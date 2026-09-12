@@ -30,27 +30,3 @@ export interface DataRetentionExecutionResponse {
   errorMessage?: string
   createdAt?: string
 }
-
-export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
-  CUSTOMER: '客户',
-  OPPORTUNITY: '商机',
-  CONTRACT: '合同',
-  ORDER: '订单',
-  AUDIT_LOG: '审计日志',
-}
-
-export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
-  ARCHIVE: '归档',
-  DELETE: '删除',
-}
-
-export const POLICY_STATUS_LABELS: Record<PolicyStatus, string> = {
-  ACTIVE: '活跃',
-  INACTIVE: '已停用',
-}
-
-export const EXECUTION_STATUS_LABELS: Record<ExecutionStatus, string> = {
-  SUCCESS: '成功',
-  FAILED: '失败',
-  PARTIAL: '部分成功',
-}

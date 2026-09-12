@@ -39,7 +39,8 @@ import { fetchSuggestionSummary } from '../../services/suggestionService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
 import AnnouncementCard from '../../components/AnnouncementCard'
-import { STAGE_LABELS, formatAmount, type OpportunityStage } from '../../types/opportunity'
+import { formatAmount } from '../../types/opportunity'
+import { useOpportunityStages } from '../../hooks/useOpportunityStages'
 import type { StalledOpportunity } from '../../types/stats'
 
 const { Title, Paragraph, Text } = Typography
@@ -126,6 +127,9 @@ const FunnelChart = memo(function FunnelChart({
   grandTotal: number
   t: (key: string, params?: Record<string, unknown>) => string
 }) {
+  // 阶段名走字典而不是内建登记表：漏斗的阶段是服务端按字典下发的，自建阶段在登记表里没有条目，
+  // 用 labelOf 会把它显示成编码——同一个阶段在看板上是中文、在仪表盘上是编码
+  const { stageLabel } = useOpportunityStages()
   const colorMap: Record<string, string> = {
     blue: '#1677ff',
     gold: '#fa8c16',
@@ -200,7 +204,7 @@ const FunnelChart = memo(function FunnelChart({
                     flexShrink: 0,
                   }} />
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#1f1f1f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {STAGE_LABELS[st.stage as OpportunityStage] ?? st.stage}
+                    {stageLabel(st.stage)}
                   </span>
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: baseColor }}>
@@ -450,10 +454,15 @@ const ActivityFeed = memo(function ActivityFeed({
 
 export default function DashboardPage() {
   const { t } = useTranslation()
+  const { stageLabel } = useOpportunityStages()
   const { message } = App.useApp()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
+  // 保留角色判断：这里唯一的 gating 是「设置目标」按钮（PUT /api/v1/stats/sales-targets）。
+  // StatsController 是类级 @PreAuthorize("hasAnyRole('ADMIN','SALES')")，方法体里再判一次
+  // 「userId 为空 = 全局目标，仅管理员可设」——本页发的请求不带 userId，所以实际就是管理员专属，
+  // 且这条规则既没有权限码也没有可复用的码（quota:* 管的是销售配额，不是销售目标），故维持原判断。
   const isAdmin = user?.role === 'ADMIN'
   const currentMonth = dayjs().format('YYYY-MM')
   const [targetOpen, setTargetOpen] = useState(false)
@@ -570,7 +579,7 @@ export default function DashboardPage() {
       width: 100,
       render: (stage: string) => (
         <Tag color={stageColor[stage] ?? 'default'} className="dashboard-tag">
-          {STAGE_LABELS[stage as OpportunityStage] ?? stage}
+          {stageLabel(stage)}
         </Tag>
       ),
     },

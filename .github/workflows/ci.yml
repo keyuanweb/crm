@@ -56,6 +56,11 @@ jobs:
       - name: Lint
         working-directory: frontend
         run: pnpm run lint
+      # 语言资源对齐（一期 1.4）。单元测试里 react-i18next 被 mock，缺键不会让任何测试失败，
+      # 只会让界面渲染出键名，因此必须单独设一道门禁：两个语言文件键集合不一致即失败。
+      - name: i18n key parity
+        working-directory: frontend
+        run: pnpm run i18n:check
       # 必须走 test:coverage 而不是 test：覆盖率阈值（vite.config.ts 的 coverage.thresholds，
       # FR-G09）只在该命令下生效。跑 test 的话门禁「配了但不管」——正是本规格要消除的形态。
       - name: Unit tests (with coverage threshold)

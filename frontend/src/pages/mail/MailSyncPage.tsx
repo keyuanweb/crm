@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
-import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Switch, Tag } from 'antd'
+import { Alert, App, Button, Form, Input, InputNumber, Modal, Popconfirm, Switch, Tag } from 'antd'
 import { PlusOutlined, SyncOutlined } from '@ant-design/icons'
 import {
   createMailAccount,
@@ -12,7 +13,7 @@ import {
   updateMailAccount,
 } from '../../services/mailService'
 import { extractErrorMessage } from '../../services/apiClient'
-import { SYNC_DIRECTION_LABELS, type MailAccount, type MailSyncRecord } from '../../types/mail'
+import type { MailAccount, MailSyncRecord } from '../../types/mail'
 
 interface FormValues {
   email: string
@@ -27,6 +28,7 @@ interface FormValues {
 
 /** 邮件同步页（062）：账户配置 + 同步记录。 */
 export default function MailSyncPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -34,29 +36,29 @@ export default function MailSyncPage() {
   const [form] = Form.useForm<FormValues>()
 
   const columns: ProColumns<MailAccount>[] = [
-    { title: '邮箱', dataIndex: 'email' },
-    { title: '显示名', dataIndex: 'displayName', search: false },
+    { title: t('pages.mail.email'), dataIndex: 'email' },
+    { title: t('pages.mail.displayName'), dataIndex: 'displayName', search: false },
     { title: 'IMAP', dataIndex: 'imapHost', search: false, render: (_, row) => (row.imapHost ? `${row.imapHost}:${row.imapPort}` : '-') },
     { title: 'SMTP', dataIndex: 'smtpHost', search: false, render: (_, row) => (row.smtpHost ? `${row.smtpHost}:${row.smtpPort}` : '-') },
     {
-      title: '状态',
+      title: t('pages.mail.status'),
       dataIndex: 'enabled',
       search: false,
-      render: (_, row) => (row.enabled ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>),
+      render: (_, row) => (row.enabled ? <Tag color="green">{t('common.status.active')}</Tag> : <Tag>{t('common.status.inactive')}</Tag>),
     },
     {
-      title: '默认发件',
+      title: t('pages.mail.defaultSender'),
       dataIndex: 'isDefaultSender',
       search: false,
-      render: (_, row) => (row.isDefaultSender ? <Tag color="gold">默认</Tag> : '-'),
+      render: (_, row) => (row.isDefaultSender ? <Tag color="gold">{t('pages.mail.tagDefault')}</Tag> : '-'),
     },
     {
-      title: '操作',
+      title: t('pages.mail.action'),
       valueType: 'option',
       render: (_, row) => [
-        <a key="edit" onClick={() => openEdit(row)}>编辑</a>,
-        <Popconfirm key="del" title="删除该账户？" onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <a key="edit" onClick={() => openEdit(row)}>{t('common.button.edit')}</a>,
+        <Popconfirm key="del" title={t('pages.mail.confirmDeleteAccount')} onConfirm={() => void onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -82,32 +84,32 @@ export default function MailSyncPage() {
     try {
       if (editing) {
         await updateMailAccount(editing.id, values)
-        message.success('已保存')
+        message.success(t('common.message.saved'))
       } else {
         await createMailAccount(values)
-        message.success('已创建')
+        message.success(t('pages.mail.msgCreated'))
       }
       setModalOpen(false)
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.mail.msgSaveFailed')))
     }
   }
 
   const onDelete = async (row: MailAccount) => {
     try {
       await deleteMailAccount(row.id)
-      message.success('已删除')
+      message.success(t('pages.mail.msgDeleted'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.mail.msgDeleteFailed')))
     }
   }
 
   return (
     <>
       <ProTable<MailAccount>
-        headerTitle="邮件账户"
+        headerTitle={t('pages.mail.titleAccounts')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -129,7 +131,7 @@ export default function MailSyncPage() {
               setModalOpen(true)
             }}
           >
-            新增账户
+            {t('pages.mail.createAccount')}
           </Button>,
         ]}
         expandable={{
@@ -138,41 +140,41 @@ export default function MailSyncPage() {
         }}
       />
       <Modal
-        title={editing ? '编辑账户' : '新增账户'}
+        title={editing ? t('pages.mail.editAccount') : t('pages.mail.createAccount')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         destroyOnClose
         width={520}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="email" label="邮箱" rules={[{ required: true, type: 'email', message: '请输入合法邮箱' }]}>
+          <Form.Item name="email" label={t('pages.mail.email')} rules={[{ required: true, type: 'email', message: t('pages.mail.msgInvalidEmail') }]}>
             <Input placeholder="sales@corp.com" />
           </Form.Item>
-          <Form.Item name="displayName" label="显示名" rules={[{ required: true, message: '请输入显示名' }]}>
-            <Input placeholder="销售部" />
+          <Form.Item name="displayName" label={t('pages.mail.displayName')} rules={[{ required: true, message: t('pages.mail.msgDisplayNameRequired') }]}>
+            <Input placeholder={t('pages.mail.placeholderDisplayName')} />
           </Form.Item>
           <div style={{ display: 'flex', gap: 12 }}>
-            <Form.Item name="imapHost" label="IMAP 主机" style={{ flex: 2 }}>
+            <Form.Item name="imapHost" label={t('pages.mail.imapHost')} style={{ flex: 2 }}>
               <Input placeholder="imap.corp.com" />
             </Form.Item>
-            <Form.Item name="imapPort" label="端口" style={{ flex: 1 }}>
+            <Form.Item name="imapPort" label={t('pages.mail.port')} style={{ flex: 1 }}>
               <InputNumber min={1} max={65535} style={{ width: '100%' }} />
             </Form.Item>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <Form.Item name="smtpHost" label="SMTP 主机" style={{ flex: 2 }}>
+            <Form.Item name="smtpHost" label={t('pages.mail.smtpHost')} style={{ flex: 2 }}>
               <Input placeholder="smtp.corp.com" />
             </Form.Item>
-            <Form.Item name="smtpPort" label="端口" style={{ flex: 1 }}>
+            <Form.Item name="smtpPort" label={t('pages.mail.port')} style={{ flex: 1 }}>
               <InputNumber min={1} max={65535} style={{ width: '100%' }} />
             </Form.Item>
           </div>
-          <Form.Item name="isDefaultSender" label="设为默认发件" valuePropName="checked">
+          <Form.Item name="isDefaultSender" label={t('pages.mail.setDefaultSender')} valuePropName="checked">
             <Switch />
           </Form.Item>
-          <Form.Item name="enabled" label="启用" valuePropName="checked">
+          <Form.Item name="enabled" label={t('common.status.active')} valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>
@@ -182,26 +184,31 @@ export default function MailSyncPage() {
 }
 
 function SyncRecordList({ accountId }: { accountId: number }) {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const actionRef = useRef<ActionType>()
+  const SYNC_DIRECTION_LABELS: Record<string, string> = {
+    INBOUND: t('pages.mail.directionInbound'),
+    OUTBOUND: t('pages.mail.directionOutbound'),
+  }
   const columns: ProColumns<MailSyncRecord>[] = [
-    { title: '方向', dataIndex: 'direction', render: (_, row) => <Tag color="blue">{SYNC_DIRECTION_LABELS[row.direction] ?? row.direction}</Tag> },
-    { title: '主题', dataIndex: 'subject' },
-    { title: '发件人', dataIndex: 'fromAddress', search: false },
-    { title: '收件人', dataIndex: 'toAddress', search: false },
-    { title: '状态', dataIndex: 'syncStatus', search: false, render: (_, row) => (row.syncStatus === 'SYNCED' ? <Tag color="green">已同步</Tag> : <Tag color="red">失败</Tag>) },
+    { title: t('pages.mail.direction'), dataIndex: 'direction', render: (_, row) => <Tag color="blue">{SYNC_DIRECTION_LABELS[row.direction] ?? row.direction}</Tag> },
+    { title: t('pages.mail.subject'), dataIndex: 'subject' },
+    { title: t('pages.mail.from'), dataIndex: 'fromAddress', search: false },
+    { title: t('pages.mail.to'), dataIndex: 'toAddress', search: false },
+    { title: t('pages.mail.status'), dataIndex: 'syncStatus', search: false, render: (_, row) => (row.syncStatus === 'SYNCED' ? <Tag color="green">{t('pages.mail.tagSynced')}</Tag> : <Tag color="red">{t('pages.mail.tagFailed')}</Tag>) },
     {
-      title: '时间',
+      title: t('pages.mail.time'),
       dataIndex: 'syncTime',
       search: false,
       render: (_, row) => (row.syncTime ? row.syncTime.replace('T', ' ').slice(0, 19) : '-'),
     },
     {
-      title: '操作',
+      title: t('pages.mail.action'),
       valueType: 'option',
       render: (_, row) => [
-        <Popconfirm key="del" title="删除该同步记录？" onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm key="del" title={t('pages.mail.confirmDeleteSyncRecord')} onConfirm={() => void onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -210,44 +217,58 @@ function SyncRecordList({ accountId }: { accountId: number }) {
   const onDelete = async (row: MailSyncRecord) => {
     try {
       await deleteSyncRecord(accountId, row.id)
-      message.success('已删除')
+      message.success(t('pages.mail.msgDeleted'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.mail.msgDeleteFailed')))
     }
   }
 
   return (
-    <ProTable<MailSyncRecord>
-      headerTitle={`同步记录 · 账户 #${accountId}`}
-      rowKey="id"
-      actionRef={actionRef}
-      columns={columns}
-      search={false}
-      pagination={{ defaultPageSize: 10 }}
-      request={async (params) => {
-        const res = await fetchSyncRecords(accountId, params.current ?? 1, params.pageSize ?? 10)
-        return { data: res.items, success: true, total: res.total }
-      }}
-      toolBarRender={() => [
-        <Button
-          key="sync"
-          type="primary"
-          ghost
-          icon={<SyncOutlined />}
-          onClick={async () => {
-            try {
-              await simulateSync(accountId)
-              message.success('已触发模拟同步')
-              actionRef.current?.reload()
-            } catch (err) {
-              message.error(extractErrorMessage(err, '同步失败'))
-            }
-          }}
-        >
-          模拟同步
-        </Button>,
-      ]}
-    />
+    <>
+      {/*
+        诚实化：按钮已写明「模拟同步」，但下表会把后端 simulateSync 插的假记录渲染成绿色
+        「已同步」——看起来像真实收信成功。本期不接 IMAP（用户已确认），但不能让模拟数据
+        冒充真实结果，故在表上方明示数据来源。
+      */}
+      <Alert
+        type="warning"
+        showIcon
+        style={{ marginBottom: 12 }}
+        message={t('pages.mail.demoDataNoticeTitle')}
+        description={t('pages.mail.demoDataNoticeDesc')}
+      />
+      <ProTable<MailSyncRecord>
+        headerTitle={t('pages.mail.syncRecordsTitle', { id: accountId })}
+        rowKey="id"
+        actionRef={actionRef}
+        columns={columns}
+        search={false}
+        pagination={{ defaultPageSize: 10 }}
+        request={async (params) => {
+          const res = await fetchSyncRecords(accountId, params.current ?? 1, params.pageSize ?? 10)
+          return { data: res.items, success: true, total: res.total }
+        }}
+        toolBarRender={() => [
+          <Button
+            key="sync"
+            type="primary"
+            ghost
+            icon={<SyncOutlined />}
+            onClick={async () => {
+              try {
+                await simulateSync(accountId)
+                message.success(t('pages.mail.msgSyncTriggered'))
+                actionRef.current?.reload()
+              } catch (err) {
+                message.error(extractErrorMessage(err, t('pages.mail.msgSyncFailed')))
+              }
+            }}
+          >
+            {t('pages.mail.btnSimulateSync')}
+          </Button>,
+        ]}
+      />
+    </>
   )
 }

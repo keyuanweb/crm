@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
+  Alert,
   App,
   Button,
   Drawer,
@@ -39,6 +40,25 @@ const STATUS_COLORS: Record<string, string> = {
   RUNNING: 'processing',
   DONE: 'green',
   FAILED: 'red',
+  // SMTP 未配置 → 整批从未发出（一期诚信修复）。用 warning 色而非绿色，避免与 DONE 混淆。
+  SKIPPED: 'orange',
+}
+
+/** 批次状态文案键（后端返回英文枚举，直接渲染会在中文界面露出 SKIPPED 之类的字面量）。 */
+const CAMPAIGN_STATUS_KEYS: Record<string, string> = {
+  PENDING: 'campaignStatusPending',
+  RUNNING: 'campaignStatusRunning',
+  DONE: 'campaignStatusDone',
+  FAILED: 'campaignStatusFailed',
+  SKIPPED: 'campaignStatusSkipped',
+}
+
+/** 单封发送状态：四态，不能把 SKIPPED/PENDING 一律画成红色"失败"。 */
+const LOG_STATUS_KEYS: Record<string, { color: string; key: string }> = {
+  SENT: { color: 'green', key: 'statusSuccess' },
+  FAILED: { color: 'red', key: 'statusFailed' },
+  SKIPPED: { color: 'orange', key: 'statusSkipped' },
+  PENDING: { color: 'default', key: 'statusPending' },
 }
 
 export default function EmailCampaignPage() {
@@ -51,6 +71,8 @@ export default function EmailCampaignPage() {
   const [segmentOptions, setSegmentOptions] = useState<Segment[]>([])
   const [detailDrawer, setDetailDrawer] = useState<EmailCampaign | null>(null)
   const [detailLogs, setDetailLogs] = useState<EmailSendLog[]>([])
+  // 列表中只要有批次是 SKIPPED，就说明"这批邮件从未发出"——顶部给出警告条
+  const [hasSkippedBatch, setHasSkippedBatch] = useState(false)
   const [form] = Form.useForm<FormValues>()
   const [testEmail, setTestEmail] = useState('')
 
@@ -82,8 +104,17 @@ export default function EmailCampaignPage() {
     setSaving(true)
     try {
       const c = await createEmailCampaign(payload as never)
-      message.success(t('pages.marketing.emailCampaign.msgSent', { count: c.totalCount }))
       setModalOpen(false)
+      // 未配置 SMTP 时后端把批次标为 SKIPPED —— 此时提示"已发送 N 封"就是假成功。
+      // 配置了 SMTP 走异步发送，此刻结果未知，所以只说"已提交"，不宣称已发出。
+      if (c.status === 'SKIPPED') {
+        message.warning(t('pages.marketing.emailCampaign.warningSkipped'))
+      } else if (c.totalCount === 0) {
+        // 收件人为 0 时接口仍返回成功：不提示的话，用户会以为发出去了（实际一封没发）
+        message.warning(t('pages.marketing.emailCampaign.msgNoRecipients'))
+      } else {
+        message.success(t('pages.marketing.emailCampaign.msgQueued', { count: c.totalCount }))
+      }
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, t('pages.marketing.emailCampaign.msgSendFailed')))
@@ -98,8 +129,12 @@ export default function EmailCampaignPage() {
       return
     }
     try {
-      await testSendCampaign(row.id, testEmail)
-      message.success(t('pages.marketing.emailCampaign.msgTestSent'))
+      const sent = await testSendCampaign(row.id, testEmail)
+      if (sent) {
+        message.success(t('pages.marketing.emailCampaign.msgTestSent'))
+      } else {
+        message.warning(t('pages.marketing.emailCampaign.msgTestNotSent'))
+      }
     } catch (err) {
       message.error(extractErrorMessage(err, t('pages.marketing.emailCampaign.msgSendFailed')))
     }
@@ -118,10 +153,18 @@ export default function EmailCampaignPage() {
       dataIndex: 'status',
       width: 90,
       search: false,
-      render: (_, row) => <Tag color={STATUS_COLORS[row.status] ?? 'default'}>{row.status}</Tag>,
+      render: (_, row) => {
+        const key = CAMPAIGN_STATUS_KEYS[row.status]
+        return (
+          <Tag color={STATUS_COLORS[row.status] ?? 'default'}>
+            {key ? t(`pages.marketing.emailCampaign.${key}`) : row.status}
+          </Tag>
+        )
+      },
     },
     { title: t('pages.marketing.emailCampaign.colRecipients'), dataIndex: 'totalCount', width: 80, search: false },
-    { title: t('pages.marketing.emailCampaign.colSuccess'), dataIndex: 'sentCount', width: 70, search: false, render: (_, row) => <Tag color="green">{row.sentCount}</Tag> },
+    // 0 封不要画成绿色：绿色数字会被读成"发出去了"，而 SKIPPED 批次的成功数正是 0
+    { title: t('pages.marketing.emailCampaign.colSuccess'), dataIndex: 'sentCount', width: 70, search: false, render: (_, row) => <Tag color={row.sentCount > 0 ? 'green' : 'default'}>{row.sentCount}</Tag> },
     { title: t('pages.marketing.emailCampaign.colFailed'), dataIndex: 'failedCount', width: 70, search: false, render: (_, row) => <Tag color="red">{row.failedCount}</Tag> },
     { title: t('pages.marketing.emailCampaign.colOpened'), dataIndex: 'openCount', width: 70, search: false, render: (_, row) => <Tag color="blue">{row.openCount}</Tag> },
     { title: t('pages.marketing.emailCampaign.colClicked'), dataIndex: 'clickCount', width: 70, search: false, render: (_, row) => <Tag color="geekblue">{row.clickCount}</Tag> },
@@ -148,6 +191,15 @@ export default function EmailCampaignPage() {
 
   return (
     <>
+      {hasSkippedBatch ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.marketing.emailCampaign.warningSkipped')}
+          description={t('pages.marketing.emailCampaign.warningSkippedDesc')}
+        />
+      ) : null}
       <ProTable<EmailCampaign>
         size="small"
         headerTitle={t('pages.marketing.emailCampaign.title')}
@@ -159,6 +211,7 @@ export default function EmailCampaignPage() {
         cardProps={{ style: { borderRadius: 10 } }}
         request={async () => {
           const items = await fetchEmailCampaigns()
+          setHasSkippedBatch(items.some((c) => c.status === 'SKIPPED'))
           return { data: items, success: true, total: items.length }
         }}
         toolBarRender={() => [
@@ -219,6 +272,15 @@ export default function EmailCampaignPage() {
         onClose={() => setDetailDrawer(null)}
         width={560}
       >
+        {detailLogs.some((l) => l.status === 'SKIPPED') ? (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={t('pages.marketing.emailCampaign.warningSkipped')}
+            description={detailLogs.find((l) => l.status === 'SKIPPED')?.errorMessage}
+          />
+        ) : null}
         <Table<EmailSendLog>
           size="small"
           rowKey="id"
@@ -231,8 +293,15 @@ export default function EmailCampaignPage() {
               title: t('pages.marketing.emailCampaign.colStatus'),
               dataIndex: 'status',
               width: 80,
-              render: (v: string) =>
-                v === 'SENT' ? <Tag color="green">{t('pages.marketing.emailCampaign.statusSuccess')}</Tag> : <Tag color="red">{t('pages.marketing.emailCampaign.statusFailed')}</Tag>,
+              // 悬停显示 errorMessage：SKIPPED 的原因是"SMTP 未配置"，FAILED 是具体异常
+              render: (v: string, row) => {
+                const meta = LOG_STATUS_KEYS[v]
+                return (
+                  <Tag color={meta?.color ?? 'default'} title={row.errorMessage}>
+                    {meta ? t(`pages.marketing.emailCampaign.${meta.key}`) : v}
+                  </Tag>
+                )
+              },
             },
             {
               title: t('pages.marketing.emailCampaign.colTime'),

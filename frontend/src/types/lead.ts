@@ -71,22 +71,6 @@ export interface ConvertPayload {
   remark?: string
 }
 
-export const STATUS_LABELS: Record<LeadStatus, string> = {
-  NEW: '新线索',
-  WORKING: '跟进中',
-  QUALIFIED: '已转化',
-  DISQUALIFIED: '无效',
-}
-
-export const SOURCE_LABELS: Record<LeadSource, string> = {
-  WEBSITE: '官网',
-  AD: '广告',
-  EXHIBITION: '展会',
-  REFERRAL: '转介绍',
-  COLD_CALL: '电话营销',
-  OTHER: '其他',
-}
-
 export const STATUS_COLORS: Record<LeadStatus, string> = {
   NEW: 'blue',
   WORKING: 'processing',

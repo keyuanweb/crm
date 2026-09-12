@@ -28,12 +28,14 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { signQuote, fetchQuoteSignature } from '../../services/signatureService'
 import SignSection from '../../components/SignSection'
 import { useAuthStore } from '../../store/authStore'
+import { hasPerm } from '../../hooks/usePermission'
+import { PERMS } from '../../constants/permissions'
 import {
   QUOTE_STATUS_COLORS,
-  QUOTE_STATUS_LABELS,
   type QuoteStatus,
 } from '../../types/quote'
 import type { QuoteItem } from '../../types/quote'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
 export default function QuoteDetailPage() {
   const { t } = useTranslation()
@@ -42,7 +44,6 @@ export default function QuoteDetailPage() {
   const { message } = App.useApp()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.role === 'ADMIN'
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectForm] = Form.useForm<{ reason: string }>()
 
@@ -94,7 +95,9 @@ export default function QuoteDetailPage() {
 
   const status = data.status as QuoteStatus
   const canSubmit = status === 'DRAFT' || status === 'REJECTED'
-  const canApprove = isAdmin && status === 'PENDING_APPROVAL'
+  // 审批按权限码而不是角色名：QuoteController 的 approve / reject 标的是 quote:approve，
+  // 改造前写 `role === 'ADMIN'` —— 081 新增的角色里凡是拿到 quote:approve 的都批不了报价单。
+  const canApprove = hasPerm(PERMS.quoteApprove, user) && status === 'PENDING_APPROVAL'
 
   const itemColumns = [
     { title: t('pages.quote.detail.colProduct'), dataIndex: 'productName' },
@@ -164,7 +167,7 @@ export default function QuoteDetailPage() {
       <Card title={t('pages.quote.detail.basicInfo')} style={{ marginBottom: 16, borderRadius: 10 }}>
         <Descriptions column={2} bordered size="small">
           <Descriptions.Item label={t('pages.quote.detail.labelStatus')}>
-            <Tag color={QUOTE_STATUS_COLORS[status]}>{QUOTE_STATUS_LABELS[status]}</Tag>
+            <Tag color={QUOTE_STATUS_COLORS[status]}>{labelOf(t, ENUM_KEYS.quoteStatus, status)}</Tag>
           </Descriptions.Item>
           <Descriptions.Item label={t('pages.quote.detail.labelCustomer')}>
             <Link to={`/customers/${data.customerId}`}>{data.customerName ?? '-'}</Link>

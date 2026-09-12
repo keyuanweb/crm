@@ -53,10 +53,9 @@ describe('UsageMapPage（029 员工使用地图渲染）', () => {
 
   it('渲染页面标题与流程 Tabs', () => {
     renderWithProviders(<UsageMapPage />)
-    expect(screen.getByText(/员工使用地图/)).toBeInTheDocument()
-    // 使用更具体的选择器避免匹配到描述文本
-    expect(screen.getAllByText(/业务流程/).length).toBeGreaterThan(0)
-    expect(screen.getByText(/状态流转/)).toBeInTheDocument()
+    expect(screen.getByText(/pages\.usageMap\.pageTitle/)).toBeInTheDocument()
+    expect(screen.getAllByText(/pages\.usageMap\.tabProcess/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/pages\.usageMap\.tabState/)).toBeInTheDocument()
   })
 
   it('渲染高频操作快捷入口', () => {
@@ -73,12 +72,12 @@ describe('UsageMapPage（029 员工使用地图渲染）', () => {
       throw new Error('canvas not supported')
     })
     renderWithProviders(<UsageMapPage />)
-    expect(await screen.findByText(/地图渲染失败/, {}, { timeout: 3000 })).toBeInTheDocument()
+    expect(await screen.findByText(/pages\.usageMap\.renderFailed/, {}, { timeout: 3000 })).toBeInTheDocument()
   })
 
   it('节点详情弹窗打开/关闭', async () => {
     renderWithProviders(<UsageMapPage />)
-    expect(await screen.findByText(/员工使用地图/)).toBeInTheDocument()
+    expect(await screen.findByText(/pages\.usageMap\.pageTitle/)).toBeInTheDocument()
 
     // 节点 id 取自 ADMIN 流程：登录用户是 ADMIN，默认展示的是 admin 流程而非主流程（m1 不在其中）
     await waitFor(() => expect(onMock).toHaveBeenCalledWith('node:click', expect.any(Function)))
@@ -91,8 +90,8 @@ describe('UsageMapPage（029 员工使用地图渲染）', () => {
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
     expect(screen.getByText('系统配置')).toBeInTheDocument()
 
-    // 验证关闭按钮（antd 会在两个汉字之间自动插空格，故按角色 + 正则匹配）
-    const closeBtn = screen.getByRole('button', { name: /关\s*闭/ })
+    // 验证关闭按钮（已改为 i18n 文案：测试环境 react-i18next 被 mock 成 t(key) => key，故断言键名）
+    const closeBtn = screen.getByRole('button', { name: /common\.button\.close/ })
     fireEvent.click(closeBtn)
 
     // 验证弹窗关闭
@@ -103,7 +102,7 @@ describe('UsageMapPage（029 员工使用地图渲染）', () => {
     renderWithProviders(<UsageMapPage />)
     
     // 切换到状态流转视图
-    const stateTab = screen.getByText('状态流转')
+    const stateTab = screen.getByText('pages.usageMap.tabState')
     fireEvent.click(stateTab)
     
     // 验证状态流转标题存在

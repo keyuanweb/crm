@@ -45,24 +45,8 @@ export interface ChannelRoi {
   roi?: number
 }
 
-export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
-  PLANNING: '筹备中',
-  RUNNING: '进行中',
-  ENDED: '已结束',
-}
-
 export const CAMPAIGN_STATUS_COLORS: Record<CampaignStatus, string> = {
   PLANNING: 'default',
   RUNNING: 'processing',
   ENDED: 'success',
-}
-
-export const CAMPAIGN_CHANNEL_LABELS: Record<CampaignChannel, string> = {
-  WEBSITE: '官网',
-  AD: '广告',
-  EXHIBITION: '展会',
-  REFERRAL: '转介绍',
-  EMAIL: '邮件',
-  SOCIAL: '社交媒体',
-  OTHER: '其他',
 }

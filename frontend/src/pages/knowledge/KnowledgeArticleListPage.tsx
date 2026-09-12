@@ -13,11 +13,8 @@ import {
   type ArticlePayload,
 } from '../../services/knowledgeService'
 import { extractErrorMessage } from '../../services/apiClient'
-import {
-  ARTICLE_CATEGORY_LABELS,
-  type ArticleCategory,
-  type KnowledgeArticle,
-} from '../../types/knowledge'
+import { type ArticleCategory, type KnowledgeArticle } from '../../types/knowledge'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
 interface FormValues {
   category: ArticleCategory
@@ -117,9 +114,12 @@ export default function KnowledgeArticleListPage() {
       dataIndex: 'category',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(ARTICLE_CATEGORY_LABELS).map(([k, v]) => [k, { text: v }]),
+        Object.keys(ENUM_KEYS.articleCategory).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.articleCategory, code) },
+        ]),
       ),
-      render: (_, row) => <Tag color="blue">{ARTICLE_CATEGORY_LABELS[row.category]}</Tag>,
+      render: (_, row) => <Tag color="blue">{labelOf(t, ENUM_KEYS.articleCategory, row.category)}</Tag>,
     },
     {
       title: t('pages.knowledge.colStatus'),
@@ -209,7 +209,10 @@ export default function KnowledgeArticleListPage() {
             rules={[{ required: true, message: t('pages.knowledge.msgCategoryRequired') }]}
           >
             <Select
-              options={Object.entries(ARTICLE_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))}
+              options={Object.keys(ENUM_KEYS.articleCategory).map((code) => ({
+                value: code,
+                label: labelOf(t, ENUM_KEYS.articleCategory, code),
+              }))}
             />
           </Form.Item>
           <Form.Item name="title" label={t('pages.knowledge.formTitle')} rules={[{ required: true, message: t('pages.knowledge.msgTitleRequired') }]}>

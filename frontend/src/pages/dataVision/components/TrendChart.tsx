@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as echarts from 'echarts'
 import type { TooltipComponentFormatterCallbackParams } from 'echarts'
 import type { TrendPoint } from '../types'
@@ -9,6 +10,7 @@ interface TrendChartProps {
 }
 
 export default function TrendChart({ data, style }: TrendChartProps) {
+  const { t } = useTranslation()
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
@@ -24,18 +26,21 @@ export default function TrendChart({ data, style }: TrendChartProps) {
         trigger: 'axis',
         formatter: (params: TooltipComponentFormatterCallbackParams) => {
           const point = Array.isArray(params) ? params[0] : params
-          return `${point.name}<br/>金额：${Number(point.value).toLocaleString()} 元`
+          return t('pages.dataVision.trend.tooltipAmount', {
+            name: point.name,
+            amount: Number(point.value).toLocaleString(),
+          })
         },
       },
       grid: { left: '10%', right: '5%', top: '10%', bottom: '15%' },
       xAxis: { type: 'category', data: dates, boundaryGap: false, axisLine: { lineStyle: { color: '#5a7cb8' } }, axisLabel: { color: '#7db4ff', fontSize: 10, interval: Math.floor(dates.length / 10) } },
       yAxis: { type: 'value', axisLine: { show: false }, axisTick: { show: false }, splitLine: { lineStyle: { color: 'rgba(90, 124, 184, 0.1)' } }, axisLabel: { color: '#7db4ff', fontSize: 10, formatter: (v: number) => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : v >= 10000 ? (v / 10000).toFixed(1) + 'W' : v.toString() } },
-      series: [{ name: '商机金额', type: 'line', data: amounts, smooth: true, symbol: 'circle', symbolSize: 6, lineStyle: { width: 3, color: '#52c41a' }, itemStyle: { color: '#52c41a', borderColor: '#0a1830', borderWidth: 2 }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(82, 196, 26, 0.3)' }, { offset: 1, color: 'rgba(82, 196, 26, 0.05)' }]) }, emphasis: { focus: 'series' }, animationDuration: 1500, animationEasing: 'cubicOut' }],
+      series: [{ name: t('pages.dataVision.trend.seriesName'), type: 'line', data: amounts, smooth: true, symbol: 'circle', symbolSize: 6, lineStyle: { width: 3, color: '#52c41a' }, itemStyle: { color: '#52c41a', borderColor: '#0a1830', borderWidth: 2 }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(82, 196, 26, 0.3)' }, { offset: 1, color: 'rgba(82, 196, 26, 0.05)' }]) }, emphasis: { focus: 'series' }, animationDuration: 1500, animationEasing: 'cubicOut' }],
       background: 'transparent',
     }
     chartInstanceRef.current.setOption(option, { notMerge: true })
     return () => { chartInstanceRef.current?.setOption({ series: [{ data: [] }] }) }
-  }, [data])
+  }, [data, t])
 
   useEffect(() => {
     const handleResize = () => { chartInstanceRef.current?.resize() }

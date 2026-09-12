@@ -21,15 +21,3 @@ export interface CallStats {
   avgDurationSeconds: number
   byDirection: { direction: string; count: number }[]
 }
-
-export const CALL_DIRECTION_LABELS: Record<CallDirection, string> = {
-  INBOUND: '呼入',
-  OUTBOUND: '呼出',
-}
-
-export const CALL_RESULT_LABELS: Record<CallResult, string> = {
-  CONNECTED: '已接通',
-  NO_ANSWER: '未接听',
-  BUSY: '占线',
-  FAILED: '失败',
-}

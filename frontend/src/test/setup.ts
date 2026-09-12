@@ -81,16 +81,36 @@ class XhrNoop {
 }
 Object.defineProperty(window, 'XMLHttpRequest', { writable: true, value: XhrNoop })
 
-// react-i18next mock：测试中 t(key) 直接返回 key，避免查找中文文本失败。
+// react-i18next mock：测试中 t(key) 仍然返回 key 本身（既有断言均以此为准，改成中文文案会
+// 大面积改测试），但**先校验该键在真实资源里存在**——缺键此前是零成本的：t() 原样返回键名，
+// 界面渲染出 `pages.ticket.list.colStatus` 而所有测试依旧全绿。缺键现在直接抛错。
 // 此 mock 会被 Vitest 提升到文件顶部，确保在组件导入前已生效。
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'zh', changeLanguage: () => Promise.resolve() },
-  }),
-  Trans: ({ children }: { children: React.ReactNode }) => children,
-  initReactI18next: {
-    type: '3rdParty',
-    init: () => {},
-  },
-}))
+vi.mock('react-i18next', async () => {
+  const zhCN = (await import('../i18n/zh-CN')).default as Record<string, unknown>
+
+  const lookup = (path: string): unknown =>
+    path.split('.').reduce<unknown>(
+      (node, part) =>
+        node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined,
+      zhCN,
+    )
+
+  return {
+    useTranslation: () => ({
+      t: (key: string) => {
+        if (lookup(key) === undefined) {
+          throw new Error(
+            `i18n 缺键: ${key}（zh-CN）。请补齐 src/i18n/zh-CN.ts 与 en.ts 后重跑 npm run i18n:check`,
+          )
+        }
+        return key
+      },
+      i18n: { language: 'zh', changeLanguage: () => Promise.resolve() },
+    }),
+    Trans: ({ children }: { children: React.ReactNode }) => children,
+    initReactI18next: {
+      type: '3rdParty',
+      init: () => {},
+    },
+  }
+})

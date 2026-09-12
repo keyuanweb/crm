@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   Alert,
@@ -30,6 +31,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 import type { MenuTreeNode, PermissionDefGroup, Role } from '../../types/role'
 import { useAuthStore } from '../../store/authStore'
 import { hasPerm } from '../../hooks/usePermission'
+import { PERMS } from '../../constants/permissions'
 
 interface FormValues {
   code: string
@@ -40,6 +42,7 @@ interface FormValues {
 }
 
 export default function RoleListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const user = useAuthStore((s) => s.user)
@@ -52,7 +55,7 @@ export default function RoleListPage() {
   const [checkedPerms, setCheckedPerms] = useState<string[]>([])
   const [form] = Form.useForm<FormValues>()
 
-  const canManage = hasPerm('role:manage', user)
+  const canManage = hasPerm(PERMS.roleManage, user)
 
   const loadDicts = async () => {
     try {
@@ -107,15 +110,15 @@ export default function RoleListPage() {
     try {
       if (editing) {
         await updateRole(editing.id, payload)
-        message.success('已保存')
+        message.success(t('pages.roleList.msgSaved'))
       } else {
         await createRole(payload)
-        message.success('已创建')
+        message.success(t('pages.roleList.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.roleList.msgSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -124,71 +127,91 @@ export default function RoleListPage() {
   const onDelete = async (row: Role) => {
     try {
       await deleteRole(row.id)
-      message.success('已删除')
+      message.success(t('pages.roleList.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.roleList.msgDeleteFailed')))
     }
   }
 
   const columns: ProColumns<Role>[] = [
-    { title: '编码', dataIndex: 'code', width: 130, render: (_, row) => <Tag color="blue">{row.code}</Tag> },
-    { title: '名称', dataIndex: 'name' },
-    { title: '描述', dataIndex: 'description', search: false, ellipsis: true, render: (_, row) => row.description || '-' },
     {
-      title: '数据范围',
+      title: t('pages.roleList.colCode'),
+      dataIndex: 'code',
+      width: 130,
+      render: (_, row) => <Tag color="blue">{row.code}</Tag>,
+    },
+    { title: t('pages.roleList.colName'), dataIndex: 'name' },
+    {
+      title: t('pages.roleList.colDescription'),
+      dataIndex: 'description',
+      search: false,
+      ellipsis: true,
+      render: (_, row) => row.description || '-',
+    },
+    {
+      title: t('pages.roleList.colDataScope'),
       dataIndex: 'dataScope',
       width: 100,
       search: false,
       render: (_, row) => {
         const v = row.dataScope
         const map: Record<string, { l: string; c: string }> = {
-          ALL: { l: '全部', c: 'green' },
-          DEPT: { l: '本部门', c: 'blue' },
-          SELF: { l: '仅本人', c: 'orange' },
+          ALL: { l: t('pages.roleList.dataScopeAll'), c: 'green' },
+          DEPT: { l: t('pages.roleList.dataScopeDept'), c: 'blue' },
+          SELF: { l: t('pages.roleList.dataScopeSelf'), c: 'orange' },
         }
         const m = map[v] ?? { l: v, c: 'default' }
         return <Tag color={m.c}>{m.l}</Tag>
       },
     },
     {
-      title: '菜单数',
+      title: t('pages.roleList.colMenuCount'),
       dataIndex: 'menus',
       width: 80,
       search: false,
       render: (_, row) => (row.menus ?? []).length,
     },
     {
-      title: '权限数',
+      title: t('pages.roleList.colPermissionCount'),
       dataIndex: 'permissions',
       width: 80,
       search: false,
       render: (_, row) => (row.permissions ?? []).length,
     },
     {
-      title: '状态',
+      title: t('pages.roleList.colStatus'),
       dataIndex: 'enabled',
       width: 80,
       search: false,
-      render: (_, row) => (row.enabled ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>),
+      render: (_, row) =>
+        row.enabled ? (
+          <Tag color="green">{t('pages.roleList.statusEnabled')}</Tag>
+        ) : (
+          <Tag>{t('pages.roleList.statusDisabled')}</Tag>
+        ),
     },
     {
-      title: '操作',
+      title: t('pages.roleList.colAction'),
       valueType: 'option',
       width: 120,
       render: (_, row) =>
         canManage
           ? [
               <a key="edit" onClick={() => openEdit(row)}>
-                编辑
+                {t('pages.roleList.btnEdit')}
               </a>,
               !row.builtIn ? (
-                <Popconfirm key="delete" title={`确定删除角色「${row.name}」吗？`} onConfirm={() => onDelete(row)}>
-                  <a style={{ color: '#ff4d4f' }}>删除</a>
+                <Popconfirm
+                  key="delete"
+                  title={t('pages.roleList.deleteConfirm', { name: row.name })}
+                  onConfirm={() => onDelete(row)}
+                >
+                  <a style={{ color: '#ff4d4f' }}>{t('pages.roleList.btnDelete')}</a>
                 </Popconfirm>
               ) : (
                 <span key="builtin" style={{ color: '#8c8c8c' }}>
-                  内建
+                  {t('pages.roleList.builtinLabel')}
                 </span>
               ),
             ]
@@ -225,7 +248,7 @@ export default function RoleListPage() {
     <>
       <ProTable<Role>
         size="small"
-        headerTitle="角色管理"
+        headerTitle={t('pages.roleList.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -240,7 +263,7 @@ export default function RoleListPage() {
           canManage
             ? [
                 <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                  新增角色
+                  {t('pages.roleList.btnCreate')}
                 </Button>,
               ]
             : []
@@ -248,12 +271,12 @@ export default function RoleListPage() {
       />
 
       <Modal
-        title={editing ? '编辑角色' : '新增角色'}
+        title={editing ? t('pages.roleList.modalEditTitle') : t('pages.roleList.modalCreateTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.roleList.btnSave')}
         destroyOnClose
         width={800}
         styles={{ body: { paddingTop: 8 } }}
@@ -266,8 +289,8 @@ export default function RoleListPage() {
             style={{ marginBottom: 12 }}
             message={
               editing.code === 'ADMIN'
-                ? '内建角色「系统管理员」：名称/描述/数据范围可编辑；菜单与操作权限恒为全量，不可缩减。'
-                : `内建角色「${editing.name}」：名称/描述/数据范围可编辑；菜单与权限继承默认配置。`
+                ? t('pages.roleList.alertBuiltInAdmin')
+                : t('pages.roleList.alertBuiltInOther', { name: editing.name })
             }
           />
         )}
@@ -282,37 +305,53 @@ export default function RoleListPage() {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="code" label="角色编码" rules={[{ required: true, message: '请输入角色编码' }]}>
-                <Input placeholder="如 REGIONAL_MGR" disabled={!!editing} />
+              <Form.Item
+                name="code"
+                label={t('pages.roleList.formCodeLabel')}
+                rules={[{ required: true, message: t('pages.roleList.formCodeRequired') }]}
+              >
+                <Input placeholder={t('pages.roleList.formCodePlaceholder')} disabled={!!editing} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="name" label="角色名称" rules={[{ required: true, message: '请输入角色名称' }]}>
-                <Input placeholder="如：区域经理" />
+              <Form.Item
+                name="name"
+                label={t('pages.roleList.formNameLabel')}
+                rules={[{ required: true, message: t('pages.roleList.formNameRequired') }]}
+              >
+                <Input placeholder={t('pages.roleList.formNamePlaceholder')} />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
                 name="dataScope"
-                label="数据范围"
+                label={t('pages.roleList.formDataScopeLabel')}
                 rules={[{ required: true }]}
-                extra="决定该角色用户默认可见的数据范围"
+                extra={t('pages.roleList.formDataScopeExtra')}
               >
                 <Radio.Group>
-                  <Radio value="ALL">全部</Radio>
-                  <Radio value="DEPT">本部门</Radio>
-                  <Radio value="SELF">仅本人</Radio>
+                  <Radio value="ALL">{t('pages.roleList.dataScopeAll')}</Radio>
+                  <Radio value="DEPT">{t('pages.roleList.dataScopeDept')}</Radio>
+                  <Radio value="SELF">{t('pages.roleList.dataScopeSelf')}</Radio>
                 </Radio.Group>
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="enabled" label="启用" valuePropName="checked" extra="停用后该角色用户无法正常访问">
-                <Switch checkedChildren="启用" unCheckedChildren="停用" />
+              <Form.Item
+                name="enabled"
+                label={t('pages.roleList.formEnabledLabel')}
+                valuePropName="checked"
+                extra={t('pages.roleList.formEnabledExtra')}
+              >
+                <Switch
+                  checkedChildren={t('pages.roleList.switchEnabled')}
+                  unCheckedChildren={t('pages.roleList.switchDisabled')}
+                />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="description" label="描述">
-                <Input placeholder="角色职责说明，如：负责华东区域客户的跟进与商机管理" />
+              <Form.Item name="description" label={t('pages.roleList.formDescriptionLabel')}>
+                <Input placeholder={t('pages.roleList.formDescriptionPlaceholder')} />
               </Form.Item>
             </Col>
           </Row>
@@ -325,7 +364,7 @@ export default function RoleListPage() {
           items={[
             {
               key: 'menus',
-              label: `可见菜单（${checkedMenus.length}/${allMenuLeafKeys.length}）`,
+              label: `${t('pages.roleList.tabMenusLabel')}（${checkedMenus.length}/${allMenuLeafKeys.length}）`,
               children: (
                 <div>
                   <div
@@ -337,7 +376,9 @@ export default function RoleListPage() {
                   >
                     <Space size={4}>
                       <Button size="small" type="link" icon={<CheckOutlined />} onClick={toggleAllMenus}>
-                        {checkedMenus.length === allMenuLeafKeys.length ? '清空全部' : '全选全部'}
+                        {checkedMenus.length === allMenuLeafKeys.length
+                          ? t('pages.roleList.btnClearAll')
+                          : t('pages.roleList.btnSelectAll')}
                       </Button>
                       <Button
                         size="small"
@@ -345,7 +386,7 @@ export default function RoleListPage() {
                         icon={<UndoOutlined />}
                         onClick={() => setCheckedMenus(editing?.menus ?? [])}
                       >
-                        重置
+                        {t('pages.roleList.btnReset')}
                       </Button>
                     </Space>
                   </div>
@@ -392,7 +433,7 @@ export default function RoleListPage() {
             },
             {
               key: 'perms',
-              label: `数据操作权限（${checkedPerms.length}）`,
+              label: `${t('pages.roleList.tabPermsLabel')}（${checkedPerms.length}）`,
               children: (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
@@ -411,8 +452,8 @@ export default function RoleListPage() {
                     >
                       {checkedPerms.length ===
                       permDefs.flatMap((g) => g.children.map((p) => p.code)).length
-                        ? '清空全部'
-                        : '全选全部'}
+                        ? t('pages.roleList.btnClearAll')
+                        : t('pages.roleList.btnSelectAll')}
                     </Button>
                   </div>
                   {/* 权限分组：网格对齐 + 组内横向排列 */}

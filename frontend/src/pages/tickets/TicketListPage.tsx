@@ -14,15 +14,13 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { extractCfParams, useCustomFieldFilterColumns } from '../../hooks/useCustomFieldFilters'
 import {
   TICKET_PRIORITY_COLORS,
-  TICKET_PRIORITY_LABELS,
   TICKET_SLA_COLORS,
-  TICKET_SLA_LABELS,
   TICKET_STATUS_COLORS,
-  TICKET_STATUS_LABELS,
   type Ticket,
   type TicketPriority,
   type TicketStatus,
 } from '../../types/ticket'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import {
   toCustomFieldPayload,
 } from '../../utils/customField'
@@ -84,7 +82,7 @@ export default function TicketListPage() {
 
   const slaRender = (_: unknown, row: Ticket) => {
     if (!row.slaStatus) return '-'
-    return <Tag color={TICKET_SLA_COLORS[row.slaStatus]}>{TICKET_SLA_LABELS[row.slaStatus]}</Tag>
+    return <Tag color={TICKET_SLA_COLORS[row.slaStatus]}>{labelOf(t, ENUM_KEYS.ticketSla, row.slaStatus)}</Tag>
   }
 
   const columns: ProColumns<Ticket>[] = [
@@ -104,18 +102,25 @@ export default function TicketListPage() {
       dataIndex: 'priority',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(TICKET_PRIORITY_LABELS).map(([k, v]) => [k, { text: v }]),
+        Object.keys(ENUM_KEYS.ticketPriority).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.ticketPriority, code) },
+        ]),
       ),
-      render: (_, row) => <Tag color={TICKET_PRIORITY_COLORS[row.priority]}>{TICKET_PRIORITY_LABELS[row.priority]}</Tag>,
+      render: (_, row) => (
+        <Tag color={TICKET_PRIORITY_COLORS[row.priority]}>
+          {labelOf(t, ENUM_KEYS.ticketPriority, row.priority)}
+        </Tag>
+      ),
     },
     {
       title: t('pages.ticket.list.colStatus'),
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(TICKET_STATUS_LABELS).map(([k, v]) => [
-          k,
-          { text: v, status: TICKET_STATUS_COLORS[k as TicketStatus] },
+        Object.keys(ENUM_KEYS.ticketStatus).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.ticketStatus, code), status: TICKET_STATUS_COLORS[code as TicketStatus] },
         ]),
       ),
     },
@@ -216,7 +221,10 @@ export default function TicketListPage() {
             <Col span={12}>
               <Form.Item name="priority" label={t('pages.ticket.list.formPriority')} rules={[{ required: true, message: t('pages.ticket.list.msgPriorityRequired') }]}>
                 <Select
-                  options={Object.entries(TICKET_PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
+                  options={Object.keys(ENUM_KEYS.ticketPriority).map((code) => ({
+                    value: code,
+                    label: labelOf(t, ENUM_KEYS.ticketPriority, code),
+                  }))}
                 />
               </Form.Item>
             </Col>

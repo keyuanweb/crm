@@ -41,11 +41,10 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { signContract, fetchContractSignature } from '../../services/signatureService'
 import SignSection from '../../components/SignSection'
 import { useAuthStore } from '../../store/authStore'
-import {
-  CONTRACT_STATUS_LABELS,
-  type ContractStatus,
-} from '../../types/contract'
-import type { ContractAttachment } from '../../types/contract'
+import { hasPerm } from '../../hooks/usePermission'
+import { PERMS } from '../../constants/permissions'
+import type { ContractStatus, ContractAttachment } from '../../types/contract'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import { StatusTag, StatCard } from '../../components/ui'
 
 export default function ContractDetailPage() {
@@ -55,7 +54,6 @@ export default function ContractDetailPage() {
   const { message } = App.useApp()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.role === 'ADMIN'
   const [rejectOpen, setRejectOpen] = useState(false)
   const [terminateOpen, setTerminateOpen] = useState(false)
   const [rejectForm] = Form.useForm<{ reason: string }>()
@@ -115,7 +113,10 @@ export default function ContractDetailPage() {
 
   const status = data.status as ContractStatus
   const canSubmit = status === 'DRAFT' || status === 'REJECTED'
-  const canApprove = isAdmin && status === 'PENDING_APPROVAL'
+  // 审批按权限码而不是角色名：ContractController 的 approve / reject 标的是 contract:approve，
+  // 改造前写 `role === 'ADMIN'` —— 081 新增的角色里凡是拿到 contract:approve 的都批不了合同，
+  // 而这类角色在角色页上是被允许勾选该码的。
+  const canApprove = hasPerm(PERMS.contractApprove, user) && status === 'PENDING_APPROVAL'
   const canEffective = status === 'APPROVED' || status === 'SIGNED'
   const canFinish = status === 'APPROVED' || status === 'SIGNED' || status === 'EFFECTIVE'
 
@@ -132,7 +133,7 @@ export default function ContractDetailPage() {
       COMPLETED: 'info',
       TERMINATED: 'danger',
     }
-    const label = CONTRACT_STATUS_LABELS[status as keyof typeof CONTRACT_STATUS_LABELS] || status
+    const label = labelOf(t, ENUM_KEYS.contractStatus, status)
     return <StatusTag type={type[status] ?? 'default'}>{label}</StatusTag>
   }
 
@@ -241,7 +242,7 @@ export default function ContractDetailPage() {
                   {data.contractNo} - {data.title}
                 </Typography.Title>
                 <StatusTag type={status === 'EFFECTIVE' ? 'success' : status === 'PENDING_APPROVAL' ? 'warning' : status === 'REJECTED' || status === 'TERMINATED' ? 'danger' : 'info'}>
-                  {CONTRACT_STATUS_LABELS[status]}
+                  {labelOf(t, ENUM_KEYS.contractStatus, status)}
                 </StatusTag>
               </div>
               <Typography.Text type="secondary" style={{ fontSize: 13, display: 'block' }}>

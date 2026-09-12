@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { App, Button, Card, Descriptions, Form, Input, InputNumber, List, Modal, Select, Space, Tabs, Tag, Typography } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -11,6 +12,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 
 /** 客户自助门户（050，公开访问）：知识库浏览/在线提单/进度查询。 */
 export default function CustomerPortalPage() {
+  const { t } = useTranslation()
   const [keyword, setKeyword] = useState('')
   const [activeTab, setActiveTab] = useState('kb')
 
@@ -22,10 +24,10 @@ export default function CustomerPortalPage() {
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
       <Typography.Title level={3} style={{ textAlign: 'center' }}>
-        客户自助服务中心
+        {t('pages.portal.title')}
       </Typography.Title>
       <Typography.Paragraph type="secondary" style={{ textAlign: 'center' }}>
-        浏览常见问题、在线提交服务请求、跟踪工单进度
+        {t('pages.portal.subtitle')}
       </Typography.Paragraph>
       <Tabs
         activeKey={activeTab}
@@ -33,11 +35,11 @@ export default function CustomerPortalPage() {
         items={[
           {
             key: 'kb',
-            label: '知识库',
+            label: t('pages.portal.tabKb'),
             children: <KnowledgeBaseTab keyword={keyword} setKeyword={setKeyword} data={articles.data?.items} loading={articles.isLoading} />,
           },
-          { key: 'submit', label: '提交工单', children: <SubmitTicketTab /> },
-          { key: 'track', label: '工单查询', children: <TrackTicketTab /> },
+          { key: 'submit', label: t('pages.portal.submitTicket'), children: <SubmitTicketTab /> },
+          { key: 'track', label: t('pages.portal.tabTrack'), children: <TrackTicketTab /> },
         ]}
       />
     </div>
@@ -55,6 +57,7 @@ function KnowledgeBaseTab({
   data?: { id: number; title: string; category: string }[]
   loading: boolean
 }) {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [article, setArticle] = useState<{ id: number; title: string; content?: string; category?: string } | null>(null)
 
@@ -62,17 +65,17 @@ function KnowledgeBaseTab({
     <Card>
       <Space style={{ marginBottom: 16 }}>
         <Input.Search
-          placeholder="搜索常见问题"
+          placeholder={t('pages.portal.searchPlaceholder')}
           allowClear
           style={{ width: 320 }}
           onSearch={(v) => setKeyword(v)}
         />
-        <Tag>{loading ? '加载中' : `${data?.length ?? 0} 篇文章`}</Tag>
+        <Tag>{loading ? t('pages.portal.loading') : t('pages.portal.articleCount', { count: data?.length ?? 0 })}</Tag>
       </Space>
       <List
         loading={loading}
         dataSource={data ?? []}
-        locale={{ emptyText: keyword ? '未找到相关文章' : '暂无已发布文章' }}
+        locale={{ emptyText: keyword ? t('pages.portal.emptyNoResult') : t('pages.portal.emptyNoArticles') }}
         renderItem={(item) => (
           <List.Item
             actions={[
@@ -81,10 +84,10 @@ function KnowledgeBaseTab({
                 onClick={() => {
                   void fetchPortalArticle(item.id)
                     .then((a) => setArticle(a))
-                    .catch((e) => message.error(extractErrorMessage(e, '加载失败')))
+                    .catch((e) => message.error(extractErrorMessage(e, t('pages.portal.msgLoadFailed'))))
                 }}
               >
-                查看
+                {t('pages.portal.actionView')}
               </a>,
             ]}
           >
@@ -111,6 +114,7 @@ function KnowledgeBaseTab({
 }
 
 function SubmitTicketTab() {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [form] = Form.useForm()
   const [saving, setSaving] = useState(false)
@@ -128,9 +132,9 @@ function SubmitTicketTab() {
         priority: values.priority ?? 'MEDIUM',
       })
       setResult(res)
-      message.success('工单已提交')
+      message.success(t('pages.portal.msgSubmitted'))
     } catch (err) {
-      message.error(extractErrorMessage(err, '提交失败'))
+      message.error(extractErrorMessage(err, t('pages.portal.msgSubmitFailed')))
     } finally {
       setSaving(false)
     }
@@ -140,40 +144,40 @@ function SubmitTicketTab() {
     <Card>
       {result ? (
         <Descriptions column={1} bordered size="small">
-          <Descriptions.Item label="工单号">{result.ticketId}</Descriptions.Item>
-          <Descriptions.Item label="状态">
+          <Descriptions.Item label={t('pages.portal.labelTicketId')}>{result.ticketId}</Descriptions.Item>
+          <Descriptions.Item label={t('pages.portal.labelStatus')}>
             <Tag color="processing">{result.status}</Tag>
           </Descriptions.Item>
-          <Descriptions.Item label="下一步">
-            请记录工单号，前往「工单查询」标签跟踪进度。
+          <Descriptions.Item label={t('pages.portal.labelNextStep')}>
+            {t('pages.portal.nextStepHint')}
           </Descriptions.Item>
         </Descriptions>
       ) : (
         <Form form={form} layout="vertical" style={{ maxWidth: 520 }}>
-          <Form.Item name="phone" label="手机号" rules={[{ required: true, message: '请填写手机号' }]}>
-            <Input placeholder="与销售登记的手机号一致" maxLength={20} />
+          <Form.Item name="phone" label={t('pages.portal.labelPhone')} rules={[{ required: true, message: t('pages.portal.msgPhoneRequired') }]}>
+            <Input placeholder={t('pages.portal.placeholderPhone')} maxLength={20} />
           </Form.Item>
-          <Form.Item name="email" label="邮箱">
-            <Input placeholder="可选" />
+          <Form.Item name="email" label={t('pages.portal.labelEmail')}>
+            <Input placeholder={t('pages.portal.placeholderOptional')} />
           </Form.Item>
-          <Form.Item name="title" label="问题标题" rules={[{ required: true, message: '请填写标题' }]}>
+          <Form.Item name="title" label={t('pages.portal.labelTitle')} rules={[{ required: true, message: t('pages.portal.msgTitleRequired') }]}>
             <Input maxLength={200} />
           </Form.Item>
-          <Form.Item name="description" label="问题描述">
+          <Form.Item name="description" label={t('pages.portal.labelDescription')}>
             <Input.TextArea rows={3} maxLength={2000} />
           </Form.Item>
-          <Form.Item name="priority" label="优先级" initialValue="MEDIUM">
+          <Form.Item name="priority" label={t('pages.portal.labelPriority')} initialValue="MEDIUM">
             <Select
               options={[
-                { value: 'LOW', label: '低' },
-                { value: 'MEDIUM', label: '中' },
-                { value: 'HIGH', label: '高' },
-                { value: 'URGENT', label: '紧急' },
+                { value: 'LOW', label: t('pages.portal.priorityLow') },
+                { value: 'MEDIUM', label: t('pages.portal.priorityMedium') },
+                { value: 'HIGH', label: t('pages.portal.priorityHigh') },
+                { value: 'URGENT', label: t('pages.portal.priorityUrgent') },
               ]}
             />
           </Form.Item>
           <Button type="primary" loading={saving} onClick={() => void submit()}>
-            提交工单
+            {t('pages.portal.submitTicket')}
           </Button>
         </Form>
       )}
@@ -182,6 +186,7 @@ function SubmitTicketTab() {
 }
 
 function TrackTicketTab() {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const [form] = Form.useForm()
   const [querying, setQuerying] = useState(false)
@@ -206,7 +211,7 @@ function TrackTicketTab() {
       setStatus(res)
     } catch (err) {
       setStatus(null)
-      message.error(extractErrorMessage(err, '查询失败'))
+      message.error(extractErrorMessage(err, t('pages.portal.msgQueryFailed')))
     } finally {
       setQuerying(false)
     }
@@ -215,35 +220,35 @@ function TrackTicketTab() {
   return (
     <Card>
       <Form form={form} layout="inline" style={{ marginBottom: 16 }}>
-        <Form.Item name="ticketId" label="工单号" rules={[{ required: true, message: '请输入工单号' }]}>
+        <Form.Item name="ticketId" label={t('pages.portal.labelTicketId')} rules={[{ required: true, message: t('pages.portal.msgTicketIdRequired') }]}>
           <InputNumber min={1} style={{ width: 160 }} />
         </Form.Item>
-        <Form.Item name="phone" label="手机号" rules={[{ required: true, message: '请输入手机号' }]}>
-          <Input placeholder="提交时的手机号" maxLength={20} />
+        <Form.Item name="phone" label={t('pages.portal.labelPhone')} rules={[{ required: true, message: t('pages.portal.msgPhoneEnterRequired') }]}>
+          <Input placeholder={t('pages.portal.placeholderPhoneTrack')} maxLength={20} />
         </Form.Item>
         <Button type="primary" loading={querying} onClick={() => void query()}>
-          查询
+          {t('pages.portal.btnQuery')}
         </Button>
       </Form>
       {status && (
         <>
           <Descriptions column={3} bordered size="small">
-            <Descriptions.Item label="工单号">{status.ticketId}</Descriptions.Item>
-            <Descriptions.Item label="状态">
+            <Descriptions.Item label={t('pages.portal.labelTicketId')}>{status.ticketId}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.portal.labelStatus')}>
               <Tag color={status.status === 'CLOSED' ? 'success' : 'processing'}>{status.status}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="SLA">{status.slaStatus ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label="优先级">{status.priority}</Descriptions.Item>
-            <Descriptions.Item label="提交时间" span={2}>
+            <Descriptions.Item label={t('pages.portal.labelPriority')}>{status.priority}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.portal.labelSubmittedAt')} span={2}>
               {status.createdAt.replace('T', ' ').slice(0, 19)}
             </Descriptions.Item>
           </Descriptions>
           <Typography.Title level={5} style={{ marginTop: 16 }}>
-            处理记录
+            {t('pages.portal.titleReplies')}
           </Typography.Title>
           <List
             dataSource={status.replies}
-            locale={{ emptyText: '暂无处理记录' }}
+            locale={{ emptyText: t('pages.portal.emptyNoReplies') }}
             renderItem={(r) => (
               <List.Item>
                 <List.Item.Meta

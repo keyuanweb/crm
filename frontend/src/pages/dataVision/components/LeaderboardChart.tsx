@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Tag } from 'antd'
 import type { LeaderboardItem } from '../types'
 
@@ -13,12 +14,13 @@ interface LeaderboardChartProps {
  * 带排名徽章和进度条
  */
 export default function LeaderboardChart({ data, style }: LeaderboardChartProps) {
+  const { t } = useTranslation()
   const top10 = data.slice(0, 10)
 
   return (
     <div style={{ overflowY: 'auto', height: '100%', ...style }}>
       {top10.length === 0 ? (
-        <div style={{ textAlign: 'center', color: '#5a7cb8', padding: 20 }}>暂无排行数据</div>
+        <div style={{ textAlign: 'center', color: '#5a7cb8', padding: 20 }}>{t('pages.dataVision.leaderboard.empty')}</div>
       ) : (
         <div style={{ fontSize: 12 }}>
           {top10.map((item, index) => {
@@ -68,13 +70,13 @@ export default function LeaderboardChart({ data, style }: LeaderboardChartProps)
                   {item.displayName}
                 </span>
                 <span style={{ color: '#52c41a', fontWeight: 600, minWidth: 80, textAlign: 'right' }}>
-                  {item.wonAmount.toLocaleString()} 元
+                  {item.wonAmount.toLocaleString()} {t('pages.dataVision.leaderboard.unitYuan')}
                 </span>
                 <Tag
                   color={item.achievementRate == null ? 'default' : item.achievementRate >= 0.8 ? 'green' : item.achievementRate >= 0.5 ? 'gold' : 'red'}
                   style={{ margin: 0, fontSize: 11 }}
                 >
-                  {item.achievementRate == null ? '未设目标' : `${Math.round(item.achievementRate * 100)}%`}
+                  {item.achievementRate == null ? t('pages.dataVision.leaderboard.noTarget') : `${Math.round(item.achievementRate * 100)}%`}
                 </Tag>
               </div>
             )

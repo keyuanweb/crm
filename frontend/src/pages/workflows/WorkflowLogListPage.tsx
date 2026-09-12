@@ -1,53 +1,69 @@
 ﻿import { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { Button, Tag } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { fetchWorkflowLogs } from '../../services/workflowService'
-import { EVENT_LABELS } from '../../types/workflow'
 import type { ExecutionLog } from '../../types/workflow'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
 export default function WorkflowLogListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
 
   const columns: ProColumns<ExecutionLog>[] = [
-    { title: '规则', dataIndex: 'ruleName', render: (_, row) => row.ruleName ?? row.ruleId },
+    { title: t('pages.workflowLog.colRule'), dataIndex: 'ruleName', render: (_, row) => row.ruleName ?? row.ruleId },
     {
-      title: '事件',
+      title: t('pages.workflowLog.colEvent'),
       dataIndex: 'eventType',
       valueType: 'select',
-      valueEnum: Object.fromEntries(Object.entries(EVENT_LABELS).map(([k, v]) => [k, { text: v }])),
-      render: (_, row) => <Tag color="blue">{EVENT_LABELS[row.eventType as keyof typeof EVENT_LABELS] ?? row.eventType}</Tag>,
+      valueEnum: Object.fromEntries(
+        Object.keys(ENUM_KEYS.workflowEvent).map((code) => [code, { text: labelOf(t, ENUM_KEYS.workflowEvent, code) }]),
+      ),
+      render: (_, row) => <Tag color="blue">{labelOf(t, ENUM_KEYS.workflowEvent, row.eventType)}</Tag>,
     },
     {
-      title: '实体',
+      title: t('pages.workflowLog.colEntity'),
       dataIndex: 'entityType',
       search: false,
       render: (_, row) => (row.entityType ? `${row.entityType} #${row.entityId}` : '-'),
     },
     {
-      title: '匹配',
+      title: t('pages.workflowLog.colMatched'),
       dataIndex: 'matched',
       search: false,
-      render: (_, row) => (row.matched ? <Tag color="green">匹配</Tag> : <Tag>未匹配</Tag>),
+      render: (_, row) =>
+        row.matched ? (
+          <Tag color="green">{t('pages.workflowLog.matched')}</Tag>
+        ) : (
+          <Tag>{t('pages.workflowLog.unmatched')}</Tag>
+        ),
     },
-    { title: '结果', dataIndex: 'actionResult', search: false, render: (_, row) => row.actionResult ?? '-' },
+    { title: t('pages.workflowLog.colResult'), dataIndex: 'actionResult', search: false, render: (_, row) => row.actionResult ?? '-' },
     {
-      title: '状态',
+      title: t('pages.workflowLog.colStatus'),
       dataIndex: 'success',
       valueType: 'select',
-      valueEnum: { true: { text: '成功' }, false: { text: '失败' } },
+      valueEnum: {
+        true: { text: t('pages.workflowLog.statusSuccess') },
+        false: { text: t('pages.workflowLog.statusFailed') },
+      },
       render: (_, row) =>
-        row.success ? <Tag color="green">成功</Tag> : <Tag color="red">失败</Tag>,
+        row.success ? (
+          <Tag color="green">{t('pages.workflowLog.statusSuccess')}</Tag>
+        ) : (
+          <Tag color="red">{t('pages.workflowLog.statusFailed')}</Tag>
+        ),
     },
     {
-      title: '错误',
+      title: t('pages.workflowLog.colError'),
       dataIndex: 'errorMessage',
       search: false,
       render: (_, row) => (row.errorMessage ? <span style={{ color: '#cf1322' }}>{row.errorMessage}</span> : '-'),
     },
     {
-      title: '时间',
+      title: t('pages.workflowLog.colTime'),
       dataIndex: 'createdAt',
       search: false,
       render: (_, row) => row.createdAt.replace('T', ' ').slice(0, 19),
@@ -58,13 +74,13 @@ export default function WorkflowLogListPage() {
     <>
       <Link to="/workflows" style={{ marginBottom: 16, display: 'inline-block' }}>
         <Button type="link" icon={<ArrowLeftOutlined />}>
-          返回规则管理
+          {t('pages.workflowLog.btnBack')}
         </Button>
       </Link>
       <div style={{ height: 16 }} />
       <ProTable<ExecutionLog>
         size="small"
-        headerTitle="工作流执行日志"
+        headerTitle={t('pages.workflowLog.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}

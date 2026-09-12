@@ -12,10 +12,10 @@ import {
 import { extractErrorMessage } from '../services/apiClient'
 import {
   ROLE_COLORS,
-  ROLE_LABELS,
   type Contact,
   type ContactRole,
 } from '../types/contact'
+import { ENUM_KEYS, labelOf } from '../constants/enumLabels'
 
 interface Props {
   customerId: number
@@ -121,7 +121,7 @@ export default function ContactsCard({ customerId }: Props) {
       title: t('pages.contactsCard.colRole'),
       dataIndex: 'role',
       render: (role: ContactRole) => (
-        <Tag color={ROLE_COLORS[role]}>{ROLE_LABELS[role] ?? role}</Tag>
+        <Tag color={ROLE_COLORS[role]}>{labelOf(t, ENUM_KEYS.contactRole, role)}</Tag>
       ),
     },
     {
@@ -193,7 +193,10 @@ export default function ContactsCard({ customerId }: Props) {
             <Select
               allowClear
               placeholder={t('pages.contactsCard.placeholderRole')}
-              options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
+              options={Object.keys(ENUM_KEYS.contactRole).map((value) => ({
+                value,
+                label: labelOf(t, ENUM_KEYS.contactRole, value),
+              }))}
             />
           </Form.Item>
           <Form.Item name="remark" label={t('pages.contactsCard.labelRemark')}>

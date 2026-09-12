@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { App, Button, Card, Descriptions, Form, Input, Modal, Space, Tag, Typography, Alert } from 'antd'
 import { UserOutlined, KeyOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons'
 import { fetchPersonalInfo, updateDisplayName } from '../../services/personalService'
@@ -8,29 +9,31 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
 import type { PersonalInfo as PersonalInfoType, UpdateDisplayNamePayload } from '../../types/personal'
 
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: '管理员',
-  SALES: '销售',
-  SUPPORT: '客服',
-}
-
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: 'gold',
   SALES: 'blue',
   SUPPORT: 'green',
 }
 
-const DATA_SCOPE_LABELS: Record<string, string> = {
-  SELF: '本人',
-  DEPT: '本部门',
-  DEPT_AND_CHILD: '本部门及下级',
-  ALL: '全部',
-}
-
 export default function PersonalCenterPage() {
+  const { t } = useTranslation()
   const { message: messageApi } = App.useApp()
   const navigate = useNavigate()
   const setUser = useAuthStore((s) => s.setUser)
+
+  // 角色 / 数据权限的显示名（原为模块级常量，含中文需 t()，故搬入组件内）
+  const roleLabels: Record<string, string> = {
+    ADMIN: t('pages.personalCenter.roleAdmin'),
+    SALES: t('pages.personalCenter.roleSales'),
+    SUPPORT: t('pages.personalCenter.roleSupport'),
+  }
+
+  const dataScopeLabels: Record<string, string> = {
+    SELF: t('pages.personalCenter.scopeSelf'),
+    DEPT: t('pages.personalCenter.scopeDept'),
+    DEPT_AND_CHILD: t('pages.personalCenter.scopeDeptAndChild'),
+    ALL: t('pages.personalCenter.scopeAll'),
+  }
 
   const [loading, setLoading] = useState(false)
   const [personalInfo, setPersonalInfo] = useState<PersonalInfoType | null>(null)
@@ -47,7 +50,7 @@ export default function PersonalCenterPage() {
       const data = await fetchPersonalInfo()
       setPersonalInfo(data)
     } catch (err) {
-      messageApi.error(extractErrorMessage(err, '加载个人信息失败'))
+      messageApi.error(extractErrorMessage(err, t('pages.personalCenter.msgLoadFailed')))
     } finally {
       setLoading(false)
     }
@@ -63,7 +66,7 @@ export default function PersonalCenterPage() {
       const values = await editForm.validateFields()
       const payload: UpdateDisplayNamePayload = { displayName: values.displayName.trim() }
       await updateDisplayName(payload)
-      messageApi.success('显示名已更新')
+      messageApi.success(t('pages.personalCenter.msgSaved'))
       setEditMode(false)
       await load()
       // 更新本地存储的用户信息
@@ -73,7 +76,7 @@ export default function PersonalCenterPage() {
       }
     } catch (err) {
       if (!(err instanceof Error && err.message.includes('displayName'))) {
-        messageApi.error(extractErrorMessage(err, '保存失败'))
+        messageApi.error(extractErrorMessage(err, t('pages.personalCenter.msgSaveFailed')))
       }
     }
   }
@@ -89,13 +92,13 @@ export default function PersonalCenterPage() {
     try {
       const values = await passwordForm.validateFields()
       if (values.newPassword !== values.confirm) {
-        messageApi.error('两次输入的新密码不一致')
+        messageApi.error(t('pages.changePassword.msgPasswordMismatch'))
         return
       }
       setPasswordError('')
       setPasswordLoading(true)
       await changeOwnPassword(values.oldPassword, values.newPassword)
-      messageApi.success('密码修改成功，请重新登录')
+      messageApi.success(t('pages.personalCenter.msgPasswordChanged'))
       setPasswordModalOpen(false)
       passwordForm.resetFields()
       // 清除认证状态并跳转到登录页
@@ -104,41 +107,45 @@ export default function PersonalCenterPage() {
         navigate('/login', { replace: true })
       }, 1500)
     } catch (err) {
-      setPasswordError(extractErrorMessage(err, '密码修改失败'))
+      setPasswordError(extractErrorMessage(err, t('pages.changePassword.msgFailed')))
     } finally {
       setPasswordLoading(false)
     }
   }
 
   const formatDateTime = (datetime?: string) => {
-    if (!datetime) return '从未'
+    if (!datetime) return t('pages.personalCenter.neverLoggedIn')
     return new Date(datetime).toLocaleString('zh-CN')
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }} role="main" aria-label="个人中心页面">
+    <div
+      style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}
+      role="main"
+      aria-label={t('pages.personalCenter.ariaPageLabel')}
+    >
       <Typography.Title level={3} style={{ marginBottom: 24 }}>
-        <UserOutlined /> 个人中心
+        <UserOutlined /> {t('pages.personalCenter.title')}
       </Typography.Title>
 
       {/* 基本信息 */}
       <Card
-        title="基本信息"
+        title={t('pages.personalCenter.cardBasicInfo')}
         style={{ marginBottom: 24, borderRadius: 10 }}
         data-testid="basic-info-card"
         loading={loading}
         extra={
           !editMode ? (
             <Button icon={<EditOutlined />} onClick={() => setEditMode(true)}>
-              编辑显示名
+              {t('pages.personalCenter.btnEditDisplayName')}
             </Button>
           ) : (
             <Space>
               <Button icon={<CloseOutlined />} onClick={handleCancelEdit}>
-                取消
+                {t('common.button.cancel')}
               </Button>
               <Button type="primary" icon={<SaveOutlined />} onClick={handleSaveDisplayName}>
-                保存
+                {t('pages.personalCenter.btnSave')}
               </Button>
             </Space>
           )
@@ -148,10 +155,10 @@ export default function PersonalCenterPage() {
           <Form form={editForm} layout="vertical" initialValues={{ displayName: personalInfo?.displayName }}>
             <Form.Item
               name="displayName"
-              label="显示名"
+              label={t('pages.personalCenter.colDisplayName')}
               rules={[
-                { required: true, message: '请输入显示名' },
-                { min: 3, max: 50, message: '显示名长度必须在 3~50 位之间' },
+                { required: true, message: t('pages.personalCenter.msgDisplayNameRequired') },
+                { min: 3, max: 50, message: t('pages.personalCenter.msgDisplayNameLength') },
               ]}
             >
               <Input size="large" prefix={<UserOutlined />} />
@@ -159,26 +166,26 @@ export default function PersonalCenterPage() {
           </Form>
         ) : (
           <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
-            <Descriptions.Item label="用户名" span={2}>
+            <Descriptions.Item label={t('pages.personalCenter.colUsername')} span={2}>
               <UserOutlined /> {personalInfo?.username}
             </Descriptions.Item>
-            <Descriptions.Item label="显示名" span={1}>
+            <Descriptions.Item label={t('pages.personalCenter.colDisplayName')} span={1}>
               {personalInfo?.displayName}
             </Descriptions.Item>
-            <Descriptions.Item label="角色" span={1}>
-              <Tag color={ROLE_COLORS[personalInfo?.role || '']}>{ROLE_LABELS[personalInfo?.role || ''] || personalInfo?.role}</Tag>
+            <Descriptions.Item label={t('pages.personalCenter.colRole')} span={1}>
+              <Tag color={ROLE_COLORS[personalInfo?.role || '']}>{roleLabels[personalInfo?.role || ''] || personalInfo?.role}</Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="所属部门" span={1}>
-              {personalInfo?.departmentName || '未分配'}
+            <Descriptions.Item label={t('pages.personalCenter.colDepartment')} span={1}>
+              {personalInfo?.departmentName || t('pages.personalCenter.unassigned')}
             </Descriptions.Item>
-            <Descriptions.Item label="数据权限" span={1}>
-              {DATA_SCOPE_LABELS[personalInfo?.dataScope || ''] || personalInfo?.dataScope}
+            <Descriptions.Item label={t('pages.personalCenter.colDataScope')} span={1}>
+              {dataScopeLabels[personalInfo?.dataScope || ''] || personalInfo?.dataScope}
             </Descriptions.Item>
-            <Descriptions.Item label="状态" span={1}>
+            <Descriptions.Item label={t('pages.personalCenter.colStatus')} span={1}>
               {personalInfo?.enabled ? (
-                <Tag color="green">启用</Tag>
+                <Tag color="green">{t('common.status.active')}</Tag>
               ) : (
-                <Tag color="red">停用</Tag>
+                <Tag color="red">{t('common.status.inactive')}</Tag>
               )}
             </Descriptions.Item>
           </Descriptions>
@@ -187,20 +194,20 @@ export default function PersonalCenterPage() {
 
       {/* 安全设置 */}
       <Card
-        title="安全设置"
+        title={t('pages.personalCenter.cardSecurity')}
         style={{ marginBottom: 24, borderRadius: 10 }}
         data-testid="security-card"
         extra={
           <Button type="primary" icon={<KeyOutlined />} onClick={() => setPasswordModalOpen(true)}>
-            修改密码
+            {t('pages.personalCenter.btnChangePassword')}
           </Button>
         }
       >
         <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
-          <Descriptions.Item label="最后登录时间" span={2}>
+          <Descriptions.Item label={t('pages.personalCenter.colLastLoginAt')} span={2}>
             {formatDateTime(personalInfo?.lastLoginAt || undefined)}
           </Descriptions.Item>
-          <Descriptions.Item label="密码最后修改时间" span={2}>
+          <Descriptions.Item label={t('pages.personalCenter.colPasswordUpdatedAt')} span={2}>
             {formatDateTime(personalInfo?.passwordUpdatedAt || undefined)}
           </Descriptions.Item>
         </Descriptions>
@@ -208,7 +215,7 @@ export default function PersonalCenterPage() {
 
       {/* 修改密码 Modal */}
       <Modal
-        title="修改密码"
+        title={t('pages.personalCenter.btnChangePassword')}
         open={passwordModalOpen}
         onOk={handlePasswordChange}
         onCancel={() => {
@@ -217,7 +224,7 @@ export default function PersonalCenterPage() {
           setPasswordError('')
         }}
         confirmLoading={passwordLoading}
-        okText="确认修改"
+        okText={t('pages.changePassword.btnSubmit')}
         destroyOnClose
       >
         <Form form={passwordForm} name="passwordChangeForm" layout="vertical">
@@ -226,43 +233,43 @@ export default function PersonalCenterPage() {
           )}
           <Form.Item
             name="oldPassword"
-            label="旧密码"
-            rules={[{ required: true, message: '请输入旧密码' }]}
+            label={t('pages.changePassword.currentPassword')}
+            rules={[{ required: true, message: t('pages.changePassword.msgCurrentRequired') }]}
           >
-            <Input.Password size="large" placeholder="请输入旧密码" />
+            <Input.Password size="large" placeholder={t('pages.changePassword.msgCurrentRequired')} />
           </Form.Item>
           <Form.Item
             name="newPassword"
-            label="新密码"
+            label={t('pages.changePassword.newPassword')}
             rules={[
-              { required: true, message: '请输入新密码' },
-              { min: 8, max: 64, message: '8~64 位' },
+              { required: true, message: t('pages.changePassword.msgNewRequired') },
+              { min: 8, max: 64, message: t('pages.changePassword.passwordLength') },
             ]}
-            extra="须同时包含字母与数字"
+            extra={t('pages.changePassword.passwordRules')}
           >
-            <Input.Password size="large" placeholder="请输入新密码" />
+            <Input.Password size="large" placeholder={t('pages.changePassword.msgNewRequired')} />
           </Form.Item>
           <Form.Item
             name="confirm"
-            label="确认新密码"
+            label={t('pages.changePassword.confirmPassword')}
             dependencies={['newPassword']}
             rules={[
-              { required: true, message: '请再次输入新密码' },
+              { required: true, message: t('pages.changePassword.msgConfirmRequired') },
               ({ getFieldValue }) => ({
                 validator(_, value) {
                   if (!value || getFieldValue('newPassword') === value) {
                     return Promise.resolve()
                   }
-                  return Promise.reject(new Error('两次输入的新密码不一致'))
+                  return Promise.reject(new Error(t('pages.changePassword.msgPasswordMismatch')))
                 },
               }),
             ]}
           >
-            <Input.Password size="large" placeholder="请再次输入新密码" />
+            <Input.Password size="large" placeholder={t('pages.changePassword.msgConfirmRequired')} />
           </Form.Item>
         </Form>
         <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0, marginTop: 16 }}>
-          修改成功后需要重新登录（旧访问令牌立即失效）
+          {t('pages.changePassword.reloginNotice')}
         </Typography.Paragraph>
       </Modal>
     </div>

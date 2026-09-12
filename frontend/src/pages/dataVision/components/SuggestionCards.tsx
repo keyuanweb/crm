@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { FileProtectOutlined, ClockCircleOutlined, UsergroupAddOutlined, TrophyOutlined } from '@ant-design/icons'
 import type { SuggestionSummary } from '../types'
 
@@ -13,30 +14,31 @@ interface SuggestionCardsProps {
  * 卡片式展示，带图标和颜色编码
  */
 export default function SuggestionCards({ data, style }: SuggestionCardsProps) {
+  const { t } = useTranslation()
   const suggestions = [
     {
-      label: '流失预警',
+      label: t('pages.dataVision.suggestions.atRisk'),
       value: data.atRiskCustomers,
       icon: <FileProtectOutlined />,
       color: '#ff4d4f',
       bgColor: 'rgba(255, 77, 79, 0.1)',
     },
     {
-      label: '商机停滞',
+      label: t('pages.dataVision.suggestions.stalled'),
       value: data.stalledOpportunities,
       icon: <ClockCircleOutlined />,
       color: '#fa8c16',
       bgColor: 'rgba(250, 140, 22, 0.1)',
     },
     {
-      label: '待跟进',
+      label: t('pages.dataVision.suggestions.followUp'),
       value: data.followUpCustomers,
       icon: <UsergroupAddOutlined />,
       color: '#4da3ff',
       bgColor: 'rgba(77, 163, 255, 0.1)',
     },
     {
-      label: '高分线索',
+      label: t('pages.dataVision.suggestions.highScoreLeads'),
       value: data.highScoreLeads,
       icon: <TrophyOutlined />,
       color: '#52c41a',

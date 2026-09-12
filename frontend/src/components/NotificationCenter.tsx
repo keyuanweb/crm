@@ -11,12 +11,17 @@ import {
   markNotificationRead,
 } from '../services/notificationService'
 import { useNotificationSocket } from '../hooks/useNotificationSocket'
-import { NOTIFICATION_TYPE_LABELS, type Notification, type NotificationType } from '../types/notification'
+import { type Notification, type NotificationType } from '../types/notification'
+import { ENUM_KEYS, labelOf } from '../constants/enumLabels'
 
 const TYPE_COLORS: Record<NotificationType, string> = {
   WORKFLOW: 'blue',
   TICKET_ASSIGN: 'orange',
   TICKET_REPLY: 'green',
+  // 1.3 的 SLA 升级作业会发这两个类型（`NotificationService.TYPE_SLA_*`）。
+  // 不加这两项，工单超时通知的 Tag 颜色是 undefined。
+  SLA_WARNING: 'gold',
+  SLA_OVERDUE: 'red',
 }
 
 export default function NotificationCenter() {
@@ -121,7 +126,7 @@ export default function NotificationCenter() {
               <List.Item.Meta
                 avatar={
                   <Tag color={TYPE_COLORS[n.type as NotificationType]}>
-                    {NOTIFICATION_TYPE_LABELS[n.type as NotificationType]}
+                    {labelOf(t, ENUM_KEYS.notificationType, n.type)}
                   </Tag>
                 }
                 title={

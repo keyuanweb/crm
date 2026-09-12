@@ -2,10 +2,10 @@
 
 import { scheduledExportApi } from '../../services/api/scheduledExportApi';
 import type { ScheduledExportRequest } from '../../types/scheduledExport';
-import { ENTITY_TYPE_LABELS, EXPORT_FORMAT_LABELS } from '../../types/scheduledExport';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Button, Card, Form, Input, Select, Space, Typography, Alert } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 const { Title } = Typography;
@@ -27,10 +27,23 @@ const generateCron = (type: string, hour: number, minute: number, dayOfWeek?: nu
 };
 
 const ScheduledExportCreatePage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [cronPreview, setCronPreview] = useState<string>('');
+
+  const entityTypeLabels: Record<string, string> = {
+    CUSTOMER: t('pages.scheduledExport.common.entityTypeLabels.CUSTOMER'),
+    OPPORTUNITY: t('pages.scheduledExport.common.entityTypeLabels.OPPORTUNITY'),
+    CONTRACT: t('pages.scheduledExport.common.entityTypeLabels.CONTRACT'),
+    ORDER: t('pages.scheduledExport.common.entityTypeLabels.ORDER'),
+    INVOICE: t('pages.scheduledExport.common.entityTypeLabels.INVOICE'),
+  };
+  const exportFormatLabels: Record<string, string> = {
+    CSV: t('pages.scheduledExport.common.exportFormatLabels.CSV'),
+    XLSX: t('pages.scheduledExport.common.exportFormatLabels.XLSX'),
+  };
 
   const onFinish = async (values: ScheduledExportRequest) => {
     setLoading(true);
@@ -63,9 +76,9 @@ const ScheduledExportCreatePage: React.FC = () => {
     <div>
       <Space style={{ marginBottom: 16 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/exports/scheduled')}>
-          返回
+          {t('pages.scheduledExport.common.back')}
         </Button>
-        <Title level={4}>创建定时导出任务</Title>
+        <Title level={4}>{t('pages.scheduledExport.create.title')}</Title>
       </Space>
 
       <Card>
@@ -83,51 +96,51 @@ const ScheduledExportCreatePage: React.FC = () => {
           }}
         >
           <Form.Item<ScheduledExportRequest>
-            label="导出实体"
+            label={t('pages.scheduledExport.create.entityLabel')}
             name="entityType"
-            rules={[{ required: true, message: '请选择导出实体' }]}
+            rules={[{ required: true, message: t('pages.scheduledExport.create.selectEntity') }]}
           >
-            <Select placeholder="请选择导出实体">
-              {Object.entries(ENTITY_TYPE_LABELS).map(([key, label]) => (
+            <Select placeholder={t('pages.scheduledExport.create.selectEntity')}>
+              {Object.entries(entityTypeLabels).map(([key, label]) => (
                 <Option key={key} value={key}>{label}</Option>
               ))}
             </Select>
           </Form.Item>
 
           <Form.Item<ScheduledExportRequest>
-            label="筛选条件（JSON）"
+            label={t('pages.scheduledExport.create.filterConditions')}
             name="filterConditions"
-            extra="可选，JSON 格式"
+            extra={t('pages.scheduledExport.create.filterConditionsExtra')}
           >
             <Input.TextArea rows={3} placeholder='{"status": "active"}' />
           </Form.Item>
 
           <Form.Item<ScheduledExportRequest>
-            label="导出格式"
+            label={t('pages.scheduledExport.create.exportFormat')}
             name="exportFormat"
-            rules={[{ required: true, message: '请选择导出格式' }]}
+            rules={[{ required: true, message: t('pages.scheduledExport.create.selectExportFormat') }]}
           >
             <Select>
-              {Object.entries(EXPORT_FORMAT_LABELS).map(([key, label]) => (
+              {Object.entries(exportFormatLabels).map(([key, label]) => (
                 <Option key={key} value={key}>{label}</Option>
               ))}
             </Select>
           </Form.Item>
 
           <Form.Item<ScheduledExportRequest>
-            label="执行周期"
+            label={t('pages.scheduledExport.create.periodType')}
             name="periodType"
-            rules={[{ required: true, message: '请选择执行周期' }]}
+            rules={[{ required: true, message: t('pages.scheduledExport.create.selectPeriod') }]}
           >
             <Select onChange={handlePeriodChange}>
-              <Option value="daily">每日</Option>
-              <Option value="weekly">每周</Option>
-              <Option value="monthly">每月</Option>
+              <Option value="daily">{t('pages.scheduledExport.create.periodDaily')}</Option>
+              <Option value="weekly">{t('pages.scheduledExport.create.periodWeekly')}</Option>
+              <Option value="monthly">{t('pages.scheduledExport.create.periodMonthly')}</Option>
             </Select>
           </Form.Item>
 
           <Form.Item<ScheduledExportRequest>
-            label="执行时间"
+            label={t('pages.scheduledExport.create.executionTime')}
           >
             <Space>
               <Input
@@ -138,7 +151,7 @@ const ScheduledExportCreatePage: React.FC = () => {
                 value={form.getFieldValue('hour')}
                 onChange={(e) => { form.setFieldValue('hour', Number(e.target.value)); handleTimeChange(); }}
               />
-              <span>时</span>
+              <span>{t('pages.scheduledExport.create.hour')}</span>
               <Input
                 type="number"
                 min={0}
@@ -147,21 +160,21 @@ const ScheduledExportCreatePage: React.FC = () => {
                 value={form.getFieldValue('minute')}
                 onChange={(e) => { form.setFieldValue('minute', Number(e.target.value)); handleTimeChange(); }}
               />
-              <span>分</span>
+              <span>{t('pages.scheduledExport.create.minute')}</span>
             </Space>
           </Form.Item>
 
           <Form.Item<ScheduledExportRequest>
-            label="Cron 表达式预览"
+            label={t('pages.scheduledExport.create.cronPreview')}
           >
             <Alert message={cronPreview || '* * * * *'} type="info" showIcon />
           </Form.Item>
 
           <Form.Item>
             <Space>
-              <Button onClick={() => navigate('/exports/scheduled')}>取消</Button>
+              <Button onClick={() => navigate('/exports/scheduled')}>{t('common.button.cancel')}</Button>
               <Button type="primary" htmlType="submit" loading={loading}>
-                创建任务
+                {t('pages.scheduledExport.common.createTask')}
               </Button>
             </Space>
           </Form.Item>

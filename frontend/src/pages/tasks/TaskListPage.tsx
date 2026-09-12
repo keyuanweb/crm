@@ -31,12 +31,10 @@ import {
 } from '../../services/taskService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useQuery } from '@tanstack/react-query'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import {
-  LINKED_TYPE_LABELS,
   PRIORITY_COLORS,
-  PRIORITY_LABELS,
   REMINDER_COLORS,
-  REMINDER_LABELS,
   type LinkedType,
   type TaskItem,
   type TaskPriority,
@@ -50,6 +48,14 @@ interface FormValues {
   linkedId?: number
   remark?: string
 }
+
+/**
+ * 任务优先级取值：只有高/中/低。
+ * `ENUM_KEYS.priority` 是任务与工单共用的登记表（工单多一档 URGENT），直接遍历会给任务的
+ * 筛选与表单塞进一个后端不认的「紧急」，故取值仍取自任务域（PRIORITY_COLORS 的键 = TaskPriority），
+ * 文案照常走登记表。
+ */
+const TASK_PRIORITY_CODES = Object.keys(PRIORITY_COLORS) as TaskPriority[]
 
 export default function TaskListPage() {
   const { t } = useTranslation()
@@ -158,8 +164,12 @@ export default function TaskListPage() {
       title: t('pages.task.list.colPriority'),
       dataIndex: 'priority',
       valueType: 'select',
-      valueEnum: Object.fromEntries(Object.entries(PRIORITY_LABELS).map(([k, v]) => [k, { text: v }])),
-      render: (_, row) => <Tag color={PRIORITY_COLORS[row.priority]}>{PRIORITY_LABELS[row.priority]}</Tag>,
+      valueEnum: Object.fromEntries(
+        TASK_PRIORITY_CODES.map((code) => [code, { text: labelOf(t, ENUM_KEYS.priority, code) }]),
+      ),
+      render: (_, row) => (
+        <Tag color={PRIORITY_COLORS[row.priority]}>{labelOf(t, ENUM_KEYS.priority, row.priority)}</Tag>
+      ),
     },
     {
       title: t('pages.task.list.colRemind'),
@@ -169,7 +179,7 @@ export default function TaskListPage() {
         const label =
           row.reminderStatus === 'OVERDUE' && row.overdueDays
             ? t('pages.task.list.overdueDays', { days: row.overdueDays })
-            : REMINDER_LABELS[row.reminderStatus]
+            : labelOf(t, ENUM_KEYS.taskReminder, row.reminderStatus)
         return <Tag color={REMINDER_COLORS[row.reminderStatus]}>{label}</Tag>
       },
     },
@@ -177,8 +187,13 @@ export default function TaskListPage() {
       title: t('pages.task.list.colLinked'),
       dataIndex: 'linkedType',
       valueType: 'select',
-      valueEnum: Object.fromEntries(Object.entries(LINKED_TYPE_LABELS).map(([k, v]) => [k, { text: v }])),
-      render: (_, row) => (row.linkedType ? LINKED_TYPE_LABELS[row.linkedType] : '-'),
+      valueEnum: Object.fromEntries(
+        Object.keys(ENUM_KEYS.linkedType).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.linkedType, code) },
+        ]),
+      ),
+      render: (_, row) => (row.linkedType ? labelOf(t, ENUM_KEYS.linkedType, row.linkedType) : '-'),
     },
     {
       title: t('pages.task.list.colStatus'),
@@ -294,7 +309,10 @@ export default function TaskListPage() {
             <Col span={12}>
               <Form.Item name="priority" label={t('pages.task.list.colPriority')}>
                 <Select
-                  options={Object.entries(PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
+                  options={TASK_PRIORITY_CODES.map((value) => ({
+                    value,
+                    label: labelOf(t, ENUM_KEYS.priority, value),
+                  }))}
                 />
               </Form.Item>
             </Col>
@@ -303,7 +321,10 @@ export default function TaskListPage() {
                 <Select
                   allowClear
                   placeholder={t('pages.task.list.optional')}
-                  options={Object.entries(LINKED_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+                  options={Object.keys(ENUM_KEYS.linkedType).map((value) => ({
+                    value,
+                    label: labelOf(t, ENUM_KEYS.linkedType, value),
+                  }))}
                 />
               </Form.Item>
             </Col>

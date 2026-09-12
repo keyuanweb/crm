@@ -1,4 +1,5 @@
 ﻿import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Statistic, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -11,12 +12,7 @@ import {
 } from '../../services/callRecordService'
 import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
-import {
-  CALL_DIRECTION_LABELS,
-  CALL_RESULT_LABELS,
-  type CallRecord,
-  type CallStats,
-} from '../../types/callRecord'
+import type { CallRecord, CallStats } from '../../types/callRecord'
 
 interface FormValues {
   customerId?: number
@@ -29,12 +25,24 @@ interface FormValues {
 
 /** 通话记录页（061，ADMIN+SALES+SUPPORT）。 */
 export default function CallRecordPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<CallRecord | null>(null)
   const [stats, setStats] = useState<CallStats | null>(null)
   const [form] = Form.useForm<FormValues>()
+
+  const CALL_DIRECTION_LABELS: Record<string, string> = {
+    INBOUND: t('pages.call.directionInbound'),
+    OUTBOUND: t('pages.call.directionOutbound'),
+  }
+  const CALL_RESULT_LABELS: Record<string, string> = {
+    CONNECTED: t('pages.call.resultConnected'),
+    NO_ANSWER: t('pages.call.resultNoAnswer'),
+    BUSY: t('pages.call.resultBusy'),
+    FAILED: t('pages.call.resultFailed'),
+  }
 
   const refreshStats = async () => {
     try {
@@ -45,10 +53,10 @@ export default function CallRecordPage() {
   }
 
   const columns: ProColumns<CallRecord>[] = [
-    { title: '客户', dataIndex: 'customerName', ellipsis: true },
-    { title: '联系人', dataIndex: 'contactName', search: false },
+    { title: t('pages.call.colCustomer'), dataIndex: 'customerName', ellipsis: true },
+    { title: t('pages.call.colContact'), dataIndex: 'contactName', search: false },
     {
-      title: '方向',
+      title: t('pages.call.colDirection'),
       dataIndex: 'direction',
       valueEnum: Object.fromEntries(Object.entries(CALL_DIRECTION_LABELS).map(([k, v]) => [k, { text: v }])),
       render: (_, row) => (
@@ -58,30 +66,30 @@ export default function CallRecordPage() {
       ),
     },
     {
-      title: '时长',
+      title: t('pages.call.colDuration'),
       dataIndex: 'durationSeconds',
       search: false,
       render: (_, row) => formatDuration(row.durationSeconds),
     },
     {
-      title: '结果',
+      title: t('pages.call.colResult'),
       dataIndex: 'result',
       valueEnum: Object.fromEntries(Object.entries(CALL_RESULT_LABELS).map(([k, v]) => [k, { text: v }])),
       render: (_, row) => <Tag>{CALL_RESULT_LABELS[row.result] ?? row.result}</Tag>,
     },
     {
-      title: '时间',
+      title: t('pages.call.colTime'),
       dataIndex: 'recordedAt',
       search: false,
       render: (_, row) => (row.recordedAt ? row.recordedAt.replace('T', ' ').slice(0, 19) : '-'),
     },
     {
-      title: '操作',
+      title: t('pages.call.colAction'),
       valueType: 'option',
       render: (_, row) => [
-        <a key="edit" onClick={() => openEdit(row)}>编辑</a>,
-        <Popconfirm key="del" title="删除该通话记录？" onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <a key="edit" onClick={() => openEdit(row)}>{t('common.button.edit')}</a>,
+        <Popconfirm key="del" title={t('pages.call.confirmDelete')} onConfirm={() => void onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -105,27 +113,27 @@ export default function CallRecordPage() {
     try {
       if (editing) {
         await updateCallRecord(editing.id, values)
-        message.success('已保存')
+        message.success(t('common.message.saved'))
       } else {
         await createCallRecord(values)
-        message.success('已录入')
+        message.success(t('pages.call.msgCreated'))
       }
       setModalOpen(false)
       actionRef.current?.reload()
       void refreshStats()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.call.msgSaveFailed')))
     }
   }
 
   const onDelete = async (row: CallRecord) => {
     try {
       await deleteCallRecord(row.id)
-      message.success('已删除')
+      message.success(t('pages.call.msgDeleted'))
       actionRef.current?.reload()
       void refreshStats()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.call.msgDeleteFailed')))
     }
   }
 
@@ -134,30 +142,30 @@ export default function CallRecordPage() {
       <Row gutter={12}>
         <Col span={6}>
           <Card size="small">
-            <Statistic title="通话次数" value={stats?.totalCount ?? 0} />
+            <Statistic title={t('pages.call.statTotal')} value={stats?.totalCount ?? 0} />
           </Card>
         </Col>
         <Col span={6}>
           <Card size="small">
-            <Statistic title="总时长" value={formatDuration(stats?.totalDurationSeconds ?? 0)} />
+            <Statistic title={t('pages.call.statTotalDuration')} value={formatDuration(stats?.totalDurationSeconds ?? 0)} />
           </Card>
         </Col>
         <Col span={6}>
           <Card size="small">
-            <Statistic title="平均时长" value={formatDuration(stats?.avgDurationSeconds ?? 0)} />
+            <Statistic title={t('pages.call.statAvgDuration')} value={formatDuration(stats?.avgDurationSeconds ?? 0)} />
           </Card>
         </Col>
         <Col span={6}>
           <Card size="small">
             <Statistic
-              title="呼入/呼出"
+              title={t('pages.call.statByDirection')}
               value={stats?.byDirection?.map((d) => `${CALL_DIRECTION_LABELS[d.direction as keyof typeof CALL_DIRECTION_LABELS] ?? d.direction} ${d.count}`).join(' / ') ?? '-'}
             />
           </Card>
         </Col>
       </Row>
       <ProTable<CallRecord>
-        headerTitle="通话记录"
+        headerTitle={t('pages.call.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -185,43 +193,43 @@ export default function CallRecordPage() {
               setModalOpen(true)
             }}
           >
-            录入通话
+            {t('pages.call.create')}
           </Button>,
         ]}
       />
       <Modal
-        title={editing ? '编辑通话记录' : '录入通话记录'}
+        title={editing ? t('pages.call.editModal') : t('pages.call.createModal')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         destroyOnClose
         width={480}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="customerId" label="客户" rules={[{ required: true, message: '请选择客户' }]}>
+          <Form.Item name="customerId" label={t('pages.call.colCustomer')} rules={[{ required: true, message: t('pages.call.msgCustomerRequired') }]}>
             <CustomerSelect />
           </Form.Item>
-          <Form.Item name="contactId" label="联系人">
-            <Input placeholder="联系人 id（可空）" />
+          <Form.Item name="contactId" label={t('pages.call.colContact')}>
+            <Input placeholder={t('pages.call.placeholderContact')} />
           </Form.Item>
           <Row gutter={12}>
             <Col span={12}>
-              <Form.Item name="direction" label="方向" rules={[{ required: true }]}>
+              <Form.Item name="direction" label={t('pages.call.colDirection')} rules={[{ required: true }]}>
                 <Select options={Object.entries(CALL_DIRECTION_LABELS).map(([value, label]) => ({ value, label }))} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="result" label="结果" rules={[{ required: true }]}>
+              <Form.Item name="result" label={t('pages.call.colResult')} rules={[{ required: true }]}>
                 <Select options={Object.entries(CALL_RESULT_LABELS).map(([value, label]) => ({ value, label }))} />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="durationSeconds" label="时长（秒）" rules={[{ required: true, message: '请输入时长' }]}>
+          <Form.Item name="durationSeconds" label={t('pages.call.formDuration')} rules={[{ required: true, message: t('pages.call.msgDurationRequired') }]}>
             <InputNumber min={0} max={86400} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="remark" label="备注">
-            <Input.TextArea rows={2} maxLength={500} placeholder="备注或录音链接" />
+          <Form.Item name="remark" label={t('pages.call.formRemark')}>
+            <Input.TextArea rows={2} maxLength={500} placeholder={t('pages.call.placeholderRemark')} />
           </Form.Item>
         </Form>
       </Modal>
@@ -240,6 +248,7 @@ function formatDuration(seconds: number) {
 }
 
 function CustomerSelect() {
+  const { t } = useTranslation()
   const [options, setOptions] = useState<{ value: number; label: string }[]>([])
   const load = async (keyword?: string) => {
     try {
@@ -256,7 +265,7 @@ function CustomerSelect() {
       onSearch={(v) => void load(v)}
       onFocus={() => void load()}
       options={options}
-      placeholder="选择客户"
+      placeholder={t('pages.call.placeholderCustomer')}
     />
   )
 }

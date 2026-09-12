@@ -1,4 +1,5 @@
 ﻿import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
@@ -27,10 +28,10 @@ import { fetchProducts } from '../../services/productService'
 import { extractErrorMessage } from '../../services/apiClient'
 import {
   QUOTE_STATUS_COLORS,
-  QUOTE_STATUS_LABELS,
   type Quote,
   type QuoteItemPayload,
 } from '../../types/quote'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import type { Product } from '../../types/product'
 
 interface FormValues {
@@ -46,6 +47,7 @@ interface LineFormValues {
 }
 
 export default function QuoteListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -100,7 +102,7 @@ export default function QuoteListPage() {
   const onSave = async () => {
     const values = await form.validateFields()
     if (lines.length === 0) {
-      message.warning('请至少添加一个产品行')
+      message.warning(t('pages.quoteList.messages.pleaseAddProduct'))
       return
     }
     const payload: QuotePayload = {
@@ -112,11 +114,11 @@ export default function QuoteListPage() {
     setSaving(true)
     try {
       await createQuote(payload)
-      message.success('已创建（草稿）')
+      message.success(t('pages.quoteList.messages.created'))
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '创建失败'))
+      message.error(extractErrorMessage(err, t('pages.quoteList.messages.createFailed')))
     } finally {
       setSaving(false)
     }
@@ -124,18 +126,18 @@ export default function QuoteListPage() {
 
   const lineColumns = [
     {
-      title: '产品',
+      title: t('pages.quoteList.form.product'),
       dataIndex: 'productId',
       render: (id: number) => productOptions.find((p) => p.id === id)?.name ?? id,
     },
-    { title: '数量', dataIndex: 'quantity' },
+    { title: t('pages.quoteList.form.quantity'), dataIndex: 'quantity' },
     {
-      title: '折扣',
+      title: t('pages.quoteList.colDiscount'),
       dataIndex: 'discount',
       render: (v: number) => `${Math.round(v * 100)}%`,
     },
     {
-      title: '小计（元）',
+      title: t('pages.quoteList.colSubtotal'),
       key: 'lineTotal',
       render: (_: unknown, row: QuoteItemPayload) => {
         const product = productOptions.find((p) => p.id === row.productId)
@@ -165,41 +167,46 @@ export default function QuoteListPage() {
 
   const columns: ProColumns<Quote>[] = [
     {
-      title: '报价单号',
+      title: t('pages.quoteList.colQuoteNo'),
       dataIndex: 'quoteNo',
       render: (_, row) => <Link to={`/quotes/${row.id}`}>{row.quoteNo}</Link>,
     },
     {
-      title: '客户',
+      title: t('pages.quoteList.colCustomer'),
       dataIndex: 'customerName',
       render: (_, row) =>
         row.customerId ? <Link to={`/customers/${row.customerId}`}>{row.customerName ?? '-'}</Link> : '-',
     },
     {
-      title: '状态',
+      title: t('pages.quoteList.colStatus'),
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(QUOTE_STATUS_LABELS).map(([k, v]) => [k, { text: v }]),
+        Object.keys(ENUM_KEYS.quoteStatus).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.quoteStatus, code) },
+        ]),
       ),
       render: (_, row) => (
-        <Tag color={QUOTE_STATUS_COLORS[row.status]}>{QUOTE_STATUS_LABELS[row.status]}</Tag>
+        <Tag color={QUOTE_STATUS_COLORS[row.status]}>
+          {labelOf(t, ENUM_KEYS.quoteStatus, row.status)}
+        </Tag>
       ),
     },
     {
-      title: '总额（元）',
+      title: t('pages.quoteList.colTotalAmount'),
       dataIndex: 'totalAmount',
       search: false,
       render: (_, row) => (row.totalAmount / 100).toLocaleString('zh-CN'),
     },
     {
-      title: '有效期',
+      title: t('pages.quoteList.colValidUntil'),
       dataIndex: 'validUntil',
       search: false,
       render: (_, row) => row.validUntil ?? '-',
     },
     {
-      title: '创建时间',
+      title: t('pages.quoteList.colCreatedAt'),
       dataIndex: 'createdAt',
       search: false,
       render: (_, row) => (row.createdAt ? row.createdAt.replace('T', ' ').slice(0, 16) : '-'),
@@ -210,7 +217,7 @@ export default function QuoteListPage() {
     <>
       <ProTable<Quote>
         size="small"
-        headerTitle="报价单"
+        headerTitle={t('pages.quoteList.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -228,18 +235,18 @@ export default function QuoteListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建报价单
+            {t('pages.quoteList.toolbar.newQuote')}
           </Button>,
         ]}
       />
 
       <Modal
-        title="新建报价单"
+        title={t('pages.quoteList.modal.newQuote')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存草稿"
+        okText={t('pages.quoteList.modal.saveDraft')}
         destroyOnClose
         width={760}
       >
@@ -254,12 +261,12 @@ export default function QuoteListPage() {
             <Col span={12}>
               <Form.Item
                 name="customerId"
-                label="客户"
-                rules={[{ required: true, message: '请选择客户' }]}
+                label={t('pages.quoteList.form.customer')}
+                rules={[{ required: true, message: t('pages.quoteList.form.customerRequired') }]}
               >
                 <Select
                   showSearch
-                  placeholder="搜索并选择客户"
+                  placeholder={t('pages.quoteList.form.customerPlaceholder')}
                   options={customerOptions}
                   filterOption={false}
                   onSearch={(kw) => void loadCustomers(kw)}
@@ -267,23 +274,23 @@ export default function QuoteListPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="validUntil" label="有效期">
+              <Form.Item name="validUntil" label={t('pages.quoteList.form.validUntil')}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col span={24}>
-              <Form.Item name="remark" label="备注">
+              <Form.Item name="remark" label={t('pages.quoteList.form.remark')}>
                 <Input.TextArea rows={2} />
               </Form.Item>
             </Col>
           </Row>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontWeight: 600 }}>产品行</span>
+            <span style={{ fontWeight: 600 }}>{t('pages.quoteList.form.productLines')}</span>
             <Button size="small" icon={<PlusOutlined />} onClick={openAddLine}>
-              添加产品
+              {t('pages.quoteList.form.addProduct')}
             </Button>
           </div>
           <Table<QuoteItemPayload>
@@ -292,25 +299,29 @@ export default function QuoteListPage() {
             dataSource={lines}
             columns={lineColumns as never}
             pagination={false}
-            locale={{ emptyText: '暂无产品行' }}
+            locale={{ emptyText: t('pages.quoteList.form.noProducts') }}
           />
           <div style={{ textAlign: 'right', marginTop: 8, fontWeight: 600 }}>
-            总额：¥ {totalAmount.toLocaleString('zh-CN')}
+            {t('pages.quoteList.form.total')}：¥ {totalAmount.toLocaleString('zh-CN')}
           </div>
         </Form>
       </Modal>
 
       <Modal
-        title="添加产品"
+        title={t('pages.quoteList.modal.addProduct')}
         open={lineModalOpen}
         onOk={() => void onAddLine()}
         onCancel={() => setLineModalOpen(false)}
-        okText="添加"
+        okText={t('pages.quoteList.modal.addProductOk')}
         destroyOnClose
         width={480}
       >
         <Form form={lineForm} name="quoteLineForm" layout="vertical">
-          <Form.Item name="productId" label="产品" rules={[{ required: true, message: '请选择产品' }]}>
+          <Form.Item
+            name="productId"
+            label={t('pages.quoteList.form.product')}
+            rules={[{ required: true, message: t('pages.quoteList.form.productRequired') }]}
+          >
             <Select
               showSearch
               optionFilterProp="label"
@@ -322,17 +333,17 @@ export default function QuoteListPage() {
           </Form.Item>
           <Form.Item
             name="quantity"
-            label="数量"
+            label={t('pages.quoteList.form.quantity')}
             initialValue={1}
-            rules={[{ required: true, message: '请输入数量' }]}
+            rules={[{ required: true, message: t('pages.quoteList.form.quantityRequired') }]}
           >
             <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item
             name="discount"
-            label="折扣（%）"
+            label={t('pages.quoteList.form.discount')}
             initialValue={100}
-            rules={[{ required: true, message: '请输入折扣' }]}
+            rules={[{ required: true, message: t('pages.quoteList.form.discountRequired') }]}
           >
             <InputNumber min={0} max={100} style={{ width: '100%' }} />
           </Form.Item>

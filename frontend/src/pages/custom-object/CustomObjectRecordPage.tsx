@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { App, Button, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Select } from 'antd'
@@ -15,6 +16,7 @@ import type { CustomObject, ObjectRecord } from '../../types/customObject'
 
 /** 自定义对象记录管理页（059，动态表单）。 */
 export default function CustomObjectRecordPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const objectId = Number(id)
   const actionRef = useRef<ActionType>()
@@ -53,15 +55,15 @@ export default function CustomObjectRecordPage() {
     try {
       if (editing) {
         await updateObjectRecord(objectId, editing.id, values)
-        message.success('已保存')
+        message.success(t('pages.customObject.msgSaved'))
       } else {
         await createObjectRecord(objectId, values)
-        message.success('已创建')
+        message.success(t('pages.customObject.msgCreated'))
       }
       setModalOpen(false)
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('pages.customObject.msgSaveFailed')))
     }
   }
 
@@ -74,18 +76,18 @@ export default function CustomObjectRecordPage() {
       render: (_: unknown, row: ObjectRecord) => row.values?.[f.field] ?? '-',
     })) ?? []),
     {
-      title: '创建时间',
+      title: t('pages.customObject.colCreatedAt'),
       dataIndex: 'createdAt',
       search: false,
       render: (_, row) => (row.createdAt ? row.createdAt.replace('T', ' ').slice(0, 19) : '-'),
     },
     {
-      title: '操作',
+      title: t('pages.customObject.colAction'),
       valueType: 'option',
       render: (_, row) => [
-        <a key="edit" onClick={() => openEdit(row)}>编辑</a>,
-        <Popconfirm key="del" title="删除该记录？" onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <a key="edit" onClick={() => openEdit(row)}>{t('pages.customObject.edit')}</a>,
+        <Popconfirm key="del" title={t('pages.customObject.confirmDeleteRecord')} onConfirm={() => void onDelete(row)}>
+          <a style={{ color: '#ff4d4f' }}>{t('pages.customObject.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -94,20 +96,20 @@ export default function CustomObjectRecordPage() {
   const onDelete = async (row: ObjectRecord) => {
     try {
       await deleteObjectRecord(objectId, row.id)
-      message.success('已删除')
+      message.success(t('pages.customObject.msgDeleted'))
       actionRef.current?.reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.customObject.msgDeleteFailed')))
     }
   }
 
   return (
     <>
       <Link to="/custom-objects" style={{ marginBottom: 16, display: 'inline-block' }}>
-        <Button type="link">← 返回对象列表</Button>
+        <Button type="link">{t('pages.customObject.backToList')}</Button>
       </Link>
       <ProTable<ObjectRecord>
-        headerTitle={`${object?.name ?? '对象'} · 记录`}
+        headerTitle={`${object?.name ?? t('pages.customObject.objectLabel')} · ${t('pages.customObject.records')}`}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -119,16 +121,16 @@ export default function CustomObjectRecordPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建记录
+            {t('pages.customObject.btnAddRecord')}
           </Button>,
         ]}
       />
       <Modal
-        title={editing ? '编辑记录' : '新建记录'}
+        title={editing ? t('pages.customObject.modalEditRecordTitle') : t('pages.customObject.modalAddRecordTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('pages.customObject.btnSave')}
         destroyOnClose
         width={480}
       >
@@ -138,9 +140,9 @@ export default function CustomObjectRecordPage() {
               key={f.field}
               name={f.field}
               label={`${f.label}${f.required ? ' *' : ''}`}
-              rules={[{ required: !!f.required, message: `请填写${f.label}` }]}
+              rules={[{ required: !!f.required, message: t('common.message.required', { field: f.label }) }]}
             >
-              {renderFieldInput(f)}
+              {renderFieldInput(f, t)}
             </Form.Item>
           ))}
         </Form>
@@ -149,7 +151,10 @@ export default function CustomObjectRecordPage() {
   )
 }
 
-function renderFieldInput(f: { field: string; label: string; type: string; options?: string }) {
+function renderFieldInput(
+  f: { field: string; label: string; type: string; options?: string },
+  t: (key: string, params?: Record<string, unknown>) => string,
+) {
   switch (f.type) {
     case 'NUMBER':
       return <InputNumber style={{ width: '100%' }} />
@@ -159,10 +164,10 @@ function renderFieldInput(f: { field: string; label: string; type: string; optio
       return (
         <Select
           options={(f.options ?? '').split(',').filter(Boolean).map((o) => ({ value: o, label: o }))}
-          placeholder={`请选择${f.label}`}
+          placeholder={t('pages.customObject.selectPlaceholder', { field: f.label })}
         />
       )
     default:
-      return <Input placeholder={`请输入${f.label}`} />
+      return <Input placeholder={t('common.message.required', { field: f.label })} />
   }
 }

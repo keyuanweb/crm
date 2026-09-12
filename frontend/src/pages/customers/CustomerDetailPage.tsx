@@ -56,6 +56,9 @@ export default function CustomerDetailPage() {
   const { message } = App.useApp()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
+  // 共享客户是**数据归属**规则而不是权限码：后端 CustomerShareService.share 里就是
+  // `if (!isAdmin && !currentUserId.equals(customer.getOwnerId())) throw FORBIDDEN`，
+  // CustomerShareController 上也没有（字典里也还没有）可用的权限码，所以这里保留角色判断。
   const isAdmin = user?.role === 'ADMIN'
   const [shareOpen, setShareOpen] = useState(false)
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
@@ -77,7 +80,12 @@ export default function CustomerDetailPage() {
     const users = await fetchUsers({ page: 1, pageSize: 100 })
     setUserOptions(
       users.items
-        .filter((u) => u.role !== 'SUPPORT' && u.id !== user?.id)
+        // 共享对象排除整个客服族（SUPPORT / SUPPORT_MANAGER / SUPPORT_AGENT）：改造前写的是
+        // `u.role !== 'SUPPORT'`，只认那一个字面量角色名，081 之后客服改名成 SUPPORT_MANAGER /
+        // SUPPORT_AGENT，这个判断就再也筛不掉客服了。按前缀匹配才对得上本意。
+        // 后端没有对应规则（CustomerShareService.share 只校验「归属者或 ADMIN」，不看被共享人的角色），
+        // 这里只是下拉框的建议性过滤，不是强制。
+        .filter((u) => !u.role.startsWith('SUPPORT') && u.id !== user?.id)
         .map((u) => ({ value: u.id, label: u.displayName || u.username })),
     )
     shareForm.resetFields()

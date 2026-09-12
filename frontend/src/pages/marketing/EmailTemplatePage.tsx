@@ -1,4 +1,5 @@
 ﻿import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
   App,
@@ -29,14 +30,8 @@ interface FormValues {
   category: string
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  WELCOME: '欢迎',
-  PROMOTION: '促销',
-  FOLLOW_UP: '跟进',
-  NOTICE: '通知',
-}
-
 export default function EmailTemplatePage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -46,6 +41,13 @@ export default function EmailTemplatePage() {
   const [previewContent, setPreviewContent] = useState('')
   const [previewSubject, setPreviewSubject] = useState('')
   const [form] = Form.useForm<FormValues>()
+
+  const categoryLabels: Record<string, string> = {
+    WELCOME: t('pages.marketing.emailTemplate.catWelcome'),
+    PROMOTION: t('pages.marketing.emailTemplate.catPromotion'),
+    FOLLOW_UP: t('pages.marketing.emailTemplate.catFollowUp'),
+    NOTICE: t('pages.marketing.emailTemplate.catNotice'),
+  }
 
   const reload = () => actionRef.current?.reload()
 
@@ -67,15 +69,15 @@ export default function EmailTemplatePage() {
     try {
       if (editing) {
         await updateEmailTemplate(editing.id, values)
-        message.success('已保存')
+        message.success(t('common.message.saved'))
       } else {
         await createEmailTemplate(values)
-        message.success('已创建')
+        message.success(t('pages.marketing.emailTemplate.msgCreated'))
       }
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '保存失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     } finally {
       setSaving(false)
     }
@@ -84,43 +86,49 @@ export default function EmailTemplatePage() {
   const onDelete = async (row: EmailTemplate) => {
     try {
       await deleteEmailTemplate(row.id)
-      message.success('已删除')
+      message.success(t('pages.marketing.emailTemplate.msgDeleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('pages.marketing.emailTemplate.msgDeleteFailed')))
     }
   }
 
   const openPreview = (row: EmailTemplate) => {
-    setPreviewSubject(row.subject.replace('{name}', '示例客户').replace('{company}', '示例公司'))
-    setPreviewContent(row.content.replace('{name}', '示例客户').replace('{company}', '示例公司'))
+    const sampleName = t('pages.marketing.emailTemplate.previewSampleName')
+    const sampleCompany = t('pages.marketing.emailTemplate.previewSampleCompany')
+    setPreviewSubject(row.subject.replace('{name}', sampleName).replace('{company}', sampleCompany))
+    setPreviewContent(row.content.replace('{name}', sampleName).replace('{company}', sampleCompany))
     setPreviewOpen(true)
   }
 
   const columns: ProColumns<EmailTemplate>[] = [
-    { title: '名称', dataIndex: 'name' },
-    { title: '主题', dataIndex: 'subject', ellipsis: true },
-    { title: '正文', dataIndex: 'content', search: false, ellipsis: true, render: (_, row) => row.content.replace(/<[^>]*>/g, '').slice(0, 40) },
+    { title: t('pages.marketing.emailTemplate.colName'), dataIndex: 'name' },
+    { title: t('pages.marketing.emailTemplate.colSubject'), dataIndex: 'subject', ellipsis: true },
+    { title: t('pages.marketing.emailTemplate.colContent'), dataIndex: 'content', search: false, ellipsis: true, render: (_, row) => row.content.replace(/<[^>]*>/g, '').slice(0, 40) },
     {
-      title: '分类',
+      title: t('pages.marketing.emailTemplate.colCategory'),
       dataIndex: 'category',
       width: 90,
       search: false,
-      render: (_, row) => <Tag color="blue">{CATEGORY_LABELS[row.category] ?? row.category}</Tag>,
+      render: (_, row) => <Tag color="blue">{categoryLabels[row.category] ?? row.category}</Tag>,
     },
     {
-      title: '操作',
+      title: t('pages.marketing.emailTemplate.colAction'),
       valueType: 'option',
       width: 160,
       render: (_, row) => [
         <a key="preview" onClick={() => openPreview(row)}>
-          预览
+          {t('pages.marketing.emailTemplate.btnPreview')}
         </a>,
         <a key="edit" onClick={() => openEdit(row)}>
-          编辑
+          {t('common.button.edit')}
         </a>,
-        <Popconfirm key="delete" title={`确定删除模板「${row.name}」吗？`} onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>删除</a>
+        <Popconfirm
+          key="delete"
+          title={t('pages.marketing.emailTemplate.confirmDelete', { name: row.name })}
+          onConfirm={() => onDelete(row)}
+        >
+          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
         </Popconfirm>,
       ],
     },
@@ -130,7 +138,7 @@ export default function EmailTemplatePage() {
     <>
       <ProTable<EmailTemplate>
         size="small"
-        headerTitle="邮件模板"
+        headerTitle={t('pages.marketing.emailTemplate.title')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -143,52 +151,52 @@ export default function EmailTemplatePage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增模板
+            {t('pages.marketing.emailTemplate.btnCreate')}
           </Button>,
         ]}
       />
 
       <Modal
-        title={editing ? '编辑模板' : '新增模板'}
+        title={editing ? t('pages.marketing.emailTemplate.modalEditTitle') : t('pages.marketing.emailTemplate.modalCreateTitle')}
         open={modalOpen}
         onOk={() => void onSave()}
         confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
-        okText="保存"
+        okText={t('common.button.save')}
         destroyOnClose
         width={680}
       >
         <Form form={form} name="emailTemplateForm" layout="horizontal" labelCol={{ flex: '70px' }} wrapperCol={{ flex: 1 }}>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
-                <Input placeholder="如：客户欢迎" />
+              <Form.Item name="name" label={t('pages.marketing.emailTemplate.formNameLabel')} rules={[{ required: true, message: t('pages.marketing.emailTemplate.msgNameRequired') }]}>
+                <Input placeholder={t('pages.marketing.emailTemplate.phName')} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="category" label="分类">
+              <Form.Item name="category" label={t('pages.marketing.emailTemplate.formCategoryLabel')}>
                 <Select
-                  options={Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }))}
+                  options={Object.entries(categoryLabels).map(([value, label]) => ({ value, label }))}
                 />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="subject" label="主题" rules={[{ required: true, message: '请输入主题' }]}>
-            <Input placeholder="可用变量：{name} {company} {phone}" />
+          <Form.Item name="subject" label={t('pages.marketing.emailTemplate.formSubjectLabel')} rules={[{ required: true, message: t('pages.marketing.emailTemplate.msgSubjectRequired') }]}>
+            <Input placeholder={t('pages.marketing.emailTemplate.phSubject')} />
           </Form.Item>
           <Form.Item
             name="content"
-            label="正文"
-            rules={[{ required: true, message: '请输入正文' }]}
-            extra="支持 HTML；变量 {name} {company} {phone}"
+            label={t('pages.marketing.emailTemplate.formContentLabel')}
+            rules={[{ required: true, message: t('pages.marketing.emailTemplate.msgContentRequired') }]}
+            extra={t('pages.marketing.emailTemplate.formContentExtra')}
           >
-            <Input.TextArea rows={8} placeholder="<p>尊敬的 {name}：</p>" />
+            <Input.TextArea rows={8} placeholder={t('pages.marketing.emailTemplate.phContent')} />
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title={`预览：${previewSubject}`}
+        title={t('pages.marketing.emailTemplate.previewTitle', { subject: previewSubject })}
         open={previewOpen}
         footer={null}
         onCancel={() => setPreviewOpen(false)}

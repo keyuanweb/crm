@@ -87,9 +87,9 @@ describe('DashboardPage（006 统计仪表盘，FR-S18 首页布局与漏斗可�
 
     // t(key) => key，所以断言使用翻译 key
     expect(await screen.findByText('pages.dashboard.funnel.title', {}, { timeout: 5000 })).toBeInTheDocument()
-    // 漏斗可视化：阶段标签来自 STAGE_LABELS（中文）+ 金额 + 占比
-    expect(await screen.findByText('初步接触', {}, { timeout: 5000 })).toBeInTheDocument()
-    expect(screen.getByText('谈判中')).toBeInTheDocument()
+    // 漏斗可视化：阶段标签来自 ENUM_KEYS.opportunityStage（经 t 取文案）+ 金额 + 占比
+    expect(await screen.findByText('enums.opportunityStage.initialContact', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByText('enums.opportunityStage.negotiating')).toBeInTheDocument()
     expect(screen.getByText(/8,000/)).toBeInTheDocument()
     // 两个阶段各 1 个，总共 2 个，占比各 50%
     expect(screen.queryAllByText('50%').length).toBeGreaterThan(0)

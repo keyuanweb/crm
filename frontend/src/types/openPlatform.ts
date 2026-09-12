@@ -32,9 +32,3 @@ export interface WebhookDelivery {
   retryCount?: number
   createdAt: string
 }
-
-export const WEBHOOK_EVENT_LABELS: Record<string, string> = {
-  LEAD_CREATED: '线索创建',
-  LEAD_UPDATED: '线索更新',
-  CUSTOMER_CREATED: '客户创建',
-}

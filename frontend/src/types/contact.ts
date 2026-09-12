@@ -38,14 +38,6 @@ export interface ContactListParams {
   pageSize: number
 }
 
-export const ROLE_LABELS: Record<ContactRole, string> = {
-  DECISION_MAKER: '决策人',
-  INFLUENCER: '影响者',
-  EVALUATOR: '评估人',
-  CHAMPION: '支持者',
-  OTHER: '其他',
-}
-
 export const ROLE_COLORS: Record<ContactRole, string> = {
   DECISION_MAKER: 'red',
   INFLUENCER: 'blue',

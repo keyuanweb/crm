@@ -42,29 +42,3 @@ export interface ScheduledExportExecutionResponse {
   errorMessage?: string
   createdAt?: string
 }
-
-export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
-  CUSTOMER: '客户',
-  OPPORTUNITY: '商机',
-  CONTRACT: '合同',
-  ORDER: '订单',
-  INVOICE: '发票',
-}
-
-export const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
-  CSV: 'CSV',
-  XLSX: 'Excel',
-}
-
-export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  ACTIVE: '活跃',
-  SUSPENDED: '已暂停',
-  DELETED: '已删除',
-}
-
-export const EXECUTION_STATUS_LABELS: Record<ExecutionStatus, string> = {
-  SUCCESS: '成功',
-  FAILED: '失败',
-  EMAIL_SENT: '邮件已发送',
-  EMAIL_FAILED: '邮件发送失败',
-}

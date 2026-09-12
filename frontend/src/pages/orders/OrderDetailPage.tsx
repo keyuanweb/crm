@@ -21,12 +21,8 @@ import { ArrowLeftOutlined, ReloadOutlined, ShoppingCartOutlined, CheckCircleOut
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchOrder, recordPayment } from '../../services/orderService'
 import { extractErrorMessage } from '../../services/apiClient'
-import {
-  ORDER_STATUS_LABELS,
-  PAYMENT_METHOD_LABELS,
-  REMINDER_LABELS,
-  type PaymentPlanItem,
-} from '../../types/order'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import type { PaymentPlanItem } from '../../types/order'
 import { StatusTag, AmountDisplay, StatCard } from '../../components/ui'
 
 interface PaymentFormValues {
@@ -104,8 +100,7 @@ export default function OrderDetailPage() {
       PAID: 'success',
       CANCELLED: 'default',
     }
-    const label = ORDER_STATUS_LABELS[status as keyof typeof ORDER_STATUS_LABELS] || status
-    return <StatusTag type={type[status] ?? 'default'}>{label}</StatusTag>
+    return <StatusTag type={type[status] ?? 'default'}>{labelOf(t, ENUM_KEYS.orderStatus, status)}</StatusTag>
   }
 
   const planColumns = [
@@ -142,7 +137,7 @@ export default function OrderDetailPage() {
         const label =
           reminder === 'OVERDUE' && row.overdueDays
             ? t('pages.orderDetail.overdueDays', { days: row.overdueDays })
-            : REMINDER_LABELS[reminder as keyof typeof REMINDER_LABELS] ?? reminder
+            : labelOf(t, ENUM_KEYS.orderReminder, reminder)
         const type: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
           NORMAL: 'success',
           DUE_SOON: 'warning',
@@ -183,7 +178,7 @@ export default function OrderDetailPage() {
     {
       title: t('pages.orderDetail.colRecordMethod'),
       dataIndex: 'method',
-      render: (v: string) => PAYMENT_METHOD_LABELS[v] ?? v,
+      render: (v: string) => labelOf(t, ENUM_KEYS.paymentMethod, v),
     },
     {
       title: t('pages.orderDetail.colRecordCreatedAt'),
@@ -255,7 +250,7 @@ export default function OrderDetailPage() {
                   {data.orderNo} - {data.title}
                 </Typography.Title>
                 <StatusTag type={status === 'PAID' ? 'success' : status === 'PARTIAL' ? 'info' : 'warning'}>
-                  {ORDER_STATUS_LABELS[status]}
+                  {labelOf(t, ENUM_KEYS.orderStatus, status)}
                 </StatusTag>
               </div>
               <Typography.Text type="secondary" style={{ fontSize: 13 }}>
@@ -394,7 +389,12 @@ export default function OrderDetailPage() {
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="method" label={t('pages.orderDetail.formLabelMethod')} rules={[{ required: true, message: t('pages.orderDetail.formMessageMethod') }]}>
-            <Select options={Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({ value, label }))} />
+            <Select
+              options={Object.keys(ENUM_KEYS.paymentMethod).map((value) => ({
+                value,
+                label: labelOf(t, ENUM_KEYS.paymentMethod, value),
+              }))}
+            />
           </Form.Item>
         </Form>
       </Modal>

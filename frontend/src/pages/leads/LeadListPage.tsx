@@ -30,15 +30,16 @@ import {
 import { fetchCampaigns } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
+import { hasPerm } from '../../hooks/usePermission'
+import { PERMS } from '../../constants/permissions'
 import type { ImportResult } from '../../types/importResult'
 import {
-  SOURCE_LABELS,
   STATUS_COLORS,
-  STATUS_LABELS,
   type Lead,
   type LeadSource,
   type LeadStatus,
 } from '../../types/lead'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import LeadConvertModal from '../../components/LeadConvertModal'
 import { extractCfParams, useCustomFieldFilterColumns } from '../../hooks/useCustomFieldFilters'
 import {
@@ -77,7 +78,10 @@ export default function LeadListPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [importing, setImporting] = useState(false)
   const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.role === 'ADMIN'
+  // 「分配给我」走 POST /leads/{id}/assign，LeadController 上标的是 lead:assign。
+  // 改造前写 `role === 'ADMIN'`——081 新增的角色里凡是拿到 lead:assign 的（如 SALES_MANAGER）
+  // 在列表上根本看不到这个操作。
+  const canAssign = hasPerm(PERMS.leadAssign, user)
   const customFieldFilterColumns = useCustomFieldFilterColumns('LEAD')
 
   const onImport = async (file: File) => {
@@ -215,7 +219,10 @@ export default function LeadListPage() {
       dataIndex: 'source',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(SOURCE_LABELS).map(([k, v]) => [k, { text: v }]),
+        Object.keys(ENUM_KEYS.source).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.source, code) },
+        ]),
       ),
     },
     {
@@ -223,7 +230,10 @@ export default function LeadListPage() {
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(STATUS_LABELS).map(([k, v]) => [k, { text: v, status: STATUS_COLORS[k as LeadStatus] }]),
+        Object.keys(ENUM_KEYS.leadStatus).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.leadStatus, code), status: STATUS_COLORS[code as LeadStatus] },
+        ]),
       ),
     },
     {
@@ -248,7 +258,7 @@ export default function LeadListPage() {
             <UserAddOutlined /> {t('pages.lead.list.claim')}
           </a>
         ),
-        row.ownerId != null && row.ownerId !== user?.id && isAdmin && (
+        row.ownerId != null && row.ownerId !== user?.id && canAssign && (
           <a key="assign" onClick={() => onAssignToMe(row)}>
             <SwapOutlined /> {t('pages.lead.list.assignToMe')}
           </a>
@@ -386,14 +396,20 @@ export default function LeadListPage() {
             <Col span={12}>
               <Form.Item name="source" label={t('pages.lead.list.colSource')}>
                 <Select
-                  options={Object.entries(SOURCE_LABELS).map(([value, label]) => ({ value, label }))}
+                  options={Object.keys(ENUM_KEYS.source).map((value) => ({
+                    value,
+                    label: labelOf(t, ENUM_KEYS.source, value),
+                  }))}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="status" label={t('pages.lead.list.colStatus')}>
                 <Select
-                  options={Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+                  options={Object.keys(ENUM_KEYS.leadStatus).map((value) => ({
+                    value,
+                    label: labelOf(t, ENUM_KEYS.leadStatus, value),
+                  }))}
                 />
               </Form.Item>
             </Col>

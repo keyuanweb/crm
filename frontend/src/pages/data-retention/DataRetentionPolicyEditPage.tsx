@@ -2,10 +2,10 @@
 
 import { dataRetentionApi } from '../../services/api/dataRetentionApi';
 import type { DataRetentionPolicyRequest } from '../../types/dataRetention';
-import { ENTITY_TYPE_LABELS, ACTION_TYPE_LABELS } from '../../types/dataRetention';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Button, Card, Form, Input, Select, Space, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const { Title } = Typography;
@@ -13,11 +13,24 @@ const { Title } = Typography;
 const { Option } = Select;
 
 const DataRetentionPolicyEditPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const entityTypeLabels: Record<string, string> = {
+    CUSTOMER: t('pages.dataRetention.common.entityTypeLabels.CUSTOMER'),
+    OPPORTUNITY: t('pages.dataRetention.common.entityTypeLabels.OPPORTUNITY'),
+    CONTRACT: t('pages.dataRetention.common.entityTypeLabels.CONTRACT'),
+    ORDER: t('pages.dataRetention.common.entityTypeLabels.ORDER'),
+    AUDIT_LOG: t('pages.dataRetention.common.entityTypeLabels.AUDIT_LOG'),
+  };
+  const actionTypeLabels: Record<string, string> = {
+    ARCHIVE: t('pages.dataRetention.common.actionTypeLabels.ARCHIVE'),
+    DELETE: t('pages.dataRetention.common.actionTypeLabels.DELETE'),
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -34,7 +47,7 @@ const DataRetentionPolicyEditPage: React.FC = () => {
         });
       } catch (error) {
         console.error(error);
-        message.error('加载策略失败');
+        message.error(t('pages.dataRetention.edit.loadFailed'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -43,18 +56,18 @@ const DataRetentionPolicyEditPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [id, form]);
+  }, [id, form, t]);
 
   const onFinish = async (values: DataRetentionPolicyRequest) => {
     if (!id) return;
     setSubmitting(true);
     try {
       await dataRetentionApi.updatePolicy(Number(id), values);
-      message.success('更新成功');
+      message.success(t('pages.dataRetention.edit.msgUpdated'));
       navigate('/data-retention');
     } catch (error) {
       console.error(error);
-      message.error('更新失败');
+      message.error(t('pages.dataRetention.edit.msgUpdateFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -64,9 +77,9 @@ const DataRetentionPolicyEditPage: React.FC = () => {
     <div>
       <Space style={{ marginBottom: 16 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/data-retention')}>
-          返回
+          {t('pages.dataRetention.common.back')}
         </Button>
-        <Title level={4}>编辑数据保留策略</Title>
+        <Title level={4}>{t('pages.dataRetention.edit.title')}</Title>
       </Space>
 
       <Card loading={loading}>
@@ -76,32 +89,32 @@ const DataRetentionPolicyEditPage: React.FC = () => {
           layout="vertical"
         >
           <Form.Item<DataRetentionPolicyRequest>
-            label="实体类型"
+            label={t('pages.dataRetention.common.entityType')}
             name="entityType"
-            rules={[{ required: true, message: '请选择实体类型' }]}
+            rules={[{ required: true, message: t('pages.dataRetention.common.selectEntityType') }]}
           >
-            <Select placeholder="请选择实体类型">
-              {Object.entries(ENTITY_TYPE_LABELS).map(([key, label]) => (
+            <Select placeholder={t('pages.dataRetention.common.selectEntityType')}>
+              {Object.entries(entityTypeLabels).map(([key, label]) => (
                 <Option key={key} value={key}>{label}</Option>
               ))}
             </Select>
           </Form.Item>
 
           <Form.Item<DataRetentionPolicyRequest>
-            label="保留期限（天）"
+            label={t('pages.dataRetention.common.retentionDaysLabel')}
             name="retentionDays"
-            rules={[{ required: true, message: '请输入保留期限' }]}
+            rules={[{ required: true, message: t('pages.dataRetention.common.requiredRetentionDays') }]}
           >
-            <Input type="number" min={1} placeholder="请输入保留天数" />
+            <Input type="number" min={1} placeholder={t('pages.dataRetention.common.inputRetentionDays')} />
           </Form.Item>
 
           <Form.Item<DataRetentionPolicyRequest>
-            label="归档方式"
+            label={t('pages.dataRetention.common.actionType')}
             name="actionType"
-            rules={[{ required: true, message: '请选择归档方式' }]}
+            rules={[{ required: true, message: t('pages.dataRetention.common.selectActionType') }]}
           >
             <Select>
-              {Object.entries(ACTION_TYPE_LABELS).map(([key, label]) => (
+              {Object.entries(actionTypeLabels).map(([key, label]) => (
                 <Option key={key} value={key}>{label}</Option>
               ))}
             </Select>
@@ -109,9 +122,9 @@ const DataRetentionPolicyEditPage: React.FC = () => {
 
           <Form.Item>
             <Space>
-              <Button onClick={() => navigate('/data-retention')}>取消</Button>
+              <Button onClick={() => navigate('/data-retention')}>{t('common.button.cancel')}</Button>
               <Button type="primary" htmlType="submit" loading={submitting}>
-                保存修改
+                {t('pages.dataRetention.edit.submit')}
               </Button>
             </Space>
           </Form.Item>

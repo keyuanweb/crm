@@ -61,12 +61,6 @@ export interface ContractPayload {
 
 export type RenewalGroup = 'EXPIRING_SOON' | 'EXPIRED_UNRENEWED' | 'RENEWED'
 
-export const RENEWAL_GROUP_LABELS: Record<RenewalGroup, string> = {
-  EXPIRING_SOON: '即将到期',
-  EXPIRED_UNRENEWED: '已到期未续',
-  RENEWED: '已续约',
-}
-
 export interface ContractListParams {
   keyword?: string
   status?: string
@@ -89,17 +83,6 @@ export interface ContractTemplatePayload {
   content: string
   status?: string
   version?: number
-}
-
-export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
-  DRAFT: '草稿',
-  PENDING_APPROVAL: '待审批',
-  APPROVED: '已通过',
-  SIGNED: '已签署',
-  EFFECTIVE: '生效中',
-  COMPLETED: '已完成',
-  TERMINATED: '已终止',
-  REJECTED: '已拒绝',
 }
 
 export const CONTRACT_STATUS_COLORS: Record<ContractStatus, string> = {

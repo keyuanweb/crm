@@ -24,16 +24,21 @@ import {
   updateApprovalFlow,
 } from '../../services/approvalService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import type { ApprovalFlow, FlowNode } from '../../types/approval'
 
 interface NodeRow extends FlowNode {
   key: number
 }
 
-const BIZ_LABELS: Record<string, string> = {
-  CONTRACT: '合同',
-  QUOTE: '报价单',
-}
+/**
+ * 审批流可选的业务类型。**只有这两类**（后端 `ApprovalFlow.businessType` 的取值）。
+ *
+ * <p>取值走 `ENUM_KEYS.entity` 取文案（合同 / 报价单），但**不能用 `Object.keys(ENUM_KEYS.entity)`
+ * 生成选项**——那份登记表另有 LEAD / CUSTOMER / OPPORTUNITY / TICKET / ORDER 五个实体，
+ * 生成出来会多出 5 个后端不认的业务类型。
+ */
+const BIZ_TYPES = ['CONTRACT', 'QUOTE'] as const
 
 const APPROVER_TYPES = [
   { value: 'ROLE', label: '角色' },
@@ -244,7 +249,7 @@ export default function ApprovalFlowPage() {
       title: t('pages.approvalFlow.colBusinessType'),
       dataIndex: 'businessType',
       width: 100,
-      render: (_, row) => <Tag color="blue">{BIZ_LABELS[row.businessType] ?? row.businessType}</Tag>,
+      render: (_, row) => <Tag color="blue">{labelOf(t, ENUM_KEYS.entity, row.businessType)}</Tag>,
     },
     {
       title: t('pages.approvalFlow.colNodeCount'),
@@ -327,7 +332,7 @@ export default function ApprovalFlowPage() {
             </Col>
             <Col span={12}>
               <Form.Item name="businessType" label={t('pages.approvalFlow.formBusinessTypeLabel')} rules={[{ required: true, message: t('pages.approvalFlow.formBusinessTypeRequired') }]} >
-                <Select options={Object.entries(BIZ_LABELS).map(([value, label]) => ({ value, label }))} />
+                <Select options={BIZ_TYPES.map((value) => ({ value, label: labelOf(t, ENUM_KEYS.entity, value) }))} />
               </Form.Item>
             </Col>
           </Row>

@@ -28,9 +28,9 @@ import { fetchQuotes } from '../../services/quoteService'
 import { extractErrorMessage } from '../../services/apiClient'
 import {
   CONTRACT_STATUS_COLORS,
-  CONTRACT_STATUS_LABELS,
   type Contract,
 } from '../../types/contract'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
 interface FormValues {
   title: string
@@ -139,10 +139,15 @@ export default function ContractListPage() {
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(CONTRACT_STATUS_LABELS).map(([k, v]) => [k, { text: v }]),
+        Object.keys(ENUM_KEYS.contractStatus).map((code) => [
+          code,
+          { text: labelOf(t, ENUM_KEYS.contractStatus, code) },
+        ]),
       ),
       render: (_, row) => (
-        <Tag color={CONTRACT_STATUS_COLORS[row.status]}>{CONTRACT_STATUS_LABELS[row.status]}</Tag>
+        <Tag color={CONTRACT_STATUS_COLORS[row.status]}>
+          {labelOf(t, ENUM_KEYS.contractStatus, row.status)}
+        </Tag>
       ),
     },
     {

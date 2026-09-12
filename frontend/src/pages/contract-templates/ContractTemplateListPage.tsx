@@ -29,6 +29,9 @@ export default function ContractTemplateListPage() {
   const [editing, setEditing] = useState<ContractTemplate | null>(null)
   const [form] = Form.useForm<FormValues>()
   const user = useAuthStore((s) => s.user)
+  // 保留角色判断：ContractTemplateController 的 create / update / delete 仍是
+  // @PreAuthorize("hasRole('ADMIN')")，而 PERMISSION_DEFS 里**根本没有合同模板这一组码**——
+  // 后端没接线的动作不能在前端先按码放行，否则按钮会出现但接口 403。
   const isAdmin = user?.role === 'ADMIN'
 
   const reload = () => actionRef.current?.reload()

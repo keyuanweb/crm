@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { AutoComplete, Input, Typography } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
@@ -9,6 +10,7 @@ import { searchAll, type SearchResponse } from '../services/searchService'
  * 点击跳转详情，回车进入结果页。
  */
 export default function GlobalSearch() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [value, setValue] = useState('')
   const [options, setOptions] = useState<{ value: string; label: React.ReactNode }[]>([])
@@ -80,7 +82,7 @@ export default function GlobalSearch() {
     >
       <Input
         prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
-        placeholder="全局搜索客户/线索/工单…"
+        placeholder={t('components.globalSearch.placeholder')}
         allowClear
         onPressEnter={onPressEnter}
       />

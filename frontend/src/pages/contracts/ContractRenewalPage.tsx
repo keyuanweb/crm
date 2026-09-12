@@ -7,11 +7,11 @@ import { fetchRenewalOverview } from '../../services/contractService'
 import { extractErrorMessage } from '../../services/apiClient'
 import {
   CONTRACT_STATUS_COLORS,
-  RENEWAL_GROUP_LABELS,
   type Contract,
   type RenewalGroup,
 } from '../../types/contract'
 import { formatAmount } from '../../types/opportunity'
+import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
 export default function ContractRenewalPage() {
   const { t } = useTranslation()
@@ -67,18 +67,18 @@ export default function ContractRenewalPage() {
   return (
     <>
       <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-        {(Object.keys(RENEWAL_GROUP_LABELS) as RenewalGroup[]).map((g) => (
+        {(Object.keys(ENUM_KEYS.contractRenewalGroup) as RenewalGroup[]).map((g) => (
           <Button
             key={g}
             type={group === g ? 'primary' : 'default'}
             onClick={() => switchGroup(g)}
           >
-            {t(`pages.contractRenewal.group${g}`)}
+            {labelOf(t, ENUM_KEYS.contractRenewalGroup, g)}
           </Button>
         ))}
       </div>
       <ProTable<Contract>
-        headerTitle={`${t('pages.contractRenewal.headerTitle')} · ${t(`pages.contractRenewal.group${group}`)}`}
+        headerTitle={`${t('pages.contractRenewal.headerTitle')} · ${labelOf(t, ENUM_KEYS.contractRenewalGroup, group)}`}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}

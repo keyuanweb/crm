@@ -36,8 +36,10 @@ export async function createEmailCampaign(payload: {
   return data.data as EmailCampaign
 }
 
-export async function testSendCampaign(id: number, email: string): Promise<void> {
-  await apiClient.post(`/email-campaigns/${id}/test`, { email })
+/** 测试发送。返回是否真正发出——未配置 SMTP 时为 false，不要提示"已发送"。 */
+export async function testSendCampaign(id: number, email: string): Promise<boolean> {
+  const { data } = await apiClient.post(`/email-campaigns/${id}/test`, { email })
+  return Boolean(data.data)
 }
 
 export async function fetchEmailCampaigns(): Promise<EmailCampaign[]> {
@@ -67,6 +69,8 @@ export interface CampaignStats {
   total: number
   sent: number
   failed: number
+  /** SMTP 未配置时整批跳过的封数（status = SKIPPED，从未真正发出） */
+  skipped: number
   openCount: number
   clickCount: number
   openRate: number

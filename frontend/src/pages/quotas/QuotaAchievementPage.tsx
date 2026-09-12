@@ -4,11 +4,13 @@ import { quotaApi, type SalesQuotaAchievementResponse, type SalesQuotaResponse }
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Button, Card, Progress, Row, Col, Space, Typography, Tag, Alert } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
 const QuotaAchievementPage: React.FC = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [quota, setQuota] = useState<SalesQuotaResponse | null>(null);
@@ -43,24 +45,29 @@ const QuotaAchievementPage: React.FC = () => {
   };
 
   const getStatusTag = (status: string) => {
-    if (status === 'ON_TRACK') return <Tag color="green">正常</Tag>;
-    if (status === 'AT_RISK') return <Tag color="orange">预警</Tag>;
-    return <Tag color="red">落后</Tag>;
+    if (status === 'ON_TRACK') return <Tag color="green">{t('pages.quotaAchievement.tagOnTrack')}</Tag>;
+    if (status === 'AT_RISK') return <Tag color="orange">{t('pages.quotaAchievement.tagAtRisk')}</Tag>;
+    return <Tag color="red">{t('pages.quotaAchievement.tagBehind')}</Tag>;
   };
 
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/quotas')}>
-          返回
+          {t('pages.quotaAchievement.btnBack')}
         </Button>
-        <Title level={4}>配额达成 - {quota.year}年 {quota.quarter ? `Q${quota.quarter}` : '年度'}</Title>
+        <Title level={4}>
+          {t('pages.quotaAchievement.title', {
+            year: quota.year,
+            period: quota.quarter ? `Q${quota.quarter}` : t('pages.quotaAchievement.annual'),
+          })}
+        </Title>
       </Space>
 
       {achievement.status === 'AT_RISK' && (
         <Alert
-          message="达成率预警"
-          description="当前达成率在 60%-80% 之间，建议关注销售进度。"
+          message={t('pages.quotaAchievement.alertAtRiskTitle')}
+          description={t('pages.quotaAchievement.alertAtRiskDesc')}
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
@@ -69,8 +76,8 @@ const QuotaAchievementPage: React.FC = () => {
 
       {achievement.status === 'BELOW_TARGET' && (
         <Alert
-          message="达成率落后"
-          description="当前达成率低于 60%，需要立即采取措施。"
+          message={t('pages.quotaAchievement.alertBelowTitle')}
+          description={t('pages.quotaAchievement.alertBelowDesc')}
           type="error"
           showIcon
           style={{ marginBottom: 16 }}
@@ -80,23 +87,23 @@ const QuotaAchievementPage: React.FC = () => {
       <Row gutter={[16, 16]}>
         <Col span={8}>
           <Card size="small" styles={{ body: { padding: '16px' } }}>
-            <Text type="secondary">配额金额</Text>
+            <Text type="secondary">{t('pages.quotaAchievement.cardQuotaAmount')}</Text>
             <div style={{ fontSize: 24, fontWeight: 600, marginTop: 8 }}>
-              {quota.amount?.toFixed(2)} <Text type="secondary">万</Text>
+              {quota.amount?.toFixed(2)} <Text type="secondary">{t('pages.quotaAchievement.unitWan')}</Text>
             </div>
           </Card>
         </Col>
         <Col span={8}>
           <Card size="small" styles={{ body: { padding: '16px' } }}>
-            <Text type="secondary">实际销售额</Text>
+            <Text type="secondary">{t('pages.quotaAchievement.cardActualAmount')}</Text>
             <div style={{ fontSize: 24, fontWeight: 600, marginTop: 8 }}>
-              {achievement.actualAmount?.toFixed(2)} <Text type="secondary">万</Text>
+              {achievement.actualAmount?.toFixed(2)} <Text type="secondary">{t('pages.quotaAchievement.unitWan')}</Text>
             </div>
           </Card>
         </Col>
         <Col span={8}>
           <Card size="small" styles={{ body: { padding: '16px' } }}>
-            <Text type="secondary">达成率</Text>
+            <Text type="secondary">{t('pages.quotaAchievement.cardAchievementRate')}</Text>
             <div style={{ fontSize: 24, fontWeight: 600, marginTop: 8, color: getProgressColor(achievement.status) }}>
               {achievement.achievementRate?.toFixed(1)}%
             </div>
@@ -104,7 +111,7 @@ const QuotaAchievementPage: React.FC = () => {
         </Col>
       </Row>
 
-      <Card title="达成进度" style={{ marginTop: 16 }}>
+      <Card title={t('pages.quotaAchievement.cardProgress')} style={{ marginTop: 16 }}>
         <Progress
           percent={Number(achievement.achievementRate?.toFixed(1)) || 0}
           status={getProgressStatus(achievement.status)}
@@ -113,34 +120,34 @@ const QuotaAchievementPage: React.FC = () => {
         />
         <div style={{ marginTop: 16 }}>
           <Space>
-            <Text type="secondary">状态：</Text>
+            <Text type="secondary">{t('pages.quotaAchievement.labelStatus')}</Text>
             {getStatusTag(achievement.status)}
-            <Text type="secondary">计算时间：</Text>
+            <Text type="secondary">{t('pages.quotaAchievement.labelCalculatedAt')}</Text>
             <Text>{new Date(achievement.calculatedAt).toLocaleString('zh-CN')}</Text>
           </Space>
         </div>
       </Card>
 
-      <Card title="配额详情" style={{ marginTop: 16 }}>
+      <Card title={t('pages.quotaAchievement.cardDetail')} style={{ marginTop: 16 }}>
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           <div>
-            <Text type="secondary">期间：</Text>
+            <Text type="secondary">{t('pages.quotaAchievement.labelPeriod')}</Text>
             <Text>{quota.periodStart} ~ {quota.periodEnd}</Text>
           </div>
           {quota.teamName && (
             <div>
-              <Text type="secondary">团队：</Text>
+              <Text type="secondary">{t('pages.quotaAchievement.labelTeam')}</Text>
               <Text>{quota.teamName}</Text>
             </div>
           )}
           {quota.userName && (
             <div>
-              <Text type="secondary">销售：</Text>
+              <Text type="secondary">{t('pages.quotaAchievement.labelUser')}</Text>
               <Text>{quota.userName}</Text>
             </div>
           )}
           <div>
-            <Text type="secondary">状态：</Text>
+            <Text type="secondary">{t('pages.quotaAchievement.labelStatus')}</Text>
             <Tag color={quota.status === 'ACTIVE' ? 'green' : quota.status === 'DRAFT' ? 'orange' : 'default'}>
               {quota.status}
             </Tag>

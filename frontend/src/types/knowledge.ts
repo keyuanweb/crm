@@ -35,16 +35,3 @@ export interface ArticleListParams {
   page: number
   pageSize: number
 }
-
-export const ARTICLE_CATEGORY_LABELS: Record<ArticleCategory, string> = {
-  PRODUCT_USAGE: '产品使用',
-  FAULT_TROUBLESHOOTING: '故障排查',
-  PROCESS_CONSULT: '流程咨询',
-  AFTER_SALES_POLICY: '售后政策',
-  OTHER: '其他',
-}
-
-export const ARTICLE_STATUS_LABELS: Record<ArticleStatus, string> = {
-  DRAFT: '草稿',
-  PUBLISHED: '已发布',
-}

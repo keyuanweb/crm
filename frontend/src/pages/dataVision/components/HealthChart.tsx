@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as echarts from 'echarts'
 import type { HealthDistribution } from '../types'
 
@@ -14,6 +15,7 @@ interface HealthChartProps {
  * 使用 ECharts 环形图，带脉冲动画
  */
 export default function HealthChart({ data, style }: HealthChartProps) {
+  const { t } = useTranslation()
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
@@ -40,7 +42,7 @@ export default function HealthChart({ data, style }: HealthChartProps) {
       },
       series: [
         {
-          name: '客户健康度',
+          name: t('pages.dataVision.health.seriesName'),
           type: 'pie',
           radius: ['40%', '70%'],
           center: ['60%', '50%'],
@@ -67,17 +69,17 @@ export default function HealthChart({ data, style }: HealthChartProps) {
           data: [
             {
               value: data.green,
-              name: '健康',
+              name: t('pages.dataVision.health.green'),
               itemStyle: { color: '#52c41a' },
             },
             {
               value: data.yellow,
-              name: '关注',
+              name: t('pages.dataVision.health.yellow'),
               itemStyle: { color: '#faad14' },
             },
             {
               value: data.red,
-              name: '风险',
+              name: t('pages.dataVision.health.red'),
               itemStyle: { color: '#ff4d4f' },
             },
           ],
@@ -94,7 +96,7 @@ export default function HealthChart({ data, style }: HealthChartProps) {
     return () => {
       chartInstanceRef.current?.setOption({ series: [{ data: [] }] })
     }
-  }, [data])
+  }, [data, t])
 
   useEffect(() => {
     const handleResize = () => {
