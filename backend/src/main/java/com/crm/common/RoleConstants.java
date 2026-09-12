@@ -110,6 +110,20 @@ public final class RoleConstants {
               perm("customer:update", "编辑客户"),
               perm("customer:delete", "删除客户"),
               perm("customer:transfer", "转移客户"),
+              // 1.5 批 3：公海领取。`POST /customers/pool/{id}/claim` 改造前**无任何闸门**——
+              // 任何登录用户（含 VIEWER / ANALYST）都能把公海客户领成自己的。判据②（无闸门 → 按矩阵补）
+              // 在这里第一次用于**写**接口，故单列一个码而不是复用 customer:transfer：领取与"把别人的客户
+              // 改派给自己"不是一件事，复用等于顺手把改派权也扩出去（customer:transfer 已被
+              // CustomerController 的改派端点校验，属"已被校验的码"，扩授即扩权）。
+              perm("customer:claim", "领取公海客户"),
+              // 1.5 批 3：公海的**批量**运维——{@code POST /customers/pool/scan}（扫全表、把超期未跟进的客户
+              // 退回公海）与 {@code POST /customers/batch-transfer}（单次最多 100 个客户直接改归属）。
+              // 改造前两者都是 hasRole('ADMIN')，本码**不授给任何角色** ⇒ 范围不变。
+              // 这里刻意**没有**复用 customer:transfer（它的持有者含 SALES/SALES_MANAGER）：
+              // batchTransfer 直接 `set(ownerId)`，既不校验调用者是否拥有这些客户，也没有任何数据范围过滤
+              // ——它是 064 数据范围体系的一处绕行，扩权等于让一个销售代表把全队的客户一次性改成自己的。
+              // scan 同理（它动的是全公司所有已归属客户）。故两者合并成一个"运维级"码，保持仅 ADMIN。
+              perm("customer:pool_manage", "公海批量运维"),
               perm("customer:import", "导入客户"),
               perm("customer:export", "导出客户"),
               perm("customer:merge", "查重合并")),
@@ -147,6 +161,11 @@ public final class RoleConstants {
               perm("stage:manage", "商机阶段配置")),
           permGroup(
               "销售配额",
+              // 1.5 批 3：读码。SalesQuotaController 改造前是**类级** hasAnyRole('ADMIN','SALES_MANAGER')，
+              // 而字典里 quota:* 五个码没有一个读码——五个读端点无处可挂。撤掉类级门却不设读码，
+              // 等于把"个人/团队配额与达成率"对全体登录用户开放（Service 里没有数据范围过滤），
+              // 所以必须新增本码。授予范围 = 改造前那道门放行的 ADMIN + SALES_MANAGER（判据①）。
+              perm("quota:read", "查看配额"),
               perm("quota:create", "创建配额"),
               perm("quota:update", "编辑配额"),
               perm("quota:delete", "删除配额"),
@@ -162,7 +181,12 @@ public final class RoleConstants {
               perm("contract:update", "编辑合同"),
               perm("contract:delete", "删除合同"),
               perm("contract:approve", "审批合同"),
-              perm("contract:renewal", "合同续约")),
+              perm("contract:renewal", "合同续约"),
+              // 1.5 批 3：合同**模板**的增删改。不复用 contract:create/update/delete —— 那三个码
+              // 授给了销售四角色与 FINANCE_*（V46/V75），复用的后果是"能签合同的人顺便能改合同法定文本"。
+              // 模板是配置面，改造前是 hasRole('ADMIN')，本码不授给任何角色 ⇒ 可访问范围与改造前一致，
+              // 只是管理员从此能在角色页上勾（与 integration:manage 同一处置）。
+              perm("contract_template:manage", "合同模板管理")),
           permGroup(
               "订单管理",
               // 1.5：读码。订单列表、详情、回款提醒三处都没有数据范围过滤，类级
@@ -201,9 +225,21 @@ public final class RoleConstants {
               perm("quote:approve", "审批报价单")),
           permGroup(
               "产品管理",
+              // 1.5 批 3：三个码此前只被 ProductPriceController（定价，V83）用过一个 update，产品**本身**
+              // 的增删改一直是 hasRole('ADMIN')。接线后各按各的授予范围放行：
+              // create/delete → ADMIN + MARKETING_MANAGER（V75 唯一持有者）；update → 再加 V83 为定价
+              // 授出的 SALES/SALES_MANAGER/SALES_REP/MARKETING_SPECIALIST。
+              // 已知的不一致：持有「产品」菜单的销售角色能编辑但不能新建/删除产品。这是矩阵的答案
+              // （create/delete 从未授给它们），不是接线失误——是否扩给菜单持有者留作裁决。
               perm("product:create", "创建产品"),
               perm("product:update", "编辑产品"),
               perm("product:delete", "删除产品")),
+          // 1.5 批 3：销售 Playbook 的动作**模板**管理（/stage-actions 四个端点，改造前 hasRole('ADMIN')）。
+          // 「销售 Playbook」菜单（playbook）在种子里无人持有，故本码也不授给任何角色——范围不变。
+          // 读端点（GET /stage-actions）与写共用本码：没有只读消费者（菜单无人持有，销售实际用的
+          // 是 /sales-opportunities/{id}/actions，那条走 opportunity:* 家族，已按码放行）。
+          // 若将来把 Playbook 页授给只读角色，此处应拆出 playbook:read（同 invoice:read 的处置）。
+          permGroup("销售 Playbook", perm("playbook:manage", "Playbook 动作模板")),
           permGroup(
               "营销活动",
               perm("campaign:create", "创建营销活动"),
@@ -287,8 +323,21 @@ public final class RoleConstants {
               perm("call_record:create", "创建通话记录"),
               perm("call_record:update", "编辑通话记录"),
               perm("call_record:delete", "删除通话记录")),
+          // 1.5 批 3：邮件同步（062）的两个码，此前整类都是角色字面量，字典里一个码都没有。
+          // 拆两个是因为两半的可访问范围不同，且不该被顺手合并：账户配置是**平台级凭证与主机配置**
+          // （改造前 hasRole('ADMIN')，本码不授任何人）；同步记录面改造前是 hasAnyRole('ADMIN','SALES')，
+          // 故 mail_sync:manage 按判据①补授 ADMIN + SALES，一个不多一个不少。
+          // 合并成一个码的话，要么 SALES 能改账户配置（扩权），要么 SALES 丢掉模拟同步（把能用的打成 403）。
+          permGroup(
+              "邮件同步", perm("mail_account:manage", "邮件账户管理"), perm("mail_sync:manage", "邮件同步操作")),
           permGroup(
               "工作流",
+              // 1.5 批 3：读码。规则列表与执行日志改造前是 hasRole('ADMIN')，字典里却只有
+              // create/update/delete/manage 四个写向码——没有读码可挂。**刻意不挂 workflow:manage**：
+              // 它被授给了 SALES_MANAGER / MARKETING_MANAGER / FINANCE_MANAGER（V75），挂上去等于
+              // 让三个非管理员角色读到全部自动化规则与执行流水，而「工作流」菜单只授给了 ADMIN。
+              // 本码不授给任何角色 ⇒ 与改造前一致。
+              perm("workflow:read", "查看工作流"),
               perm("workflow:create", "创建工作流"),
               perm("workflow:update", "编辑工作流"),
               perm("workflow:delete", "删除工作流"),
@@ -356,6 +405,11 @@ public final class RoleConstants {
               perm("custom_object:create", "创建自定义对象"),
               perm("custom_object:update", "编辑自定义对象"),
               perm("custom_object:delete", "删除自定义对象")),
+          // 1.5 批 3：开放平台的 API Key 与 Webhook 管理（/platform/**，改造前整类是 hasRole('ADMIN')）。
+          // 「开放平台」菜单在种子里无人持有，故本码也不授任何人——范围与改造前一致。
+          // ⚠️ /open/**（X-API-Key 鉴权的开放端点）**不加码**：走的是 ApiKeyAuthFilter 的
+          // ApiKeyPrincipal，不是 JWT 主体，挂 @RequirePermission 会把全部 API Key 调用方打成 403。
+          permGroup("开放平台", perm("open_platform:manage", "开放平台管理")),
           // 1.5：集成中心此前**没有任何码覆盖它**——IntegrationChannelController 是 ADMIN-only 类级门，
           // 于是通道配置（含企微/钉钉 webhook 地址与密钥）只能靠改代码开口。补码后不授给任何角色，
           // 可访问范围与改造前一致，但管理员从此能在角色页上勾选。

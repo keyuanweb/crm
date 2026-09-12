@@ -769,6 +769,180 @@ class PermissionEnforcementIT extends AbstractIntegrationTest {
         .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
   }
 
+  /**
+   * 1.5 批 3（全仓最后一批角色字面量）：九个控制器改为按权限码放行。
+   *
+   * <p>本批的断言重点与 V80~V87 各批不同——那几批主要是"接线让**早已存在的授权**成真"，而本批有三处**补授** （不补就等于把原来能用的功能打成 403）：{@code
+   * campaign:*} 给 SALES、{@code mail_sync:manage} 给 SALES、 {@code quota:*} 给
+   * SALES_MANAGER。这三处是本批唯一真实的回归风险，也是全仓**唯一**能用行为层钉住的东西 ——既有的 {@code MarketingIT} / {@code
+   * EmailSyncIT} / {@code SalesQuotaIT} 全部只用管理员令牌 （管理员在切面里直通，走不到码上），所以它们对这三处补授的存在与否**完全不敏感**。
+   *
+   * <p>另外六个新码（{@code customer:pool_manage} / {@code contract_template:manage} / {@code
+   * workflow:read} / {@code mail_account:manage} / {@code playbook:manage} / {@code
+   * open_platform:manage}）授给任何角色， 可访问范围与改造前一致（仅 ADMIN）。这四个探针的价值不在于"挡住了谁"，而在于钉住它们走的是 {@code
+   * PermissionAspect}（{@code PERMISSION_DENIED}）而非数据范围那条 403（{@code FORBIDDEN}）—— 两种 403 共用同一个 HTTP
+   * 状态码，只看状态是分不出来的。
+   */
+  @Test
+  @DisplayName("1.5 批 3：九控制器按码放行——三处补授保住原能力，无人持有的码停在 PERMISSION_DENIED")
+  void permissionBatch3ModulesFollowTheMatrix() throws Exception {
+    String admin = loginAndGetToken();
+    String sales = tokenFor(admin, "pw_sales_b3", "SALES");
+    String salesManager = tokenFor(admin, "pw_salesmgr_b3", "SALES_MANAGER");
+    String salesRep = tokenFor(admin, "pw_salesrep_b3", "SALES_REP");
+    String support = tokenFor(admin, "pw_support_b3", "SUPPORT");
+
+    // ---------- 产品：改是销售码（V83 为定价授的），增删不是（V75 只给了 MARKETING_MANAGER）----------
+    long productId = createProduct(admin);
+    String productJson =
+        mockMvc
+            .perform(get("/api/v1/products/{id}", productId).header("Authorization", bearer(admin)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    int version = objectMapper.readTree(productJson).path("data").path("version").asInt();
+    // SALES 持有 product:update → 持有「产品」菜单的销售真的点得动"编辑"（改造前被 hasRole('ADMIN') 挡着）。
+    mockMvc
+        .perform(
+            put("/api/v1/products/{id}", productId)
+                .header("Authorization", bearer(sales))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"code\": \"P-PW-001\", \"name\": \"权限探针产品\", \"unit\": \"套\","
+                        + " \"standardPrice\": 100000, \"version\": "
+                        + version
+                        + "}"))
+        .andExpect(status().isOk());
+    // 同一个人的新建/删除仍是 403——这不是接线失误而是矩阵的答案（create/delete 从未授给销售角色）。
+    mockMvc
+        .perform(
+            post("/api/v1/products")
+                .header("Authorization", bearer(sales))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\": \"P-PW-B3\", \"name\": \"批三产品\", \"unit\": \"套\"}"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+    mockMvc
+        .perform(delete("/api/v1/products/{id}", productId).header("Authorization", bearer(sales)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+
+    // ---------- 公海：claim 是本批唯一"改造前一条校验都没有"的写 ----------
+    long poolCustomer = createCustomer(admin, "批三公海客户");
+    mockMvc
+        .perform(
+            post("/api/v1/customers/pool/{id}/claim", poolCustomer)
+                .header("Authorization", bearer(salesRep)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.ownerId").isNumber());
+    // SUPPORT 持有「客户」菜单但不持有 customer:claim（领取不是客服的职能）→ 一码之隔。
+    long poolCustomer2 = createCustomer(admin, "批三公海客户二");
+    mockMvc
+        .perform(
+            post("/api/v1/customers/pool/{id}/claim", poolCustomer2)
+                .header("Authorization", bearer(support)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+    // 批量分配与扫描刻意**不复用** customer:transfer——批转移只 set(ownerId)，既不校验调用者是否拥有这些
+    // 客户也无数据范围过滤。SALES 持有 customer:transfer（V46），若当时图省事复用它，这一行会是 200。
+    mockMvc
+        .perform(post("/api/v1/customers/pool/scan").header("Authorization", bearer(sales)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+
+    // ---------- 营销活动：本批最可能被用户察觉的一处补授 ----------
+    // 旧门是 hasAnyRole('ADMIN','SALES')，而 SALES 并不持有 campaign:*（只有 MARKETING_* 持有）→
+    // 照原样接线会把"销售建活动"打成 403。这一行钉住补授确实发生了。
+    mockMvc
+        .perform(
+            post("/api/v1/campaigns")
+                .header("Authorization", bearer(sales))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"批三活动\", \"channel\": \"WEBSITE\"}"))
+        .andExpect(status().isCreated());
+    mockMvc
+        .perform(
+            post("/api/v1/campaigns")
+                .header("Authorization", bearer(support))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"批三活动二\", \"channel\": \"WEBSITE\"}"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+
+    // ---------- 邮件：账户配置面与同步面刻意拆成两个码 ----------
+    String accountEmail = "pw-b3-" + (System.nanoTime() % 100000) + "@corp.com";
+    String accountJson =
+        mockMvc
+            .perform(
+                post("/api/v1/mail-accounts")
+                    .header("Authorization", bearer(admin))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        String.format(
+                            "{\"email\": \"%s\", \"displayName\": \"批三\", \"smtpHost\":"
+                                + " \"smtp.corp.com\", \"smtpPort\": 465, \"enabled\": true}",
+                            accountEmail)))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    long mailAccountId = objectMapper.readTree(accountJson).path("data").path("id").asLong();
+    // 同步面（旧门 hasAnyRole('ADMIN','SALES')）→ 补 mail_sync:manage 给 SALES，能力保住。
+    mockMvc
+        .perform(
+            post("/api/v1/mail-accounts/{id}/sync", mailAccountId)
+                .header("Authorization", bearer(sales)))
+        .andExpect(status().isOk());
+    // 配置面（旧门 hasRole('ADMIN')）→ 不授：改错一次全公司邮件链路哑掉。两个面若合并成一个码，
+    // 上面那行与这行必有一行是错的，这正是拆码的理由。
+    mockMvc
+        .perform(get("/api/v1/mail-accounts").header("Authorization", bearer(sales)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+
+    // ---------- 销售配额：撤掉类级门后靠五个码兜住，其中一个读码是本批新增的 ----------
+    mockMvc
+        .perform(get("/api/v1/sales-quota").header("Authorization", bearer(salesManager)))
+        .andExpect(status().isOk());
+    mockMvc
+        .perform(get("/api/v1/sales-quota").header("Authorization", bearer(sales)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+
+    // ---------- 工作流：读码刻意不复用 workflow:manage ----------
+    // SALES_MANAGER 持有 workflow:manage（V75）——若当时图省事把读端点挂在 manage 上，这一行会是 200，
+    // 而它并不持有「工作流」菜单，等于被"管理者礼包"顺手带出规则与执行日志的访问权。
+    mockMvc
+        .perform(get("/api/v1/workflows/rules").header("Authorization", bearer(salesManager)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+
+    // ---------- 合同模板：不复用 contract:*（授给销售四角色与 FINANCE_*）----------
+    // 复用的后果是"能签合同的人顺便能改合同的法定文本"。SALES 持有 contract:delete（V46），
+    // 所以这一行只有在 contract_template:manage 无人持有时才是 403。
+    mockMvc
+        .perform(
+            delete("/api/v1/contract-templates/{id}", 999999L)
+                .header("Authorization", bearer(sales)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+
+    // ---------- Playbook 与开放平台：配置面仍是"仅 ADMIN"，只是从此刻得出来 ----------
+    mockMvc
+        .perform(
+            post("/api/v1/stage-actions")
+                .header("Authorization", bearer(sales))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"stage\": \"NEGOTIATING\", \"actionName\": \"批三动作\"}"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+    mockMvc
+        .perform(get("/api/v1/platform/api-keys").header("Authorization", bearer(sales)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+  }
+
   /** 客户查重是全局的 (name, company)，同一个用例里建多个客户必须给不同名字。 */
   private long createCustomer(String token, String name) throws Exception {
     String resp =

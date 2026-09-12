@@ -137,19 +137,20 @@ public final class MenuReadPermissionTestSupport {
           item("visits", open("FieldVisitController#page（GET /field-visits 无注解；visit:manage 只挂写）")),
           item(
               "products",
-              open("ProductController#page/#detail（GET /products、/{id} 无注解；写挂 hasRole('ADMIN')）")),
+              open(
+                  "ProductController#page/#detail（GET /products、/{id} 无注解；写挂"
+                      + " product:create/update/delete，V87 前是 hasRole('ADMIN')）")),
           item(
               "playbook",
-              role(
-                  "PlaybookController#stageActions（GET /stage-actions 为 @PreAuthorize(\"hasRole('ADMIN')\")；"
-                      + "字典里没有 playbook 读码，而本页首屏就取它）",
-                  "ADMIN")),
+              code(
+                  "playbook:manage",
+                  "PlaybookController#stageActions（GET /stage-actions；V87 前是 hasRole('ADMIN')）")),
           item(
               "quotas",
-              role(
-                  "SalesQuotaController 类级 @PreAuthorize(\"hasAnyRole('ADMIN', 'SALES_MANAGER')\")",
-                  "ADMIN",
-                  "SALES_MANAGER")),
+              code(
+                  "quota:read",
+                  "SalesQuotaController#getQuotas（GET /sales-quota；V87 前是类级"
+                      + " hasAnyRole('ADMIN','SALES_MANAGER')，同期新增读码 quota:read）")),
           // ---------- 交易管理 ----------
           item("contracts", code("contract:read", "ContractController（GET 全挂 contract:read）")),
           item(
@@ -163,8 +164,9 @@ public final class MenuReadPermissionTestSupport {
           item(
               "marketing",
               open(
-                  "MarketingController#page（GET /campaigns 无注解；/channel-roi 另挂 ADMIN/SALES，"
-                      + "属 /marketing/roi 子页，不在本表口径内）")),
+                  "MarketingController#page（GET /campaigns 与 /channel-roi 均无注解，后者属"
+                      + " /marketing/roi 子页不在本表口径内；写挂 campaign:create/update/delete，"
+                      + "V87 前是 hasAnyRole('ADMIN','SALES')）")),
           item(
               "marketing/email",
               code(
@@ -206,9 +208,10 @@ public final class MenuReadPermissionTestSupport {
               code("call_record:read", "CallRecordController（GET 挂 call_record:read）")),
           item(
               "mail-sync",
-              role(
-                  "MailAccountController#page（GET /mail-accounts 为 hasRole('ADMIN')；记录子端点放 ADMIN/SALES）",
-                  "ADMIN")),
+              code(
+                  "mail_account:manage",
+                  "MailAccountController#page（GET /mail-accounts；V87 前是 hasRole('ADMIN')，同批把记录"
+                      + "子端点由 hasAnyRole('ADMIN','SALES') 收成 mail_sync:manage）")),
           item(
               "approvals",
               open(
@@ -241,9 +244,10 @@ public final class MenuReadPermissionTestSupport {
           // ---------- 流程配置 ----------
           item(
               "workflows",
-              role(
-                  "WorkflowController（GET /workflows/rules、/workflows/logs 均为 hasRole('ADMIN')）",
-                  "ADMIN")),
+              code(
+                  "workflow:read",
+                  "WorkflowController（GET /workflows/rules、/workflows/logs；V87 前均为"
+                      + " hasRole('ADMIN')，同批新增读码 workflow:read，刻意不复用 workflow:manage）")),
           item(
               "approval-flows",
               code("workflow:manage", "ApprovalController（/approval-flows 四条挂 workflow:manage）")),
@@ -255,7 +259,8 @@ public final class MenuReadPermissionTestSupport {
           item(
               "contract-templates",
               open(
-                  "ContractTemplateController#list（GET /contract-templates 无注解；写挂 hasRole('ADMIN')）")),
+                  "ContractTemplateController#list（GET /contract-templates 无注解；写挂"
+                      + " contract_template:manage，V87 前是 hasRole('ADMIN')）")),
           item(
               "settings/custom-fields",
               code("custom_field:read", "CustomFieldController（GET 挂 custom_field:read）")),
@@ -271,9 +276,10 @@ public final class MenuReadPermissionTestSupport {
                   "CustomObjectController#page（GET /custom-objects；084 前是 hasRole('ADMIN')，V85 起改挂 custom_object:read）")),
           item(
               "open-platform",
-              role(
-                  "OpenPlatformController（GET /platform/api-keys、/platform/webhooks 均为 hasRole('ADMIN')）",
-                  "ADMIN")),
+              code(
+                  "open_platform:manage",
+                  "OpenPlatformController（GET /platform/api-keys、/platform/webhooks；V87 前均为"
+                      + " hasRole('ADMIN')；/open/** 三个开放端点刻意无注解，走 API Key 而非 JWT）")),
           item(
               "integration-hub", code("integration:manage", "IntegrationChannelController（含 GET）")),
           // ---------- 审计维护 ----------

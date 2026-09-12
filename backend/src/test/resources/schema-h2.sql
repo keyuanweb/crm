@@ -1982,3 +1982,36 @@ SELECT r.id, 'custom_object:read' FROM role r WHERE r.code IN ('ADMIN', 'ANALYST
 INSERT INTO role_permission (role_id, permission_code)
 SELECT r.id, 'currency:read' FROM role r
 WHERE r.code IN ('ADMIN', 'SALES', 'FINANCE_MANAGER');
+
+-- ---------- V87__permission_matrix_alignment_batch3：批 3（1.5）----------
+-- 九个控制器（产品/公海/合同模板/工作流/邮件账户/营销活动/Playbook/开放平台/销售配额）。
+-- 判据同 V80~V84，外加"只让已存在的授权成真、不为菜单承诺扩权"。四处补授：claim 属"改造前无闸门"，
+-- 其余三处全是判据①：
+-- customer:claim → 销售三角色（改造前该端点一条校验都没有，是本批唯一"无闸门的写"）
+-- campaign:* → SALES（旧门 hasAnyRole('ADMIN','SALES')，不补即打成 403）
+-- mail_sync:manage → SALES（旧门 hasAnyRole('ADMIN','SALES')）
+-- quota:* → SALES_MANAGER（旧门是类级 hasAnyRole('ADMIN','SALES_MANAGER')，其中 quota:read 是新增读码）
+-- 另六个新码（customer:pool_manage / contract_template:manage / workflow:read /
+-- mail_account:manage / playbook:manage / open_platform:manage）不授给任何角色，故此处没有对应 INSERT。
+INSERT INTO role_permission (role_id, permission_code)
+SELECT r.id, 'customer:claim' FROM role r
+WHERE r.code IN ('ADMIN', 'SALES', 'SALES_MANAGER', 'SALES_REP');
+
+INSERT INTO role_permission (role_id, permission_code)
+SELECT r.id, p.permission_code FROM role r
+JOIN (
+  SELECT 'campaign:create' AS permission_code UNION SELECT 'campaign:update'
+  UNION SELECT 'campaign:delete'
+) p
+WHERE r.code IN ('ADMIN', 'SALES');
+
+INSERT INTO role_permission (role_id, permission_code)
+SELECT r.id, 'mail_sync:manage' FROM role r WHERE r.code IN ('ADMIN', 'SALES');
+
+INSERT INTO role_permission (role_id, permission_code)
+SELECT r.id, p.permission_code FROM role r
+JOIN (
+  SELECT 'quota:read' AS permission_code UNION SELECT 'quota:create' UNION SELECT 'quota:update'
+  UNION SELECT 'quota:breakdown' UNION SELECT 'quota:achievement'
+) p
+WHERE r.code IN ('ADMIN', 'SALES_MANAGER');
