@@ -51,6 +51,19 @@ public class WebhookDeliverer {
   @Async
   public void deliverAsync(
       WebhookSubscription sub, String eventType, String entityType, Long entityId, String body) {
+    // 投递前对**当前**地址再校验一次（FR-G13 的纵深防御，T075）：写入路径已在落库之前校验
+    // （WebhookService.create），但那是"创建当时的"地址——修复前落库的行、以及 publishToUrl
+    // 直接构造的临时订阅（集成通道，不经订阅表）都不经过那道门。
+    // 校验放在这里，因为本方法是**所有**投递的唯一入口；放在重试循环**之外**，是因为地址能否
+    // 出站不随重试改变（白名单是进程级配置），重试只会让异步线程白等最长 36 秒
+    // （RETRY_DELAYS_MS 之和）再记一次同样的失败。
+    try {
+      outboundUrlValidator.validate(sub.getCallbackUrl(), ErrorCode.OPEN_WEBHOOK_URL_INVALID);
+    } catch (BusinessException ex) {
+      log.warn("Webhook delivery rejected for {}: {}", sub.getCallbackUrl(), ex.getMessage());
+      record(sub, eventType, entityType, entityId, body, false, null, ex.getMessage(), 0);
+      return;
+    }
     String signature = sign(sub.getSecret(), body);
     boolean success = false;
     String error = null;
@@ -96,6 +109,9 @@ public class WebhookDeliverer {
    * <p><b>为什么需要这一段</b>：创建订阅时校验的是**落库的那个地址**，而重定向的落点由对端决定、当时并不存在。 只要客户端自动跟随 3xx，一条 {@code 302
    * Location: http://169.254.169.254/…} 就能让服务端去请求一个从未被校验的地址 ——创建时的校验因此形同虚设。故 {@code
    * RestTemplateConfig} 关掉自动跟随（那一半见其注释），此处负责另一半： 每一跳都用同一个校验器判定，不通过即抛错（由外层 catch 记为投递失败，不静默跳过）。
+   *
+   * <p><b>首跳不在这里校验</b>（T075 之后的形状）：起始地址由 {@link #deliverAsync} 在进入重试循环之前校验 ——
+   * 那里能一次判死、不必重试，且是所有投递的唯一入口。于是本方法的不变式是"从第 1 跳起，每跳都已经过校验"， 第 0 跳由调用方负责。
    *
    * <p><b>跟随而非一律拒绝</b>：合法回调也可能用重定向（如迁移后的地址），一律拒绝会把合法集成一起打断。 但层数设上限，避免对端构造重定向环使投递线程空转。
    *

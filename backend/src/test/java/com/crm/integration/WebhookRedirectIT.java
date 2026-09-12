@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crm.AbstractIntegrationTest;
+import com.crm.service.WebhookService;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.client.RestTemplate;
 
@@ -34,15 +37,29 @@ import org.springframework.web.client.RestTemplate;
  * 的"覆盖重定向"由两半共同实现，两半分别由本类的 两个用例证明：{@link #clientMustNotAutoFollowRedirects} 证明客户端不再自动跟随（配置那一半），
  * {@link #legitimateRedirectIsFollowedHopByHop} 证明跟随由我们自己的逐跳校验驱动（合成那一半）。 任何一半被改回原样，对应的用例即转红。
  *
+ * <p><b>T075 追加（投递时对当前地址的再校验）</b>：创建时的校验管的是"创建当时的那个地址"，而两条入口都不经过它—— 修复前已落库的行、以及集成通道直推（{@code
+ * WebhookService.publishToUrl}，不经订阅表）。现在 {@code WebhookDeliverer} 在投递前对<b>当前</b>地址再校验一次，两个入口各有一个用例：
+ * {@link #legacySubscriptionRowWithDeniedTargetIsRejectedAtDeliveryTime}（订阅表里的历史行）与 {@link
+ * #publishToUrlTargetIsRejectedAtDeliveryTime}（内部通道直推）。
+ *
+ * <p><b>反向实验（已执行）说明了这两条断言各自的层次</b>：把投递前的校验整段移除后，两个用例都转红——但红在 10 秒轮询超时上（修复前投递记录要等三次退避重试跑完、约 36
+ * 秒才落库），而不是红在拒绝理由上。可见 "记录里出现校验器的措辞"与"没有进入重试"这两条断言<b>并不用于区分有没有修</b>，而是用于钉住修法的形状：
+ * 把校验挪进重试循环（"先试一次，失败再判"）这种实现同样记 FAILED、同样带校验器的措辞， 只有 {@code retryCount == 0} 与"没有任何 HTTP
+ * 状态"能把它与正解区分开。
+ *
  * <p><b>刻意的覆盖边界</b>：「重定向落点是被拒地址」这一组合没有端到端用例。原因是投递器对失败会退避重试三次 （1s／5s／30s，共约 36
  * 秒），且投递记录在重试全部结束后才落库——为一个断言付 36 秒的套件时长并不划算。该组合的 两个事实分别被更近的位置覆盖：落点判定由 {@code
  * OutboundUrlValidatorTest.redirectsAreValidatedPerHop} 覆盖， 而"每一跳都走该判定"由本类第二个用例（同样的循环、同样的 {@code
- * resolveRedirect} 调用，只是判定通过）覆盖。
+ * resolveRedirect} 调用，只是判定通过）覆盖。（T075 的拒绝是<b>首跳前</b>判死的，不进重试循环，故没有这一时长问题。）
  */
 @TestPropertySource(properties = {"crm.outbound.allowed-hosts=127.0.0.1"})
 class WebhookRedirectIT extends AbstractIntegrationTest {
 
   @Autowired private RestTemplate restTemplate;
+
+  @Autowired private JdbcTemplate jdbc;
+
+  @Autowired private WebhookService webhookService;
 
   private HttpServer server;
   private int port;
@@ -169,9 +186,89 @@ class WebhookRedirectIT extends AbstractIntegrationTest {
     assertThat(finalHits.get()).as("重定向落点应恰好收到一次请求——证明跟随由我们自己发起，且没有多跳重复").isEqualTo(1);
   }
 
+  // ===== T075：投递时对当前地址的再校验 =====
+
+  /** 云元数据端点：既不在白名单内，又命中链路本地网段——SSRF 最典型的目标。 */
+  private static final String METADATA_URL = "http://169.254.169.254/latest/meta-data/";
+
+  /** 校验器拒绝内网目标时的措辞。断言落在它上面，才与"真去连了、连接失败"区分得开。 */
+  private static final String DENIED_REASON = "不允许出站";
+
+  @Test
+  @DisplayName("修复前落库的订阅行：投递前被拒，请求根本发不出去（FR-G13 / T075）")
+  void legacySubscriptionRowWithDeniedTargetIsRejectedAtDeliveryTime() throws Exception {
+    // 直接写库，绕过 WebhookService.create 的落库前校验——这正是"改造前已落库的行"的形态
+    long legacyId = 987654321L;
+    jdbc.update(
+        "INSERT INTO webhook_subscription (id, event_type, callback_url, secret, enabled, created_by)"
+            + " VALUES (?, ?, ?, ?, ?, ?)",
+        legacyId,
+        "LEAD_CREATED",
+        METADATA_URL,
+        "legacy-secret",
+        1,
+        1L);
+
+    String token = loginAndGetToken();
+    mockMvc
+        .perform(
+            post("/api/v1/leads")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"name": "历史行线索%s", "company": "历史行公司", "source": "WEBSITE", "score": 70}
+                    """
+                        .formatted(System.nanoTime())))
+        .andExpect(status().isOk());
+
+    assertRejectedBeforeAnyRequest(awaitDelivery(token, legacyId));
+  }
+
+  @Test
+  @DisplayName("集成通道直推（不经订阅表）：投递前同样被拒（FR-G13 / T075）")
+  void publishToUrlTargetIsRejectedAtDeliveryTime() throws Exception {
+    long directId = 987654322L;
+    String token = loginAndGetToken();
+
+    // publishToUrl 由 IntegrationChannelService 调用，临时订阅的 callbackUrl 直接取参数、不经 create
+    webhookService.publishToUrl(
+        directId, "LEAD_CREATED", "LEAD", 1L, java.util.Map.of(), METADATA_URL, "probe-channel");
+
+    assertRejectedBeforeAnyRequest(awaitDelivery(token, directId));
+  }
+
+  /**
+   * 断言投递记录里的三条证据：拒绝理由是**校验器**给出的、没有进入重试、没有任何 HTTP 状态。
+   *
+   * <p>后两条是必需的：修复前也记 FAILED（真去连了内网地址，连不上），只有"理由"与"重试次数" 能把两种情况分开——被拒的地址若进了重试循环，就要白等 36 秒才落记录。
+   */
+  private static void assertRejectedBeforeAnyRequest(JsonNodeHolder delivery) {
+    assertThat(delivery.status).as("被拒的地址不能记为成功").isEqualTo("FAILED");
+    assertThat(delivery.error).as("拒绝理由必须来自出站校验器，而不是连接失败的 socket 异常").contains(DENIED_REASON);
+    assertThat(delivery.retryCount).as("地址能否出站不随重试改变，故应一次判死、不进重试循环").isZero();
+    assertThat(delivery.httpStatus).as("被拒的地址不应产生任何 HTTP 状态码").isNull();
+  }
+
   // ===== 辅助 =====
 
-  private record JsonNodeHolder(String status, int httpStatus) {}
+  private record JsonNodeHolder(String status, Integer httpStatus, String error, int retryCount) {}
+
+  /**
+   * 取一个"可空"的字段。**必须同时判 MissingNode**：`application.yml` 配了 {@code
+   * spring.jackson.default-property-inclusion: non_null}，于是 {@code null} 在响应里是整个键<b>缺席</b>， {@code
+   * path()} 返回 MissingNode——而 {@code MissingNode.isNull()} 是 {@code false}。 只判 {@code isNull()}
+   * 会把"没有值"读成"有值"（本条断言第一次跑就栽在这上面：把缺席读成了非空）。
+   */
+  private static Integer nullableInt(JsonNode item, String field) {
+    var node = item.path(field);
+    return node.isNull() || node.isMissingNode() ? null : node.asInt();
+  }
+
+  private static String nullableText(JsonNode item, String field) {
+    var node = item.path(field);
+    return node.isNull() || node.isMissingNode() ? null : node.asText();
+  }
 
   /**
    * 轮询投递记录直到出现第一条（异步投递，不能只 sleep 一次就断言）。
@@ -191,8 +288,12 @@ class WebhookRedirectIT extends AbstractIntegrationTest {
               .getContentAsByteArray();
       var items = objectMapper.readTree(raw).path("data").path("items");
       if (items.size() > 0) {
+        var item = items.path(0);
         return new JsonNodeHolder(
-            items.path(0).path("status").asText(), items.path(0).path("httpStatus").asInt());
+            item.path("status").asText(),
+            nullableInt(item, "httpStatus"),
+            nullableText(item, "error"),
+            item.path("retryCount").asInt());
       }
       Thread.sleep(250);
     }

@@ -104,7 +104,11 @@ class TaskIT extends AbstractIntegrationTest {
   @DisplayName("提醒汇总与日历数据")
   void reminderSummaryAndCalendar() throws Exception {
     String token = loginAndGetToken();
-    String today = LocalDateTime.now().plusHours(2).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+    // dueAt 必须**确定落在今日之内**：服务端判 TODAY 的条件是 dueAt < 次日零点（TaskService.fillReminder），
+    // 而原写的 now + 2 小时一旦在 22:00 之后执行就跨到了明天，这条断言随之翻成 NORMAL——用例于是在夜间
+    // 窗口里必红（2026-09-12 23 时实测：260 例 5 失败，多出来的正是它；同日 19 时为 4 失败）。
+    // 取"今日 23:59:59"则恒为今天、且恒在未来（此后的 todayCount 与日历断言同样成立）。
+    String today = LocalDate.now().atTime(23, 59, 59).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
     mockMvc
         .perform(
             post("/api/v1/tasks")

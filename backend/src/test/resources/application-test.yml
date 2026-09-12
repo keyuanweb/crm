@@ -4,7 +4,17 @@ spring:
       - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
       - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
   datasource:
-    url: jdbc:h2:mem:crm;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    # NON_KEYWORDS=YEAR,USER（T074）：两个词在 H2 2.x 里是关键字，但在本项目里被当作标识符用，而生产端 MySQL 允许。
+    #
+    # YEAR：schema-h2.sql 里 `year` 是**列名**（sales_quota.year，镜像自 V71），MyBatis-Plus 生成的
+    #   `INSERT INTO sales_quota (year, ...)` 因此直接语法错误——销售配额模块的**任何写路径在测试库上都跑不通**，
+    #   而这段 SQL 此前没有任何用例执行过（SalesQuotaIT 是第一个）。
+    # USER：`SalesQuotaRepository.getTeamRanking` 的 `(SELECT id FROM user WHERE department_id = sq.team_id)`
+    #   未加引号，H2 报 `expected "identifier"`。全仓仅此一处裸写 user（表本身在镜像里写作 `user`）。
+    #
+    # 两处非关键字化都只影响"把该词当标识符解析"：`YEAR(closed_at)` / `USER()` 这类函数调用不受影响
+    # （前者的行为由 SalesQuotaIT 的年度汇总断言钉住；后者全仓无调用）。
+    url: jdbc:h2:mem:crm;MODE=MySQL;NON_KEYWORDS=YEAR,USER;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
     driver-class-name: org.h2.Driver
     username: sa
     password: ''

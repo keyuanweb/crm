@@ -13,6 +13,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
  * 权限接线（1.5）：按角色逐条验证「矩阵说能，就真能；矩阵说不能，就真不能」。
@@ -939,6 +940,60 @@ class PermissionEnforcementIT extends AbstractIntegrationTest {
         .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
     mockMvc
         .perform(get("/api/v1/platform/api-keys").header("Authorization", bearer(sales)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+  }
+
+  @Test
+  @DisplayName("FR-G14 三模块：预置角色一律 403 PERMISSION_DENIED，ADMIN 照常——「默认仅 ADMIN」的可执行记录")
+  void frG14ModulesDenyEveryPresetRole() throws Exception {
+    String admin = loginAndGetToken();
+    // 这里的角色是**预置**角色（授予来自迁移种子），只有账号是现建的。这正是本案与 SecurityHardeningIT
+    // 同名用例的分界：那边用 ensureRole 自造持码角色，证明的是"机制在"；机制在、而预置矩阵对这六个码
+    // 对谁都零授予——这个后果只有从预置角色视角看才照得出来，此前它无人看见（T071）。
+    String sales = tokenFor(admin, "pw_sales_g14", "SALES");
+    String salesManager = tokenFor(admin, "pw_salesmgr_g14", "SALES_MANAGER");
+
+    // ---------- 定时导出（export:scheduled）----------
+    // 必须带上 userId：它是**必填**的 @RequestParam，而参数绑定发生在权限切面**之前**——
+    // 少了参数拿到的是 400，403 根本轮不到（第一版就是这么红的）。
+    String scheduled = "/api/v1/scheduled-exports?userId=1";
+    assertDeniedByPermissionCode(sales, get(scheduled));
+    assertDeniedByPermissionCode(salesManager, get(scheduled));
+    mockMvc
+        .perform(get(scheduled).header("Authorization", bearer(admin)))
+        .andExpect(status().isOk()); // 正对照：端点本身是通的，403 只可能来自权限码
+
+    // ---------- 合规导出（export:compliance）：导出任意 userId 的个人信息，改造前只由"是否登录"决定 ----------
+    String compliance = "/api/v1/data-retention/compliance-export?entityType=CUSTOMER&userId=1";
+    assertDeniedByPermissionCode(sales, post(compliance));
+    assertDeniedByPermissionCode(salesManager, post(compliance));
+    mockMvc
+        .perform(post(compliance).header("Authorization", bearer(admin)))
+        .andExpect(status().isOk());
+
+    // ---------- 数据保留执行（retention:execute）----------
+    assertDeniedByPermissionCode(sales, post("/api/v1/data-retention/execute"));
+    assertDeniedByPermissionCode(salesManager, post("/api/v1/data-retention/execute"));
+    mockMvc
+        .perform(post("/api/v1/data-retention/execute").header("Authorization", bearer(admin)))
+        .andExpect(status().isOk());
+
+    // 另外三个写码（retention:create/update/delete）不在这里逐条打端点：它们的"对谁都零授予"由
+    // PermissionMatrixIT 逐码断言（那里能一次覆盖六个码），而"缺码即 403"的机制由上面三条代表。
+    // 六个码的可访问范围与改造前一致（仅 ADMIN 经切面直通），理由与决定记在 V87 与 spec.md。
+  }
+
+  /**
+   * 断言被**权限码**拒绝，而不是被数据范围拒绝、也不是路径不存在。
+   *
+   * <p>两类 403 的文案一模一样，只有 {@code error.code} 分得开：{@code PERMISSION_DENIED} 来自 {@code
+   * PermissionAspect}，{@code FORBIDDEN} 来自数据范围（见类注释）。
+   */
+  private void assertDeniedByPermissionCode(String token, MockHttpServletRequestBuilder request)
+      throws Exception {
+    mockMvc
+        .perform(request.header("Authorization", bearer(token)))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
   }
