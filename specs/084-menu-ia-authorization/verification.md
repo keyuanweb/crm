@@ -739,3 +739,110 @@ FR-005 用例（两次新密码不一致）的 `waitFor` 用默认 1 s，在**�
 **不**表示"后端构建为绿"。后端构建**仍然是红的**——那条红是一条有署名、有边界、有失效条件的
 **已批准偏差**，登记在 083 而非本规格；它的对象是产品决策（投递时序、两层校验优先级、登录副作用），
 本规格无权也不打算替它决定。
+
+## 面包屑收口：第五处菜单定义作者（2026-09-12 报缺陷 → 2026-09-13 记录）
+
+### 根因：084 的「四处」少算了一处
+
+用户报告「商机阶段的面包屑显示不对」。根因不是漏登记一项，而是 `BreadcrumbNav.tsx` **自带两张手写表**：
+
+- `GROUPED_ROUTES`：**7 个分组**（`customerManagement` / `salesManagement` / `dealManagement` / `marketingAndService` / `basicData` / `dataAnalysis` / `systemManagement`）
+- `MENU_KEY_MAP`：**56 条**「路径 → 文案键」
+
+它们是菜单结构的**第五份副本**（前四份＝`RoleConstants.MENU_TREE`、`App.tsx` 路由数组、`role_menu` 授权数据、i18n 文案表），
+且**同时决定「有哪些项、属于哪组、叫什么名字」——正是 FR-N21 的三个维度**。
+
+`plan.md` 的 Structure Decision 曾写「残留的、**刻意保留**的前端本地映射**只有三处**，均不属于 FR-N21 的三个维度」——
+**该枚举在实施期即不成立**。已在原句后追加【范围订正，2026-09-13】注记，原文保留（订正不静默、原文留痕）。
+
+三道护栏为何都没抓到它：
+
+| 护栏 | 管辖 | 为何放行 |
+|---|---|---|
+| `pnpm menu:check` | 生成物是否陈旧 | 只比对「重新生成的结果 vs `menuManifest.ts`」，不涉及消费方 |
+| `pnpm i18n:check` | 路由 ↔ 清单双射 + `menu.*` 键是否存在 | 输入是 `App.tsx` 的路由表与文案表，面包屑的表不在其内 |
+| `MenuRouteAlignmentTest`（后端，7 例） | 清单 / 授权数据 / 权限码 三维一致 | 解析 `App.tsx` 与迁移种子、权限字典，不读 `BreadcrumbNav.tsx` |
+
+即：**三道护栏都只覆盖「可由生成物或路由表推导的那部分」，而这两张表是自立的**，
+所以它落后时不产生任何断言——这既是它成为第五份副本却长期未被发现的原因，也是本次要补的**管辖缺口**本身。
+
+### 三个实测症状
+
+| # | 症状 | 依据 |
+|---|---|---|
+| 1（报告项） | `/opportunity-stages`（商机阶段）在生成物与侧边栏里都在，**两张表里都没有** → 最长前缀匹配落空 → 落到兜底分支渲染成「首页 / 当前页面」 | 反向验证：把它从解析候选中去掉，`breadcrumbTrail.test.ts` 3 条变红，其一为 `expected [ '首页', 'breadcrumb.currentPage' ] to deeply equal [ '首页', '流程配置', '商机阶段' ]` |
+| 2 | 组名自成分歧：那张表是 **7 组**词汇，清单是 **11 组**；配置类页面面包屑显示「系统管理」（`systemManagement`），侧边栏显示「流程配置」——而**「流程配置」在那张表的词汇表里根本不存在** | 收口后 `/workflows`、`/sla-policies`、`/custom-objects` 的组断言改判为「流程配置」（`config`） |
+| 3 | `MENU_KEY_MAP:136` 的 `'/data-vision': '酷炫大屏'` 是**中文裸字面量**而非文案键 → 英文界面下仍显示中文；且「酷炫大屏」正是 084 已在其余两处统一的 **7 处名称漂移之一** | 收口后 `/data-vision` 断言为「数据分析 / 数据大屏」，键为 `dataVision` |
+
+顺带收掉一处**不可达分支**：原判据为 `isDetail || isNestedDetail`，而 `DETAIL_SEGMENTS`
+（`['customers','leads','tickets','orders','quotes','contracts']`）恒为前者的子集——凡 `path` 以 `/customers/` 开头者，
+`/customers` 必已被匹配为某项，`isDetail` 已然成立。收成一个条件，并由两条断言钉住两侧
+（`/customers/123` 有详情段、`/customers/at-risk` 没有）。
+
+### 收口方式（提交 `226d55c`，10 文件，+630 / −240）
+
+| 文件 | 变更 |
+|---|---|
+| `frontend/src/components/breadcrumbTrail.ts` | **新增**：纯函数「路径 → 分段」，分组/顺序/名称一律取自 `MENU_MANIFEST`，路径由 `pathOfMenuKey` 推出 |
+| `frontend/src/components/breadcrumbTrail.test.ts` | **新增**：11 例（含虚构清单与往返一致性） |
+| `frontend/src/components/BreadcrumbNav.tsx` | **重写**：删两张表（−244 行），只留一个 `switch` 渲染器 |
+| `frontend/src/components/BreadcrumbNav.test.tsx` | **新增**：6 例渲染断言（文案与链接） |
+| `frontend/src/i18n/labelOf.ts` | **新增**：缺键降级的**唯一实现** `menuLabel(t, i18nKey, title)` |
+| `frontend/src/constants/menuKeys.ts` | 补 `pathOfMenuKey`（`menuKeyOf` 的逆方向），只登记唯一例外 `at-risk → /customers/at-risk`，与 `COARSE_ALIASES` 同文件同位（同一事实的两个方向） |
+| `frontend/src/App.tsx` | 删本地 `labelOf`，三处调用改用共享的 `menuLabel`（两处各写一遍时「降级」会有两种行为） |
+| `frontend/src/i18n/zh-CN.ts`、`en.ts` | 删 `pages.breadcrumbGroup.*`（各 7 键）——它们随本次收口失去引用，留着等于把一份与清单不一致的组名词汇表留在语言文件里 |
+| `backend/src/test/java/com/crm/security/MenuRouteAlignmentTest.java` | 新增第 8 例 `derivedPathsAreRealRoutes` |
+
+**不复制 `App.tsx` 身上的常量**：置顶分组与子页面锚点都在 `App.tsx` 里，而它 import 本组件（反向 import 成环）。
+前者改由清单的**可观测形态**推出（单成员且成员与组同名，由既有 `noItemEchoesItsGroupName` 与新增单测双重钉住）；
+后者的锚点直接取 `COARSE_ALIASES`（后端已断言它与 `App.tsx` 的 `SUB_PAGE_AFTER_MENU_KEY` 逐条一致），故锚点仍只有一个作者。
+
+### 护栏与反向验证
+
+| 护栏 | 断言 | 反向验证 |
+|---|---|---|
+| `breadcrumbTrail.test.ts`（11 例） | 遍历清单 **56 项**：每项都解析出「分组 + 项」，**0 项**落兜底段 | 去掉 `opportunity-stages` 候选 → **3 条红**（症状 1 的形态） |
+| 同上·**虚构清单** 1 例 | 用一份虚构清单证明分组/顺序/名称是**派生**出来的，而不是恰好与一份抄来的表一致 | —— |
+| `BreadcrumbNav.test.tsx`（6 例） | 渲染出的可见文案与链接：分组名跟侧边栏、置顶项不渲染指向自身的链接、详情段不是链接、未匹配路径落兜底段 | —— |
+| `MenuRouteAlignmentTest.derivedPathsAreRealRoutes`（后端第 8 例） | 每个清单项的规范路径必须是**一条真实声明的菜单路由** | 清空 `CANONICAL_PATH_OVERRIDES` → 该例红，列出悬空路径 `at-risk → /at-risk` |
+
+**这条后端断言为何必须放在后端**：前端测试跑在 jsdom 下，既无 `file:` 的 `import.meta.url` 也无 `@types/node`，
+读不了文件；而该断言的输入横跨「前端推路径的规则」与「前端路由表」，只有后端测试能读前端源文件
+（分工由既有 `MenuRouteAlignmentTest` 确立，本次沿用而未新开入口）。
+
+### 门禁实测（2026-09-13 复跑，均为本表写作时新取得）
+
+| 门禁 | 结果 |
+|---|---|
+| `pnpm typecheck` | 通过（`tsc --noEmit` 无输出） |
+| `pnpm lint` | 0 problems |
+| `pnpm test` | **22 文件 / 96 用例**全通过 |
+| `pnpm test:coverage` | 退出码 0；statements **47.02** / branches **71.35–71.49** / functions **22.29–22.43** / lines 47.02。阈值未下调（最紧仍为 functions 21.4） |
+| `pnpm i18n:check` | ✓ zh-CN **2883** / en **2883**；路由 58 / 清单 56 / 粗粒度别名 3 |
+| `pnpm menu:check` | ✓ 清单是最新的（56 项） |
+| 后端三例（surefire） | `MenuRouteAlignmentTest` **8/8**、`MenuAccessGrantAlignmentTest` **6/6**、`FrontendPermissionCodeAlignmentTest` **2/2**（16 run / 0F / 0E，BUILD SUCCESS） |
+
+**关于上表的两点限定，必须与数字一同读取**：
+
+1. **branches 与 functions 记的是区间，不是单点**。三次复跑里一次报 `71.49 / 22.29`、两次报 `71.35 / 22.43`
+   （statements 与 lines 稳定在 47.02）。**差的成因未查明**——候选有运行间非确定性，
+   也有「本工作区常有多会话并行」这一可能：本次复跑前后确有**另一个会话**在改
+   `frontend/src/pages/data-retention/**` 与 `frontend/src/pages/exports/**` 并新增两个用例文件
+   （其文件 mtime 为 `00:03:13`–`00:03:48`，可查）。**两种成因都与本次收口无关**，且区间两端都过阈值，
+   故判定不变；但**不应把该区间当作「已测得运行间浮动率」引用**。
+2. 上表的 `22 文件 / 96 用例` 是**收口提交 `226d55c` 的状态**下的实测。此后并行会话新增的用例文件不在其中，
+   故**现在重跑会得到不同的文件数与用例数**——那不是本节的回归。
+   `vite.config.ts` 的覆盖率注释已按「保留旧快照 + 追加新实测」的惯例刷新（阈值未改）。
+
+### 如实限定：这次收口没有覆盖到什么
+
+1. **「清单新增项必有面包屑」这条护栏有部分是近似恒真的**——删掉清单项也同时删掉一次遍历。
+   这正是另外三条证据存在的原因：虚构清单（证明是派生）、组件渲染用例（端到端看文案）、
+   后端路径真实性断言（路径不是凭空拼出来的）。**不要把第一条单独当作充分证据。**
+2. **不能替代 T021 的手工验收**：本节的证据全是构建内断言与 jsdom 渲染，而 T021 要求的是
+   在**含 V85/V86 的后端实例**上按 quickstart D1/D2/D3 人工核对。T021 仍为未勾选（084 的 41 条任务中唯一一条），
+   阻塞原因见上文「SC-N07」节——那个 8081 实例可能属于并行会话，本次不重启它。
+3. **未新增规格、未新增迁移、未改任何端点**：本次是 084 域内收口后的缺陷修复，落在既有 FR-N20/N21 的管辖下，
+   故只在本节与 `plan.md` 的订正注记、`tasks.md` 的 Convergence 相位留痕，不动 `spec.md` 的需求文本
+   （FR-N20/N21 的文字本身没有错，错的是 plan 那句对**残留映射数量**的枚举）。
+
