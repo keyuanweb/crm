@@ -723,12 +723,13 @@ FR-005 用例（两次新密码不一致）的 `waitFor` 用默认 1 s，在**�
 | 后端 `spotless:check` | ✅ 通过 | 本次复跑日志：`Spotless.Java is keeping 724 files clean - 0 needs changes to be clean` |
 | 后端 `surefire` | ✅ 548 run / 0F / 0E | 见上「### T037 后端门禁」 |
 | 后端 `failsafe` | ⚠️ **259 run / 4F / 0E** | 失败集合与 083 记录**逐项逐行号一致**（`IntegrationHubIT.integrationFlow:93`、`OpportunityIT.closeWithoutResultReturns422:175`、`UserIT.disableUserRevokesAccess:117`、`UserIT.userLifecycle:74`） |
-| 后端 `jacoco:check`（覆盖率门槛） | ✅ **通过——本次首次取得判定** | `mvn -B verify -Dmaven.test.failure.ignore=true` → 构建越过 `failsafe:verify` 后**首次实际执行**该 check，报 `All coverage checks have been met.`；实测 `INSTRUCTION covered 44 080 / total 56 288 = 0.7831` ≥ 阈值 `0.73`（阈值未下调） |
+| 后端 `jacoco:check`（覆盖率门槛） | ✅ 通过（**在 084 的树上复现**） | `mvn -B verify -Dmaven.test.failure.ignore=true` → 构建越过 `failsafe:verify`，该 check 报 `All coverage checks have been met.`；实测 `INSTRUCTION covered 44 080 / total 56 288 = 0.7831` ≥ 阈值 `0.73`（阈值未下调）。**该判定并非本次首次取得**——首次由 `5bcd4b1`（同日 19:07，早于 084 提交）完成并已记入 `pom.xml` 注释（`0.7818`，同分母）；本次新增的信息只是"084 改动之后它仍然通过" |
 | e2e（SC-N07） | ✅ 37 passed / 0 failed | 适用范围限定见上节，不重复 |
 
-**"覆盖率阈值不得下调"这一条此前只能证成一半**：配置确实没改，但**门槛是否通过从未被判定过**——
-`jacoco:check` 与 `failsafe:verify` 同处 `verify` 相位且声明在其后，构建在 failsafe 处即中止。
-本次补测把这一半补齐：**门槛实测通过**。
+**"覆盖率阈值不得下调"这一条此前只能证成一半**（配置确实没改，但门槛是否通过未被判定过——
+`jacoco:check` 与 `failsafe:verify` 同处 `verify` 相位且声明在其后，构建在 failsafe 处即中止）。
+那一半在 `5bcd4b1`（同日 19:07，早于 084 提交）就已补齐，本次是把该判定**在 084 的树上复现一次**，
+确认它没有被 084 的后端改动打破。**不要把本次读成"首次取得判定"**。
 
 **由此得到的收口结论**：`mvn -B verify` 的红**完全**由那 4 例业务类失败造成，与覆盖率门槛无关，
 与前端门禁无关，与格式（spotless）无关。那 4 例已作为**显式偏差获批准**（T040，批准人 龙星 / 2026-09-12，
