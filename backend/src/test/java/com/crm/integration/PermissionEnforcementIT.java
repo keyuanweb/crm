@@ -687,6 +687,88 @@ class PermissionEnforcementIT extends AbstractIntegrationTest {
         + "}";
   }
 
+  /**
+   * 084（菜单 IA 收口）：两个控制器从角色字面量改为按权限码放行。
+   *
+   * <p>与 V80~V84 各批同一形态，只是这次的触发点不是"类级门挡住新角色"，而是<b>撤掉前端 {@code isAdmin} 硬门 之后暴露出来的</b>：菜单授权（{@code
+   * role_menu}）与端点闸门是两套开关，撤门之前"菜单永不出现"掩盖了 "页面打不开"；撤门之后两者必须一致（FR-N06）。{@code
+   * MenuAccessGrantAlignmentTest} 机械地对**任意角色** 断言这件事（它是通用式，不枚举角色），本测试是它的行为层对照：真登录、打真接口。
+   */
+  @Test
+  @DisplayName("084：自定义对象定义面与多币种按码放行——菜单已授的角色真能打开，无码者仍被挡住")
+  void menuIaBatchGatesByCode() throws Exception {
+    String admin = loginAndGetToken();
+    String analyst = tokenFor(admin, "pw_analyst_084", "ANALYST");
+    String financeManager = tokenFor(admin, "pw_finmgr_084", "FINANCE_MANAGER");
+    String viewer = tokenFor(admin, "pw_viewer_084", "VIEWER");
+
+    // ---------- 自定义对象**定义**面（CustomObjectController，改造前整类是 hasRole('ADMIN')）----------
+    // ANALYST 持有「自定义对象」菜单（V75）与读写码（V85 补 read）→ 撤门接线后它真的进得来。
+    // 改造前这里恒 403，而它的角色页上一直勾着这个菜单。
+    mockMvc
+        .perform(get("/api/v1/custom-objects").header("Authorization", bearer(analyst)))
+        .andExpect(status().isOk());
+    String created =
+        mockMvc
+            .perform(
+                post("/api/v1/custom-objects")
+                    .header("Authorization", bearer(analyst))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"name\": \"084探针对象\", \"code\": \"PW084OBJ\", \"fields\": ["
+                            + "{\"field\": \"name\", \"label\": \"名称\", \"type\": \"TEXT\"}],"
+                            + " \"enabled\": true}"))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    long objectId = objectMapper.readTree(created).path("data").path("id").asLong();
+    // 启停挂的是 update 码（不是独立码）——这里钉住这个映射，免得日后被拆成"第四种写法"。
+    mockMvc
+        .perform(
+            post("/api/v1/custom-objects/{id}/toggle", objectId)
+                .header("Authorization", bearer(analyst)))
+        .andExpect(status().isOk());
+    mockMvc
+        .perform(
+            delete("/api/v1/custom-objects/{id}", objectId)
+                .header("Authorization", bearer(analyst)))
+        .andExpect(status().isOk());
+    // VIEWER 一个 custom_object:* 都没有 → 停在一码之隔，且必须是 PERMISSION_DENIED（不是数据范围那种 403）。
+    mockMvc
+        .perform(get("/api/v1/custom-objects").header("Authorization", bearer(viewer)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+
+    // ---------- 多币种（CurrencyRateController，改造前是 hasAnyRole('ADMIN','SALES')）----------
+    // FINANCE_MANAGER 持有「多币种」菜单与 currency:manage（V75），却在角色字面量里 → 改造前恒 403。
+    // 这是 084 T020 的裁决结果：接线到权限码，让已发布的矩阵成真（FR-N24，批准人 龙星）。
+    mockMvc
+        .perform(get("/api/v1/currencies").header("Authorization", bearer(financeManager)))
+        .andExpect(status().isOk());
+    mockMvc
+        .perform(
+            post("/api/v1/currencies")
+                .header("Authorization", bearer(financeManager))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\": \"PW084\", \"name\": \"084探针币\", \"rate\": 1.5}"))
+        .andExpect(status().isCreated());
+    // 写码与读码是两码：VIEWER 连读都不该有。
+    mockMvc
+        .perform(get("/api/v1/currencies").header("Authorization", bearer(viewer)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+    // 折算属读（POST 只是因为带参，不是写）——ANALYST 无 currency:read，同样被挡。
+    mockMvc
+        .perform(
+            post("/api/v1/currencies/convert")
+                .header("Authorization", bearer(analyst))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\": 100, \"fromCurrency\": \"CNY\", \"toCurrency\": \"USD\"}"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+  }
+
   /** 客户查重是全局的 (name, company)，同一个用例里建多个客户必须给不同名字。 */
   private long createCustomer(String token, String name) throws Exception {
     String resp =

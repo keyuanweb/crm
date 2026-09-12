@@ -178,10 +178,16 @@ describe('PersonalCenterPage', () => {
       fireEvent.change(screen.getByLabelText(/pages\.changePassword\.confirmPassword/), { target: { value: 'diffPass789' } })
       fireEvent.click(screen.getByRole('button', { name: /pages\.changePassword\.btnSubmit/ }))
 
-      await waitFor(() => {
-        expect(screen.getByText('pages.changePassword.msgPasswordMismatch')).toBeInTheDocument()
-        expect(userService.changeOwnPassword).not.toHaveBeenCalled()
-      })
+      // 断言本身是同步的，但「提示出现」要等 antd 的异步校验（PersonalCenterPage.tsx:93 的
+      // validateFields）reject 后重渲染。默认 1s 窗口在本套件全量 + 覆盖率插桩下过紧：单独跑本文件必过，
+      // 全量跑偶发超时。与套件内其余异步断言统一给 5s，不放宽断言内容。
+      await waitFor(
+        () => {
+          expect(screen.getByText('pages.changePassword.msgPasswordMismatch')).toBeInTheDocument()
+          expect(userService.changeOwnPassword).not.toHaveBeenCalled()
+        },
+        { timeout: 5000 },
+      )
     })
 
     it('提交密码修改后清除登录态（FR-006）', async () => {

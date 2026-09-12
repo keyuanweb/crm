@@ -1969,3 +1969,16 @@ JOIN (
   UNION SELECT 'custom_field:delete'
 ) p
 WHERE r.code = 'ADMIN';
+
+-- ---------- V85__menu_ia_and_custom_object_read：菜单 IA 收口（084）----------
+-- 唯一一条：读码 custom_object:read 授予持有「自定义对象」菜单的角色。无 DELETE（C4 实测零红项）。
+INSERT INTO role_permission (role_id, permission_code)
+SELECT r.id, 'custom_object:read' FROM role r WHERE r.code IN ('ADMIN', 'ANALYST');
+
+-- ---------- V86__currency_read_and_gate：多币种读写分码（084 T020）----------
+-- 读码 currency:read：FINANCE_MANAGER 兑现已发布矩阵（它 V75 起就持有 currency:manage，却因角色字面量
+-- hasAnyRole('ADMIN','SALES') 打不开多币种页）；SALES 补授只为保持其改造前的读/折算能力不变。
+-- 写码 currency:manage 不新增授权（FINANCE_MANAGER 早已持有，ADMIN 靠切面直通）。
+INSERT INTO role_permission (role_id, permission_code)
+SELECT r.id, 'currency:read' FROM role r
+WHERE r.code IN ('ADMIN', 'SALES', 'FINANCE_MANAGER');

@@ -11,6 +11,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "i18n:check": "node scripts/check-i18n.mjs",
+    "menu:gen": "node scripts/gen-menu.mjs",
+    "menu:check": "node scripts/check-menu.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

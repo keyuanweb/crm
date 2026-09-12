@@ -56,6 +56,13 @@ class ResizeObserverMock {
 }
 globalThis.ResizeObserver = ResizeObserverMock as never
 
+// App 在每次路由切换时对内容区调用 Element.scrollTo（App.tsx 的滚动复位），jsdom 未实现该方法
+// → 抛 TypeError 且成为测试运行后的「未处理异常」。与上面几条同属 jsdom 缺口；只有会发生路由跳转的
+// 用例才会踩到，故此前未被发现。
+if (typeof Element.prototype.scrollTo !== 'function') {
+  Element.prototype.scrollTo = (() => {}) as never
+}
+
 // antd rc-table 测量滚动条时调用 getComputedStyle(elt, pseudoElt)，jsdom 对伪元素参数未实现，
 // 这里忽略伪元素参数避免 "Not implemented: window.computedStyle" 报错。
 const baseGetComputedStyle = window.getComputedStyle.bind(window)

@@ -1,4 +1,4 @@
-import { Suspense, lazy, startTransition, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, startTransition, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Dropdown, Layout, Menu, Spin, type MenuProps } from 'antd'
@@ -47,6 +47,8 @@ import {
 } from '@ant-design/icons'
 import { fetchMe, logout } from './services/authService'
 import { menuKeyOf } from './constants/menuKeys'
+import { MENU_MANIFEST, type MenuManifestGroup } from './constants/menuManifest'
+import { resolveVisibleMenuKeys } from './constants/menuVisibility'
 import { useAuthStore } from './store/authStore'
 import LoginPage from './pages/LoginPage'
 const CustomerListPage = lazy(() => import('./pages/customers/CustomerListPage'))
@@ -141,67 +143,56 @@ import NotificationCenter from './components/NotificationCenter'
 /** 菜单项结构（复用 antd Menu items 元素类型，支持多级 submenu，041）。 */
 type MenuItemLike = NonNullable<MenuProps['items']>[number]
 
-/** 060：菜单路径 → i18n key 映射（资源 menu.*）。 */
-const MENU_I18N_KEYS: Record<string, string> = {
-  '/stats': 'home',
-  '/leads': 'leads',
-  '/customers': 'customers',
-  '/contacts': 'contacts',
-  '/customer-merge': 'merge',
-  '/customers/at-risk': 'atRisk',
-  '/opportunities': 'opportunities',
-  '/sales-opportunities': 'salesOpportunities',
-  '/quotes': 'quotes',
-  '/visits': 'visits',
-  '/products': 'products',
-  '/playbook': 'playbook',
-  '/contracts': 'contracts',
-  '/contract-renewal': 'renewal',
-  '/orders': 'orders',
-  '/invoices': 'invoices',
-  '/marketing': 'marketingActivity',
-  '/marketing/roi': 'channelRoi',
-  '/marketing/email': 'emailMarketing',
-  '/email-unsubscribes': 'unsubscribe',
-  '/online-forms': 'onlineForms',
-  '/landing-pages': 'landingPages',
-  '/tickets': 'tickets',
-  '/knowledge': 'knowledge',
-  '/announcements': 'announcements',
-  '/approvals': 'approvals',
-  '/portal': 'portal',
-  '/satisfaction': 'satisfaction',
-  '/tasks': 'tasks',
-  '/suggestions': 'suggestions',
-  '/call-records': 'callRecords',
-  '/mail-sync': 'mailSync',
-  '/reports': 'reports',
-  '/stats/leaderboard': 'leaderboard',
-  '/exports': 'exports',
-  '/exports/scheduled': 'scheduledExports',
-  '/quotas': 'quotas',
-  '/users': 'users',
-  '/roles': 'roles',
-  '/departments': 'departments',
-  '/field-permissions': 'fieldPermissions',
-  '/currencies': 'currencies',
-  '/workflows': 'workflows',
-  '/workflows/logs': 'workflowLogs',
-  '/approval-flows': 'approvalFlows',
-  '/sla-policies': 'slaPolicies',
-  '/opportunity-stages': 'opportunityStages',
-  '/sla-calendar': 'slaCalendar',
-  '/contract-templates': 'contractTemplates',
-  '/settings/custom-fields': 'customFields',
-  '/custom-objects': 'customObjects',
-  '/open-platform': 'openPlatform',
-  '/integration-hub': 'integrationHub',
-  '/tags': 'tags',
-  '/audit-logs': 'auditLogs',
-  '/recycle-bin': 'recycleBin',
-  '/data-retention': 'dataRetention',
-  '/data-vision': 'dataVision',
+/**
+ * 路由表的一项：路径、图标，以及兜底名称。
+ *
+ * <p>`name` 只在「不占菜单位的子页面」上还会被用到——真正的菜单项名称一律取自生成物，
+ * 因为生成物里的 `title` 才是与角色配置页一致的权威名称（FR-N09）。
+ */
+type MenuRouteEntry = { path: string; name: string; icon: ReactNode }
+
+/**
+ * 084：「借分组显示」的子页面——页面上有路由，但权威定义里没有对应的菜单项，
+ * 只能挂到所属分组的菜单 key 上（`constants/menuKeys.ts` 的 `COARSE_ALIASES`）。
+ *
+ * <p>它们照旧是侧边栏里的项（这一条常被误读为「它们不进菜单」），所以必须与生成物的项一起渲染；
+ * 位置用 `path -> 它跟在哪个菜单项之后` 表达，以保持改造前的顺序。
+ * **集合被 `MenuRouteAlignmentTest` 钉成恰好这两条**，不因本次归位而扩大（规格边界情况）。
+ */
+const SUB_PAGE_AFTER_MENU_KEY: Record<string, string> = {
+  '/marketing/roi': 'marketing',
+  '/workflows/logs': 'workflows',
 }
+
+/**
+ * 084：分组 → 图标。
+ *
+ * <p>这是**刻意保留**的前端本地映射之一：antd 图标是 JSX，进不了生成物，而它既不影响
+ * 「有哪些菜单项」，也不影响「属于哪个分组」或「叫什么名字」——权威处改了分组名而这里没跟上，
+ * `MenuRouteAlignmentTest` 会直接报错，所以它不构成菜单定义的第二个作者。
+ *
+ * <p>键与 `menuManifest.ts` 的分组 `i18nKey` 一一对应；缺一个的后果是该分组渲染成无图标的组。
+ */
+const GROUP_ICONS: Record<string, ReactNode> = {
+  customer: <TeamOutlined />,
+  sales: <FundOutlined />,
+  deal: <WalletOutlined />,
+  marketing: <RocketOutlined />,
+  service: <CustomerServiceOutlined />,
+  workbench: <DesktopOutlined />,
+  data: <DatabaseOutlined />,
+  admin: <SafetyOutlined />,
+  config: <SettingOutlined />,
+  audit: <AuditOutlined />,
+}
+
+/**
+ * 084：在侧边栏渲染为**独立置顶项**而非分组的分组（「首页」）。
+ *
+ * <p>「首页」在权威定义里是一个分组（角色页就是这么勾选的），但 040 起侧边栏把它渲染成
+ * 顶部的单个菜单项。这是表现层选择，不是菜单定义，故留在前端并由护栏钉成恰好这一条。
+ */
+const TOP_LEVEL_GROUP_I18N_KEYS = new Set(['home'])
 
 /**
  * 所有懒加载页面 chunk 的预加载函数。
@@ -398,7 +389,6 @@ function Shell() {
     localStorage.setItem('app_lang', lang)
   }
 
-  const isAdmin = user?.role === 'ADMIN'
   // 040：左侧菜单按业务域分组（8 组 + 首页置顶），每组 2~5 项
   const customerRoutes = [
     { path: '/leads', name: '线索', icon: <ContactsOutlined /> },
@@ -481,37 +471,49 @@ function Shell() {
     { path: '/data-retention', name: '数据保留', icon: <FileProtectOutlined /> },
   ]
   const adminRoutes = [...adminOrgRoutes, ...adminConfigRoutes, ...adminAuditRoutes]
-  // 占位项不注册路由（不参与 selectedKey 匹配与路由渲染）
+  // 084：菜单的**分组、顺序与名称**一律由生成物 `MENU_MANIFEST` 派生（单一真相源）。
+  // 本文件只留下三样东西：路由表（path → 懒加载页面 + 图标）、分组图标映射，
+  // 以及两个「借分组显示」的子页面——三者都不是菜单定义的第二个作者，理由见文件顶部的常量注释。
+  /** 全部路由（含不占菜单位的子页面），供高亮当前项与别名查表使用。 */
   const menuRoutes = [
     statsRoute,
-    ...customerRoutes.filter((r) => !('planned' in r && r.planned)),
-    ...salesRoutes.filter((r) => !('planned' in r && r.planned)),
+    ...customerRoutes,
+    ...salesRoutes,
     ...dealRoutes,
-    ...marketingRoutes.filter((r) => !('planned' in r && r.planned)),
-    ...serviceRoutes.filter((r) => !('planned' in r && r.planned)),
+    ...marketingRoutes,
+    ...serviceRoutes,
     ...workbenchRoutes,
     ...dataRoutes,
-    ...(isAdmin ? adminRoutes.filter((r) => !('planned' in r && r.planned)) : []),
+    // 084 FR-N01：原先这里是 `...(isAdmin ? adminRoutes : [])`——一道按角色名整组开关的硬门，
+    // 与 role_menu 授权是两套互不知情的开关，导致 V75 授给 5 个预置角色的 16 个 (角色,键) 对
+    // 永远渲染不出来。现在路由对所有人可见，**能不能看到由授权决定**（见 menuVisibility.ts）。
+    ...adminRoutes,
   ]
-  const toItems = (routes: typeof menuRoutes) =>
-    routes.map((r) => {
-      // 060：菜单文案由 i18n key 驱动。
-      // 未映射时**不得**回退成 `t('menu.' + 中文名)`——那会渲染出字面量 `menu.自定义报表`，
-      // 比不翻译更糟。此处直接显示 route 自带的中文名（诚实降级）。全部 57 条路由目前都有映射，
-      // 该分支只在新增路由漏配 MENU_I18N_KEYS 时才会走到，并由 scripts/check-i18n.mjs 的
-      // 路由覆盖检查在 CI 里拦下。
-      const menuKey = MENU_I18N_KEYS[r.path]
-      const label = menuKey ? t(`menu.${menuKey}`) : r.name
-      const item: MenuItemLike = {
-        key: r.path,
-        icon: r.icon,
-        label: 'planned' in r && r.planned ? `${label}${t('menu.planned')}` : label,
-      }
-      if ('planned' in r && r.planned) {
-        item.disabled = true
-      }
-      return item
-    })
+  /** path → 路由项。 */
+  const routeByPath = new Map<string, MenuRouteEntry>(menuRoutes.map((r) => [r.path, r]))
+  /**
+   * 菜单 key → 路由项。
+   *
+   * <p>别名子页面与正式项会撞上同一个 key（`/marketing/roi` 与 `/marketing` 都归 `marketing`），
+   * 故**精确同名者优先**：没有这一条，别名的 path/图标会把正式项挤掉。
+   */
+  const routeByMenuKey = new Map<string, MenuRouteEntry>()
+  for (const r of menuRoutes) {
+    const key = menuKeyOf(r.path)
+    if (!routeByMenuKey.has(key) || r.path === `/${key}`) routeByMenuKey.set(key, r)
+  }
+  /**
+   * 取菜单文案：缺键时降级为**权威中文名**。
+   *
+   * <p>`t()` 在缺键时返回键名本身（如 `menu.xxx`）——渲染出来比不翻译更糟。
+   * 生成物里的 `title` 正是权威处的中文名，直接拿它降级：既不显示键名，
+   * 也与角色配置页显示的名字一致（FR-N09 与边界情况「缺文案降级」）。
+   */
+  const labelOf = (i18nKey: string, title: string) => {
+    const key = `menu.${i18nKey}`
+    const text = t(key)
+    return text === key ? title : text
+  }
   /** 递归拍平菜单项（移动端不支持分组/二级子组，全部拍平为普通项）。 */
   const flattenMenuItems = (items: MenuItemLike[]): MenuItemLike[] =>
     items.flatMap((item) => {
@@ -520,55 +522,70 @@ function Shell() {
       }
       return [item]
     })
-  const statsMenuItem = { key: statsRoute.path, icon: statsRoute.icon, label: statsRoute.name }
   // 028：按角色可见菜单过滤（ADMIN 全量；其他角色按 user.menus）。
   // 1.5：path → menuKey 的映射挪到 constants/menuKeys.ts——原先那张 40 条的手写表把
   // /invoices 归并成 'orders'、/visits 归并成 'sales'（MENU_TREE 里根本没这个 key），
   // 结果是「勾了也看不到菜单」。现在默认实现与 MENU_TREE 逐字对齐，并由
   // constants/menuKeys.test.ts 拿后端 RoleConstants.java 反过来校验。
-  const visibleMenus = user?.role === 'ADMIN' ? undefined : new Set(user?.menus ?? [])
-  const filterByMenus = (routes: typeof menuRoutes) =>
-    visibleMenus
-      ? routes.filter((r) => ('planned' in r && r.planned) || visibleMenus.has(menuKeyOf(r.path)))
-      : routes
-  const groupedMenuItems: MenuItemLike[] = [
-    ...(filterByMenus(customerRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-customer', label: t('menu.customer'), icon: <TeamOutlined />, children: toItems(filterByMenus(customerRoutes)) }]
-      : []),
-    ...(filterByMenus(salesRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-sales', label: t('menu.sales'), icon: <FundOutlined />, children: toItems(filterByMenus(salesRoutes)) }]
-      : []),
-    ...(filterByMenus(dealRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-deal', label: t('menu.deal'), icon: <WalletOutlined />, children: toItems(filterByMenus(dealRoutes)) }]
-      : []),
-    ...(filterByMenus(marketingRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-marketing', label: t('menu.marketing'), icon: <RocketOutlined />, children: toItems(filterByMenus(marketingRoutes)) }]
-      : []),
-    ...(filterByMenus(serviceRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-service', label: t('menu.service'), icon: <CustomerServiceOutlined />, children: toItems(filterByMenus(serviceRoutes)) }]
-      : []),
-    ...(filterByMenus(workbenchRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-workbench', label: t('menu.workbench'), icon: <DesktopOutlined />, children: toItems(filterByMenus(workbenchRoutes)) }]
-      : []),
-    ...(filterByMenus(dataRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-data', label: t('menu.data'), icon: <DatabaseOutlined />, children: toItems(filterByMenus(dataRoutes)) }]
-      : []),
-    // 042：系统管理扁平化——三个一级分组（系统管理/流程与配置/审计与维护）
-    ...(filterByMenus(adminOrgRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-admin', label: t('menu.admin'), icon: <SafetyOutlined />, children: toItems(filterByMenus(adminOrgRoutes)) }]
-      : []),
-    ...(filterByMenus(adminConfigRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-config', label: t('menu.config'), icon: <SettingOutlined />, children: toItems(filterByMenus(adminConfigRoutes)) }]
-      : []),
-    ...(filterByMenus(adminAuditRoutes).length
-      ? [{ type: 'submenu' as const, key: 'g-audit', label: t('menu.audit'), icon: <AuditOutlined />, children: toItems(filterByMenus(adminAuditRoutes)) }]
-      : []),
-  ]
+  // 084 FR-N01–N04：可见集合由纯函数解出（ADMIN 全量兜底；其余按 `user.menus` ∩ 清单键）。
+  // 这里**不做**任何按角色名的整组开关——那是被 084 根除的故障形态，单测见 menuVisibility.test.ts。
+  const visibleMenus = resolveVisibleMenuKeys(user?.role, user?.menus)
+  const isMenuVisible = (menuKey: string) => visibleMenus.has(menuKey)
+  /** 一个分组里实际要渲染的子项（已过可见性过滤；空数组表示该组整体不渲染）。 */
+  const groupItems = (group: MenuManifestGroup): MenuItemLike[] => {
+    const children: MenuItemLike[] = []
+    for (const item of group.items) {
+      if (!isMenuVisible(item.menuKey)) continue
+      const route = routeByMenuKey.get(item.menuKey)
+      if (route) {
+        const label = labelOf(item.i18nKey, item.title)
+        children.push({ key: route.path, icon: route.icon, label })
+      }
+      // 借分组显示的子页面紧跟它所借的那一项之后（位置与改造前一致）。
+      // 它们的可见性与所借的项同源（同一 menu key），所以放在这个判断之内。
+      for (const [aliasPath, anchor] of Object.entries(SUB_PAGE_AFTER_MENU_KEY)) {
+        if (anchor !== item.menuKey) continue
+        const aliasRoute = routeByPath.get(aliasPath)
+        if (aliasRoute) {
+          children.push({ key: aliasRoute.path, icon: aliasRoute.icon, label: aliasRoute.name })
+        }
+      }
+    }
+    return children
+  }
+  const groupedMenuItems: MenuItemLike[] = MENU_MANIFEST.flatMap((group) => {
+    if (TOP_LEVEL_GROUP_I18N_KEYS.has(group.i18nKey)) return []
+    const children = groupItems(group)
+    if (!children.length) return []
+    return [
+      {
+        type: 'submenu' as const,
+        key: `g-${group.i18nKey}`,
+        label: labelOf(group.i18nKey, group.title),
+        icon: GROUP_ICONS[group.i18nKey],
+        children,
+      },
+    ]
+  })
+  /**
+   * 置顶项（「首页」）：来自生成物里被标记为置顶的分组，**不参与可见性过滤**——
+   * 改造前 `statsMenuItem` 就是无条件拼在最前面的，行为保持不变。
+   */
+  const topLevelItems: MenuItemLike[] = MENU_MANIFEST.filter((g) =>
+    TOP_LEVEL_GROUP_I18N_KEYS.has(g.i18nKey),
+  ).flatMap((group) =>
+    group.items.flatMap((item) => {
+      const route = routeByMenuKey.get(item.menuKey)
+      if (!route) return []
+      const label = labelOf(item.i18nKey, item.title)
+      return [{ key: route.path, icon: route.icon, label }]
+    }),
+  )
   // 所有分组默认收起（FR-S14 默认行为）；点击分组标签可收起/展开
   // 统计分析置顶为独立菜单项；移动端横向菜单不支持分组，递归拍平为普通项
   const menuItems = isMobile
-    ? [statsMenuItem, ...flattenMenuItems(groupedMenuItems)]
-    : [statsMenuItem, ...groupedMenuItems]
+    ? [...topLevelItems, ...flattenMenuItems(groupedMenuItems)]
+    : [...topLevelItems, ...groupedMenuItems]
   // 高亮当前页对应的菜单项（详情页按前缀匹配最长路径）
   const selectedKey =
     menuRoutes

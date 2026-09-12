@@ -1,6 +1,6 @@
 # SDD 规格驱动开发文档索引
 
-**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V78 迁移，85 张表；083 为工程收口，无迁移）
+**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V86 迁移，85 张表；083 为工程收口、无迁移；084 含 V85/V86 两条**数据迁移**——只动 `role_permission`，无 DDL、无新表）
 
 > 本文档是全部 Spec-Driven Development 产物的导航入口。每个模块按统一流程
 > `spec → plan → tasks → implement → verify` 迭代，文档遵守 [章程](../../.specify/memory/constitution.md) 的
@@ -111,8 +111,9 @@
 | 081 | 角色权限更新（11 个预置角色 + 权限矩阵） | P2 | ✅ | [目录](./081-role-permissions-update/) | —（design/tasks，无 spec） |
 | 082 | 双因素认证（TOTP 动态码/绑定向导/恢复码/管理员重置） | 安全 | ✅ | [目录](./082-two-factor-auth/) | auth-mfa |
 | 083 | 工程收口（门禁生效/集成测试执行与覆盖率/安全修复/性能优化/部署缺陷） | 治理 | ✅ | [目录](./083-engineering-consolidation/) | —（无新端点；授权语义变更记入 055 的 open-platform 契约） |
+| 084 | 菜单信息架构与授权可见性收口（撤三组硬门/名称与分组两侧统一/归属按业务域归位/单一真相源与护栏） | P1 | ✅ | [目录](./084-menu-ia-authorization/) | authorization-semantics |
 
-> 编号说明：`069` 未创建（编号空缺）；`081` 仅有 `design.md` / `tasks.md`，未按标准流程产出 `spec.md`；`082` 为标准流程（spec/plan/data-model/contracts/tasks/quickstart）产出的待实施模块；`083` 为标准流程产出的**加固类**模块（不产 `contracts/`，与 `003` 同形制），**不含 Flyway 迁移**，故下方迁移对照表无 083 行。
+> 编号说明：`069` 未创建（编号空缺）；`081` 仅有 `design.md` / `tasks.md`，未按标准流程产出 `spec.md`；`082` 为标准流程（spec/plan/data-model/contracts/tasks/quickstart）产出的待实施模块；`083` 为标准流程产出的**加固类**模块（不产 `contracts/`，与 `003` 同形制），**不含 Flyway 迁移**，故下方迁移对照表无 083 行；`084` 为标准流程产出的**收口类**模块，与 `083` 的差别有二——它**产出了一份最小契约** `contracts/authorization-semantics.md`（因为自定义对象端点的授权判定语义确有变更，按原则一不得静默），且**含两条数据迁移**（V85/V86），故本表有 084 行。
 
 > 阶段：P0=核心销售链路补全；P1=成交链路延伸 / 效率与自动化；P2=扩展模块；
 > P3=智能化与平台增强；P4=营销闭环与协作扩展（批次建议见 [roadmap-p0p1.md](./roadmap-p0p1.md)）；
@@ -156,6 +157,9 @@
 | V76 | 修复 | user.email（登录 500 修复） |
 | V77 | 修复 | opportunity.amount（首页 500 修复） |
 | V78 | 082 | two_factor_auth（user 扩展列 + user_recovery_code 表 + 索引） |
+| V79~V84 | 修复 / 055 | opportunity.stage（V79）与权限矩阵对齐批 2~2d（V80~V84，撤门接线与死授权清理；逐条见各迁移文件注释，本表不展开） |
+| V85 | 084 | role_permission：新增读码 `custom_object:read` 并授予 ADMIN/ANALYST（数据迁移，无 DDL） |
+| V86 | 084 | role_permission：多币种读写分码——新增 `currency:read`、复用既有 `currency:manage`，CurrencyRateController 改按码放行（数据迁移，无 DDL） |
 
 ## 使用建议
 

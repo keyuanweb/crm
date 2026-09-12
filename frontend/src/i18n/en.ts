@@ -56,7 +56,6 @@ const en = {
     suggestions: 'AI Suggestions',
     callRecords: 'Call Records',
     mailSync: 'Mail Sync',
-    board: 'Dashboard Board',
     dataVision: 'Data Vision',
     reports: 'Custom Reports',
     leaderboard: 'Leaderboard',
@@ -83,7 +82,6 @@ const en = {
     auditLogs: 'Audit Logs',
     recycleBin: 'Recycle Bin',
     dataRetention: 'Data Retention',
-    planned: ' (Planned)',
   },
   login: {
     title: 'Welcome',

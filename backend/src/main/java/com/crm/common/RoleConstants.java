@@ -21,7 +21,9 @@ public final class RoleConstants {
               item("customers", "客户"),
               item("contacts", "联系人"),
               item("customer-merge", "查重合并"),
-              item("at-risk", "流失预警")),
+              item("at-risk", "流失预警"),
+              // 084 FR-N16：标签与细分是给客户打标、做客户分群用的，归客户管理域
+              item("tags", "标签与细分")),
           group(
               "销售管理",
               item("opportunities", "商机"),
@@ -29,7 +31,9 @@ public final class RoleConstants {
               item("quotes", "报价单"),
               item("visits", "外勤拜访"),
               item("products", "产品"),
-              item("playbook", "销售 Playbook")),
+              item("playbook", "销售 Playbook"),
+              // 084 FR-N17：销售配额是销售目标的达成度视图，归销售管理域
+              item("quotas", "销售配额")),
           group(
               "交易管理",
               item("contracts", "合同"),
@@ -48,7 +52,6 @@ public final class RoleConstants {
               item("tickets", "工单管理"),
               item("knowledge", "知识库"),
               item("announcements", "公告管理"),
-              item("approvals", "我的审批"),
               item("portal", "客户门户"),
               item("satisfaction", "满意度调查"),
               item("sla-calendar", "SLA 日历")),
@@ -56,23 +59,23 @@ public final class RoleConstants {
               "工作台",
               item("tasks", "任务管理"),
               item("suggestions", "智能建议"),
-              item("data-vision", "数据大屏"),
               item("call-records", "通话记录"),
-              item("mail-sync", "邮件同步")),
+              item("mail-sync", "邮件同步"),
+              // 084 FR-N15：我的审批是个人待办队列，与任务/建议同类，归工作台域
+              item("approvals", "我的审批")),
           group(
               "数据分析",
               item("reports", "自定义报表"),
               item("stats/leaderboard", "团队排行"),
               item("exports", "导出中心"),
-              item("quotas", "销售配额"),
               item("exports/scheduled", "定时导出"),
-              item("data-retention", "数据保留策略")),
+              // 084 FR-N14：数据大屏是可视化分析视图，归数据分析域
+              item("data-vision", "数据大屏")),
           group(
               "系统管理",
               item("users", "用户管理"),
               item("roles", "角色权限"),
               item("departments", "部门管理"),
-              item("field-permissions", "字段权限"),
               item("currencies", "多币种")),
           group(
               "流程配置",
@@ -84,15 +87,19 @@ public final class RoleConstants {
               // settings/custom-fields 对不上，后果是「授权了却看不到菜单」。扁平命名不踩这个坑。
               item("opportunity-stages", "商机阶段"),
               item("contract-templates", "合同模板"),
+              // 084 FR-N18：字段权限与自定义字段/自定义对象同属「数据模型配置面」，故与本组并列。
+              // 另一方向（把 custom-fields 挪进系统管理）已评估并否决：见 plan 的规划期决策记录 P1。
               item("settings/custom-fields", "自定义字段"),
+              item("field-permissions", "字段权限"),
               item("custom-objects", "自定义对象"),
               item("open-platform", "开放平台"),
               item("integration-hub", "集成中心")),
           group(
               "审计维护",
-              item("tags", "标签与细分"),
               item("audit-logs", "审计日志"),
-              item("recycle-bin", "回收站")));
+              item("recycle-bin", "回收站"),
+              // 084 FR-N13：数据保留策略是合规留存与销毁，属审计维护域（此前错挂在数据分析）
+              item("data-retention", "数据保留策略")));
 
   /** 权限点分组 → 权限码（code, 中文 label）。 */
   public static final List<Map<String, Object>> PERMISSION_DEFS =
@@ -320,6 +327,10 @@ public final class RoleConstants {
               perm("role:manage", "角色管理"),
               perm("department:manage", "部门管理"),
               perm("field_permission:manage", "字段权限管理"),
+              // 084：读码。GET /currencies 与 POST /currencies/convert 此前是角色字面量
+              // hasAnyRole('ADMIN','SALES')，而「多币种」菜单的持有者是 FINANCE_MANAGER——持有
+              // currency:manage（V75）却打不开这一页。拆读写两码：能看汇率 ≠ 能改汇率。
+              perm("currency:read", "查看币种汇率"),
               perm("currency:manage", "多币种管理"),
               perm("workflow:manage", "工作流管理"),
               perm("report:manage", "报表管理"),
@@ -337,6 +348,11 @@ public final class RoleConstants {
               perm("custom_field:delete", "删除自定义字段")),
           permGroup(
               "自定义对象",
+              // 084：读码。CustomObjectController.page 是**配置面**（全量对象定义列表），类级 hasRole('ADMIN')
+              // 撤除后必须设码；授予范围 = 持有「自定义对象」菜单的角色（ADMIN、ANALYST）。
+              // 注意 /{id}/records*（对象**记录**的增删改查）**不设码**——那是业务面，靠菜单 + 数据范围，
+              // 且改造前就是 hasAnyRole('ADMIN','SALES')，不在 084 范围内。
+              perm("custom_object:read", "查看自定义对象"),
               perm("custom_object:create", "创建自定义对象"),
               perm("custom_object:update", "编辑自定义对象"),
               perm("custom_object:delete", "删除自定义对象")),

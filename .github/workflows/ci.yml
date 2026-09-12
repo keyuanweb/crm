@@ -61,6 +61,13 @@ jobs:
       - name: i18n key parity
         working-directory: frontend
         run: pnpm run i18n:check
+      # 菜单清单陈旧性（084 FR-N23 的前端一半）。侧边栏的分组、顺序与名称已由生成物
+      # `src/constants/menuManifest.ts` 派生，生成物进版本库；改了后端权威处
+      # （RoleConstants.MENU_TREE）而忘记重生成，生成物就会静默落后——本步骤重新生成并逐字节比对。
+      # 与上一步的分工是刻意的：i18n:check 管「路由与清单双向对齐」，本步骤管「生成物与权威处一致」。
+      - name: Menu manifest is up to date
+        working-directory: frontend
+        run: pnpm run menu:check
       # 必须走 test:coverage 而不是 test：覆盖率阈值（vite.config.ts 的 coverage.thresholds，
       # FR-G09）只在该命令下生效。跑 test 的话门禁「配了但不管」——正是本规格要消除的形态。
       - name: Unit tests (with coverage threshold)
