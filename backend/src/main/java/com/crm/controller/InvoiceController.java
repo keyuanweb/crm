@@ -31,7 +31,10 @@ public class InvoiceController {
   }
 
   @GetMapping
-  @RequirePermission("invoice:manage")
+  // 1.5：读操作用 invoice:read 而不是 invoice:manage。列表里含全部发票（税号等），
+  // 而 InvoiceService.list 没有数据范围过滤，所以这两个读接口不能改成不设防；
+  // 但又不能沿用写码——否则「有发票菜单的角色」与「能开票的角色」会被绑成同一个集合。
+  @RequirePermission("invoice:read")
   @Operation(summary = "发票列表")
   public ApiResponse<PageResult<InvoiceResponse>> list(
       @RequestParam(required = false) Long orderId,
@@ -58,7 +61,7 @@ public class InvoiceController {
   }
 
   @GetMapping("/stats")
-  @RequirePermission("invoice:manage")
+  @RequirePermission("invoice:read")
   @Operation(summary = "开票统计")
   public ApiResponse<InvoiceStatsResponse> stats() {
     return ApiResponse.ok(invoiceService.stats());

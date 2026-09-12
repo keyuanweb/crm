@@ -46,6 +46,7 @@ import {
   SafetyOutlined,
 } from '@ant-design/icons'
 import { fetchMe, logout } from './services/authService'
+import { menuKeyOf } from './constants/menuKeys'
 import { useAuthStore } from './store/authStore'
 import LoginPage from './pages/LoginPage'
 const CustomerListPage = lazy(() => import('./pages/customers/CustomerListPage'))
@@ -56,6 +57,7 @@ const LeadListPage = lazy(() => import('./pages/leads/LeadListPage'))
 const LeadDetailPage = lazy(() => import('./pages/leads/LeadDetailPage'))
 const OpportunityListPage = lazy(() => import('./pages/opportunities/OpportunityListPage'))
 const SalesOpportunityListPage = lazy(() => import('./pages/sales-opportunities/SalesOpportunityListPage'))
+const OpportunityStagePage = lazy(() => import('./pages/settings/OpportunityStagePage'))
 const DashboardPage = lazy(() => import('./pages/stats/DashboardPage'))
 const TeamLeaderboardPage = lazy(() => import('./pages/stats/TeamLeaderboardPage'))
 const ReportCenterPage = lazy(() => import('./pages/reports/ReportCenterPage'))
@@ -187,6 +189,7 @@ const MENU_I18N_KEYS: Record<string, string> = {
   '/workflows/logs': 'workflowLogs',
   '/approval-flows': 'approvalFlows',
   '/sla-policies': 'slaPolicies',
+  '/opportunity-stages': 'opportunityStages',
   '/sla-calendar': 'slaCalendar',
   '/contract-templates': 'contractTemplates',
   '/settings/custom-fields': 'customFields',
@@ -349,7 +352,8 @@ function Shell() {
       path.startsWith('/approval-flows') ||
       path.startsWith('/settings/custom-fields') ||
       path.startsWith('/contract-templates') ||
-      path.startsWith('/sla-policies')
+      path.startsWith('/sla-policies') ||
+      path.startsWith('/opportunity-stages')
     ) {
       next.push('g-config')
     }
@@ -463,6 +467,7 @@ function Shell() {
     { path: '/workflows/logs', name: '工作流日志', icon: <AuditOutlined /> },
     { path: '/approval-flows', name: '审批流配置', icon: <AuditOutlined /> },
     { path: '/sla-policies', name: 'SLA 策略', icon: <AuditOutlined /> },
+    { path: '/opportunity-stages', name: '商机阶段', icon: <DeploymentUnitOutlined /> },
     { path: '/contract-templates', name: '合同模板', icon: <FileTextOutlined /> },
     { path: '/settings/custom-fields', name: '自定义字段', icon: <SettingOutlined /> },
     { path: '/custom-objects', name: '自定义对象', icon: <ApartmentOutlined /> },
@@ -490,14 +495,17 @@ function Shell() {
   ]
   const toItems = (routes: typeof menuRoutes) =>
     routes.map((r) => {
+      // 060：菜单文案由 i18n key 驱动。
+      // 未映射时**不得**回退成 `t('menu.' + 中文名)`——那会渲染出字面量 `menu.自定义报表`，
+      // 比不翻译更糟。此处直接显示 route 自带的中文名（诚实降级）。全部 57 条路由目前都有映射，
+      // 该分支只在新增路由漏配 MENU_I18N_KEYS 时才会走到，并由 scripts/check-i18n.mjs 的
+      // 路由覆盖检查在 CI 里拦下。
+      const menuKey = MENU_I18N_KEYS[r.path]
+      const label = menuKey ? t(`menu.${menuKey}`) : r.name
       const item: MenuItemLike = {
         key: r.path,
         icon: r.icon,
-        // 060：菜单文案 i18n key 驱动（未映射回退中文 name）
-        label:
-          'planned' in r && r.planned
-            ? `${t(`menu.${MENU_I18N_KEYS[r.path] ?? r.name}`)}${t('menu.planned')}`
-            : t(`menu.${MENU_I18N_KEYS[r.path] ?? r.name}`),
+        label: 'planned' in r && r.planned ? `${label}${t('menu.planned')}` : label,
       }
       if ('planned' in r && r.planned) {
         item.disabled = true
@@ -513,50 +521,12 @@ function Shell() {
       return [item]
     })
   const statsMenuItem = { key: statsRoute.path, icon: statsRoute.icon, label: statsRoute.name }
-  // 028：按角色可见菜单过滤（ADMIN 全量；其他角色按 user.menus；path→menuKey 映射兼容多段路径）
+  // 028：按角色可见菜单过滤（ADMIN 全量；其他角色按 user.menus）。
+  // 1.5：path → menuKey 的映射挪到 constants/menuKeys.ts——原先那张 40 条的手写表把
+  // /invoices 归并成 'orders'、/visits 归并成 'sales'（MENU_TREE 里根本没这个 key），
+  // 结果是「勾了也看不到菜单」。现在默认实现与 MENU_TREE 逐字对齐，并由
+  // constants/menuKeys.test.ts 拿后端 RoleConstants.java 反过来校验。
   const visibleMenus = user?.role === 'ADMIN' ? undefined : new Set(user?.menus ?? [])
-  const menuKeyOf = (path: string) => {
-    const map: Record<string, string> = {
-      '/stats': 'stats',
-      '/customers/at-risk': 'at-risk',
-      '/stats/leaderboard': 'leaderboard',
-      '/sales-opportunities': 'sales-opportunities',
-      '/settings/custom-fields': 'custom-fields',
-      '/contract-templates': 'contract-templates',
-      '/recycle-bin': 'recycle-bin',
-      '/sla-policies': 'sla-policies',
-      '/audit-logs': 'audit-logs',
-      '/announcements': 'announcements',
-      '/customers': 'customers',
-      '/customer-merge': 'customers',
-      '/leads': 'leads',
-      '/contacts': 'contacts',
-      '/opportunities': 'opportunities',
-      '/quotes': 'quotes',
-      '/visits': 'sales',
-      '/contracts': 'contracts',
-      '/orders': 'orders',
-      '/invoices': 'orders',
-      '/tasks': 'tasks',
-      '/products': 'products',
-      '/marketing': 'marketing',
-      '/marketing/roi': 'marketing',
-      '/marketing/email': 'marketing',
-      '/online-forms': 'marketing',
-      '/tickets': 'tickets',
-      '/knowledge': 'knowledge',
-      '/exports': 'exports',
-      '/reports': 'reports',
-      '/suggestions': 'suggestions',
-      '/users': 'users',
-      '/departments': 'departments',
-      '/workflows': 'workflows',
-      '/workflows/logs': 'workflows',
-      '/approvals': 'workflows',
-      '/approval-flows': 'workflows',
-    }
-    return map[path] ?? path.replace(/^\//, '')
-  }
   const filterByMenus = (routes: typeof menuRoutes) =>
     visibleMenus
       ? routes.filter((r) => ('planned' in r && r.planned) || visibleMenus.has(menuKeyOf(r.path)))
@@ -815,6 +785,7 @@ export default function App() {
         <Route path="tickets/:id" element={<TicketDetailPage />} />
         <Route path="knowledge" element={<KnowledgeArticleListPage />} />
         <Route path="sla-policies" element={<SlaPolicyListPage />} />
+        <Route path="opportunity-stages" element={<OpportunityStagePage />} />
         <Route path="sla-calendar" element={<SlaCalendarPage />} />
         <Route path="open-platform" element={<OpenPlatformPage />} />
         <Route path="field-permissions" element={<FieldPermissionPage />} />

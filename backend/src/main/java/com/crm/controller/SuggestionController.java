@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,11 +15,22 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** AI 智能建议接口（022-ai-assistant，contracts/smart-suggestions.md）。 */
+/**
+ * AI 智能建议接口（022-ai-assistant，contracts/smart-suggestions.md）。
+ *
+ * <p><b>1.5：类级 {@code @PreAuthorize("hasAnyRole('ADMIN','SALES')")} 撤除，不设权限码。</b>与通知中心同一形态： ①
+ * 建议列表的全部数据来自 {@code CustomerService.atRiskCustomers} / {@code FollowUpMapper} / {@code
+ * SalesOpportunityMapper} / {@code LeadMapper}，前三者本身已按数据范围过滤，第四条线索同样受角色的可见范围 约束——撤门不会让任何人看到范围外的数据；②
+ * 字典里没有任何 {@code suggestion:*} 码，也没有"智能建议"之外可对应的 菜单动作，硬造一个只会多出一个没有承诺可兑现的开关；③ 那道门按角色名字拦人，把 SUPPORT /
+ * SUPPORT_* 与 081 的 SALES_* 全部挡在「智能建议」菜单（V46/V75 已授给 ADMIN / SALES / SALES_MANAGER /
+ * SALES_REP）之外——菜单点得进、 接口恒 403。
+ *
+ * <p>{@code ignore} 写的是 Redis 里<b>按用户</b>的忽略集合——键 {@code ai:ignore:{userId}:}，成员 {@code
+ * entityType:entityId}，读写都用 {@code SecurityUtil.currentUserId()}——不产生跨用户副作用，因此同样不需要权限码。
+ */
 @RestController
 @RequestMapping("/api/v1/suggestions")
 @Tag(name = "智能建议")
-@PreAuthorize("hasAnyRole('ADMIN','SALES')")
 public class SuggestionController {
 
   private final SuggestionService suggestionService;

@@ -125,6 +125,9 @@ public class UserService {
       user.setDisplayName(req.getDisplayName().trim());
     }
     if (StringUtils.hasText(req.getRole())) {
+      // 创建路径一直有这道校验，更新路径没有——它此前靠 DTO 上的 @Pattern 拦着，
+      // 而那条正则只认 3 个内建角色，等于把 081 新增的 10 个角色挡在编辑之外。
+      validateRole(req.getRole());
       user.setRole(req.getRole());
     }
     if (req.getEnabled() != null) {

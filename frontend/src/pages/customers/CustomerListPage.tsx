@@ -44,7 +44,8 @@ import { fetchUsers } from '../../services/userService'
 import { fetchCampaigns } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
-import { hasPerm } from '../../hooks/usePermission'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import { extractCfParams, useCustomFieldFilterColumns } from '../../hooks/useCustomFieldFilters'
 import type { Customer } from '../../types/customer'
 import { fromCustomFieldValues, toCustomFieldPayload } from '../../utils/customField'
@@ -81,12 +82,14 @@ export default function CustomerListPage() {
   const [toolbarBusy, setToolbarBusy] = useState(false)
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
-  // 028：操作权限（ADMIN 恒真）
-  const canCreate = hasPerm('customer:create', user)
-  const canUpdate = hasPerm('customer:update', user)
-  const canDelete = hasPerm('customer:delete', user)
-  const canTransfer = hasPerm('customer:transfer', user)
-  const canImport = hasPerm('customer:import', user)
+  // 028：操作权限（ADMIN 由 hasPerm 短路放行，不需要再 || isAdmin）
+  const can = usePerms([
+    PERMS.customerCreate,
+    PERMS.customerUpdate,
+    PERMS.customerDelete,
+    PERMS.customerTransfer,
+    PERMS.customerImport,
+  ])
 
   useEffect(() => {
     void fetchCampaigns({ page: 1, pageSize: 100 }).then((res) =>
@@ -133,10 +136,10 @@ export default function CustomerListPage() {
     try {
       if (editing) {
         await updateCustomer(editing.id, { ...payload, version: editing.version })
-        message.success(t('message.saved'))
+        message.success(t('common.message.saved'))
       } else {
         await createCustomer(payload)
-        message.success(t('message.success'))
+        message.success(t('common.message.success'))
       }
       setModalOpen(false)
       reload()
@@ -150,20 +153,20 @@ export default function CustomerListPage() {
   const onDelete = async (row: Customer) => {
     try {
       await deleteCustomer(row.id)
-      message.success(t('message.deleted'))
+      message.success(t('common.message.deleted'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '删除失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
   const onClaim = async (row: Customer) => {
     try {
       await claimCustomer(row.id)
-      message.success(t('message.claimed'))
+      message.success(t('common.message.claimed'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '领取失败'))
+      message.error(extractErrorMessage(err, t('common.message.failed')))
     }
   }
 
@@ -188,7 +191,12 @@ export default function CustomerListPage() {
     const users = await fetchUsers({ page: 1, pageSize: 100 })
     setUserOptions(
       users.items
-        .filter((u) => u.role !== 'SUPPORT')
+        // 负责人候选排除整个客服族（SUPPORT / SUPPORT_MANAGER / SUPPORT_AGENT）。改造前写的是
+        // `u.role !== 'SUPPORT'`，只认那一个字面量角色名——081 之后客服改成 SUPPORT_MANAGER /
+        // SUPPORT_AGENT，这个判断就再也筛不掉客服了。按前缀匹配才匹配得上「客服不做客户负责人」的本意。
+        // 后端没有对应规则（CustomerService / CustomerShareService 都不按角色筛负责人），
+        // 所以这只是下拉框的**建议性过滤**，不是强制——接口本身不拦。
+        .filter((u) => !u.role.startsWith('SUPPORT'))
         .map((u) => ({ value: u.id, label: u.displayName || u.username })),
     )
     transferForm.resetFields()
@@ -263,12 +271,12 @@ export default function CustomerListPage() {
           <a key="claim" onClick={() => onClaim(row)}>
             <UserAddOutlined /> {t('pages.customer.list.claim')}
           </a>
-        ) : canUpdate ? (
+        ) : can[PERMS.customerUpdate] ? (
           <a key="edit" onClick={() => openEdit(row)}>
             <EditOutlined /> {t('pages.customer.list.edit')}
           </a>
         ) : null,
-        canDelete ? (
+        can[PERMS.customerDelete] ? (
           <Popconfirm
             key="delete"
             title={t('pages.customer.list.deleteConfirm', { name: row.name })}
@@ -332,13 +340,16 @@ export default function CustomerListPage() {
         pagination={{ defaultPageSize: 20 }}
         cardProps={{ style: { borderRadius: 10 } }}
         rowSelection={
+          // 行选择只服务于「批量转移」，而 POST /customers/batch-transfer 在 CustomerPoolController 上
+          // 仍是 @PreAuthorize("hasRole('ADMIN')")，字典里没有对应权限码——保留角色判断与后端一致。
+          // 后果：非管理员即使被授予 customer:transfer 也点不动「转移」（选不中任何行）。
           isAdmin && view !== 'pool'
             ? { selectedRowKeys: selectedKeys, onChange: setSelectedKeys }
             : undefined
         }
         request={fetchByView}
         toolBarRender={() => [
-          ...(canImport
+          ...(can[PERMS.customerImport]
             ? [
                 <Upload key="import" showUploadList={false} beforeUpload={(f) => onImport(f as unknown as File)} accept=".xlsx">
                   <Button icon={<UploadOutlined />} loading={toolbarBusy}>{t('pages.customer.list.import')}</Button>
@@ -353,12 +364,14 @@ export default function CustomerListPage() {
           </Button>,
           ...(isAdmin
             ? [
+                // POST /customers/pool/scan 在 CustomerPoolController 上仍是 @PreAuthorize("hasRole('ADMIN')")，
+                // 字典里没有对应权限码——保留角色判断与后端一致。
                 <Button key="scan" loading={toolbarBusy} onClick={() => void onScan()}>
                   {t('pages.customer.list.poolScan')}
                 </Button>,
               ]
             : []),
-          ...(canTransfer
+          ...(can[PERMS.customerTransfer]
             ? [
                 <Button
                   key="transfer"
@@ -370,7 +383,7 @@ export default function CustomerListPage() {
                 </Button>,
               ]
             : []),
-          ...(canCreate
+          ...(can[PERMS.customerCreate]
             ? [
                 <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                   {t('pages.customer.list.create')}

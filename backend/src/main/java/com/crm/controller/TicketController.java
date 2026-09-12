@@ -8,6 +8,7 @@ import com.crm.dto.ticket.TicketReplyResponse;
 import com.crm.dto.ticket.TicketRequest;
 import com.crm.dto.ticket.TicketResponse;
 import com.crm.dto.ticket.TicketTransitionRequest;
+import com.crm.security.RequirePermission;
 import com.crm.service.CustomFieldFilterSupport;
 import com.crm.service.TicketService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,7 +17,6 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,11 +28,21 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 工单接口（015，FR-C01~C05）。 */
+/**
+ * 工单接口（015，FR-C01~C05）。
+ *
+ * <p><b>1.5：类级 {@code @PreAuthorize("hasAnyRole('ADMIN','SALES','SUPPORT')")} 与各写方法上的 {@code
+ * hasAnyRole('ADMIN','SUPPORT')} 已移除。</b>本 Controller 是「粗粒度角色门」最严重的受害
+ * 者：它挡住的正是**客服本身**——SUPPORT_MANAGER / SUPPORT_AGENT 在全部工单接口上恒 403，而这两个 角色的菜单里有「工单管理」、权限列表里也已经有
+ * ticket:create/update/delete/assign/reply。 也就是说 081 的客服角色模型在本模块是完全不可用的。
+ *
+ * <p>写操作改挂动作码，读操作挂 {@code ticket:read}（理由见 {@code RoleConstants} 工单组注释：工单
+ * 没有数据范围过滤，读留空等于对全体登录用户公开）。{@code POST /{id}/transition} 挂的是 {@code ticket:update}——状态流转就是改工单，字典里的
+ * {@code ticket:approve} 在本模块没有对应动作。
+ */
 @RestController
 @RequestMapping("/api/v1/tickets")
 @Tag(name = "客户服务")
-@PreAuthorize("hasAnyRole('ADMIN','SALES','SUPPORT')")
 public class TicketController {
 
   private final TicketService ticketService;
@@ -45,6 +55,7 @@ public class TicketController {
   }
 
   @GetMapping
+  @RequirePermission("ticket:read")
   @Operation(summary = "工单分页列表（关键字/状态/优先级/处理人/客户/自定义字段筛选）")
   public ApiResponse<PageResult<TicketResponse>> page(
       @RequestParam(required = false) String keyword,
@@ -64,12 +75,14 @@ public class TicketController {
   }
 
   @GetMapping("/{id}")
+  @RequirePermission("ticket:read")
   @Operation(summary = "工单详情（含 SLA 状态刷新）")
   public ApiResponse<TicketResponse> detail(@PathVariable Long id) {
     return ApiResponse.ok(ticketService.detail(id));
   }
 
   @GetMapping("/{id}/replies")
+  @RequirePermission("ticket:read")
   @Operation(summary = "工单回复时间线（分页）")
   public ApiResponse<PageResult<TicketReplyResponse>> replies(
       @PathVariable Long id,
@@ -80,14 +93,14 @@ public class TicketController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
+  @RequirePermission("ticket:create")
   @Operation(summary = "创建工单（ADMIN/SUPPORT，自动计算 SLA）")
   public ApiResponse<TicketResponse> create(@Valid @RequestBody TicketRequest request) {
     return ApiResponse.ok(ticketService.create(request));
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
+  @RequirePermission("ticket:update")
   @Operation(summary = "编辑工单（ADMIN/SUPPORT）")
   public ApiResponse<TicketResponse> update(
       @PathVariable Long id, @Valid @RequestBody TicketRequest request) {
@@ -95,7 +108,7 @@ public class TicketController {
   }
 
   @PostMapping("/{id}/assign")
-  @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
+  @RequirePermission("ticket:assign")
   @Operation(summary = "分配处理人（ADMIN/SUPPORT）")
   public ApiResponse<TicketResponse> assign(
       @PathVariable Long id, @Valid @RequestBody TicketAssignRequest request) {
@@ -103,7 +116,7 @@ public class TicketController {
   }
 
   @PostMapping("/{id}/reply")
-  @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
+  @RequirePermission("ticket:reply")
   @Operation(summary = "追加回复（ADMIN/SUPPORT）")
   public ApiResponse<TicketReplyResponse> reply(
       @PathVariable Long id, @Valid @RequestBody TicketReplyRequest request) {
@@ -111,7 +124,7 @@ public class TicketController {
   }
 
   @PostMapping("/{id}/transition")
-  @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
+  @RequirePermission("ticket:update")
   @Operation(summary = "状态流转（OPEN→IN_PROGRESS→RESOLVED→CLOSED）")
   public ApiResponse<TicketResponse> transition(
       @PathVariable Long id, @Valid @RequestBody TicketTransitionRequest request) {
@@ -119,7 +132,7 @@ public class TicketController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
+  @RequirePermission("ticket:delete")
   @Operation(summary = "删除工单（逻辑删除）")
   public ApiResponse<Void> delete(@PathVariable Long id) {
     ticketService.delete(id);

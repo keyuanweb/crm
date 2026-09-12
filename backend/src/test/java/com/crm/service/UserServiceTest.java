@@ -52,7 +52,10 @@ class UserServiceTest {
         .thenReturn(
             java.util.List.of(
                 new com.crm.dto.role.RoleOption(1L, "ADMIN", "系统管理员", "ALL"),
-                new com.crm.dto.role.RoleOption(2L, "SALES", "销售", "SELF")));
+                new com.crm.dto.role.RoleOption(2L, "SALES", "销售", "SELF"),
+                // 081 新增的预置角色。它在本类里的唯一用途是证明「可选角色」以角色表为准，
+                // 而不是 DTO 上那条只认 3 个内建角色的正则。
+                new com.crm.dto.role.RoleOption(3L, "SALES_MANAGER", "销售总监", "DEPT")));
     // 真实的 CacheManager（不是 mock）：本类的失效语义是"clear() 真的发生了"，
     // 用 ConcurrentMapCacheManager 让断言落在真实缓存状态上，而不是落在"调过某个方法"上。
     service =
@@ -164,6 +167,49 @@ class UserServiceTest {
         .isInstanceOf(BusinessException.class)
         .extracting(e -> ((BusinessException) e).getErrorCode())
         .isEqualTo(ErrorCode.FORBIDDEN);
+  }
+
+  @Test
+  @DisplayName("改角色：081 新增的预置角色可改（不再被 DTO 上的三角色正则拒掉）")
+  void updateAcceptsBuiltInRoleBeyondLegacyThree() {
+    User user = new User();
+    user.setId(9L);
+    user.setUsername("rep01");
+    user.setRole("SALES_REP");
+    user.setEnabled(true);
+    user.setTokenVersion(0);
+    when(userMapper.selectById(9L)).thenReturn(user);
+    when(userMapper.updateById(any())).thenReturn(1);
+
+    UserUpdateRequest req = new UserUpdateRequest();
+    req.setRole("SALES_MANAGER");
+    req.setVersion(0);
+
+    service.update(9L, req);
+
+    // 断言落在"真的写进去了"，而不是"没抛异常"——后者在 update() 把 role 丢掉时同样成立
+    assertThat(user.getRole()).isEqualTo("SALES_MANAGER");
+  }
+
+  @Test
+  @DisplayName("改角色：角色表里没有的角色抛 BAD_REQUEST")
+  void updateRejectsUnknownRole() {
+    User user = new User();
+    user.setId(9L);
+    user.setUsername("rep01");
+    user.setRole("SALES_REP");
+    user.setEnabled(true);
+    user.setTokenVersion(0);
+    when(userMapper.selectById(9L)).thenReturn(user);
+
+    UserUpdateRequest req = new UserUpdateRequest();
+    req.setRole("SALES_REPRESENTATIVE"); // 拼错一个词
+    req.setVersion(0);
+
+    assertThatThrownBy(() -> service.update(9L, req))
+        .isInstanceOf(BusinessException.class)
+        .extracting(e -> ((BusinessException) e).getErrorCode())
+        .isEqualTo(ErrorCode.BAD_REQUEST);
   }
 
   @Test
