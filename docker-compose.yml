@@ -35,6 +35,13 @@ services:
       - CRM_MAIL_USERNAME=${CRM_MAIL_USERNAME:-}
       - CRM_MAIL_PASSWORD=${CRM_MAIL_PASSWORD:-}
       - CRM_MAIL_FROM=${CRM_MAIL_FROM:-crm@example.com}
+      # 出站地址白名单（SSRF 防护，FR-G13）：**留空 = 不放行任何出站目标，公网也不放行**，
+      # 即 Webhook 回调与集成渠道在编排下默认全部不可用。需要回调外部服务时在 .env 中填写，
+      # 例：CRM_OUTBOUND_ALLOWED_HOSTS=hooks.example.com,10.0.0.8
+      # 改造前本编排未透出该变量，而 compose 只传 environment 列表内的变量 —— 于是
+      # 属性虽然存在、默认值也安全，却在编排下**根本无法配置**：合法集成无路可走，
+      # 要开只能改镜像内的 application.yml。属功能缺口，不只是可发现性问题。
+      - CRM_OUTBOUND_ALLOWED_HOSTS=${CRM_OUTBOUND_ALLOWED_HOSTS:-}
       # CORS 配置：编排下前端由 nginx 在 80 端口提供，浏览器 Origin 是 http://localhost。
       # 改造前这里是开发服务器端口 5173 —— 该端口在编排下没有任何服务监听，
       # 于是同源的页面请求被后端以跨域来源拒绝（同源策略下浏览器仍会带上 Origin）。

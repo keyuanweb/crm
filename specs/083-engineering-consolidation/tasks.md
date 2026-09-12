@@ -776,3 +776,77 @@ Task: "新增 backend/src/test/java/com/crm/integration/PerformanceRegressionIT.
 - 本规格**不产 `contracts/`**（与 `003-system-hardening` 同形制）；唯一契约动件是 T042 对 055 既有契约文件的更新
 - 每个任务或逻辑组完成后提交
 - 可在任一 Checkpoint 停下独立验证
+
+---
+
+## Phase 9: Convergence
+
+> 由 `/speckit-converge` 于 2026-09-12 追加（`/speckit-implement` 完成后复核）。**只追加，不改动上方任何已有任务、相位编号或勾选状态**；`spec.md` 与 `plan.md` 未被本命令修改，需更正之处以任务形式列在此处。
+
+- [X] T063 **CRITICAL**：为定时导出的三个写／执行端点补服务端归属校验——`ScheduledExportServiceImpl.updateStatus`（:135）、`deleteScheduledExport`（:150）、`executeNow`（:177）目前均以 `selectById` 取出实体后直接操作，**未经** `requireOwned`；而同类读取三处（:117／:131／:165）已校验。后果是持 `export:scheduled` 权限码的用户可改状态、软删、触发**他人**的定时导出任务，其唯一拦截是"界面只展示本人任务"——正是章程原则三点名排除的"仅隐藏 UI 元素绝不构成访问控制"。per FR-G16 / 章程原则三 (contradicts)
+
+  **实施记录（2026-09-12）**——三处裸 `selectById` + 存在性检查改为 `requireOwned(id)`；`requireOwned` 的 javadoc 补记覆盖面（原先只服务三处读取）与下述契约细化。行为变更**仅此一处**。
+
+  1. **`executeNow` 的判定顺序是有意的**：归属先于"是否 ACTIVE"。反序会让非属主从错误类型的差异反推任务状态——可执行时走完导出（200）、不可执行时抛 `IllegalStateException`（映 400），两者之差即"该任务存在且当前是活动的"。任务状态本身也是他人信息。
+
+  2. **一处有意的契约细化，已显式钉住**：这三个端点"任务不存在"时原抛 `IllegalArgumentException`，被 `GlobalExceptionHandler.java:50` 映为 **400 通用错误（无错误码）**；同资源的读端点 `getScheduledExport` 早已是 **404 `EXPORT_NOT_FOUND`**。改用 `requireOwned` 后四者统一为 404。**这是对既有契约的可观测改动，不是静默修改**：新增 `ScheduledExportServiceTest.writeEndpointsReportNotFound` 逐个端点钉住该语义，日后有人改回 400 会立即失败。若产品上要保留 400，应改的是读端点而非此处——但读端点先于本任务存在且已被 3 条 IT 覆盖，反向调整的代价更大。
+
+  3. **先写红测试的实测（章程原则四）**：4 条单元用例先于修复编写，修复前 4 条全红，且**红的原因正是漏洞本身**——`updateStatus`／`deleteScheduledExport` 是"异常都没抛、越权写真的执行了"（`Expected BusinessException to be thrown, but nothing was thrown`），`executeNow` 是一路走到导出执行才 NPE。不是断言写错导致的假红。
+
+  4. **IT 层补的是另一半**：`SecurityHardeningIT` 原先已覆盖三条读路径的越权（`:135` 详情／`:155` 执行历史／`:201,206` 列表），**唯独没有三条写路径**——这正是缺口长期无人发现的原因（覆盖形状与缺陷形状恰好错开）。新增 3 条 IT，每条断言两件事：①请求被拒；②**副作用确实没有发生**（按属主身份回读状态／执行记录）。只断言①不够：越权请求"先改完再返回错误"同样满足①，而破坏已经落地。
+
+  5. **反向验证（T020 立下的规矩，本次对新写的 IT 执行）**：新写的 IT 写于修复之后，其自身的区分度不能靠断言内容自证。故临时把 `updateStatus` 回退为原实现（打 `TEMP-REVERT-FOR-DISCRIMINATION-CHECK` 标记），单跑 `scheduledExportStatusMustNotBeWritableByOthers` → **红**，报文 `越权写入：用户 3 改动了用户 2 的定时导出 1（状态 200）`——即修复前跨用户改状态确实返回 200。恢复后复查标记已清零（`grep -c TEMP-REVERT` = 0）。
+     > 顺带记一条易误读的现象：单跑 `failsafe:integration-test` 目标而**不带** `failsafe:verify` 时，用例失败但 Maven 仍报 `BUILD SUCCESS`——判定用例成败要看 `Tests run` 行，不能看构建结果。
+
+  6. **实测**：`ScheduledExportServiceTest` **15/15 绿**（11 存量 + 4 新增，含 4 条新用例的修复前红→修复后绿）；`SecurityHardeningIT` **45/45 绿**（42 存量 + 3 新增）。存量 11 条未改一行即通过——因 `setUp` 里任务属主本就是 `1L`、当前登录用户也是 `1L`，即原有用例一直隐式满足归属；这从侧面说明**单元测试无法发现本缺口**（它们从不构造"他人任务"），发现它必须靠 IT 或代码审阅。
+
+- [X] T064 在 `backend/src/main/resources/application.yml` 与 `.env.example` 为 `crm.outbound.allowed-hosts` 补一行**带注释**的声明（默认留空 = 全拒任何出站目标，含公网；合法内网集成须显式列主机）。当前该属性只作为 `OutboundUrlValidator` 的 `@Value` 默认值存在，三处可部署配置均无声明，运维无从得知准确拼写 per FR-G13 / data-model.md §4 (partial)
+
+  **实施记录（2026-09-12）**——三处声明，其中第三处**超出 T064 字面范围**，理由见下。
+
+  1. `application.yml` 的 `crm:` 块新增 `outbound.allowed-hosts: ${CRM_OUTBOUND_ALLOWED_HOSTS:}`（置于 `sla:` 之后，附 7 行注释：默认语义、后果、示例、判定顺序所在类）。
+  2. `.env.example` 新增「出站地址白名单（SSRF 防护）」小节，含**留空即全拒**的告警与示例值。
+  3. **`docker-compose.yml` 的 `crm-backend.environment` 新增 `- CRM_OUTBOUND_ALLOWED_HOSTS=${CRM_OUTBOUND_ALLOWED_HOSTS:-}`**——这处不在 T064 字面范围（原文只说两个文件），但缺了它本任务在编排场景下等于没做：compose **只传 `environment` 列表内的变量**，而改造前该文件对出站相关变量是 **0 处透出**（`grep -n "OUTBOUND\|outbound" docker-compose.yml` 无输出），因此 `crm.outbound.allowed-hosts` 在编排下**根本无法配置**——要开只能进容器改 `application.yml`。
+
+     > **为什么这是功能缺口而非仅"可发现性问题"**：该属性默认值是 `""`，而 `OutboundUrlValidator` 的语义是**空 = 拒绝全部，公网地址同样拒绝**。默认 fail-closed 本身是对的（安全上没有问题，本次改动**未放松任何限制**），但组合起来的效果是：按 `INSTALL.md` 走 compose 部署的用户，Webhook 回调与集成渠道**全链路不可用**，且没有任何有文档的开关能打开它。T064 原文的措辞（"运维无从得知准确拼写"）只描述了缺口的一半，更重的那一半是"知道拼写也无处填"。已按 T062 活文档规则同步回改 `spec.md`／本任务记录，未改动 `spec.md` 的历史快照节。
+
+  4. **验证方式与已验证/未验证的边界**：
+     - 已做：用 snakeyaml 对两个 YAML 逐个 `load()` 确认解析通过（`java -cp <snakeyaml-2.2.jar>` 单文件运行）——`crm` 键集现为 `[contract, pool, captcha, mail, scheduler, sla, outbound]`，`outbound = {allowed-hosts=${CRM_OUTBOUND_ALLOWED_HOSTS:}}`；compose 的 `environment` 现 19 项且含新行、项内缩进正确。
+     - **未做**：**没有**执行 `docker compose config`。本机无 Docker，故 `${CRM_OUTBOUND_ALLOWED_HOSTS:-}` 的**变量插值**只经过语法层检查，未经 compose 自己解析。插值写法与相邻 8 行（`CRM_MAIL_*`）逐字同构，风险低，但**不等于已验证**。
+     - 与 T065 同一条限制：本任务是**声明与透出**，不含运行期行为的实测；"留空确实全拒、填了确实放行"的端到端行为仍归 T067（或 C 块 SSRF IT 的断言）承担。
+
+  5. **未处理、仅登记（属 1.3 的范围，非本任务）**：`docker-compose.yml` 只透出 `CRM_SCHEDULER_EXPORT_CRON` 与 `CRM_SCHEDULER_RETENTION_CRON`（`:30-31`），**未透出 `CRM_SCHEDULER_SLA_CRON`**；而 `72a74e0`（1.3，SLA 升级作业）已把它写进 `.env.example` 与 `application.yml`。缺口形状同上，**但严重度不同**：该属性在 `application.yml` 的默认值 `0 */10 * * * ?` 与 `.env.example` 所载一致，即编排部署**仍会正常执行** SLA 升级，只是**无法改周期**。与出站那一处（默认 fail-closed 导致功能不可用）不是同一量级，故未顺手一起改——1.3 是另一会话的在飞区域，且它的"作业是否真按周期跑"自有其验收。登记在此以免这个同类缺口随本次修复的完成而被默认为已清零。
+- [X] T065 在 `INSTALL.md` 补"首次启动流程说明"，覆盖 FR-G19–G21 的三处部署变更及其理由：迁移目录不再挂为数据库初始化脚本目录（字母序与版本化迁移冲突）、前端由 `frontend/Dockerfile` 在镜像内构建产出（不再依赖不随仓库交付的 `frontend/dist`）、跨域允许来源为编排下的 `http://localhost`。当前这些说明只存在于 `docker-compose.yml` 的注释里 per plan.md 文件清单 (missing)
+
+  **实施记录（2026-09-12）**——`INSTALL.md` 新增「首次启动时发生了什么」小节（方式一内），含四步启动顺序表 + "三处容易踩空的地方"（对应①迁移目录不挂 initdb、②前端镜像内构建、③跨域来源为 `http://localhost`），每处都写明**机制**而非只写结论；目录补一条锚点；方式三「构建前端」加前向指引（避免有人反推出"compose 需要预构建 dist"）。
+
+  1. **顺带修掉三处同类过期事实（超出 T065 字面范围，此处登记）**：`INSTALL.md` 原文写"V1~V75，共 75 个迁移脚本"（:97）、"首次启动会自动创建全部 **75 张表**"（:233）、迁移清单止于 `V71~V75`（:246）。实测：迁移文件 **83 个、最大 V84、无 V72**（`ls V*.sql | wc -l` = 83；`git ls-files` 确认全部已跟踪，无未跟踪迁移）。这不修就会与新章节自相矛盾——新章节说"由 Flyway 执行全部迁移脚本建表"，紧接着的清单却只讲到 V75。
+     > **"75 张表"这个数字是删掉而非改写**：它是表数还是脚本数都无法从仓库核实（`CREATE TABLE` 的权威结果只存在于运行中的库），而它显然是从"75 个脚本"讹变来的。按 T062「活文档刷新为实测值」的规则，无法核实的数字不应换成另一个猜的数字——改为可核实的"迁移脚本数 + 末条版本号"。
+
+  2. **必读的限制：本节全部由静态资料写成，未经容器实跑验证。** 依据是 `docker-compose.yml`（含三处改动及其注释）、`application.yml`、`frontend/Dockerfile`，**不是**一次真实 `docker-compose up` 的观察。故：
+     - 启动顺序表中"判据"一列（`healthy`／Flyway 日志行／`Started CrmApplication`／`curl -I` 200）是按编排的 `depends_on`、`healthcheck` 与既有文档推定的**预期**，未逐条实测。
+     - "干净检出只会看到空白页，且没有任何报错"是 **063/本节所述改造前的失效现象**，来自本规格 T0xx 对旧编排的分析转述，非我在本环境复现（本机无 Docker）。
+     - 本机无 Docker，SC-G06 至今只做到静态核对；这份文档的**运行侧证据仍由 T067 承担**，不得把它当作已执行过。
+
+  3. 若 T067 在具备 Docker 的环境实跑后与本节的预期不符，**以实跑为准并回改本节**——本节是文档，不是规格；不得为了保住文档措辞而解释偏差。
+
+- [X] T066 刷新覆盖率证据链中的**过期状态陈述**：`pom.xml:273-278` 的复现说明仍写"当前有 3 例单元失败属已裁决转出的范围"，而工作区实测 surefire 为 `488 run / 0F / 0E`，`mvn -B verify` 已能走到 `post-integration-test`（failsafe 与 jacoco 均实际执行）；同步更正 `spec.md` T018 段把 3 例单元失败列为"需产品语义决策并转出"的陈述——实测表明它们是 mock 未复现 MyBatis-Plus 主键回填、`anyString()` 不匹配 `null`、以及一条从未执行过的 `times(2)` 断言，属测试契约缺陷而非产品决策。按 T062 确立的"活文档刷新为实测值、历史日志保留快照"规则，只改活文档 per FR-G03 / T062 活文档规则 (contradicts)
+
+  **实施记录（2026-09-12）**——两处活文档均按实测值刷新，被推翻的历史陈述按 T062 规则**保留为快照**、一处未删。
+
+  1. **`backend/pom.xml` 覆盖率注释的复现说明重写**：删除"当前有 3 例单元失败属已裁决转出的范围"，改为记录这 3 例的真实性质（测试契约缺陷，非产品决策）、当前 surefire 实测 `488 / 0F / 0E`，以及"卡点由 `test` 相位移至 `verify` 相位"。
+
+  2. **`specs/083-engineering-consolidation/spec.md` 新增「复核与更正」节**，逐条更正 T018 快照的三处失效陈述（3 例单元测试的性质、`SystemEnhancementIT` 的决策已作出、`export_job.export_format` 的生产影响已实测复核），并声明"凡与上节冲突以本节为准"。原快照一字未删。
+
+  3. **T066 自身的一处前提不精确，已据实测纠正（重要）**：T066 原文写"`mvn -B verify` 已能走到 `post-integration-test`（failsafe 与 jacoco 均实际执行）"。前半句成立——`jacoco:report` 绑在 `post-integration-test`，在 `verify` 相位之前，确实会生成；后半句对 `jacoco:check` **不成立**——它同样在 `verify` 相位、且声明在 failsafe 之后，而 `failsafe:verify` 当前有 4 例失败即中止构建，故**覆盖率门禁至今仍未被执行过**。这一点必须写明：若照原文写成"failsafe 与 jacoco 均实际执行"，会给后来者一个"门禁已生效"的假象，比原来的过期说明更危险。
+     > **反向实验（已执行）**：`mvn -B failsafe:integration-test failsafe:verify help:evaluate … -Dit.test=OpportunityIT`（该 IT 含 1 例已知失败）→ `exit=1`，日志中 goal 横幅**只有** `failsafe:integration-test` 与 `failsafe:verify` 两条，命令行上排第三的 `help:evaluate` 一次都没执行（`grep -c "help:evaluate\|help-maven-plugin"` = 0）。即"`failsafe:verify` 失败即中止后续目标"是实测结论，不是按语义推的；`jacoco:check` 与之同相位且声明更靠后，同理不会被执行。
+     > 探针本身也踩过一次坑，留档以免重蹈：首次把探针输出写成 `grep "PROBE-NEXT-GOAL-RAN"`——那是个人为构造的字符串，永不匹配，于是"没有输出"被误当成"目标未执行"的证据。**实际什么也没证明**（`help:evaluate` 打印的是版本号，被同一个 grep 过滤掉了）。改为统计 goal 横幅（`^\[INFO\] --- `）后才拿到真证据。
+
+  4. **本次更正后仍未消除的缺口**：覆盖率门禁要真正在持续集成中生效，前提是 failsafe 归零——或流水线显式带 `-Dmaven.test.failure.ignore=true` 并另设"失败数不得增加"的判据。该前提被剩余 4 例业务类失败阻塞，而它们各自需要产品决策（见本规格 `spec.md`「复核与更正」节末段），在本规格范围之外。
+
+  5. **补记（同日、提交前）：surefire 数由 488 复测为 537，两处活文档的写法随之调整。** 提交前重跑 `mvn -B test` 得 **537 / 0F / 0E**，高于本记录所写 488——差值来自并行会话落地的用例（1.4 的 i18n 防复发护栏），非本次改动引入。处理方式：
+     - `pom.xml` 注释与 `spec.md` 的 :171 均改为"当日 537／较早采样 488"，并**显式写明用例总数是时点采样、非契约，判据是失败与错误为 0**。
+     - 之所以要加这句而非只换数字：把裸计数写进文档正是本规格开头点名的失效模式——一个没人再核对、也不该被核对具体值的数字，下次失配时会被当成"文档又过期了"，而真正的判据（0 失败）反而被忽略。
+     - 本记录第 1 条中的 `488` 按 T062 规则**保留原样**（它是 2026-09-12 的时点记录），不追改。
+
+- [ ] T067 在**具备 Docker 的环境**按 `quickstart.md` 执行容器编排启动验证（干净检出 → `docker-compose up -d` → 首页返回非空白内容），并把实测结果回写 `quickstart.md`／`baseline.md`。当前环境无 Docker，SC-G06 自始至终**从未被执行**，FR-G19–G21 的改动至今只有静态证据 per SC-G06 (missing)

@@ -96,6 +96,15 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
    *
    * <p><b>为什么不做 ADMIN 例外</b>：FR-G16 要求"按当前登录用户限定范围"，未留例外；而管理员的可用性并未因此受损—— 授予 `export:scheduled`
    * 只决定"能不能用这个功能"，看不看得到他人的任务由这里决定。若确需跨用户查看， 应先有一条明确需求再开此口子，而不是在越权判定里顺手放行（那等于把本 FR 关掉的那类读取从管理侧重新打开）。
+   *
+   * <p><b>覆盖写／执行路径（T063，2026-09-12）</b>：本方法原先只服务三处读取（列表、详情、执行历史）。三个写／执行端点——{@code
+   * updateStatus}、{@code deleteScheduledExport}、{@code executeNow}——各自 {@code selectById}
+   * 后直接操作，只判"存在"不判"归属"；而权限码 {@code export:scheduled}
+   * 只回答"能不能用这个功能"，不回答"能不能动别人的任务"，于是唯一拦截退化为"界面只展示本人任务"。现已统一走本方法。
+   *
+   * <p><b>一处有意的契约细化</b>：这三个端点在"任务不存在"时原抛 {@link IllegalArgumentException}（全局处理器映为 400
+   * 通用错误、无错误码），现与同资源的读端点统一为 404 {@code EXPORT_NOT_FOUND}。属可观测的行为变更，已由 {@code
+   * ScheduledExportServiceTest.writeEndpointsReportNotFound} 钉住，非遗漏。
    */
   private ScheduledExport requireOwned(Long id) {
     ScheduledExport entity = scheduledExportRepository.selectById(id);
@@ -133,10 +142,7 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
 
   @Override
   public void updateStatus(Long id, String status) {
-    ScheduledExport entity = scheduledExportRepository.selectById(id);
-    if (entity == null) {
-      throw new IllegalArgumentException("Scheduled export not found: " + id);
-    }
+    ScheduledExport entity = requireOwned(id);
     entity.setStatus(status);
     if ("ACTIVE".equals(status)) {
       entity.setNextExecutionTime(calculateNextExecutionTime(entity.getCronExpression()));
@@ -148,10 +154,7 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
 
   @Override
   public void deleteScheduledExport(Long id) {
-    ScheduledExport entity = scheduledExportRepository.selectById(id);
-    if (entity == null) {
-      throw new IllegalArgumentException("Scheduled export not found: " + id);
-    }
+    ScheduledExport entity = requireOwned(id);
     entity.setStatus("DELETED");
     entity.setUpdatedAt(LocalDateTime.now());
     scheduledExportRepository.updateById(entity);
@@ -175,10 +178,10 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
 
   @Override
   public void executeNow(Long id) {
-    ScheduledExport entity = scheduledExportRepository.selectById(id);
-    if (entity == null) {
-      throw new IllegalArgumentException("Scheduled export not found: " + id);
-    }
+    // 归属判定必须排在"是否 ACTIVE"之前：否则非属主可从错误类型的差异（可执行 → 走完导出、
+    // 不可执行 → IllegalStateException 映成 400）反推该任务的当前状态，而任务状态本身也是
+    // 他人信息的一部分。越权判定一律先于任何与实体状态相关的分支。
+    ScheduledExport entity = requireOwned(id);
     if (!"ACTIVE".equals(entity.getStatus())) {
       throw new IllegalStateException("Scheduled export is not active: " + id);
     }
@@ -233,11 +236,7 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
       } catch (Exception mailEx) {
         String mailStatus = emailService.isConfigured() ? "EMAIL_FAILED" : "EMAIL_SKIPPED";
         execution.setEmailStatus(mailStatus);
-        log.warn(
-            "定时导出通知邮件未发送（{}）: taskId={}, {}",
-            mailStatus,
-            task.getId(),
-            mailEx.getMessage());
+        log.warn("定时导出通知邮件未发送（{}）: taskId={}, {}", mailStatus, task.getId(), mailEx.getMessage());
       }
 
       scheduledExportExecutionRepository.insert(execution);

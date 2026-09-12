@@ -270,12 +270,23 @@
                         改造前仅 surefire 口径为 0.5093（见 specs/083-engineering-consolidation/baseline.md），
                         差值约 24 个百分点即集成测试的贡献——这正是本门禁此前无法度量的部分。
 
-                        ⚠️ 复现该数值**必须**加 -Dmaven.test.failure.ignore=true：
-                        surefire 在 test 相位有任何失败即中止 Maven 生命周期，integration-test 与 verify
-                        根本不会执行，于是 failsafe 不跑、本 check 也不跑，构建在更早的相位就红了。
-                        当前有 3 例单元失败属 specs/083-engineering-consolidation 已裁决转出的范围
-                        （见该规格 tasks.md 的 T018），故在本项目里"字面执行 mvn -B verify"看不到任何
-                        集成测试结果与覆盖率结果——那是生命周期语义，不是配置缺失。
+                        ✅ 2026-09-12 复核（T066）：原先此处写着"当前有 3 例单元失败，故字面执行
+                        mvn -B verify 看不到任何集成测试结果与覆盖率结果"。那 3 例已修复，且属**测试契约
+                        缺陷**而非产品问题——分别是 mock 未复现 MyBatis-Plus 的 insert 主键回填、anyString()
+                        不匹配 null 使桩静默未命中、以及一条从未被执行过的 times(2) 断言。现 surefire 实测
+                        537 例 / 0 失败 / 0 错误（同日复测。数字属时点采样、非契约——它随任何会话新增
+                        用例而变，488 是同日较早一次的采样值），生命周期不再中止在 test 相位：failsafe
+                        会真正执行完 255 例，jacoco:report（绑 post-integration-test）也会生成。
+
+                        ⚠️ 但仍**必须**加 -Dmaven.test.failure.ignore=true 才能看到本 check 的判定结果：
+                        卡点只是从 test 相位移到了 verify 相位。failsafe:verify 当前有 4 例业务类失败
+                        （2026-09-12 全量实测 255 run / 4F / 0E：IntegrationHubIT 时序 1、OpportunityIT
+                        校验优先级 1、UserIT 2），它失败即中止构建；而本 check 与之同一相位、且声明在其后，
+                        按 Maven 失败即中止的语义不会被执行。**同相位内 spotless:check 声明在本插件之前，故格式违规比用例失败更早中止构建**（2026-09-12 实测：三处未按 google-java-format
+                        排版的改动使该相位在 spotless 处即失败，此时 failsafe 的用例判定与覆盖率判定都看不到）。
+                        改造前该值为 6 例——其中 2 例
+                        （SystemEnhancementIT）已随 export_job.export_format 缺列的修复转绿，见该规格
+                        spec.md「复核与更正」节。
 
                         门禁取 0.73：距实测 0.7516 约 2.2 个百分点，够吸收浮点与测试增删的抖动，
                         同时不给"静默退化"留空间（旧值 0.30 距实测 45 个百分点，等于不设防）。

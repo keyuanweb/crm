@@ -56,7 +56,14 @@ class DataRetentionPolicyServiceTest {
     request.setRetentionDays(365);
     request.setActionType("ARCHIVE");
 
-    when(policyRepository.insert(any(DataRetentionPolicy.class))).thenReturn(1);
+    // MyBatis-Plus 在真实库上会把自增主键回填进实体，mock 必须模拟这一步：
+    // 服务返回的 id 与审计记录的 id 都取自 entity.getId()，只桩返回值不会让 id 出现。
+    when(policyRepository.insert(any(DataRetentionPolicy.class)))
+        .thenAnswer(
+            inv -> {
+              inv.getArgument(0, DataRetentionPolicy.class).setId(1L);
+              return 1;
+            });
 
     // When
     DataRetentionPolicyResponse response = dataRetentionPolicyService.createPolicy(request);

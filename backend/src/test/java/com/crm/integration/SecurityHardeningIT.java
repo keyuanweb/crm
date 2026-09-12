@@ -160,6 +160,109 @@ class SecurityHardeningIT extends AbstractIntegrationTest {
     }
   }
 
+  // ===== FR-G16 写／执行路径（T063）：与上面三条读路径同标准 =====
+  // 上面三条读路径早已被覆盖，三个写／执行端点却一直没人考——本组用例补上这一半。
+  // 每条都断言两件事：①请求被拒；②**副作用确实没有发生**。只断言①是不够的：
+  // "先改完再返回错误"同样满足①，而破坏已经落地。
+
+  @Test
+  @DisplayName("他人不能改我的定时导出状态，且状态确实未被改动（FR-G16）")
+  void scheduledExportStatusMustNotBeWritableByOthers() throws Exception {
+    ensureScheduledExportRole();
+    Actor owner = createUserWithRole("sched_owner4_", SCHEDULED_EXPORT_ROLE);
+    long exportId = createScheduledExport(owner);
+
+    Actor other = createUserWithRole("sched_other4_", SCHEDULED_EXPORT_ROLE);
+    // 改造前：写端点只判"存在"不判"归属"，越权改写返回 200，本断言红。
+    int status =
+        call(
+            other.token(),
+            HttpMethod.PUT,
+            "/api/v1/scheduled-exports/" + exportId + "/status?status=INACTIVE",
+            null);
+    if (status / 100 == 2) {
+      throw new AssertionError(
+          "越权写入：用户 "
+              + other.id()
+              + " 改动了用户 "
+              + owner.id()
+              + " 的定时导出 "
+              + exportId
+              + "（状态 "
+              + status
+              + "）");
+    }
+
+    String actual =
+        jsonOf(
+                callRaw(
+                    owner.token(), HttpMethod.GET, "/api/v1/scheduled-exports/" + exportId, null))
+            .path("status")
+            .asText();
+    if (!"ACTIVE".equals(actual)) {
+      throw new AssertionError("越权请求虽被拒，但任务状态已被改动：期望 ACTIVE，实际 " + actual);
+    }
+  }
+
+  @Test
+  @DisplayName("他人不能软删我的定时导出，且任务确实未被删除（FR-G16）")
+  void scheduledExportMustNotBeDeletableByOthers() throws Exception {
+    ensureScheduledExportRole();
+    Actor owner = createUserWithRole("sched_owner5_", SCHEDULED_EXPORT_ROLE);
+    long exportId = createScheduledExport(owner);
+
+    Actor other = createUserWithRole("sched_other5_", SCHEDULED_EXPORT_ROLE);
+    int status =
+        call(other.token(), HttpMethod.DELETE, "/api/v1/scheduled-exports/" + exportId, null);
+    if (status / 100 == 2) {
+      throw new AssertionError(
+          "越权删除：用户 " + other.id() + " 软删了用户 " + owner.id() + " 的定时导出 " + exportId);
+    }
+
+    // 软删的判据即 status=DELETED，故回读状态即可证明"删没删"。
+    String actual =
+        jsonOf(
+                callRaw(
+                    owner.token(), HttpMethod.GET, "/api/v1/scheduled-exports/" + exportId, null))
+            .path("status")
+            .asText();
+    if (!"ACTIVE".equals(actual)) {
+      throw new AssertionError("越权删除虽被拒，但任务已被软删：期望 ACTIVE，实际 " + actual);
+    }
+  }
+
+  @Test
+  @DisplayName("他人不能触发我的定时导出，且执行记录未新增（FR-G16）")
+  void scheduledExportMustNotBeExecutableByOthers() throws Exception {
+    ensureScheduledExportRole();
+    Actor owner = createUserWithRole("sched_owner6_", SCHEDULED_EXPORT_ROLE);
+    long exportId = createScheduledExport(owner);
+
+    Actor other = createUserWithRole("sched_other6_", SCHEDULED_EXPORT_ROLE);
+    int status =
+        call(
+            other.token(),
+            HttpMethod.POST,
+            "/api/v1/scheduled-exports/" + exportId + "/execute-now",
+            null);
+    if (status / 100 == 2) {
+      throw new AssertionError(
+          "越权触发：用户 " + other.id() + " 触发了用户 " + owner.id() + " 的定时导出 " + exportId);
+    }
+
+    // 执行会落一条 execution 记录（并写出文件），故"有没有真的跑"以执行历史为判据。
+    JsonNode executions =
+        jsonOf(
+            callRaw(
+                owner.token(),
+                HttpMethod.GET,
+                "/api/v1/scheduled-exports/" + exportId + "/executions",
+                null));
+    if (executions.size() != 0) {
+      throw new AssertionError("越权触发虽被拒，但任务已真的执行：执行记录数 " + executions.size());
+    }
+  }
+
   // ===== FR-G14：三个控制器的权限门禁 =====
 
   /**

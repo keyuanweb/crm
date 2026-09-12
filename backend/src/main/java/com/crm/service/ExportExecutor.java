@@ -319,9 +319,10 @@ public class ExportExecutor {
       String entityType, String filterConditions, String exportFormat) {
     try {
       // 创建临时 ExportJob 用于复用现有导出逻辑
+      // （不再设置 exportFormat：ExportJob 已无该字段，见 entity/ExportJob.java 的说明。
+      //  此处的 exportFormat 参数仍用于下方决定文件扩展名与内容格式。）
       ExportJob tempJob = new ExportJob();
       tempJob.setExportType(entityType.toUpperCase());
-      tempJob.setExportFormat(exportFormat.toUpperCase());
       tempJob.setStatus(ExportJobService.STATUS_RUNNING);
       tempJob.setCreatedAt(LocalDateTime.now());
 

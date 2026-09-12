@@ -6,6 +6,7 @@
 
 - [技术栈](#技术栈)
 - [方式一：Docker 一键部署（推荐）](#方式一docker-一键部署推荐)
+  - [首次启动时发生了什么](#首次启动时发生了什么)
 - [方式二：本地开发环境](#方式二本地开发环境)
   - [前置条件](#前置条件)
   - [1. 初始化数据库](#1初始化数据库)
@@ -67,6 +68,32 @@ docker-compose logs -f crm-backend
 # 访问 Swagger UI http://localhost:8081/swagger-ui.html
 ```
 
+### 首次启动时发生了什么
+
+`docker-compose up -d` 之后有四步，顺序固定——**知道这个顺序，才能判断"卡住"到底卡在哪一步**：
+
+| 步骤 | 发生了什么 | 判据 |
+|------|-----------|------|
+| 1 | `mysql` 与 `redis` 启动；MySQL 只创建**空库** `crm_db`，不建任何表 | `docker-compose ps` 中 `crm-mysql` 为 `healthy` |
+| 2 | `crm-backend` 等到 MySQL 健康后才启动，由 **Flyway** 执行全部迁移脚本建表 | 后端日志出现 Flyway 的迁移记录 |
+| 3 | 后端创建初始管理员账号（`DataInitializer`） | 日志出现 `Started CrmApplication` |
+| 4 | `crm-frontend` 启动 nginx，提供**镜像内已构建好**的静态产物 | `curl -I http://localhost` 返回 200 |
+
+#### 三处容易踩空的地方
+
+**① 库结构全部由后端 Flyway 负责，MySQL 不建表。**
+编排刻意**不**把 `db/migration` 挂成 MySQL 的 `/docker-entrypoint-initdb.d`。该目录是 MySQL 的初始化脚本目录，而 MySQL 按**文件名字母序**执行它（`V1, V10, V11, …, V2, V20 …`），与 Flyway 的**版本数值序**不一致——两套机制会互相打架：表被以错误顺序建出来，而 `flyway_schema_history` 并不存在，随后后端 Flyway 会从 V1 重放并失败。
+正确分工是：**MySQL 只建空库**（`MYSQL_DATABASE=crm_db` 已完成），**库结构全部交给后端启动时的 Flyway**。这与 [方式二](#方式二本地开发环境) 的手工建库要求一致——两处都是"只建空库，无需导入 SQL"。
+
+**② 前端产物在镜像内构建，不需要事先 `pnpm run build`。**
+`crm-frontend` 由 `frontend/Dockerfile` 多阶段构建产出静态文件。改造前它是 `image: nginx:alpine` + 挂载宿主机 `./frontend/dist`，而该目录**既不在仓库里、也不被编排构建**——干净检出的机器启动后只会看到**空白页，且没有任何报错**。现在挂载点只剩 `nginx.conf`（只挂配置，不挂产物；挂载点一旦留在编排里，就会诱使后人把 `dist` 当成交付物）。
+> 因此 [方式三](#方式三生产环境部署) 里的"构建前端"只适用于自行部署静态文件的场景；走 `docker-compose` 时**不需要**它。
+
+**③ 浏览器访问的 Origin 是 `http://localhost`，不是 `5173`。**
+编排下前端由 nginx 在 80 端口提供，故 `CORS_ALLOWED_ORIGINS=http://localhost`。改造前这里填的是开发服务器端口 `5173`——该端口在编排下**没有任何服务监听**，于是页面请求会被后端按跨域来源拒绝。注意这**不是**"同源就豁免"：同源请求同样会带上 `Origin` 头，后端照样要判定它。
+
+> **等待期属正常**：第 2–3 步完成前前端尚不可用（nginx 已起、后端未就绪），此时访问报错不必排查——以 `docker-compose logs -f crm-backend` 出现 `Started CrmApplication` 为准（耗时见上文「验证部署」）。
+
 ### 停止服务
 
 ```bash
@@ -94,7 +121,7 @@ docker-compose down -v
 
 ### 1. 初始化数据库
 
-> ⚠️ **只需创建空数据库，无需手动导入 SQL 文件。** 项目使用 Flyway 自动迁移，后端启动时会自动创建全部表结构（V1~V75，共 75 个迁移脚本）。
+> ⚠️ **只需创建空数据库，无需手动导入 SQL 文件。** 项目使用 Flyway 自动迁移，后端启动时会自动创建全部表结构（V1~V84，共 83 个迁移脚本；**V72 不存在**，故编号有断档）。
 
 ```sql
 -- 创建空数据库（字符集必须为 utf8mb4）
@@ -185,6 +212,8 @@ openssl rand -hex 32
 
 ### 2. 构建前端
 
+> 仅**自行部署静态文件**时才需要这一步。若走 `docker-compose`，前端产物由 `frontend/Dockerfile` 在镜像内构建，无需预先生成 `frontend/dist`（见 [首次启动时发生了什么](#首次启动时发生了什么) ②）。
+
 ```bash
 cd frontend
 pnpm install
@@ -230,7 +259,7 @@ docker-compose up -d --build
 1. 后端启动时自动检测 `db/migration/` 目录下的迁移脚本
 2. 按版本号（V1、V2、V3...）顺序执行未应用的迁移
 3. 迁移记录存储在 `flyway_schema_history` 表中
-4. 首次启动会自动创建全部 **75 张表**并初始化管理员账号
+4. 首次启动会执行全部迁移（当前 V1~V84 共 83 个脚本，末条为 V84）并初始化管理员账号
 
 ### 迁移脚本列表
 
@@ -244,6 +273,7 @@ docker-compose up -d --build
 | V51~V60 | 邮件营销、审批流、外勤拜访、在线表单、公告、发票、搜索索引 |
 | V61~V70 | SLA 日历、落地页、开放平台、字段权限、多币种、集成渠道、自定义对象、通话记录、邮件同步 |
 | V71~V75 | 销售配额、定时导出、数据保留、角色权限更新 |
+| V76~V84 | 用户邮箱列、商机金额与阶段列、SLA 升级、权限矩阵对齐（V80~V84 分五批，无 V72） |
 
 ### 手动触发迁移
 
