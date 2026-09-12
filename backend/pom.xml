@@ -266,7 +266,10 @@
                       <value>COVEREDRATIO</value>
                       <!--
                         实测（2026-09-12，接入 failsafe 且报告改在 post-integration-test 生成）：
-                        INSTRUCTION covered 41 544 / total 55 274 = 0.7516。
+                        INSTRUCTION covered 41 544 / total 55 274 = 0.7516；同日复测（用例集增大后）
+                        covered 44 008 / total 56 288 = **0.7818**——该次复测同时是本 check 在本规格内
+                        **首次被实际执行**：带 -Dmaven.test.failure.ignore=true 跑到 verify 末，
+                        日志出现 `jacoco:0.8.11:check (coverage-check)`，判定通过。
                         改造前仅 surefire 口径为 0.5093（见 specs/083-engineering-consolidation/baseline.md），
                         差值约 24 个百分点即集成测试的贡献——这正是本门禁此前无法度量的部分。
 
@@ -288,9 +291,11 @@
                         （SystemEnhancementIT）已随 export_job.export_format 缺列的修复转绿，见该规格
                         spec.md「复核与更正」节。
 
-                        门禁取 0.73：距实测 0.7516 约 2.2 个百分点，够吸收浮点与测试增删的抖动，
+                        门禁取 0.73：定基时距实测 0.7516 约 2.2 个百分点，够吸收浮点与测试增删的抖动，
                         同时不给"静默退化"留空间（旧值 0.30 距实测 45 个百分点，等于不设防）。
-                        若后续确需下调，必须在 specs 中记录理由与新的实测值。
+                        注意该差值会随时间单向上移——分子随用例增加而增长，分母基本不变，故**固定阈值
+                        必然逐渐变松**（同日复测已从 2.2 点变宽到约 5 点）。一旦宽到让退化不被发现，
+                        必须重新定基并在 specs 中记录新的实测值与理由，而不是继续沿用旧阈值。
                       -->
                       <minimum>0.73</minimum>
                     </limit>
