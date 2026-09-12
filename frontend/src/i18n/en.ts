@@ -1236,15 +1236,7 @@ const en = {
       subTitle: 'Please refresh and try again; if the problem persists, contact the administrator',
       btnRefresh: 'Refresh Page',
     },
-    breadcrumbGroup: {
-      customerManagement: 'Customer Management',
-      salesManagement: 'Sales Management',
-      dealManagement: 'Deal Management',
-      basicData: 'Basic Data',
-      marketingAndService: 'Marketing & Service',
-      dataAnalysis: 'Data Analysis',
-      systemManagement: 'System Management',
-    },
+    // 084 收口：见 zh-CN.ts 同处的说明——面包屑分组名已改由生成物 `menuManifest.ts` 提供。
     // 075：全页面国际化补全
     taskCalendar: {
       title: 'Task Calendar',

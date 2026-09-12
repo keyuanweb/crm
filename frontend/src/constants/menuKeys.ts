@@ -33,3 +33,32 @@ const COARSE_ALIASES: Record<string, string> = {
 export function menuKeyOf(path: string): string {
   return COARSE_ALIASES[path] ?? path.replace(/^\//, '')
 }
+
+/**
+ * 菜单 key → 规范路由 path（`menuKeyOf` 的逆方向），**只登记默认规则不成立的键**。
+ *
+ * <p>默认规则 `'/' + menuKey` 对 56 项里的 55 项成立，`at-risk` 是唯一例外：菜单里这一项
+ * 就叫 `at-risk`（挂在「客户管理」组下），而它的路由是 `/customers/at-risk`——键与路径段数不同，
+ * `COARSE_ALIASES` 里已有同一条事实的正方向（`'/customers/at-risk': 'at-risk'`），
+ * 两条放在同一文件是刻意的：分开写必然有一天只改一边，届时面包屑会链到一个 404 的地址。
+ *
+ * <p>**不得**把 `COARSE_ALIASES` 里另外两条（`/marketing/roi`、`/workflows/logs`）搬进来：
+ * 它们的目标键 `marketing`/`workflows` 各自有默认路径，那两条是「借分组显示」的子页面而不是菜单项本身
+ * （后端 `MenuRouteAlignmentTest.subPageBorrowersStayExactlyTwo` 已把两张表钉成恰好这两条）。
+ *
+ * <p>本表的正确性有两条护栏：前端 `breadcrumbTrail.test.ts` 断言每个清单键的往返
+ * （`menuKeyOf(pathOfMenuKey(k)) === k`），后端 `MenuRouteAlignmentTest` 断言推出的路径
+ * **是一条真实声明的菜单路由**——后者能把「清单新增项的路由不是 `/${menuKey}` 却忘了在此登记」抓出来。
+ */
+const CANONICAL_PATH_OVERRIDES: Record<string, string> = {
+  'at-risk': '/customers/at-risk',
+}
+
+/**
+ * 取某个菜单项的路由 path。
+ *
+ * @param menuKey `MENU_TREE` 里的菜单 key（如 `settings/custom-fields`）
+ */
+export function pathOfMenuKey(menuKey: string): string {
+  return CANONICAL_PATH_OVERRIDES[menuKey] ?? '/' + menuKey
+}

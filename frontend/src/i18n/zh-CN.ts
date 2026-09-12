@@ -1235,15 +1235,10 @@ const zhCN = {
       subTitle: '请刷新重试；若问题持续出现，请联系管理员',
       btnRefresh: '刷新页面',
     },
-    breadcrumbGroup: {
-      customerManagement: '客户管理',
-      salesManagement: '销售管理',
-      dealManagement: '交易管理',
-      basicData: '基础资料',
-      marketingAndService: '营销与服务',
-      dataAnalysis: '数据分析',
-      systemManagement: '系统管理',
-    },
+    // 084 收口：原先这里有一组面包屑分组名（customerManagement/basicData/systemManagement…），
+    // 是菜单结构的第五份副本——与清单的 11 组词汇表不一致（配置类页面写「系统管理」、
+    // 侧边栏写「流程配置」，而「流程配置」这里压根没有）。面包屑改用 `menu.*` 后这组键已无引用，
+    // 故删除；**不要**再往这里加分组名，分组名的唯一来源是生成物 `menuManifest.ts`。
     // 075：全页面国际化补全
     taskCalendar: {
       title: '任务日历',

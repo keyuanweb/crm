@@ -49,6 +49,7 @@ import { fetchMe, logout } from './services/authService'
 import { menuKeyOf } from './constants/menuKeys'
 import { MENU_MANIFEST, type MenuManifestGroup } from './constants/menuManifest'
 import { resolveVisibleMenuKeys } from './constants/menuVisibility'
+import { menuLabel } from './i18n/labelOf'
 import { useAuthStore } from './store/authStore'
 import LoginPage from './pages/LoginPage'
 const CustomerListPage = lazy(() => import('./pages/customers/CustomerListPage'))
@@ -502,18 +503,9 @@ function Shell() {
     const key = menuKeyOf(r.path)
     if (!routeByMenuKey.has(key) || r.path === `/${key}`) routeByMenuKey.set(key, r)
   }
-  /**
-   * 取菜单文案：缺键时降级为**权威中文名**。
-   *
-   * <p>`t()` 在缺键时返回键名本身（如 `menu.xxx`）——渲染出来比不翻译更糟。
-   * 生成物里的 `title` 正是权威处的中文名，直接拿它降级：既不显示键名，
-   * 也与角色配置页显示的名字一致（FR-N09 与边界情况「缺文案降级」）。
-   */
-  const labelOf = (i18nKey: string, title: string) => {
-    const key = `menu.${i18nKey}`
-    const text = t(key)
-    return text === key ? title : text
-  }
+  // 084 收口：原先这里有个本地 `labelOf`（缺键降级为权威中文名）。它与面包屑要做的是同一件事，
+  // 两处各写一遍时「降级」会有两种行为——而缺键恰恰是没有测试会发现的场景。
+  // 现统一走 `i18n/labelOf.ts` 的 `menuLabel`。
   /** 递归拍平菜单项（移动端不支持分组/二级子组，全部拍平为普通项）。 */
   const flattenMenuItems = (items: MenuItemLike[]): MenuItemLike[] =>
     items.flatMap((item) => {
@@ -538,7 +530,7 @@ function Shell() {
       if (!isMenuVisible(item.menuKey)) continue
       const route = routeByMenuKey.get(item.menuKey)
       if (route) {
-        const label = labelOf(item.i18nKey, item.title)
+        const label = menuLabel(t, item.i18nKey, item.title)
         children.push({ key: route.path, icon: route.icon, label })
       }
       // 借分组显示的子页面紧跟它所借的那一项之后（位置与改造前一致）。
@@ -561,7 +553,7 @@ function Shell() {
       {
         type: 'submenu' as const,
         key: `g-${group.i18nKey}`,
-        label: labelOf(group.i18nKey, group.title),
+        label: menuLabel(t, group.i18nKey, group.title),
         icon: GROUP_ICONS[group.i18nKey],
         children,
       },
@@ -577,7 +569,7 @@ function Shell() {
     group.items.flatMap((item) => {
       const route = routeByMenuKey.get(item.menuKey)
       if (!route) return []
-      const label = labelOf(item.i18nKey, item.title)
+      const label = menuLabel(t, item.i18nKey, item.title)
       return [{ key: route.path, icon: route.icon, label }]
     }),
   )

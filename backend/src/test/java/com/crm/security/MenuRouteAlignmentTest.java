@@ -95,6 +95,12 @@ class MenuRouteAlignmentTest {
   /** 借分组显示的子页面表（{@code App.tsx}）：子页面路径 → 它挂在哪个菜单项之后。 */
   private static final String SUB_PAGE_ANCHOR = "const SUB_PAGE_AFTER_MENU_KEY";
 
+  /** 规范路径例外表（{@code menuKeys.ts}）：菜单 key → 路由 path，只登记默认规则不成立的键。 */
+  private static final String PATH_OVERRIDE_ANCHOR = "const CANONICAL_PATH_OVERRIDES";
+
+  /** 规范路径例外表里的条目，形如 {@code 'at-risk': '/customers/at-risk',}（键不含前导斜杠，值含）。 */
+  private static final Pattern PATH_OVERRIDE = Pattern.compile("'([^'/][^']*)':\\s*'(/[^']+)'");
+
   /** 置顶分组（{@code App.tsx}）：这些组不渲染分组头，成员平铺到菜单最前面。 */
   private static final String TOP_LEVEL_ANCHOR = "const TOP_LEVEL_GROUP_I18N_KEYS";
 
@@ -188,6 +194,41 @@ class MenuRouteAlignmentTest {
         .as(
             "这两个子页面没有自己的菜单项，可见性与渲染位置都必须恰好跟着所借的那一项（改造前的行为）。"
                 + "条数也是断言的一部分：新增第三条意味着有页面又开始借分组，它应当有自己的菜单项")
+        .isEmpty();
+  }
+
+  @Test
+  @DisplayName("每个菜单项的规范路径都必须是一条真实菜单路由（084 面包屑收口）")
+  void derivedPathsAreRealRoutes() {
+    Set<String> routes = routes();
+    Map<String, String> overrides = pathOverrides();
+
+    // 防假绿：三份输入都得真读到内容，否则下面的循环会「零违规通过」
+    assertThat(routes).hasSizeGreaterThan(50).contains("/stats", "/opportunity-stages");
+    assertThat(overrides)
+        .as("规范路径的例外只能有这一条——放宽它等于允许「清单项 → 一个不存在的地址」")
+        .containsOnly(Map.entry("at-risk", "/customers/at-risk"));
+
+    List<String> dangling = new ArrayList<>();
+    int examined = 0;
+    for (ManifestGroup group : manifestGroups()) {
+      for (ManifestItem item : group.items) {
+        examined++;
+        String path = overrides.getOrDefault(item.menuKey, "/" + item.menuKey);
+        if (!routes.contains(path)) {
+          dangling.add(item.menuKey + " → " + path);
+        }
+      }
+    }
+    // 分母也要断言：清单退化成空时上面的循环空转
+    assertThat(examined).as("实际检查的菜单项数").isEqualTo(56);
+
+    assertThat(dangling)
+        .as(
+            "面包屑用 `menuKeys.ts` 的 `pathOfMenuKey` 推出每一项的链接地址，推出的地址必须是一条真实"
+                + "声明的菜单路由，否则面包屑会链到一个打不开的地址——而这一点前端测不到"
+                + "（本仓库的前端测试跑在 jsdom 下，读不了路由表）。修法：若该项的路由不是 `/${menuKey}`，"
+                + "在 menuKeys.ts 的 CANONICAL_PATH_OVERRIDES 里登记")
         .isEmpty();
   }
 
@@ -347,6 +388,11 @@ class MenuRouteAlignmentTest {
   /** 解析 {@code COARSE_ALIASES} 里的 route → key。 */
   private static Map<String, String> aliases() {
     return pathToKeyTable(MENU_KEYS_TS, ALIAS_ANCHOR, ALIAS);
+  }
+
+  /** 解析 {@code CANONICAL_PATH_OVERRIDES} 里的菜单 key → 规范路由 path。 */
+  private static Map<String, String> pathOverrides() {
+    return pathToKeyTable(MENU_KEYS_TS, PATH_OVERRIDE_ANCHOR, PATH_OVERRIDE);
   }
 
   /** 解析 {@code App.tsx} 的 {@code SUB_PAGE_AFTER_MENU_KEY}：子页面路径 → 所借的菜单项。 */
