@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as echarts from 'echarts'
 import type { DefaultLabelFormatterCallbackParams, TooltipComponentFormatterCallbackParams } from 'echarts'
 import type { FunnelStage } from '../types'
+import { useOpportunityStages } from '../../../hooks/useOpportunityStages'
 
 interface FunnelChartProps {
   /** 漏斗阶段数据 */
@@ -11,18 +13,16 @@ interface FunnelChartProps {
 }
 
 const STAGE_COLORS = ['#1677ff', '#69b1ff', '#a0c4ff', '#d6e4ff', '#4da3ff', '#7dd3fc']
-const STAGE_LABELS: Record<string, string> = {
-  INITIAL_CONTACT: '初步接触',
-  NEGOTIATING: '谈判中',
-  CLOSED_WON: '已赢单',
-  CLOSED_LOST: '已输单',
-}
 
 /**
  * 销售漏斗图组件
  * 使用 ECharts 横向条形图，带渐变填充和流光边框
  */
 export default function FunnelChart({ stages, style }: FunnelChartProps) {
+  const { t } = useTranslation()
+  // 阶段名走字典：漏斗的折/柱是服务端按字典顺序下发的，页面自己维护一份编码→中文映射，
+  // 管理员新增阶段后这里就会把编码当名字显示（而看板、商机列表早已显示正确的中文）
+  const { stageLabel } = useOpportunityStages()
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
@@ -35,7 +35,7 @@ export default function FunnelChart({ stages, style }: FunnelChartProps) {
 
     const maxAmount = Math.max(...stages.map((s) => s.amountTotal), 1)
     const seriesData = stages.map((s, i) => ({
-      name: STAGE_LABELS[s.stage] || s.stage,
+      name: stageLabel(s.stage),
       value: s.amountTotal,
       itemStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
@@ -52,7 +52,11 @@ export default function FunnelChart({ stages, style }: FunnelChartProps) {
         formatter: (params: TooltipComponentFormatterCallbackParams) => {
           const data = Array.isArray(params) ? params[0] : params
           const stage = stages[data.dataIndex]
-          return `${data.name}<br/>金额：${(stage?.amountTotal || 0).toLocaleString()} 元<br/>数量：${stage?.count || 0} 个`
+          return t('pages.dataVision.funnel.tooltip', {
+            name: data.name,
+            amount: (stage?.amountTotal || 0).toLocaleString(),
+            count: stage?.count || 0,
+          })
         },
       },
       grid: {
@@ -68,7 +72,7 @@ export default function FunnelChart({ stages, style }: FunnelChartProps) {
       },
       yAxis: {
         type: 'category',
-        data: stages.map((s) => STAGE_LABELS[s.stage] || s.stage).reverse(),
+        data: stages.map((s) => stageLabel(s.stage)).reverse(),
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
@@ -78,7 +82,7 @@ export default function FunnelChart({ stages, style }: FunnelChartProps) {
       },
       series: [
         {
-          name: '金额',
+          name: t('pages.dataVision.funnel.seriesAmount'),
           type: 'bar',
           data: seriesData.reverse(),
           barWidth: 20,
@@ -108,7 +112,8 @@ export default function FunnelChart({ stages, style }: FunnelChartProps) {
       // 不清毁实例，只清空 option
       chartInstanceRef.current?.setOption({ series: [{ data: [] }] })
     }
-  }, [stages])
+    // stageLabel 必须进依赖：字典是异步到的，不重跑这个 effect 就永远停在「首次渲染时那批名字」
+  }, [stages, t, stageLabel])
 
   useEffect(() => {
     const handleResize = () => {

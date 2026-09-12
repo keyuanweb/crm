@@ -1,5 +1,19 @@
-﻿import { useRef, useState } from 'react'
-import { App, Button, Col, DatePicker, Form, InputNumber, Modal, Popconfirm, Row, Select, Tag } from 'antd'
+﻿import { useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import {
+  App,
+  Button,
+  Col,
+  DatePicker,
+  Form,
+  InputNumber,
+  Modal,
+  Popconfirm,
+  Row,
+  Segmented,
+  Select,
+  Tag,
+} from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
@@ -10,13 +24,9 @@ import {
   type SalesOpportunityPayload,
 } from '../../services/opportunityService'
 import { extractErrorMessage } from '../../services/apiClient'
-import {
-  ACTIVE_STAGES,
-  formatAmount,
-  STAGE_LABELS,
-  type OpportunityStage,
-  type SalesOpportunity,
-} from '../../types/opportunity'
+import { formatAmount, type OpportunityStage, type SalesOpportunity } from '../../types/opportunity'
+import { useOpportunityStages } from '../../hooks/useOpportunityStages'
+import OpportunityBoard from './OpportunityBoard'
 import { useQuery } from '@tanstack/react-query'
 import type { Dayjs } from 'dayjs'
 
@@ -28,11 +38,25 @@ interface FormValues {
 }
 
 export default function SalesOpportunityListPage() {
+  const { t } = useTranslation()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [view, setView] = useState<'list' | 'board'>('list')
   const [form] = Form.useForm<FormValues>()
+  const { stages, selectableStages, stageLabel, isTerminal } = useOpportunityStages()
+
+  /** 编码 → 阶段定义。用 Map 而不是每格 `stages.find`：列表一页 20 行 × 每行一次线性查找没必要。 */
+  const stageByCode = useMemo(() => new Map(stages.map((s) => [s.code, s])), [stages])
+
+  /** 阶段标签颜色由 stage_type 决定，而不是写死一张编码表——自建阶段也要有颜色。 */
+  const stageColor = (code: string) => {
+    const type = stageByCode.get(code)?.stageType
+    if (type === 'WON') return 'success'
+    if (type === 'LOST') return 'error'
+    return 'processing'
+  }
 
   const opportunities = useQuery({
     queryKey: ['opportunities-options'],
@@ -57,11 +81,11 @@ export default function SalesOpportunityListPage() {
     setSaving(true)
     try {
       await createSalesOpportunity(payload)
-      message.success('已创建')
+      message.success(t('pages.salesOpportunity.msgCreated'))
       setModalOpen(false)
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '创建失败'))
+      message.error(extractErrorMessage(err, t('pages.salesOpportunity.msgCreateFailed')))
     } finally {
       setSaving(false)
     }
@@ -70,65 +94,85 @@ export default function SalesOpportunityListPage() {
   const onClose = async (row: SalesOpportunity, result: 'WON' | 'LOST') => {
     try {
       await closeSalesOpportunity(row.id, result, row.version)
-      message.success(`已标记为${result === 'WON' ? '赢单' : '输单'}`)
+      message.success(result === 'WON' ? t('pages.salesOpportunity.msgWon') : t('pages.salesOpportunity.msgLost'))
       reload()
     } catch (err) {
-      message.error(extractErrorMessage(err, '关闭失败'))
+      message.error(extractErrorMessage(err, t('pages.salesOpportunity.msgCloseFailed')))
     }
   }
 
-  const stageStatus: Record<OpportunityStage, 'success' | 'error' | 'processing' | 'default'> = {
-    INITIAL_CONTACT: 'processing',
-    NEGOTIATING: 'processing',
-    CLOSED_WON: 'success',
-    CLOSED_LOST: 'error',
-  }
-
   const columns: ProColumns<SalesOpportunity>[] = [
-    { title: '所属商机', dataIndex: 'opportunityName', search: false },
-    { title: '关联客户', dataIndex: 'customerName', search: false },
-    { title: '金额（元）', dataIndex: 'amount', search: false, render: (_, row) => formatAmount(row.amount) },
+    { title: t('pages.salesOpportunity.colOpportunityName'), dataIndex: 'opportunityName', search: false },
+    { title: t('pages.salesOpportunity.colCustomerName'), dataIndex: 'customerName', search: false },
     {
-      title: '阶段',
+      title: t('pages.salesOpportunity.colAmountYuan'),
+      dataIndex: 'amount',
+      search: false,
+      render: (_, row) => formatAmount(row.amount),
+    },
+    {
+      title: t('pages.salesOpportunity.colStage'),
       dataIndex: 'stage',
       valueType: 'select',
+      // 筛选项取自阶段字典（含已停用）：已停用阶段里的存量商机也要筛得出来，
+      // 只列「可新选入」的阶段会让这些商机在筛选器里消失。
       valueEnum: Object.fromEntries(
-        Object.entries(STAGE_LABELS).map(([value, text]) => [value, { text }]),
+        stages.map((s) => [s.code, { text: stageLabel(s.code) }]),
       ),
-      render: (_, row) => <Tag color={stageStatus[row.stage]}>{STAGE_LABELS[row.stage]}</Tag>,
+      render: (_, row) => <Tag color={stageColor(row.stage)}>{stageLabel(row.stage)}</Tag>,
     },
-    { title: '预计成交', dataIndex: 'expectedCloseDate', search: false, render: (_, row) => row.expectedCloseDate ?? '-' },
     {
-      title: '操作',
+      title: t('pages.salesOpportunity.colExpectedClose'),
+      dataIndex: 'expectedCloseDate',
+      search: false,
+      render: (_, row) => row.expectedCloseDate ?? '-',
+    },
+    {
+      title: t('pages.salesOpportunity.colAction'),
       valueType: 'option',
       width: 150,
       render: (_, row) =>
-        ACTIVE_STAGES.includes(row.stage)
+        // 终态不可再关单（服务端会抛 ALREADY_CLOSED）。判定用字典的 stage_type，
+        // 而不是比对两个写死的编码——否则自建阶段会被当成「已关闭」而不给操作入口。
+        !isTerminal(row.stage)
           ? [
               <Popconfirm
                 key="won"
-                title="确定将该机会关闭为赢单吗？"
+                title={t('pages.salesOpportunity.confirmWon')}
                 onConfirm={() => onClose(row, 'WON')}
               >
-                <a style={{ color: '#52c41a' }}>赢单</a>
+                <a style={{ color: '#52c41a' }}>{t('pages.salesOpportunity.btnWon')}</a>
               </Popconfirm>,
               <Popconfirm
                 key="lost"
-                title="确定将该机会关闭为输单吗？"
+                title={t('pages.salesOpportunity.confirmLost')}
                 onConfirm={() => onClose(row, 'LOST')}
               >
-                <a style={{ color: '#ff4d4f' }}>输单</a>
+                <a style={{ color: '#ff4d4f' }}>{t('pages.salesOpportunity.btnLost')}</a>
               </Popconfirm>,
             ]
-          : [<span key="closed" style={{ color: '#999' }}>已关闭</span>],
+          : [<span key="closed" style={{ color: '#999' }}>{t('pages.salesOpportunity.statusClosed')}</span>],
     },
   ]
 
   return (
     <>
+      <div style={{ marginBottom: 12 }}>
+        <Segmented
+          value={view}
+          onChange={(value) => setView(value as 'list' | 'board')}
+          options={[
+            { label: t('pages.salesOpportunity.tabList'), value: 'list' },
+            { label: t('pages.salesOpportunity.tabBoard'), value: 'board' },
+          ]}
+        />
+      </div>
+      {view === 'board' ? (
+        <OpportunityBoard />
+      ) : (
       <ProTable<SalesOpportunity>
         size="small"
-        headerTitle="销售机会管道"
+        headerTitle={t('pages.salesOpportunity.titlePipeline')}
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
@@ -145,11 +189,21 @@ export default function SalesOpportunityListPage() {
         }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新增销售机会
+            {t('pages.salesOpportunity.btnCreateNew')}
           </Button>,
         ]}
       />
-      <Modal title="新增销售机会" open={modalOpen} onOk={() => void onSave()} onCancel={() => setModalOpen(false)} okText="创建" confirmLoading={saving} destroyOnClose width={640}>
+      )}
+      <Modal
+        title={t('pages.salesOpportunity.titleCreate')}
+        open={modalOpen}
+        onOk={() => void onSave()}
+        onCancel={() => setModalOpen(false)}
+        okText={t('pages.salesOpportunity.btnCreate')}
+        confirmLoading={saving}
+        destroyOnClose
+        width={640}
+      >
         <Form
           form={form}
           name="salesOpportunityForm"
@@ -161,8 +215,8 @@ export default function SalesOpportunityListPage() {
             <Col span={12}>
               <Form.Item
                 name="opportunityId"
-                label="所属商机"
-                rules={[{ required: true, message: '请选择商机' }]}
+                label={t('pages.salesOpportunity.colOpportunityName')}
+                rules={[{ required: true, message: t('pages.salesOpportunity.messageSelectOpportunity') }]}
               >
                 <Select
                   showSearch
@@ -171,29 +225,33 @@ export default function SalesOpportunityListPage() {
                     value: o.id,
                     label: `${o.name}（${o.customerName ?? o.customerId}）`,
                   }))}
-                  placeholder="请选择商机"
+                  placeholder={t('pages.salesOpportunity.placeholderSelectOpportunity')}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="amount" label="金额（元）">
+              <Form.Item name="amount" label={t('pages.salesOpportunity.colAmountYuan')}>
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
                 name="stage"
-                label="阶段"
-                rules={[{ required: true, message: '请选择阶段' }]}
+                label={t('pages.salesOpportunity.colStage')}
+                rules={[{ required: true, message: t('pages.salesOpportunity.messageSelectStage') }]}
               >
                 <Select
-                  options={ACTIVE_STAGES.map((s) => ({ value: s, label: STAGE_LABELS[s] }))}
-                  placeholder="请选择阶段"
+                  // 只列「可新选入」的阶段：停用中的阶段不该出现在这里（服务端同样会拒）
+                  options={selectableStages.map((s) => ({
+                    value: s.code,
+                    label: stageLabel(s.code),
+                  }))}
+                  placeholder={t('pages.salesOpportunity.placeholderSelectStage')}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="expectedCloseDate" label="预计成交日期">
+              <Form.Item name="expectedCloseDate" label={t('pages.salesOpportunity.labelExpectedCloseDate')}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>

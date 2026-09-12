@@ -10,12 +10,16 @@ import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
 import com.crm.dto.opportunity.CloseRequest;
 import com.crm.dto.opportunity.SalesOpportunityRequest;
+import com.crm.entity.Opportunity;
+import com.crm.entity.OpportunityStage;
 import com.crm.entity.SalesOpportunity;
 import com.crm.repository.CustomerMapper;
 import com.crm.repository.OpportunityMapper;
 import com.crm.repository.SalesOpportunityMapper;
 import com.crm.support.SalesOpportunityAssembler;
+import com.crm.support.StageDictionaryTestSupport;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +38,11 @@ class SalesOpportunityStateTest {
   void setUp() {
     mapper = mock(SalesOpportunityMapper.class);
     opportunityMapper = mock(OpportunityMapper.class);
-    // 真实装配器（mappers 为 mock）：单条装配时 selectById 返回 null 即安全降级
+    useStages(StageDictionaryTestSupport.rows());
+  }
+
+  /** 用给定阶段字典重建被测服务。真实装配器（mappers 为 mock）：单条装配时 selectById 返回 null 即安全降级。 */
+  private void useStages(List<OpportunityStage> stages) {
     service =
         new SalesOpportunityService(
             mapper,
@@ -43,7 +51,17 @@ class SalesOpportunityStateTest {
             mock(DashboardStatsService.class),
             mock(AuditService.class),
             new SalesOpportunityAssembler(opportunityMapper, mock(CustomerMapper.class)),
-            mock(WorkflowEventPublisher.class));
+            mock(WorkflowEventPublisher.class),
+            StageDictionaryTestSupport.service(stages));
+  }
+
+  /** 字典里只留 INITIAL_CONTACT（启用）与 PROPOSAL_QUOTED（**停用**），用于验证停用语义。 */
+  private void useDictionaryWithRetiredStage() {
+    useStages(
+        List.of(
+            StageDictionaryTestSupport.stage("INITIAL_CONTACT", "初步接触", 10, "ACTIVE", "0.2", true),
+            StageDictionaryTestSupport.stage(
+                "PROPOSAL_QUOTED", "方案报价", 30, "ACTIVE", "0.4", false)));
   }
 
   private SalesOpportunity active(String stage) {
@@ -83,6 +101,76 @@ class SalesOpportunityStateTest {
         .isInstanceOf(BusinessException.class)
         .extracting(e -> ((BusinessException) e).getErrorCode())
         .isEqualTo(ErrorCode.STAGE_INVALID);
+  }
+
+  // ---------------------------------------------------------------- 停用阶段的「能出去、不能进来」
+
+  @Test
+  @DisplayName("新建：落入已停用阶段被拒 → STAGE_INVALID")
+  void createIntoRetiredStageThrows() {
+    useDictionaryWithRetiredStage();
+    when(opportunityMapper.selectById(10L)).thenReturn(new Opportunity());
+    SalesOpportunityRequest req = new SalesOpportunityRequest();
+    req.setOpportunityId(10L);
+    req.setStage("PROPOSAL_QUOTED");
+
+    assertThatThrownBy(() -> service.create(req))
+        .isInstanceOf(BusinessException.class)
+        .extracting(e -> ((BusinessException) e).getErrorCode())
+        .isEqualTo(ErrorCode.STAGE_INVALID);
+  }
+
+  @Test
+  @DisplayName("编辑：从别处挪进已停用阶段被拒 → STAGE_INVALID")
+  void updateIntoRetiredStageThrows() {
+    useDictionaryWithRetiredStage();
+    when(mapper.selectById(1L)).thenReturn(active("INITIAL_CONTACT"));
+    SalesOpportunityRequest req = new SalesOpportunityRequest();
+    req.setOpportunityId(10L);
+    req.setStage("PROPOSAL_QUOTED");
+
+    assertThatThrownBy(() -> service.update(1L, req))
+        .isInstanceOf(BusinessException.class)
+        .extracting(e -> ((BusinessException) e).getErrorCode())
+        .isEqualTo(ErrorCode.STAGE_INVALID);
+  }
+
+  @Test
+  @DisplayName("编辑：存量商机留在已停用阶段上仍可改（否则改个金额都要先挪走）")
+  void updateWithinRetiredStageAllowed() {
+    useDictionaryWithRetiredStage();
+    SalesOpportunity so = active("PROPOSAL_QUOTED");
+    when(mapper.selectById(1L)).thenReturn(so);
+    when(mapper.updateById(any(SalesOpportunity.class))).thenReturn(1);
+
+    SalesOpportunityRequest req = new SalesOpportunityRequest();
+    req.setOpportunityId(10L);
+    req.setStage("PROPOSAL_QUOTED");
+    req.setAmount(200000L);
+    req.setVersion(0);
+
+    var resp = service.update(1L, req);
+
+    assertThat(resp.getStage()).isEqualTo("PROPOSAL_QUOTED");
+    assertThat(resp.getAmount()).isEqualTo(200000L);
+  }
+
+  @Test
+  @DisplayName("编辑：把商机移出已停用阶段允许（那正是停用的目的）")
+  void updateOutOfRetiredStageAllowed() {
+    useDictionaryWithRetiredStage();
+    SalesOpportunity so = active("PROPOSAL_QUOTED");
+    when(mapper.selectById(1L)).thenReturn(so);
+    when(mapper.updateById(any(SalesOpportunity.class))).thenReturn(1);
+
+    SalesOpportunityRequest req = new SalesOpportunityRequest();
+    req.setOpportunityId(10L);
+    req.setStage("INITIAL_CONTACT");
+    req.setVersion(0);
+
+    var resp = service.update(1L, req);
+
+    assertThat(resp.getStage()).isEqualTo("INITIAL_CONTACT");
   }
 
   @Test

@@ -17,6 +17,7 @@ import com.crm.entity.StageActionTemplate;
 import com.crm.repository.StageActionTemplateMapper;
 import com.crm.security.JwtAuthFilter.CrmPrincipal;
 import com.crm.security.SecurityUtil;
+import com.crm.support.StageDictionaryTestSupport;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,7 +46,10 @@ class StageActionTemplateServiceTest {
   void setUp() {
     templateMapper = mock(StageActionTemplateMapper.class);
     auditService = mock(AuditService.class);
-    service = new StageActionTemplateService(templateMapper, auditService);
+    // 可配置动作模板的允许阶段 1.2 起改为「阶段字典里所有进行中的阶段」，故注入真实字典服务。
+    service =
+        new StageActionTemplateService(
+            templateMapper, auditService, StageDictionaryTestSupport.service());
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock

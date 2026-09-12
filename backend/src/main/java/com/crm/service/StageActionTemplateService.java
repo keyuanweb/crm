@@ -19,17 +19,17 @@ import org.springframework.util.StringUtils;
 @Service
 public class StageActionTemplateService {
 
-  /** 仅活动阶段可配置动作。 */
-  public static final java.util.Set<String> CONFIGURABLE_STAGES =
-      java.util.Set.of("INITIAL_CONTACT", "NEGOTIATING");
-
   private final StageActionTemplateMapper templateMapper;
   private final AuditService auditService;
+  private final OpportunityStageService stageService;
 
   public StageActionTemplateService(
-      StageActionTemplateMapper templateMapper, AuditService auditService) {
+      StageActionTemplateMapper templateMapper,
+      AuditService auditService,
+      OpportunityStageService stageService) {
     this.templateMapper = templateMapper;
     this.auditService = auditService;
+    this.stageService = stageService;
   }
 
   public PageResult<ActionTemplateResponse> page(String stage, long page, long pageSize) {
@@ -81,8 +81,13 @@ public class StageActionTemplateService {
         "DELETE", "STAGE_ACTION_TEMPLATE", id, "删除动作模板：" + template.getActionName());
   }
 
+  /**
+   * 仅活动阶段可配置动作模板。
+   *
+   * <p>取值改读阶段字典（1.2）：此前是硬编码的两个码，新增阶段会静默地不可配置动作—— 页面能建出阶段、却没法给它配动作，且不报错。
+   */
   private void validateStage(String stage) {
-    if (stage == null || !CONFIGURABLE_STAGES.contains(stage.trim())) {
+    if (stage == null || !stageService.activeCodes().contains(stage.trim())) {
       throw new BusinessException(ErrorCode.PLAYBOOK_STAGE_INVALID);
     }
   }

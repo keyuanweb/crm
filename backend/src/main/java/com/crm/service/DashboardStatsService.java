@@ -37,14 +37,6 @@ public class DashboardStatsService {
 
   private static final Logger log = LoggerFactory.getLogger(DashboardStatsService.class);
   private static final String CACHE_KEY = "stats:dashboard";
-  private static final List<String> STAGE_ORDER =
-      List.of("INITIAL_CONTACT", "NEGOTIATING", "CLOSED_WON", "CLOSED_LOST");
-  private static final Map<String, Double> STAGE_PROBABILITY =
-      Map.of(
-          "INITIAL_CONTACT", 0.2,
-          "NEGOTIATING", 0.5,
-          "CLOSED_WON", 1.0,
-          "CLOSED_LOST", 0.0);
 
   private final SalesOpportunityMapper salesOpportunityMapper;
   private final OpportunityMapper opportunityMapper;
@@ -54,6 +46,7 @@ public class DashboardStatsService {
   private final UserMapper userMapper;
   private final RedisTemplate<String, Object> redisTemplate;
   private final StageConversionService stageConversionService;
+  private final OpportunityStageService stageService;
 
   /** 停滞预警阈值（天），默认 7，可配置 crm.stats.stalled-days。 */
   @Value("${crm.stats.stalled-days:7}")
@@ -67,7 +60,8 @@ public class DashboardStatsService {
       SalesTargetMapper salesTargetMapper,
       UserMapper userMapper,
       RedisTemplate<String, Object> redisTemplate,
-      StageConversionService stageConversionService) {
+      StageConversionService stageConversionService,
+      OpportunityStageService stageService) {
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.opportunityMapper = opportunityMapper;
     this.customerMapper = customerMapper;
@@ -76,6 +70,7 @@ public class DashboardStatsService {
     this.userMapper = userMapper;
     this.redisTemplate = redisTemplate;
     this.stageConversionService = stageConversionService;
+    this.stageService = stageService;
   }
 
   @SuppressWarnings("unchecked")
@@ -162,7 +157,7 @@ public class DashboardStatsService {
 
   private DashboardStats.Funnel computeFunnel(List<SalesOpportunity> allSo) {
     Map<String, long[]> acc = new LinkedHashMap<>();
-    for (String stage : STAGE_ORDER) {
+    for (String stage : stageService.orderedCodes()) {
       acc.put(stage, new long[2]);
     }
     for (SalesOpportunity so : allSo) {

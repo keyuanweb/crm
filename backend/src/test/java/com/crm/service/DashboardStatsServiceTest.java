@@ -22,6 +22,7 @@ import com.crm.repository.OpportunityMapper;
 import com.crm.repository.SalesOpportunityMapper;
 import com.crm.repository.SalesTargetMapper;
 import com.crm.repository.UserMapper;
+import com.crm.support.StageDictionaryTestSupport;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -80,7 +81,8 @@ class DashboardStatsServiceTest {
             targetMapper,
             userMapper,
             redis,
-            stageConversionService);
+            stageConversionService,
+            StageDictionaryTestSupport.service());
     // 019：mock 预测校准返回默认概率（保持既有断言不变）
     when(stageConversionService.probabilityFor(any()))
         .thenAnswer(
@@ -96,6 +98,14 @@ class DashboardStatsServiceTest {
     when(stageConversionService.isHistorical(any())).thenReturn(false);
     // 单元测试无 Spring 上下文，@Value 不注入：显式设置停滞阈值 7 天
     org.springframework.test.util.ReflectionTestUtils.setField(service, "stalledDays", 7);
+  }
+
+  /** 按阶段码取漏斗中的一行。找不到即说明字典与断言不同源，直接失败而不是让 `get(null)` 变成误导性的 NPE。 */
+  private static DashboardStats.StageStat statOf(DashboardStats.Funnel funnel, String stage) {
+    return funnel.getStages().stream()
+        .filter(s -> stage.equals(s.getStage()))
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("漏斗里没有阶段 " + stage));
   }
 
   private SalesOpportunity so(Long id, String stage, Long amount, LocalDateTime updatedAt) {
@@ -130,12 +140,28 @@ class DashboardStatsServiceTest {
     assertThat(stats.getSummary().getOpportunityCount()).isEqualTo(5);
     assertThat(stats.getSummary().getAmountTotal()).isEqualTo(1050000L);
     assertThat(stats.getSummary().getWinRate()).isEqualTo(2d / 3d);
-    // 漏斗：转化率 NEGOTIATING/INITIAL = 1/1 = 1.0；CLOSED_WON/NEGOTIATING = 2/1 = 2.0
+    // 漏斗：1.2 起按阶段字典的 sort_order 列出**全部**阶段（6 个，含 0 商机的），不再是写死的 4 个。
     DashboardStats.Funnel funnel = stats.getFunnel();
-    assertThat(funnel.getStages()).hasSize(4);
-    assertThat(funnel.getStages().get(0).getConversionRate()).isNull();
-    assertThat(funnel.getStages().get(1).getConversionRate()).isEqualTo(1.0);
-    assertThat(funnel.getStages().get(2).getConversionRate()).isEqualTo(2.0);
+    assertThat(funnel.getStages())
+        .extracting(DashboardStats.StageStat::getStage)
+        .containsExactly(
+            "INITIAL_CONTACT",
+            "NEEDS_CONFIRMED",
+            "PROPOSAL_QUOTED",
+            "NEGOTIATING",
+            "CLOSED_WON",
+            "CLOSED_LOST");
+    // 转化率 = 本阶段数 / 上一阶段数；上一阶段为 0 时**不可定义**（0 做分母）故为 null。
+    // 断言按阶段码取值而不是按下标——中间插入了空阶段后，下标已不再稳定。
+    // 刻意不用 Collectors.toMap 收集：它用 map.merge，遇到 null 值直接 NPE，而这里半数转化率就是 null。
+    assertThat(statOf(funnel, "INITIAL_CONTACT").getConversionRate()).isNull(); // 无上一阶段
+    assertThat(statOf(funnel, "NEEDS_CONFIRMED").getConversionRate()).isEqualTo(0.0d); // 0 / 1
+    assertThat(statOf(funnel, "PROPOSAL_QUOTED").getConversionRate()).isNull(); // 上一阶段为 0
+    assertThat(statOf(funnel, "NEGOTIATING").getConversionRate()).isNull(); // 上一阶段为 0
+    assertThat(statOf(funnel, "CLOSED_WON").getConversionRate()).isEqualTo(2.0d); // 2 / 1
+    assertThat(statOf(funnel, "CLOSED_LOST").getConversionRate()).isEqualTo(0.5d); // 1 / 2
+    assertThat(statOf(funnel, "CLOSED_LOST").getCount()).isEqualTo(1);
+    assertThat(statOf(funnel, "CLOSED_WON").getAmountTotal()).isEqualTo(700000L);
     assertThat(funnel.getGrandTotal().getCount()).isEqualTo(5);
     assertThat(funnel.getGrandTotal().getAmountTotal()).isEqualTo(1050000L);
     // 预测：100000*0.2 + 200000*0.5 + 300000*1 + 400000*1 = 820000

@@ -16,17 +16,12 @@ import com.crm.security.SecurityUtil;
 import com.crm.support.SalesOpportunityAssembler;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** 销售机会服务（子实体，FR-012~014，状态机见 data-model.md）。 */
 @Service
 public class SalesOpportunityService {
-
-  public static final Set<String> STAGES =
-      Set.of("INITIAL_CONTACT", "NEGOTIATING", "CLOSED_WON", "CLOSED_LOST");
-  public static final Set<String> ACTIVE_STAGES = Set.of("INITIAL_CONTACT", "NEGOTIATING");
 
   private final SalesOpportunityMapper salesOpportunityMapper;
   private final OpportunityMapper opportunityMapper;
@@ -35,6 +30,7 @@ public class SalesOpportunityService {
   private final AuditService auditService;
   private final SalesOpportunityAssembler assembler;
   private final WorkflowEventPublisher workflowEventPublisher;
+  private final OpportunityStageService stageService;
 
   public SalesOpportunityService(
       SalesOpportunityMapper salesOpportunityMapper,
@@ -43,7 +39,8 @@ public class SalesOpportunityService {
       DashboardStatsService dashboardStatsService,
       AuditService auditService,
       SalesOpportunityAssembler assembler,
-      WorkflowEventPublisher workflowEventPublisher) {
+      WorkflowEventPublisher workflowEventPublisher,
+      OpportunityStageService stageService) {
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.opportunityMapper = opportunityMapper;
     this.statsService = statsService;
@@ -51,6 +48,7 @@ public class SalesOpportunityService {
     this.auditService = auditService;
     this.assembler = assembler;
     this.workflowEventPublisher = workflowEventPublisher;
+    this.stageService = stageService;
   }
 
   public PageResult<SalesOpportunityResponse> page(
@@ -91,7 +89,7 @@ public class SalesOpportunityService {
     if (parent == null) {
       throw new BusinessException(ErrorCode.OPPORTUNITY_NOT_FOUND);
     }
-    validateStage(req.getStage(), false);
+    validateStage(req.getStage(), null);
     validateAmount(req.getAmount());
     SalesOpportunity so = new SalesOpportunity();
     so.setOpportunityId(req.getOpportunityId());
@@ -108,10 +106,11 @@ public class SalesOpportunityService {
   @Transactional
   public SalesOpportunityResponse update(Long id, SalesOpportunityRequest req) {
     SalesOpportunity existing = require(id);
-    if (existing.getClosedAt() != null || !ACTIVE_STAGES.contains(existing.getStage())) {
+    if (existing.getClosedAt() != null
+        || !stageService.activeCodes().contains(existing.getStage())) {
       throw new BusinessException(ErrorCode.ALREADY_CLOSED);
     }
-    validateStage(req.getStage(), false);
+    validateStage(req.getStage(), existing.getStage());
     validateAmount(req.getAmount());
     existing.setAmount(req.getAmount() == null ? 0L : req.getAmount());
     existing.setStage(req.getStage().trim());
@@ -132,13 +131,16 @@ public class SalesOpportunityService {
   @Transactional
   public SalesOpportunityResponse close(Long id, CloseRequest req) {
     SalesOpportunity existing = require(id);
-    if (existing.getClosedAt() != null || !ACTIVE_STAGES.contains(existing.getStage())) {
+    if (existing.getClosedAt() != null
+        || !stageService.activeCodes().contains(existing.getStage())) {
       throw new BusinessException(ErrorCode.ALREADY_CLOSED);
     }
     String result = req.getCloseResult() == null ? null : req.getCloseResult().trim().toUpperCase();
     if (!"WON".equals(result) && !"LOST".equals(result)) {
       throw new BusinessException(ErrorCode.CLOSE_RESULT_REQUIRED);
     }
+    // 拼接出的两个编码即 OpportunityStageService.BUILT_IN_CODES——被 SalesQuotaRepository 的原始 SQL
+    // 按字面量引用（配额达成率统计 stage = 'CLOSED_WON'），故不可改。改阶段字典的终态编码会让配额静默归零。
     existing.setStage("CLOSED_" + result);
     existing.setCloseResult(result);
     existing.setClosedAt(LocalDateTime.now());
@@ -162,11 +164,32 @@ public class SalesOpportunityService {
     return so;
   }
 
-  private void validateStage(String stage, boolean allowTerminal) {
-    if (stage == null || !STAGES.contains(stage.trim())) {
+  /**
+   * 阶段合法性校验。取值来自阶段字典（1.2），不再读代码里的常量。只服务「新建 / 编辑」路径。
+   *
+   * <p>三条规则，依次是：
+   *
+   * <ol>
+   *   <li>必须是字典里存在的编码；
+   *   <li>必须是**进行中**阶段——终态不在此列：关单必须走 {@link #close}（它同时写 closedAt / closeResult），绕过它直接设成 CLOSED_WON
+   *       会留下一条「阶段是赢单、却没有赢单时间和结果」的商机， 赢单率统计会把它算进去而明细缺字段；
+   *   <li>不许**新进入**已停用的阶段。
+   * </ol>
+   *
+   * <p>第 3 条带 {@code currentStage} 例外：目标阶段与当前阶段相同时放行。停用的语义是「不许新进入，不是不许存在」
+   * ——存量商机就落在那个阶段里，若一律拒绝，用户连改个金额都做不到，只能先把它挪到别的阶段去。而挪走本身是被允许的 （那才是停用的目的）。这条例外就是「能出去、不能进来」。
+   *
+   * @param currentStage 编辑前的阶段；新建时传 {@code null}（没有「当前」可言，一律按新进入校验）
+   */
+  private void validateStage(String stage, String currentStage) {
+    if (stage == null || !stageService.allCodes().contains(stage.trim())) {
       throw new BusinessException(ErrorCode.STAGE_INVALID);
     }
-    if (!allowTerminal && !ACTIVE_STAGES.contains(stage.trim())) {
+    String target = stage.trim();
+    if (!stageService.activeCodes().contains(target)) {
+      throw new BusinessException(ErrorCode.STAGE_INVALID);
+    }
+    if (!target.equals(currentStage) && !stageService.selectableCodes().contains(target)) {
       throw new BusinessException(ErrorCode.STAGE_INVALID);
     }
   }

@@ -32,6 +32,14 @@ public class CacheConfig {
    */
   public static final String VISIBLE_OWNER_IDS_CACHE = "visibleOwnerIds";
 
+  /**
+   * 商机阶段字典缓存（1.2-stage-configurable）：键为固定值，值为整张 {@code opportunity_stage} 表的有序列表。
+   *
+   * <p>本表只有个位数行、读远多于写，故整体缓存一份而不是按查询分别缓存。TTL 与角色权限缓存同取 60 秒； 阶段本身几乎不变，且所有写路径都显式 {@code
+   * evict}，故陈旧窗口只在下游直接改库时才会出现。
+   */
+  public static final String OPPORTUNITY_STAGES_CACHE = "opportunityStages";
+
   /** 角色权限缓存存活时间。上限由 spec.md「关键实体」约束：不得超过 60 秒。 */
   public static final Duration ROLE_PERMISSIONS_TTL = Duration.ofSeconds(60);
 
@@ -42,12 +50,17 @@ public class CacheConfig {
 
   private static final long VISIBLE_OWNER_IDS_MAX_SIZE = 10_000L;
 
+  /** 阶段字典只有一个键，16 的上限纯属留白。 */
+  private static final long OPPORTUNITY_STAGES_MAX_SIZE = 16L;
+
   @Bean
   public CacheManager cacheManager() {
     SimpleCacheManager manager = new SimpleCacheManager();
     manager.setCaches(
         List.of(
             caffeineCache(ROLE_PERMISSIONS_CACHE, ROLE_PERMISSIONS_TTL, ROLE_PERMISSIONS_MAX_SIZE),
+            caffeineCache(
+                OPPORTUNITY_STAGES_CACHE, ROLE_PERMISSIONS_TTL, OPPORTUNITY_STAGES_MAX_SIZE),
             caffeineCache(
                 VISIBLE_OWNER_IDS_CACHE, VISIBLE_OWNER_IDS_TTL, VISIBLE_OWNER_IDS_MAX_SIZE)));
     return manager;

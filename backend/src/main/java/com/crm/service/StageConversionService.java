@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.crm.entity.SalesOpportunity;
 import com.crm.repository.SalesOpportunityMapper;
 import java.util.List;
-import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -15,30 +14,34 @@ public class StageConversionService {
 
   private static final Logger log = LoggerFactory.getLogger(StageConversionService.class);
   private static final int MIN_SAMPLE = 10;
-  private static final Map<String, Double> DEFAULT_PROBABILITY =
-      Map.of("INITIAL_CONTACT", 0.2, "NEGOTIATING", 0.5, "CLOSED_WON", 1.0, "CLOSED_LOST", 0.0);
 
   private final SalesOpportunityMapper soMapper;
+  private final OpportunityStageService stageService;
 
-  public StageConversionService(SalesOpportunityMapper soMapper) {
+  public StageConversionService(
+      SalesOpportunityMapper soMapper, OpportunityStageService stageService) {
     this.soMapper = soMapper;
+    this.stageService = stageService;
   }
 
-  /** 返回某阶段的预测概率（历史转化率或默认回退）。 */
+  /**
+   * 返回某阶段的预测概率（历史转化率或默认回退）。
+   *
+   * <p>回退值来自阶段字典的 {@code probability} 列（1.2 起），不再是代码里的常量表—— 样本不足（&lt;10）的阶段会落到它，
+   * 所以改字典里的赢率等于直接改预测数字。
+   */
   public double probabilityFor(String stage) {
-    if ("CLOSED_WON".equals(stage)) {
-      return 1.0;
-    }
-    if ("CLOSED_LOST".equals(stage)) {
-      return 0.0;
+    if (stageService.isTerminal(stage)) {
+      // 终态语义确定（1 / 0），不参与历史校准——让「赢单」的概率随历史漂移毫无意义。
+      return stageService.probabilityOf(stage);
     }
     Stats stats = statsFor(stage);
-    return stats == null ? DEFAULT_PROBABILITY.getOrDefault(stage, 0d) : stats.rate;
+    return stats == null ? stageService.probabilityOf(stage) : stats.rate;
   }
 
   /** 该阶段概率是否来自历史统计（样本充足）。 */
   public boolean isHistorical(String stage) {
-    if ("CLOSED_WON".equals(stage) || "CLOSED_LOST".equals(stage)) {
+    if (stageService.isTerminal(stage)) {
       return false;
     }
     return statsFor(stage) != null;

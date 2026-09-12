@@ -21,16 +21,18 @@ public class OpportunityStatsService {
 
   private static final Logger log = LoggerFactory.getLogger(OpportunityStatsService.class);
   private static final String CACHE_KEY = "stats:opportunity-pipeline";
-  private static final List<String> STAGE_ORDER =
-      List.of("INITIAL_CONTACT", "NEGOTIATING", "CLOSED_WON", "CLOSED_LOST");
 
   private final SalesOpportunityMapper salesOpportunityMapper;
   private final RedisTemplate<String, Object> redisTemplate;
+  private final OpportunityStageService stageService;
 
   public OpportunityStatsService(
-      SalesOpportunityMapper salesOpportunityMapper, RedisTemplate<String, Object> redisTemplate) {
+      SalesOpportunityMapper salesOpportunityMapper,
+      RedisTemplate<String, Object> redisTemplate,
+      OpportunityStageService stageService) {
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.redisTemplate = redisTemplate;
+    this.stageService = stageService;
   }
 
   @SuppressWarnings("unchecked")
@@ -63,7 +65,9 @@ public class OpportunityStatsService {
             new LambdaQueryWrapper<SalesOpportunity>()
                 .select(SalesOpportunity::getStage, SalesOpportunity::getAmount));
     Map<String, long[]> acc = new LinkedHashMap<>();
-    for (String stage : STAGE_ORDER) {
+    // 预置全部阶段（含已停用）以保证顺序稳定、且零商机的阶段也出现在漏斗里；
+    // 顺序按下单序 sort_order（1.2 起由阶段字典决定，不再是代码里的枚举顺序）。
+    for (String stage : stageService.orderedCodes()) {
       acc.put(stage, new long[2]);
     }
     for (SalesOpportunity so : all) {

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.crm.entity.SalesOpportunity;
 import com.crm.repository.SalesOpportunityMapper;
+import com.crm.support.StageDictionaryTestSupport;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,7 +22,8 @@ class StageConversionServiceTest {
   @BeforeEach
   void setUp() {
     soMapper = mock(SalesOpportunityMapper.class);
-    service = new StageConversionService(soMapper);
+    // 1.2 起回退概率来自阶段字典而非代码常量表，故注入真实字典服务（种子见 StageDictionaryTestSupport）。
+    service = new StageConversionService(soMapper, StageDictionaryTestSupport.service());
   }
 
   private SalesOpportunity so(String stage) {
