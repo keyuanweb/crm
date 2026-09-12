@@ -31,7 +31,8 @@ import {
   setProductPrice,
 } from '../../services/currencyService'
 import { extractErrorMessage } from '../../services/apiClient'
-import { useAuthStore } from '../../store/authStore'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { Product } from '../../types/product'
 
 interface FormValues {
@@ -57,12 +58,10 @@ export default function ProductListPage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [form] = Form.useForm<FormValues>()
-  const user = useAuthStore((s) => s.user)
-  // 保留角色判断：ProductController 的 create / update / delete 目前仍是
-  // @PreAuthorize("hasRole('ADMIN')")，字典里虽然已有 product:create / update / delete 三个码，
-  // 但没有任何端点在校验它们（`grep @RequirePermission ProductController` 为空）。
-  // 现在改成按码放行，等于把按钮发给一个后端还不认的角色——那正是本次要消灭的 403 形态。
-  const isAdmin = user?.role === 'ADMIN'
+  // 按权限码判断（1.5 批 3 起 ProductController 的增删改挂 product:*，此前是 hasRole('ADMIN')）。
+  // 三个码的授予范围不同：create / delete 仅 ADMIN + MARKETING_MANAGER，update 另有销售角色
+  // （V83 授出）——所以销售能看到「编辑」却看不到「新建/删除」，这是矩阵的答案，不是界面漏改。
+  const can = usePerms([PERMS.productCreate, PERMS.productUpdate, PERMS.productDelete])
   // 多币种价格（057 集成）
   const [currencyOptions, setCurrencyOptions] = useState<{ value: string; label: string }[]>([])
   const [priceRows, setPriceRows] = useState<PriceRow[]>([])
@@ -188,19 +187,20 @@ export default function ProductListPage() {
       title: t('pages.product.list.colAction'),
       valueType: 'option',
       width: 140,
-      render: (_, row) =>
-        isAdmin
-          ? [
-              <a key="edit" onClick={() => void openEdit(row)}>
-                <EditOutlined /> {t('pages.product.list.edit')}
-              </a>,
-              <Popconfirm key="delete" title={t('pages.product.list.deleteConfirm', { name: row.name })} onConfirm={() => onDelete(row)}>
-                <a style={{ color: '#ff4d4f' }}>
-                  <DeleteOutlined /> {t('pages.product.list.delete')}
-                </a>
-              </Popconfirm>,
-            ]
-          : [],
+      render: (_, row) => [
+        can[PERMS.productUpdate] && (
+          <a key="edit" onClick={() => void openEdit(row)}>
+            <EditOutlined /> {t('pages.product.list.edit')}
+          </a>
+        ),
+        can[PERMS.productDelete] && (
+          <Popconfirm key="delete" title={t('pages.product.list.deleteConfirm', { name: row.name })} onConfirm={() => onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>
+              <DeleteOutlined /> {t('pages.product.list.delete')}
+            </a>
+          </Popconfirm>
+        ),
+      ],
     },
   ]
 
@@ -229,7 +229,7 @@ export default function ProductListPage() {
           return { data: res.items, success: true, total: res.total }
         }}
         toolBarRender={() =>
-          isAdmin
+          can[PERMS.productCreate]
             ? [
                 <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                   {t('pages.product.list.create')}

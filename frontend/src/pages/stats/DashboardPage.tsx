@@ -460,9 +460,10 @@ export default function DashboardPage() {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   // 保留角色判断：这里唯一的 gating 是「设置目标」按钮（PUT /api/v1/stats/sales-targets）。
-  // StatsController 是类级 @PreAuthorize("hasAnyRole('ADMIN','SALES')")，方法体里再判一次
-  // 「userId 为空 = 全局目标，仅管理员可设」——本页发的请求不带 userId，所以实际就是管理员专属，
-  // 且这条规则既没有权限码也没有可复用的码（quota:* 管的是销售配额，不是销售目标），故维持原判断。
+  // 该端点的闸门是方法体里的内联检查（1.5 批 2 撤掉了类级 @PreAuthorize("hasAnyRole('ADMIN','SALES')")，
+  // 保留了这条判定）：「userId 为空 = 全局目标，仅管理员可设」——本页发的请求不带 userId，
+  // 所以实际就是管理员专属，且这条规则既没有权限码也没有可复用的码（quota:* 管的是销售配额，
+  // 不是销售目标），故维持原判断。
   const isAdmin = user?.role === 'ADMIN'
   const currentMonth = dayjs().format('YYYY-MM')
   const [targetOpen, setTargetOpen] = useState(false)

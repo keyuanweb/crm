@@ -22,6 +22,8 @@ import {
   type MarketingCampaign,
 } from '../../types/marketing'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 
 interface FormValues {
   name: string
@@ -40,6 +42,10 @@ export default function CampaignListPage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<MarketingCampaign | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 按权限码判断（1.5 批 3 起 MarketingController 的写挂 campaign:*，此前是 hasAnyRole('ADMIN','SALES')）。
+  // 三个码同批补授给了 SALES（判据①：不补就等于把销售建活动打成 403），另有 MARKETING_* 早已持有；
+  // 持有「营销活动」菜单却不持有这些码的角色（如 SALES_MANAGER）从此不再看到必然 403 的按钮。
+  const can = usePerms([PERMS.campaignCreate, PERMS.campaignUpdate, PERMS.campaignDelete])
 
   const reload = () => actionRef.current?.reload()
 
@@ -176,28 +182,30 @@ export default function CampaignListPage() {
       valueType: 'option',
       width: 200,
       render: (_, row) => [
-        row.status === 'PLANNING' && (
+        can[PERMS.campaignUpdate] && row.status === 'PLANNING' && (
           <a key="start" onClick={() => onStart(row)}>
             {t('pages.marketing.campaign.btnStart')}
           </a>
         ),
-        row.status === 'RUNNING' && (
+        can[PERMS.campaignUpdate] && row.status === 'RUNNING' && (
           <a key="end" onClick={() => onEnd(row)}>
             {t('pages.marketing.campaign.btnEnd')}
           </a>
         ),
-        row.status !== 'ENDED' && (
+        can[PERMS.campaignUpdate] && row.status !== 'ENDED' && (
           <a key="edit" onClick={() => openEdit(row)}>
             {t('pages.marketing.campaign.btnEdit')}
           </a>
         ),
-        <Popconfirm
-          key="delete"
-          title={t('pages.marketing.campaign.confirmDelete', { name: row.name })}
-          onConfirm={() => onDelete(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>{t('pages.marketing.campaign.btnDelete')}</a>
-        </Popconfirm>,
+        can[PERMS.campaignDelete] && (
+          <Popconfirm
+            key="delete"
+            title={t('pages.marketing.campaign.confirmDelete', { name: row.name })}
+            onConfirm={() => onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{t('pages.marketing.campaign.btnDelete')}</a>
+          </Popconfirm>
+        ),
       ],
     },
   ]
@@ -227,9 +235,14 @@ export default function CampaignListPage() {
           <Link key="roi" to="/marketing/roi">
             <Button>{t('pages.marketing.campaign.btnRoi')}</Button>
           </Link>,
-          <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            {t('pages.marketing.campaign.btnCreate')}
-          </Button>,
+          // 渠道 ROI 是读（GET /campaigns/channel-roi 不设码），所以只有「新建」按码收。
+          ...(can[PERMS.campaignCreate]
+            ? [
+                <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                  {t('pages.marketing.campaign.btnCreate')}
+                </Button>,
+              ]
+            : []),
         ]}
       />
 

@@ -43,7 +43,6 @@ import {
 import { fetchUsers } from '../../services/userService'
 import { fetchCampaigns } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
-import { useAuthStore } from '../../store/authStore'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import { extractCfParams, useCustomFieldFilterColumns } from '../../hooks/useCustomFieldFilters'
@@ -80,15 +79,14 @@ export default function CustomerListPage() {
   const [transferForm] = Form.useForm<{ targetOwnerId: number }>()
   const [saving, setSaving] = useState(false)
   const [toolbarBusy, setToolbarBusy] = useState(false)
-  const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.role === 'ADMIN'
   // 028：操作权限（ADMIN 由 hasPerm 短路放行，不需要再 || isAdmin）
   const can = usePerms([
     PERMS.customerCreate,
     PERMS.customerUpdate,
     PERMS.customerDelete,
-    PERMS.customerTransfer,
     PERMS.customerImport,
+    PERMS.customerClaim,
+    PERMS.customerPoolManage,
   ])
 
   useEffect(() => {
@@ -268,9 +266,11 @@ export default function CustomerListPage() {
       width: 180,
       render: (_, row) => [
         view === 'pool' ? (
-          <a key="claim" onClick={() => onClaim(row)}>
-            <UserAddOutlined /> {t('pages.customer.list.claim')}
-          </a>
+          can[PERMS.customerClaim] ? (
+            <a key="claim" onClick={() => onClaim(row)}>
+              <UserAddOutlined /> {t('pages.customer.list.claim')}
+            </a>
+          ) : null
         ) : can[PERMS.customerUpdate] ? (
           <a key="edit" onClick={() => openEdit(row)}>
             <EditOutlined /> {t('pages.customer.list.edit')}
@@ -340,10 +340,10 @@ export default function CustomerListPage() {
         pagination={{ defaultPageSize: 20 }}
         cardProps={{ style: { borderRadius: 10 } }}
         rowSelection={
-          // 行选择只服务于「批量转移」，而 POST /customers/batch-transfer 在 CustomerPoolController 上
-          // 仍是 @PreAuthorize("hasRole('ADMIN')")，字典里没有对应权限码——保留角色判断与后端一致。
-          // 后果：非管理员即使被授予 customer:transfer 也点不动「转移」（选不中任何行）。
-          isAdmin && view !== 'pool'
+          // 行选择只服务于「批量转移」，而 POST /customers/batch-transfer 挂的是 customer:pool_manage
+          // （1.5 批 3 起，此前是 hasRole('ADMIN')）——按码判断，不再按角色名。
+          // 该码目前无人被授，所以效果与改造前一致：只有管理员能选中行、能点「转移」。
+          can[PERMS.customerPoolManage] && view !== 'pool'
             ? { selectedRowKeys: selectedKeys, onChange: setSelectedKeys }
             : undefined
         }
@@ -362,17 +362,20 @@ export default function CustomerListPage() {
           <Button key="export" icon={<DownloadOutlined />} loading={toolbarBusy} onClick={() => void exportCustomers({})}>
             {t('pages.customer.list.export')}
           </Button>,
-          ...(isAdmin
+          ...(can[PERMS.customerPoolManage]
             ? [
-                // POST /customers/pool/scan 在 CustomerPoolController 上仍是 @PreAuthorize("hasRole('ADMIN')")，
-                // 字典里没有对应权限码——保留角色判断与后端一致。
+                // POST /customers/pool/scan 挂的是 customer:pool_manage（1.5 批 3 起，此前是
+                // hasRole('ADMIN')）——同样按码判断。
                 <Button key="scan" loading={toolbarBusy} onClick={() => void onScan()}>
                   {t('pages.customer.list.poolScan')}
                 </Button>,
               ]
             : []),
-          ...(can[PERMS.customerTransfer]
+          ...(can[PERMS.customerPoolManage]
             ? [
+                // 与行选择同码（POST /customers/batch-transfer 挂的就是 customer:pool_manage）。
+                // 此前这里按 customer:transfer 判断——那个码被授给了 SALES / SALES_MANAGER，
+                // 但后端没有任何端点校验它，于是这些角色看到一个永远 disabled 的「转移」按钮。
                 <Button
                   key="transfer"
                   icon={<SwapOutlined />}
