@@ -26,10 +26,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Node 18
+      # Node 版本必须满足 pnpm 的 engines 约束：pnpm 11.7.0 要求 node >= 22.13。
+      # 原为 '18'，pnpm 无法在其上运行，前端作业整体不可达。
+      - name: Set up Node 22
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
       - name: Enable pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -54,9 +56,107 @@ jobs:
       - name: Lint
         working-directory: frontend
         run: pnpm run lint
-      - name: Unit tests
+      # 必须走 test:coverage 而不是 test：覆盖率阈值（vite.config.ts 的 coverage.thresholds，
+      # FR-G09）只在该命令下生效。跑 test 的话门禁「配了但不管」——正是本规格要消除的形态。
+      - name: Unit tests (with coverage threshold)
         working-directory: frontend
-        run: pnpm run test
+        run: pnpm run test:coverage
       - name: Build
         working-directory: frontend
         run: pnpm run build
+
+  # 端到端门禁（FR-G10）。**不能塞进上面的 frontend 作业**：e2e 用例要求后端 8081 与
+  # MySQL/Redis 真实可用（login.spec.ts 直接登录、user-management.spec.ts 会写入数据），
+  # 故独立成作业并自带依赖服务。
+  #
+  # 前置条件：验证码必须关闭。登录页的验证码输入框是必填（UI 层），用例填占位值；
+  # 后端仅在 CAPTCHA_ENABLED=true 时才校验该字段（AuthService.login），默认即关闭。
+  # 此处显式声明为 false，避免被仓库级环境变量意外打开而使整套用例失败。
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    env:
+      CAPTCHA_ENABLED: 'false'
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root123456
+          MYSQL_DATABASE: crm_db
+          MYSQL_USER: crm_user
+          MYSQL_PASSWORD: crm123456
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot123456"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Start backend
+        working-directory: backend
+        # Flyway 在空库上建表并迁移，DataInitializer 随后创建 admin/admin123
+        run: |
+          nohup mvn -B -DskipTests spring-boot:run > /tmp/backend.log 2>&1 &
+      - name: Wait for backend readiness
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8081/actuator/health >/dev/null; then
+              echo "backend ready after $((i * 5))s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::backend not ready after 300s"
+          tail -100 /tmp/backend.log
+          exit 1
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: E2E tests
+        working-directory: frontend
+        run: pnpm run test:e2e
+      - name: Upload backend log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-backend-log
+          path: /tmp/backend.log

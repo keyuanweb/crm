@@ -60,8 +60,7 @@ public class SecurityDefaultsGuard implements ApplicationRunner {
 
     // 3. 生产环境提示
     if (!dev) {
-      log.info(
-          "SECURITY: 生产环境 JWT 密钥已配置（长度 {} 字符），安全基线检查通过。", jwtSecret.length());
+      log.info("SECURITY: 生产环境 JWT 密钥已配置（长度 {} 字符），安全基线检查通过。", jwtSecret.length());
     }
   }
 }

@@ -5,7 +5,7 @@ import type { DataRetentionExecutionResponse, DataRetentionPolicyResponse } from
 import { ENTITY_TYPE_LABELS, ACTION_TYPE_LABELS, POLICY_STATUS_LABELS, EXECUTION_STATUS_LABELS } from '../../types/dataRetention';
 import { ArrowLeftOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { Button, Card, Descriptions, List, Space, Tag, Typography, Alert, message } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const { Title, Text } = Typography;
@@ -17,13 +17,9 @@ const DataRetentionExecutionHistoryPage: React.FC = () => {
   const [executions, setExecutions] = useState<DataRetentionExecutionResponse[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadDetail();
-    }
-  }, [id]);
-
-  const loadDetail = async () => {
+  // loadDetail 依赖 id：用 useCallback 固定引用后由 effect 依赖它，
+  // 这样「id 变化时重新加载」的语义由 hooks 自身保证，而不是靠 effect 少写一个依赖项。
+  const loadDetail = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
@@ -38,7 +34,11 @@ const DataRetentionExecutionHistoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    void loadDetail();
+  }, [loadDetail]);
 
   const handleExecute = async () => {
     if (!id) return;

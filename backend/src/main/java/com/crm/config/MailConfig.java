@@ -7,7 +7,12 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.util.StringUtils;
 
-/** 邮件配置（030-email-marketing）：SMTP 环境变量；未配置 host 时返回 null， 群发走模拟路径（日志 + 标记 SENT），不阻塞其他功能。 */
+/**
+ * 邮件配置（030-email-marketing）：SMTP 环境变量；未配置 host 时返回 null bean，应用照常启动（不阻塞其他功能）。
+ *
+ * <p>一期诚信修复：null bean 不再代表"模拟发送成功"。是否可用由 {@link MailStatus} 统一判定，
+ * 各发送路径在未配置时标记 SKIPPED 而非 SENT。
+ */
 @Configuration
 public class MailConfig {
 

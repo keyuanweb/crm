@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDate;
 import lombok.Getter;
@@ -18,5 +20,7 @@ public class ReportTemplate extends BaseEntity {
   private LocalDate startDate;
   private LocalDate endDate;
   private String stageFilter;
+
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

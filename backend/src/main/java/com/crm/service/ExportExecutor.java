@@ -315,7 +315,8 @@ public class ExportExecutor {
   }
 
   /** 定时导出复用：返回文件路径和行数。 */
-  public String[] executeExportWithRowCount(String entityType, String filterConditions, String exportFormat) {
+  public String[] executeExportWithRowCount(
+      String entityType, String filterConditions, String exportFormat) {
     try {
       // 创建临时 ExportJob 用于复用现有导出逻辑
       ExportJob tempJob = new ExportJob();
@@ -338,7 +339,7 @@ public class ExportExecutor {
       Files.write(file, content);
 
       int rowCount = countRows(tempJob);
-      return new String[] { file.toString(), String.valueOf(rowCount) };
+      return new String[] {file.toString(), String.valueOf(rowCount)};
     } catch (IOException e) {
       throw new BusinessException(ErrorCode.EXPORT_FAILED, "Export failed: " + e.getMessage());
     }

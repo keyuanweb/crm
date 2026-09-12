@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDate;
 import lombok.Getter;
@@ -28,5 +30,6 @@ public class MarketingCampaign extends BaseEntity {
   /** PLANNING / RUNNING / ENDED。 */
   private String status;
 
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

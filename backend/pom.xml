@@ -21,7 +21,15 @@
     <java.version>17</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <!-- jacoco prepare-agent 会向该属性追加代理参数 -->
+    <!--
+      jacoco prepare-agent 会向该属性追加代理参数；surefire 与 failsafe 都默认取用 ${argLine}，
+      故两者的覆盖率都会写入同一个 jacoco.exec。这是集成测试覆盖率能计入报告的唯一通路。
+
+      ⚠️ 不要在 surefire / failsafe 的 <configuration> 里另写 <argLine> 而漏掉 @{argLine} 占位——
+      两者分属不同 JVM，漏掉后集成测试的覆盖率不会写入 jacoco.exec，而构建仍然成功，
+      覆盖率门禁会以"数字偏低但过得去"的形式静默失效。需要追加 JVM 参数时，
+      应继续在此处追加，而不是覆盖插件级配置。
+    -->
     <argLine>-Dfile.encoding=UTF-8</argLine>
     <mybatis-plus.version>3.5.5</mybatis-plus.version>
     <springdoc.version>2.3.0</springdoc.version>
@@ -60,6 +68,17 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+    <!-- 083：进程内缓存。必须进程内而非 Redis——集成测试将 RedisTemplate 声明为测试替身，
+         用外部缓存会使缓存行为在测试中静默失效（research.md §4）。
+         本 starter 提供 CaffeineCache 所需的 spring-context-support。 -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-cache</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -176,6 +195,31 @@
           </execution>
         </executions>
       </plugin>
+      <!--
+        maven-failsafe-plugin：实际执行集成测试（*IT.java）。
+        在此之前 61 个 *IT 类被编写、被编译，但从不执行——surefire 的默认包含是 **/*Test.java，
+        不含 **/*IT.java，而构建里根本没有 failsafe。本插件是 FR-G01 的唯一落点。
+        （计数说明：上述 61 是接入 failsafe 前的存量；接入后新增 5 个 IT 类，现共 66 个，
+        每次运行同样份数的 *IT 报告——见 specs/083-engineering-consolidation/baseline.md §6。）
+        <includes> 虽与 failsafe 默认值一致，仍显式声明：范围是需求的一部分，不应依赖插件默认值。
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <includes>
+            <include>**/*IT.java</include>
+          </includes>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
@@ -194,9 +238,14 @@
               <goal>prepare-agent</goal>
             </goals>
           </execution>
+          <!--
+            report 必须晚于 integration-test，否则报告只含 surefire 口径的覆盖率。
+            原绑 test 相位时，报告在 failsafe 之前生成——即使报告存在，数字也系统性偏低，
+            是"看起来有覆盖率"的假绿来源之一。
+          -->
           <execution>
             <id>report</id>
-            <phase>test</phase>
+            <phase>post-integration-test</phase>
             <goals>
               <goal>report</goal>
             </goals>
@@ -215,9 +264,24 @@
                     <limit>
                       <counter>INSTRUCTION</counter>
                       <value>COVEREDRATIO</value>
-                      <!-- 初始门禁：当前套件（契约+集成+单元）覆盖 0.36，预留余量；
-                           随测试增长应上调至 0.60+ -->
-                      <minimum>0.30</minimum>
+                      <!--
+                        实测（2026-09-12，接入 failsafe 且报告改在 post-integration-test 生成）：
+                        INSTRUCTION covered 41 544 / total 55 274 = 0.7516。
+                        改造前仅 surefire 口径为 0.5093（见 specs/083-engineering-consolidation/baseline.md），
+                        差值约 24 个百分点即集成测试的贡献——这正是本门禁此前无法度量的部分。
+
+                        ⚠️ 复现该数值**必须**加 -Dmaven.test.failure.ignore=true：
+                        surefire 在 test 相位有任何失败即中止 Maven 生命周期，integration-test 与 verify
+                        根本不会执行，于是 failsafe 不跑、本 check 也不跑，构建在更早的相位就红了。
+                        当前有 3 例单元失败属 specs/083-engineering-consolidation 已裁决转出的范围
+                        （见该规格 tasks.md 的 T018），故在本项目里"字面执行 mvn -B verify"看不到任何
+                        集成测试结果与覆盖率结果——那是生命周期语义，不是配置缺失。
+
+                        门禁取 0.73：距实测 0.7516 约 2.2 个百分点，够吸收浮点与测试增删的抖动，
+                        同时不给"静默退化"留空间（旧值 0.30 距实测 45 个百分点，等于不设防）。
+                        若后续确需下调，必须在 specs 中记录理由与新的实测值。
+                      -->
+                      <minimum>0.73</minimum>
                     </limit>
                   </limits>
                 </rule>

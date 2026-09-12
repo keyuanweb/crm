@@ -56,9 +56,10 @@ describe('LoginPage', () => {
 
   it('登录失败时展示错误信息并刷新验证码', async () => {
     // 模拟一个真正的 Axios 错误对象
-    const axiosError = new Error('用户名或密码错误') as any
-    axiosError.isAxiosError = true
-    axiosError.response = { data: { error: { message: '用户名或密码错误' } } }
+    const axiosError = Object.assign(new Error('用户名或密码错误'), {
+      isAxiosError: true,
+      response: { data: { error: { message: '用户名或密码错误' } } },
+    })
     vi.mocked(login).mockRejectedValue(axiosError)
 
     renderWithProviders(<LoginPage />)

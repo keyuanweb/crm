@@ -12,6 +12,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
+import com.crm.common.OutboundUrlValidator;
 import com.crm.dto.integration.ChannelRequest;
 import com.crm.entity.IntegrationChannel;
 import com.crm.repository.IntegrationChannelMapper;
@@ -34,6 +35,7 @@ class IntegrationChannelServiceTest {
   private IntegrationChannelMapper channelMapper;
   private WebhookDeliveryMapper deliveryMapper;
   private WebhookService webhookService;
+  private OutboundUrlValidator outboundUrlValidator;
   private IntegrationChannelService service;
   private MockedStatic<SecurityUtil> securityUtilMock;
 
@@ -49,7 +51,12 @@ class IntegrationChannelServiceTest {
     channelMapper = mock(IntegrationChannelMapper.class);
     deliveryMapper = mock(WebhookDeliveryMapper.class);
     webhookService = mock(WebhookService.class);
-    service = new IntegrationChannelService(channelMapper, deliveryMapper, webhookService);
+    // 真实校验器：本类的「非法 URL → 422」用例断言的正是它。白名单给出用例里使用的主机，
+    // 因为默认策略是「全拒」——不放行的话 createSucceeds 会因地址被拒而失败。
+    outboundUrlValidator = new OutboundUrlValidator("qyapi.weixin.qq.com");
+    service =
+        new IntegrationChannelService(
+            channelMapper, deliveryMapper, webhookService, outboundUrlValidator);
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock
         .when(SecurityUtil::currentPrincipal)

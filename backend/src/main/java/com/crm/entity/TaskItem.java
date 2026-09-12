@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 import lombok.Getter;
@@ -29,5 +31,6 @@ public class TaskItem extends BaseEntity {
   /** 归属用户（数据隔离）。 */
   private Long ownerId;
 
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

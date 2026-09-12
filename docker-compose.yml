@@ -29,8 +29,16 @@ services:
       # 定时任务配置
       - CRM_SCHEDULER_EXPORT_CRON=0 0/5 * * * ?
       - CRM_SCHEDULER_RETENTION_CRON=0 0 2 * * ?
-      # CORS 配置
-      - CORS_ALLOWED_ORIGINS=http://localhost:5173
+      # 邮件通道（030）：不设置 CRM_MAIL_HOST 则邮件未启用，发送记录标记 SKIPPED 并提示未发送
+      - CRM_MAIL_HOST=${CRM_MAIL_HOST:-}
+      - CRM_MAIL_PORT=${CRM_MAIL_PORT:-587}
+      - CRM_MAIL_USERNAME=${CRM_MAIL_USERNAME:-}
+      - CRM_MAIL_PASSWORD=${CRM_MAIL_PASSWORD:-}
+      - CRM_MAIL_FROM=${CRM_MAIL_FROM:-crm@example.com}
+      # CORS 配置：编排下前端由 nginx 在 80 端口提供，浏览器 Origin 是 http://localhost。
+      # 改造前这里是开发服务器端口 5173 —— 该端口在编排下没有任何服务监听，
+      # 于是同源的页面请求被后端以跨域来源拒绝（同源策略下浏览器仍会带上 Origin）。
+      - CORS_ALLOWED_ORIGINS=http://localhost
     depends_on:
       mysql:
         condition: service_healthy
@@ -48,13 +56,18 @@ services:
 
   # ==================== 前端服务 ====================
   crm-frontend:
-    image: nginx:alpine
+    # 构建期产出静态产物（见 frontend/Dockerfile）。改造前是 `image: nginx:alpine` + 挂载宿主机
+    # `./frontend/dist` —— 该目录不随仓库交付、也不被编排构建，干净检出启动只会得到空白页。
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: crm-frontend
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro
+      # 只挂配置。产物在镜像里，不再从宿主机挂入 —— 挂载点一旦留在编排里，
+      # 就会诱使后人把 `dist` 当成交付物（正是本次要修掉的误解）。
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - crm-backend
@@ -76,7 +89,10 @@ services:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./backend/src/main/resources/db/migration:/docker-entrypoint-initdb.d:ro
+      # 刻意**不**把 db/migration 挂成 /docker-entrypoint-initdb.d：MySQL 按文件名字母序执行该目录
+      # （V1, V10, V11, …, V2, V20 …），与 Flyway 的版本序（数值序）不一致，两套机制会互相打架：
+      # 表被以错误顺序建出来、而 Flyway 的 history 表并不存在，随后后端的 Flyway 会从 V1 重放并失败。
+      # 正确的分工是：MySQL 只建空库（MYSQL_DATABASE 已做），库结构全部交给后端启动时的 Flyway。
     command: >
       --default-authentication-plugin=caching_sha2_password
       --character-set-server=utf8mb4

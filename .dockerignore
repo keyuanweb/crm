@@ -6,6 +6,12 @@
 node_modules
 frontend/node_modules
 frontend/dist
+# 测试与覆盖产物：不进构建上下文。否则本机跑过一次测试后，这些目录会被打进
+# `frontend/Dockerfile` 构建阶段的上下文（源码整目录 COPY），既拖慢构建，也可能
+# 让镜像里出现上一轮的陈旧产物。
+frontend/coverage
+frontend/test-results
+frontend/playwright-report
 
 # IDE
 .idea

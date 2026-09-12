@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,7 +21,10 @@ public class CurrencyRate {
   private Integer isBase;
   private Integer enabled;
   private Integer version;
+
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
+
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 }

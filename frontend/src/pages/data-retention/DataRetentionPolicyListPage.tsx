@@ -77,7 +77,7 @@ const DataRetentionPolicyListPage: React.FC = () => {
     {
       title: '操作',
       width: 200,
-      render: (_: any, record: DataRetentionPolicyResponse) => [
+      render: (_: unknown, record: DataRetentionPolicyResponse) => [
         <a key="executions" onClick={() => navigate(`/data-retention/${record.id}/executions`)}>
           执行历史
         </a>,

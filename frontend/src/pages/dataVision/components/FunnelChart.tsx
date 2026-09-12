@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts'
+import type { DefaultLabelFormatterCallbackParams, TooltipComponentFormatterCallbackParams } from 'echarts'
 import type { FunnelStage } from '../types'
 
 interface FunnelChartProps {
@@ -48,8 +49,8 @@ export default function FunnelChart({ stages, style }: FunnelChartProps) {
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        formatter: (params: any) => {
-          const data = params[0]
+        formatter: (params: TooltipComponentFormatterCallbackParams) => {
+          const data = Array.isArray(params) ? params[0] : params
           const stage = stages[data.dataIndex]
           return `${data.name}<br/>金额：${(stage?.amountTotal || 0).toLocaleString()} 元<br/>数量：${stage?.count || 0} 个`
         },
@@ -87,7 +88,7 @@ export default function FunnelChart({ stages, style }: FunnelChartProps) {
           label: {
             show: true,
             position: 'right',
-            formatter: (params: any) => {
+            formatter: (params: DefaultLabelFormatterCallbackParams) => {
               const stage = stages[params.dataIndex]
               return `${(stage?.amountTotal || 0).toLocaleString()}`
             },

@@ -1,21 +1,13 @@
 /** 配额对比分析页面（078-sales-quota，US4 - 配额对比分析）。 */
 
-import { quotaApi } from '../../services/api/quotaApi';
+import { quotaApi, type TeamRankingItem as TeamRanking } from '../../services/api/quotaApi';
 import { ArrowLeftOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Button, Card, Col, Flex, message, Progress, Row, Select, Space, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
-
-interface TeamRanking {
-  teamId: number;
-  teamName: string;
-  quotaAmount: number;
-  actualAmount: number;
-  achievementRate: number;
-}
 
 const QuotaComparisonPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,11 +15,8 @@ const QuotaComparisonPage: React.FC = () => {
   const [ranking, setRanking] = useState<TeamRanking[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadRanking();
-  }, [year]);
-
-  const loadRanking = () => {
+  // loadRanking 依赖 year：用 useCallback 固定引用后交给 effect 依赖。
+  const loadRanking = useCallback(() => {
     setLoading(true);
     quotaApi
       .getTeamRanking(year)
@@ -38,7 +27,11 @@ const QuotaComparisonPage: React.FC = () => {
         console.error(err);
       })
       .finally(() => setLoading(false));
-  };
+  }, [year]);
+
+  useEffect(() => {
+    loadRanking();
+  }, [loadRanking]);
 
   const columns: ColumnsType<TeamRanking> = [
     {

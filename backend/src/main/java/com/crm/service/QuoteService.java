@@ -23,7 +23,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -100,11 +104,13 @@ public class QuoteService {
     quote.setStatus(STATUS_DRAFT);
     quote.setRemark(req.getRemark());
     quote.setCreatedBy(SecurityUtil.currentUserId());
-    long total = calcTotal(req, quote);
+    // 产品**只查一次**，算额与建行共用（改造前各查一遍：4 行明细 = 8 次查询）
+    Map<Long, Product> products = resolveProducts(req);
+    long total = calcTotal(req, products);
     quote.setTotalAmount(total);
     quoteMapper.insert(quote);
 
-    List<QuoteItem> items = buildItems(req, quote.getId());
+    List<QuoteItem> items = buildItems(req, quote.getId(), products);
     for (QuoteItem item : items) {
       quoteItemMapper.insert(item);
     }
@@ -129,7 +135,8 @@ public class QuoteService {
     existing.setOpportunityId(req.getOpportunityId());
     existing.setValidUntil(req.getValidUntil());
     existing.setRemark(req.getRemark());
-    long total = calcTotal(req, existing);
+    Map<Long, Product> products = resolveProducts(req);
+    long total = calcTotal(req, products);
     existing.setTotalAmount(total);
     existing.setVersion(req.getVersion());
     int rows = quoteMapper.updateById(existing);
@@ -138,7 +145,7 @@ public class QuoteService {
     }
     // 删除旧行，重建新行（简化一致性）
     quoteItemMapper.delete(new LambdaQueryWrapper<QuoteItem>().eq(QuoteItem::getQuoteId, id));
-    for (QuoteItem item : buildItems(req, id)) {
+    for (QuoteItem item : buildItems(req, id, products)) {
       quoteItemMapper.insert(item);
     }
     auditService.record("UPDATE", "QUOTE", id, "编辑报价单：" + existing.getQuoteNo());
@@ -214,47 +221,78 @@ public class QuoteService {
     }
   }
 
-  /** 计算总额并回填行小计（行内快照产品名/单价）。 */
-  private long calcTotal(QuoteRequest req, Quote quote) {
+  /**
+   * 一次性取齐本次请求涉及的全部产品（FR-G24）。
+   *
+   * <p><b>为什么必须由调用方先取、再传给 {@link #calcTotal} 与 {@link #buildItems}</b>：这两个方法本来各自对同一批 productId
+   * 查一遍库，N 行明细即 2N 次往返（实测 4 行 → 8 次查询）。把"取产品"提到循环之外是本修复的**全部**内容； 两个方法各自的算法未变。
+   *
+   * <p><b>产品存在性/启用状态的校验也放在这里</b>：原先该校验只存在于 {@code calcTotal} 里，而 {@code buildItems} 直接解引用 {@code
+   * product.getName()}——即它**依赖调用顺序**才不出空指针。校验前置后，两个方法各自都是安全的， 不再需要"calcTotal 一定先跑"这一隐含约定。
+   *
+   * <p>失败语义保持不变：任一产品不存在或非 ACTIVE 即抛 {@code PRODUCT_NOT_FOUND}（原为遇到第一个就抛，
+   * 改批量后仍在遍历时按同样顺序抛出——遍历的是请求里的行，不是查询结果，故哪一行报错与改造前一致）。
+   */
+  private Map<Long, Product> resolveProducts(QuoteRequest req) {
+    Set<Long> productIds = new LinkedHashSet<>();
+    for (QuoteRequest.QuoteItemRequest item : req.getItems()) {
+      productIds.add(item.getProductId());
+    }
+    Map<Long, Product> byId = new HashMap<>();
+    if (productIds.isEmpty()) {
+      return byId;
+    }
+    for (Product product : productMapper.selectBatchIds(productIds)) {
+      byId.put(product.getId(), product);
+    }
+    return byId;
+  }
+
+  /** 取该行对应的、已校验为可用的产品；产品缺失或非启用状态即拒绝。 */
+  private Product requireActiveProduct(Map<Long, Product> products, Long productId) {
+    Product product = products.get(productId);
+    if (product == null || !"ACTIVE".equals(product.getStatus())) {
+      throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+    }
+    return product;
+  }
+
+  /** 行小计：单价 × 数量 × 折扣，分位四舍五入到分。 */
+  private long lineTotal(long unitPrice, Integer quantity, BigDecimal discount) {
+    return BigDecimal.valueOf(unitPrice)
+        .multiply(BigDecimal.valueOf(quantity))
+        .multiply(discount == null ? BigDecimal.ONE : discount)
+        .setScale(0, RoundingMode.HALF_UP)
+        .longValue();
+  }
+
+  /** 计算总额（行小计仍由 {@link #buildItems} 落库，此处只求和不回填）。 */
+  private long calcTotal(QuoteRequest req, Map<Long, Product> products) {
     long total = 0;
     for (QuoteRequest.QuoteItemRequest item : req.getItems()) {
-      Product product = productMapper.selectById(item.getProductId());
-      if (product == null || !"ACTIVE".equals(product.getStatus())) {
-        throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
-      }
+      Product product = requireActiveProduct(products, item.getProductId());
       long unitPrice = product.getStandardPrice() == null ? 0L : product.getStandardPrice();
-      BigDecimal qty = BigDecimal.valueOf(item.getQuantity());
-      BigDecimal discount = item.getDiscount() == null ? BigDecimal.ONE : item.getDiscount();
-      long lineTotal =
-          BigDecimal.valueOf(unitPrice)
-              .multiply(qty)
-              .multiply(discount)
-              .setScale(0, RoundingMode.HALF_UP)
-              .longValue();
-      total += lineTotal;
+      total += lineTotal(unitPrice, item.getQuantity(), item.getDiscount());
     }
     return total;
   }
 
-  private List<QuoteItem> buildItems(QuoteRequest req, Long quoteId) {
+  private List<QuoteItem> buildItems(QuoteRequest req, Long quoteId, Map<Long, Product> products) {
     return req.getItems().stream()
         .map(
             item -> {
-              Product product = productMapper.selectById(item.getProductId());
+              Product product = requireActiveProduct(products, item.getProductId());
               QuoteItem qi = new QuoteItem();
               qi.setQuoteId(quoteId);
               qi.setProductId(item.getProductId());
               qi.setProductName(product.getName());
-              qi.setUnitPrice(product.getStandardPrice() == null ? 0L : product.getStandardPrice());
+              long unitPrice = product.getStandardPrice() == null ? 0L : product.getStandardPrice();
+              qi.setUnitPrice(unitPrice);
               qi.setQuantity(item.getQuantity());
               qi.setDiscount(item.getDiscount() == null ? BigDecimal.ONE : item.getDiscount());
-              BigDecimal qty = BigDecimal.valueOf(item.getQuantity());
-              qi.setLineTotal(
-                  BigDecimal.valueOf(qi.getUnitPrice())
-                      .multiply(qty)
-                      .multiply(qi.getDiscount())
-                      .setScale(0, RoundingMode.HALF_UP)
-                      .longValue());
+              // 与 calcTotal 共用同一个 lineTotal：两处若各写一份，一次只改一处的舍入修正会让
+              // 落库的 line_total 与 total_amount 静默不一致
+              qi.setLineTotal(lineTotal(unitPrice, item.getQuantity(), item.getDiscount()));
               return qi;
             })
         .toList();

@@ -33,7 +33,8 @@ export interface FlowDef {
 export interface QuickAction {
   key: string
   label: string
-  icon: ReactNode
+  /** 图标：emoji 文本（原先写成 `<span>📝</span>`，但调用方按字符串键取值，实际从未渲染）。 */
+  icon: string
   path: string
 }
 
@@ -324,49 +325,49 @@ export const QUICK_ACTIONS: QuickAction[] = [
   {
     key: 'create-lead',
     label: '新建线索',
-    icon: <span>📝</span>,
+    icon: '📝',
     path: '/leads/new',
   },
   {
     key: 'create-customer',
     label: '新建客户',
-    icon: <span>🏢</span>,
+    icon: '🏢',
     path: '/customers/new',
   },
   {
     key: 'create-opportunity',
     label: '新建商机',
-    icon: <span>💰</span>,
+    icon: '💰',
     path: '/opportunities/new',
   },
   {
     key: 'create-quote',
     label: '新建报价单',
-    icon: <span>📄</span>,
+    icon: '📄',
     path: '/quotes/new',
   },
   {
     key: 'create-contract',
     label: '新建合同',
-    icon: <span>📑</span>,
+    icon: '📑',
     path: '/contracts/new',
   },
   {
     key: 'create-ticket',
     label: '新建工单',
-    icon: <span>🔧</span>,
+    icon: '🔧',
     path: '/support/tickets/new',
   },
   {
     key: 'dashboard',
     label: '工作台',
-    icon: <span>📊</span>,
+    icon: '📊',
     path: '/dashboard',
   },
   {
     key: 'reports',
     label: '报表中心',
-    icon: <span>📈</span>,
+    icon: '📈',
     path: '/reports',
   },
 ]

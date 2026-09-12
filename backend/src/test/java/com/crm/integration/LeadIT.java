@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
 /** 线索集成测试（T013）：完整业务流程 CRUD/线索池/分配/领取/跟进/转化。 */
-class LeadITTest extends AbstractIntegrationTest {
+class LeadIT extends AbstractIntegrationTest {
 
   private Long createLead(String token, String name, String company) throws Exception {
     String body =

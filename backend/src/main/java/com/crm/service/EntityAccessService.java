@@ -130,12 +130,31 @@ public class EntityAccessService {
     return new ArrayList<>(ids);
   }
 
+  /**
+   * 「数据权限无限制」判定（FR-G11，显式三分支）。
+   *
+   * <ol>
+   *   <li><b>无主体</b>（{@code principal == null}）→ 放行。服务于**系统内部调用**（如调度器、事件处理），
+   *       与人工会话和机器主体都是不同主体。此分支**必须保留**：删掉会使内部调用被误拒。
+   *   <li><b>管理员</b>（角色 {@code ADMIN}）→ 放行。
+   *   <li><b>其余</b>（含 API Key 机器主体、普通角色）→ 不放行，走行级判定。
+   * </ol>
+   *
+   * <p>此处刻意**不看** {@code userId} 指向的用户记录：判定的依据只能是**当前主体**。改造前 API Key 路径注入 {@code ADMIN}
+   * 角色，正是靠"角色字符串"同时骗过本方法与 {@code PermissionAspect}；机器主体因此在第 3 分支落地，而不是新增一个分支。
+   *
+   * <p>副作用（须如实知悉）：{@code visibleCustomerIds} 等方法在本判定为假时，会用 {@link
+   * DataPermissionService#resolveVisibleOwnerIds} 的结果作为过滤集，而该方法对机器主体返回"仅主体本人名下"——
+   * 两者方向一致，不会出现"被判为不受限而不过滤"的组合。
+   */
   private boolean isUnrestricted(Long userId) {
     if (userId == null) {
       return false;
     }
     var principal = com.crm.security.SecurityUtil.currentPrincipal();
-    // 无 principal（系统内部调用）或 ADMIN → 放行
-    return principal == null || "ADMIN".equals(principal.role());
+    if (principal == null) {
+      return true; // 分支 1：无主体（系统内部调用）
+    }
+    return "ADMIN".equals(principal.role()); // 分支 2：管理员；分支 3：其余 → 假
   }
 }

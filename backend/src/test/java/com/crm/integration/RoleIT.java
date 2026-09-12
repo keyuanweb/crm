@@ -7,7 +7,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crm.AbstractIntegrationTest;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -47,12 +50,14 @@ class RoleIT extends AbstractIntegrationTest {
   void adminCreatesRole() throws Exception {
     String token = adminToken();
 
-    long roleId = createRole(token, "VIEWER", "只读查看", "SELF");
+    // 角色码必须避开生产迁移预置的角色码（V75 起含 VIEWER 等 10 个）——重用预置码会撞唯一键得到
+    // 409，而那不是本用例要验证的行为。
+    long roleId = createRole(token, "IT_VIEWER", "只读查看", "SELF");
 
     mockMvc
         .perform(get("/api/v1/roles").header("Authorization", bearer(token)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data.items[?(@.code == 'VIEWER')].menus[0]").value("customers"));
+        .andExpect(jsonPath("$.data.items[?(@.code == 'IT_VIEWER')].menus[0]").value("customers"));
     org.assertj.core.api.Assertions.assertThat(roleId).isPositive();
   }
 
@@ -61,14 +66,50 @@ class RoleIT extends AbstractIntegrationTest {
   void meReturnsMenusAndPermissions() throws Exception {
     String token = adminToken();
 
-    mockMvc
-        .perform(get("/api/v1/auth/me").header("Authorization", bearer(token)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data.role").value("ADMIN"))
-        .andExpect(jsonPath("$.data.menus").isArray())
-        .andExpect(jsonPath("$.data.menus.length()").value(28))
-        .andExpect(jsonPath("$.data.permissions").isArray())
-        .andExpect(jsonPath("$.data.permissions.length()").value(35));
+    // 断言"ADMIN 拿到全量"而非某个具体数字：菜单目录随功能增加而增长（曾为 28，现已 55+），
+    // 写死数字只会把用例变成一颗定时炸弹。基准取自字典接口本身——它与 /auth/me 的 ADMIN 分支
+    // 读的是同一份目录，因此这里检验的是"兜底分支确实取到了全量"，而不是"目录恰好是 N 项"。
+    List<String> expectedMenus = dictKeys(token, "/api/v1/roles/menu-tree", "key");
+    List<String> expectedPermissions = dictKeys(token, "/api/v1/roles/permission-defs", "code");
+
+    String meResp =
+        mockMvc
+            .perform(get("/api/v1/auth/me").header("Authorization", bearer(token)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.role").value("ADMIN"))
+            .andExpect(jsonPath("$.data.menus").isArray())
+            .andExpect(jsonPath("$.data.permissions").isArray())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    JsonNode data = objectMapper.readTree(meResp).path("data");
+
+    org.assertj.core.api.Assertions.assertThat(
+            objectMapper.convertValue(data.path("menus"), new TypeReference<List<String>>() {}))
+        .containsExactlyInAnyOrderElementsOf(expectedMenus);
+    org.assertj.core.api.Assertions.assertThat(
+            objectMapper.convertValue(
+                data.path("permissions"), new TypeReference<List<String>>() {}))
+        .containsExactlyInAnyOrderElementsOf(expectedPermissions);
+  }
+
+  /** 展开字典接口（分组 → children）的叶子键，顺序即接口返回顺序。 */
+  private List<String> dictKeys(String token, String path, String field) throws Exception {
+    String resp =
+        mockMvc
+            .perform(get(path).header("Authorization", bearer(token)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    List<String> keys = new ArrayList<>();
+    for (JsonNode group : objectMapper.readTree(resp).path("data")) {
+      for (JsonNode child : group.path("children")) {
+        keys.add(child.path(field).asText());
+      }
+    }
+    org.assertj.core.api.Assertions.assertThat(keys).isNotEmpty();
+    return keys;
   }
 
   @Test

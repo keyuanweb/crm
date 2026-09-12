@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 import lombok.Getter;
@@ -16,7 +18,10 @@ public class WebhookSubscription {
   private String callbackUrl;
   private String secret;
   private Integer enabled;
+
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
+
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 }

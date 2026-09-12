@@ -8,10 +8,10 @@ import com.crm.dto.quota.SalesQuotaBreakdownRequest;
 import com.crm.dto.quota.SalesQuotaRequest;
 import com.crm.dto.quota.SalesQuotaResponse;
 import com.crm.dto.quota.SalesQuotaSummaryResponse;
+import com.crm.entity.Department;
 import com.crm.entity.SalesQuota;
 import com.crm.entity.SalesQuotaBreakdown;
 import com.crm.entity.SalesQuotaVersion;
-import com.crm.entity.Department;
 import com.crm.entity.User;
 import com.crm.repository.DepartmentMapper;
 import com.crm.repository.UserMapper;
@@ -89,14 +89,12 @@ public class SalesQuotaServiceImpl implements SalesQuotaService {
     if (records == null || records.isEmpty()) {
       return;
     }
-    List<Long> ids =
-        records.stream().map(SalesQuotaResponse::getId).collect(Collectors.toList());
+    List<Long> ids = records.stream().map(SalesQuotaResponse::getId).collect(Collectors.toList());
     List<Map<String, Object>> achievements = salesQuotaRepository.getAchievementBatch(ids);
     Map<Long, Map<String, Object>> byId =
         achievements.stream()
             .collect(
-                Collectors.toMap(
-                    m -> ((Number) m.get("id")).longValue(), m -> m, (a, b) -> a));
+                Collectors.toMap(m -> ((Number) m.get("id")).longValue(), m -> m, (a, b) -> a));
     for (SalesQuotaResponse record : records) {
       Map<String, Object> a = byId.get(record.getId());
       if (a != null) {
@@ -299,9 +297,7 @@ public class SalesQuotaServiceImpl implements SalesQuotaService {
     response.setTotalActual(totalActual);
     if (totalQuota.compareTo(BigDecimal.ZERO) > 0) {
       response.setAchievementRate(
-          totalActual
-              .multiply(new BigDecimal("100"))
-              .divide(totalQuota, 2, RoundingMode.HALF_UP));
+          totalActual.multiply(new BigDecimal("100")).divide(totalQuota, 2, RoundingMode.HALF_UP));
     } else {
       response.setAchievementRate(BigDecimal.ZERO);
     }

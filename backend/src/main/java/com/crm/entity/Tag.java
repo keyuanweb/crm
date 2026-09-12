@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,5 +18,6 @@ public class Tag extends BaseEntity {
   /** CUSTOMER / LEAD / CONTACT。 */
   private String entityType;
 
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

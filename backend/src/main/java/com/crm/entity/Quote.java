@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,5 +29,7 @@ public class Quote extends BaseEntity {
   private Long approverId;
   private LocalDateTime approvedAt;
   private String rejectReason;
+
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

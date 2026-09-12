@@ -5,7 +5,7 @@ import type { ScheduledExportExecutionResponse, ScheduledExportResponse } from '
 import { ENTITY_TYPE_LABELS, EXPORT_FORMAT_LABELS, EXECUTION_STATUS_LABELS, TASK_STATUS_LABELS } from '../../types/scheduledExport';
 import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Button, Card, Descriptions, List, Space, Tag, Typography, Alert, message } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const { Title, Text } = Typography;
@@ -17,13 +17,8 @@ const ScheduledExportExecutionHistoryPage: React.FC = () => {
   const [executions, setExecutions] = useState<ScheduledExportExecutionResponse[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadDetail();
-    }
-  }, [id]);
-
-  const loadDetail = async () => {
+  // 同 DataRetentionExecutionHistoryPage：loadDetail 依赖 id，用 useCallback 固定引用后交给 effect 依赖。
+  const loadDetail = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
@@ -38,7 +33,11 @@ const ScheduledExportExecutionHistoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    void loadDetail();
+  }, [loadDetail]);
 
   const handleExecuteNow = async () => {
     if (!id) return;

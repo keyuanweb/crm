@@ -1,6 +1,8 @@
 /** 定时导出任务 Service 实现（079-scheduled-export）。 */
 package com.crm.service;
 
+import com.crm.common.BusinessException;
+import com.crm.common.ErrorCode;
 import com.crm.dto.ScheduledExportExecutionResponse;
 import com.crm.dto.ScheduledExportRequest;
 import com.crm.dto.ScheduledExportResponse;
@@ -87,10 +89,36 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
     return toResponse(entity);
   }
 
+  /**
+   * 定位任务并判定归属（FR-G16）。
+   *
+   * <p><b>为什么"以空结果代替拒绝"不可接受</b>：空列表与"确实没有数据"无法区分，调用方会把越权当成"暂无任务"， 越权尝试在界面与日志里都不留痕迹。故此处显式失败。
+   *
+   * <p><b>为什么不做 ADMIN 例外</b>：FR-G16 要求"按当前登录用户限定范围"，未留例外；而管理员的可用性并未因此受损—— 授予 `export:scheduled`
+   * 只决定"能不能用这个功能"，看不看得到他人的任务由这里决定。若确需跨用户查看， 应先有一条明确需求再开此口子，而不是在越权判定里顺手放行（那等于把本 FR 关掉的那类读取从管理侧重新打开）。
+   */
+  private ScheduledExport requireOwned(Long id) {
+    ScheduledExport entity = scheduledExportRepository.selectById(id);
+    if (entity == null) {
+      throw new BusinessException(ErrorCode.EXPORT_NOT_FOUND);
+    }
+    if (!currentUserId().equals(entity.getUserId())) {
+      throw new BusinessException(ErrorCode.EXPORT_FORBIDDEN);
+    }
+    return entity;
+  }
+
   @Override
   public List<ScheduledExportResponse> getScheduledExports(Long userId) {
+    Long callerId = currentUserId();
+    // 参数值不再参与过滤：过滤一律以服务端身份为准（FR-G16）。改造前这里直接用传入的 userId 查库，
+    // 任何已认证用户传他人标识即可读到他人订阅——参数本身必须假定为不可信输入。
+    // 不符时显式拒绝而非静默忽略：静默忽略会让"客户端传错 userId"这类缺陷长期不可见（列表看起来总是对的）。
+    if (!callerId.equals(userId)) {
+      throw new BusinessException(ErrorCode.EXPORT_FORBIDDEN);
+    }
     List<ScheduledExport> entities =
-        scheduledExportRepository.findByUserIdAndStatus(userId, "ACTIVE");
+        scheduledExportRepository.findByUserIdAndStatus(callerId, "ACTIVE");
     List<ScheduledExportResponse> responses = new ArrayList<>();
     for (ScheduledExport entity : entities) {
       responses.add(toResponse(entity));
@@ -100,8 +128,7 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
 
   @Override
   public ScheduledExportResponse getScheduledExport(Long id) {
-    ScheduledExport entity = scheduledExportRepository.selectById(id);
-    return entity != null ? toResponse(entity) : null;
+    return toResponse(requireOwned(id));
   }
 
   @Override
@@ -134,6 +161,8 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
 
   @Override
   public List<ScheduledExportExecutionResponse> getExecutions(Long scheduledExportId) {
+    // 先定归属再取记录：执行记录里有文件路径与行数，越权读取的后果不比详情轻（FR-G16）
+    requireOwned(scheduledExportId);
     List<ScheduledExportExecution> entities =
         scheduledExportExecutionRepository.findByScheduledExportIdOrderByExecutedAtDesc(
             scheduledExportId);
@@ -192,13 +221,24 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
         execution.setFileSize(0L);
       }
       execution.setRowCount(Integer.parseInt(rowCount));
-      execution.setEmailStatus("EMAIL_SENT");
 
-      // 发送邮件
-      emailService.sendSimpleEmail(
-          getUserEmail(task.getUserId()),
-          "定时导出完成 - " + task.getEntityType(),
-          "定时导出任务已完成，文件路径：" + filePath);
+      // 通知邮件（一期诚信修复）：真正发出后才记 EMAIL_SENT；邮件是通知而非导出的一部分，
+      // 因此单独 try/catch —— SMTP 未配置或发送异常都不应把导出本身判为失败。
+      try {
+        emailService.sendSimpleEmail(
+            getUserEmail(task.getUserId()),
+            "定时导出完成 - " + task.getEntityType(),
+            "定时导出任务已完成，文件路径：" + filePath);
+        execution.setEmailStatus("EMAIL_SENT");
+      } catch (Exception mailEx) {
+        String mailStatus = emailService.isConfigured() ? "EMAIL_FAILED" : "EMAIL_SKIPPED";
+        execution.setEmailStatus(mailStatus);
+        log.warn(
+            "定时导出通知邮件未发送（{}）: taskId={}, {}",
+            mailStatus,
+            task.getId(),
+            mailEx.getMessage());
+      }
 
       scheduledExportExecutionRepository.insert(execution);
 

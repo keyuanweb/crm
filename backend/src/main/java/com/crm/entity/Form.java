@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
@@ -24,5 +26,7 @@ public class Form extends BaseEntity {
   private String status;
 
   private Integer submissionCount;
+
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

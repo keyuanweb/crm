@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,5 +21,7 @@ public class CustomObject extends BaseEntity {
   private String fields;
 
   private Integer enabled;
+
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

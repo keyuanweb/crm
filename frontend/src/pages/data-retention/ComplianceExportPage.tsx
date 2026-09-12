@@ -1,11 +1,11 @@
 /** 合规导出页面（080-data-retention，US3 - 合规导出）。 */
 
 import { ENTITY_TYPE_LABELS } from '../../types/dataRetention';
+import { apiClient, extractErrorMessage, type ApiEnvelope } from '../../services/apiClient';
 import { ArrowLeftOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Button, Card, Form, Input, Select, Space, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 
 const { Title } = Typography;
 
@@ -21,18 +21,29 @@ interface ExportValues {
 const onFinish = async (values: ExportValues, setLoading: (v: boolean) => void) => {
   try {
     setLoading(true);
-    const res = await axios.post('/api/v1/data-retention/compliance-export', null, {
-      params: {
-        entityType: values.entityType,
-        userId: values.userId || '1',
-        exportFormat: values.exportFormat,
+    // 走全站客户端而非裸 axios：改造前这次调用**完全没有携带凭据**（`axios` 裸实例不带任何请求头，
+    // 也没有 401 跳转），是本页无法导出的独立根因（FR-G18）。
+    //
+    // ⚠️ 本端点是**全站信封**（响应类型为 `ApiResponse<Map<String,String>>`），与同模块的
+    // dataRetentionApi 各端点（裸响应体）**不同**——故这里的解包层次与那些方法不能互抄：
+    // 这里必须 `data.data`，那里只能 `data`。类型参数写成 ApiEnvelope 就是为了让这个层次由类型系统钉住。
+    const res = await apiClient.post<ApiEnvelope<{ filePath: string }>>(
+      '/data-retention/compliance-export',
+      null,
+      {
+        params: {
+          entityType: values.entityType,
+          userId: values.userId || '1',
+          exportFormat: values.exportFormat,
+        },
       },
-    });
+    );
     message.success('合规导出完成');
     console.log('Export file:', res.data.data.filePath);
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : '导出失败';
-    message.error(msg);
+    // 用全站提取器而非 `err.message`：axios 的 message 是 "Request failed with status code 403"，
+    // 拿不到后端给出的具体理由（如权限不足），排查时等于没有信息。
+    message.error(extractErrorMessage(err, '导出失败'));
   } finally {
     setLoading(false);
   }

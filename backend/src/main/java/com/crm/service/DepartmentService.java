@@ -11,6 +11,7 @@ import com.crm.entity.User;
 import com.crm.repository.DepartmentMapper;
 import com.crm.repository.UserMapper;
 import com.crm.security.SecurityUtil;
+import com.crm.security.VisibleOwnerIdsCache;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,12 +26,17 @@ public class DepartmentService {
   private final DepartmentMapper departmentMapper;
   private final UserMapper userMapper;
   private final AuditService auditService;
+  private final VisibleOwnerIdsCache visibleOwnerIdsCache;
 
   public DepartmentService(
-      DepartmentMapper departmentMapper, UserMapper userMapper, AuditService auditService) {
+      DepartmentMapper departmentMapper,
+      UserMapper userMapper,
+      AuditService auditService,
+      VisibleOwnerIdsCache visibleOwnerIdsCache) {
     this.departmentMapper = departmentMapper;
     this.userMapper = userMapper;
     this.auditService = auditService;
+    this.visibleOwnerIdsCache = visibleOwnerIdsCache;
   }
 
   /** 部门树（全量加载构建）。 */
@@ -54,6 +60,9 @@ public class DepartmentService {
     dept.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : 0);
     dept.setCreatedBy(SecurityUtil.currentUserId());
     departmentMapper.insert(dept);
+    // 新部门会改变他人的"可见负责人集合"（新的 DEPT_AND_CHILD 集合包含它，且它此刻无成员故成员集合本身不变，
+    // 但部门树形状变了 → 任何按子孙部门解析的缓存都可能陈旧）。全量失效，不做按键判断。
+    visibleOwnerIdsCache.evictAll();
     auditService.record("CREATE", "DEPARTMENT", dept.getId(), "创建部门：" + dept.getName());
     return toResponse(dept);
   }
@@ -80,6 +89,9 @@ public class DepartmentService {
     if (rows == 0) {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
     }
+    // 改 parentId 会把整棵子树搬到另一条链上：原链上的人立刻不该再看到这些成员，新链上的人立刻该看到。
+    // 受影响的键无法从"被改的部门 id"推出（是链上所有人的键），故全量失效。
+    visibleOwnerIdsCache.evictAll();
     auditService.record("UPDATE", "DEPARTMENT", id, "编辑部门：" + existing.getName());
     return toResponse(departmentMapper.selectById(id));
   }
@@ -99,6 +111,8 @@ public class DepartmentService {
       throw new BusinessException(ErrorCode.DEPARTMENT_HAS_CHILDREN_OR_MEMBERS);
     }
     departmentMapper.deleteById(id);
+    // 部门消失会让"曾包含它的 DEPT_AND_CHILD 集合"整体失去一个成员（删之前已校验无子部门无成员）。
+    visibleOwnerIdsCache.evictAll();
     auditService.record("DELETE", "DEPARTMENT", id, "删除部门：" + dept.getName());
   }
 

@@ -9,8 +9,20 @@ import com.crm.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 
-/** 集成中心集成测试（058 T014）：通道 CRUD/事件推送/非法 URL。 */
+/**
+ * 集成中心集成测试（058 T014）：通道 CRUD/事件推送/非法 URL。
+ *
+ * <p><b>为什么本类要显式声明出站白名单</b>：083（FR-G13）把出站地址改为<b>默认全拒</b>——白名单留空时，回环地址与公网地址
+ * <b>同样</b>不被放行（data-model.md §4）。本类两处出站地址在默认配置下都会被拒：本地的假端点 {@code
+ * http://localhost:9999/hook}（推送记录链路用）与真实厂商端点 {@code https://qyapi.weixin.qq.com/x}
+ * （"合法地址应当被接受"的对照项）。后者尤其值得注意：<b>拒绝理由是"不在白名单内"而非"是公网地址"</b>——白名单是全有或全无的，
+ * 部署方必须显式列出每个允许的出站目标。故此处把两个主机一并列出，声明本用例的环境前提。
+ *
+ * <p>这不是放宽校验：出站被拒的路径由 {@code SecurityHardeningIT} 逐类断言（回环／私网／链路本地／云元数据）， 本类只负责通道 CRUD 与推送记录。
+ */
+@TestPropertySource(properties = "crm.outbound.allowed-hosts=localhost,qyapi.weixin.qq.com")
 class IntegrationHubIT extends AbstractIntegrationTest {
 
   @Test

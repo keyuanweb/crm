@@ -16,12 +16,14 @@ import com.crm.dto.user.UserUpdateRequest;
 import com.crm.entity.User;
 import com.crm.repository.UserMapper;
 import com.crm.security.UserStateCache;
+import com.crm.security.VisibleOwnerIdsCache;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -51,6 +53,8 @@ class UserServiceTest {
             java.util.List.of(
                 new com.crm.dto.role.RoleOption(1L, "ADMIN", "系统管理员", "ALL"),
                 new com.crm.dto.role.RoleOption(2L, "SALES", "销售", "SELF")));
+    // 真实的 CacheManager（不是 mock）：本类的失效语义是"clear() 真的发生了"，
+    // 用 ConcurrentMapCacheManager 让断言落在真实缓存状态上，而不是落在"调过某个方法"上。
     service =
         new UserService(
             userMapper,
@@ -59,7 +63,8 @@ class UserServiceTest {
             auditService,
             userStateCache,
             mock(com.crm.repository.DepartmentMapper.class),
-            roleService);
+            roleService,
+            new VisibleOwnerIdsCache(new ConcurrentMapCacheManager()));
   }
 
   @AfterEach

@@ -1,6 +1,7 @@
 package com.crm.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
 import com.crm.common.PageResult;
@@ -18,8 +19,6 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,9 +29,6 @@ public class ApiKeyService {
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final SecureRandom RANDOM = new SecureRandom();
   private static final String PREFIX = "ck_";
-
-  /** 启用 Key 缓存（id→ApiKey），TTL 由调用方结合 lastUsed 判断；简单缓存 60s 由 getEnabledKey 重新查询。 */
-  private final Map<Long, ApiKey> cache = new ConcurrentHashMap<>();
 
   private final ApiKeyMapper apiKeyMapper;
 
@@ -79,10 +75,20 @@ public class ApiKeyService {
     }
     key.setStatus("REVOKED");
     apiKeyMapper.updateById(key);
-    cache.remove(id);
   }
 
-  /** 校验 X-API-Key（哈希匹配 + ACTIVE + 未过期），并记录使用。 */
+  /**
+   * 校验 X-API-Key（哈希匹配 + ACTIVE + 未过期），并记录使用（FR-G25）。
+   *
+   * <p><b>为什么使用记录不写 {@code @Transactional}</b>：写回的是一条**单语句原子更新**（见下行注释），
+   * 本身即原子，不存在"要么全做要么全不做"的中间态可回滚。反之，把整条鉴权链路包进事务会延长连接与行锁持有时间，
+   * 在每次开放接口调用都要走的路径上放大争用，却又修不好本类原来的真实缺陷——那个缺陷来自"写了哪些列"， 而不是来自"是否原子"。
+   *
+   * <p><b>为什么不能沿用 {@code updateById(key)}</b>：{@code updateById} 会按实体写出**全部非 null 字段**， 于是这一次鉴权会顺手把
+   * {@code status} 也写回去。若期间有管理员调用了 {@link #revoke(Long)}， 这次在途的鉴权就会把刚落库的 {@code REVOKED} 覆盖回 {@code
+   * ACTIVE}——吊销失效。收窄到"只动使用记录两列"后， 鉴权路径再也碰不到授权状态列。同理，{@code use_count} 由数据库自增而非"读出再写回"，
+   * 并发调用不再丢更新（{@code ApiKey} 无 {@code @Version}，乐观锁帮不上忙）。
+   */
   public ApiKey authenticate(String rawKey) {
     if (rawKey == null || rawKey.isBlank()) {
       throw new BusinessException(ErrorCode.OPEN_API_KEY_REQUIRED);
@@ -96,10 +102,13 @@ public class ApiKeyService {
         || (key.getExpiresAt() != null && key.getExpiresAt().isBefore(LocalDateTime.now()))) {
       throw new BusinessException(ErrorCode.OPEN_API_KEY_INVALID);
     }
-    // 更新使用记录（异步友好：直接更新，量小）
-    key.setLastUsedAt(LocalDateTime.now());
-    key.setUseCount((key.getUseCount() == null ? 0 : key.getUseCount()) + 1);
-    apiKeyMapper.updateById(key);
+    // 只写使用记录两列：use_count 交给数据库自增（避免读-改-写丢更新），不触碰 status 等授权列
+    apiKeyMapper.update(
+        null,
+        new LambdaUpdateWrapper<ApiKey>()
+            .eq(ApiKey::getId, key.getId())
+            .setSql("use_count = use_count + 1")
+            .set(ApiKey::getLastUsedAt, LocalDateTime.now()));
     return key;
   }
 

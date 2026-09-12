@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
@@ -14,12 +16,15 @@ public class Opportunity extends BaseEntity {
   private String name;
   private Long expectedAmountMin;
   private Long expectedAmountMax;
+
   /** 商机金额（用于合规导出汇总）。 */
   private Long amount;
+
   private String remark;
 
   /** ACTIVE / ARCHIVED。 */
   private String status;
 
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

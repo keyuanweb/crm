@@ -3,10 +3,14 @@ package com.crm.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
@@ -22,6 +26,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
@@ -126,6 +131,32 @@ class ApiKeyServiceTest {
         .isInstanceOf(BusinessException.class)
         .extracting(e -> ((BusinessException) e).getErrorCode())
         .isEqualTo(ErrorCode.OPEN_API_KEY_INVALID);
+  }
+
+  @Test
+  @DisplayName("083：鉴权只写使用记录两列，不得回写授权状态（否则在途鉴权会撤销并发 revoke）")
+  void authenticateNarrowsWriteToUsageColumns() {
+    ApiKey key = new ApiKey();
+    key.setId(1L);
+    key.setKeyHash("abc");
+    key.setStatus("ACTIVE");
+    when(apiKeyMapper.selectOne(any())).thenReturn(key);
+
+    service.authenticate("raw-key");
+
+    ArgumentCaptor<LambdaUpdateWrapper<ApiKey>> captor =
+        ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+    verify(apiKeyMapper).update(isNull(), captor.capture());
+    String sqlSet = captor.getValue().getSqlSet();
+
+    // 使用记录确实被写：少了这一条，"干脆什么都不写"也会让本用例通过
+    assertThat(sqlSet).contains("use_count = use_count + 1");
+    assertThat(sqlSet).contains("last_used_at");
+    // 授权列一概不得出现。旧写法 updateById(key) 会把 status=ACTIVE 一并写回，
+    // 覆盖并发 revoke() 刚落库的 REVOKED —— 吊销失效。这是本用例真正要钉住的东西。
+    assertThat(sqlSet).doesNotContain("status");
+    // 同一原因：不得再走"整实体回写"的老路
+    verify(apiKeyMapper, never()).updateById(any());
   }
 
   @Test

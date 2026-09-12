@@ -33,9 +33,12 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     String rawKey = request.getHeader("X-API-Key");
     try {
       ApiKey key = apiKeyService.authenticate(rawKey);
-      // 注入系统身份（ADMIN 语义，绕过行级权限）+ OPEN_API 角色；
+      // 主体为机器主体（FR-G11）：userId 取密钥所属主体（创建者）用于归属与审计，
+      // 但角色不是 ADMIN —— 注入 ADMIN 会使 EntityAccessService.isUnrestricted() 与
+      // PermissionAspect 同时短路，任何有效密钥都拿到全量数据（改造前的两处提权）。
       // details 保留 API Key 主体供开放端点 scope 校验
-      var principal = new JwtAuthFilter.CrmPrincipal(0L, "open-api", "ADMIN");
+      var principal =
+          new JwtAuthFilter.CrmPrincipal(key.getCreatedBy(), "open-api", "OPEN_API", true);
       var auth =
           new UsernamePasswordAuthenticationToken(
               principal, null, java.util.List.of(new SimpleGrantedAuthority("ROLE_OPEN_API")));

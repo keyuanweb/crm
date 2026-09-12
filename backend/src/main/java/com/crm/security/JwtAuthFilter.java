@@ -80,9 +80,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
   /**
    * 校验用户状态：优先读缓存，未命中查 DB 并回写。
    *
+   * <p>{@code public} 而非私有（083 T035，FR-G12）：WebSocket 握手校验（{@code WebSocketConfig}）与 HTTP
+   * 认证必须落在**同一段代码**上。若两边各写一份"等效"校验，改动其一即产生分歧——同一条令牌在 REST 上被拒、
+   * 在长连接上仍可建立，且分歧只在既停用又有长连接的组合下才显形，正是最难靠人工验证发现的一类。
+   *
    * @return true 如果用户存在、启用且令牌版本匹配
    */
-  private boolean validateUserState(Long userId, int claimTv) {
+  public boolean validateUserState(Long userId, int claimTv) {
     UserStateCache.UserState cached = userStateCache.get(userId);
     if (cached != null) {
       return cached.enabled() && cached.tokenVersion() == claimTv;
@@ -98,6 +102,24 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     return enabled && dbTv == claimTv;
   }
 
-  /** 认证主体：暴露 userId/role 供业务层使用。 */
-  public record CrmPrincipal(Long userId, String username, String role) {}
+  /**
+   * 认证主体：暴露 userId/role 供业务层使用。
+   *
+   * <p>{@code machineSubject} 标识**机器主体**——当前唯一的产生者是 API Key 鉴权（{@code ApiKeyAuthFilter}）。 机器主体的
+   * {@code userId} 是其**所属主体**（密钥创建者），用于归属与审计；但它的数据边界不得等于该主体的数据范围：密钥只能由管理员创建，若按主体在库中的角色／数据范围判定，
+   * 管理员密钥会得到"无限制"并读到全量数据（FR-G11）。
+   *
+   * <p>{@code principal == null}（系统内部调用）与机器主体是**两种不同主体**，故不合并表达。
+   */
+  public record CrmPrincipal(Long userId, String username, String role, boolean machineSubject) {
+
+    /**
+     * 人工会话主体（三参数重载，等价于 {@code machineSubject = false}）。
+     *
+     * <p>保留此重载使既有调用点语义不变：机器主体必须**显式**传第四个参数，避免"忘了标"而静默获得可满足无限制判定的身份。
+     */
+    public CrmPrincipal(Long userId, String username, String role) {
+      this(userId, username, role, false);
+    }
+  }
 }

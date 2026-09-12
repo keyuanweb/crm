@@ -3,28 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { Alert, Button, Card, Drawer, Modal, Space, Tabs, Typography } from 'antd'
 import { Grid } from 'antd'
 import {
-  CalendarOutlined,
-  CommentOutlined,
-  CustomerServiceOutlined,
   FileTextOutlined,
-  FundOutlined,
-  TeamOutlined,
 } from '@ant-design/icons'
 import { Graph } from '@antv/g6'
-import { ALL_FLOWS, MAIN_FLOW, QUICK_ACTIONS, STATE_FLOWS, type FlowDef, type FlowNode, type QuickAction } from '../../types/usageMap'
+import { ALL_FLOWS, MAIN_FLOW, QUICK_ACTIONS, STATE_FLOWS, type FlowDef, type FlowNode } from '../../types/usageMap'
 import { useAuthStore } from '../../store/authStore'
 
 const { Title, Paragraph } = Typography
-
-/** 图标映射（QUICK_ACTIONS 用字符串标识避免 ReactNode 序列化问题）。 */
-const ICON_MAP: Record<string, React.ReactNode> = {
-  TeamOutlined: <TeamOutlined />,
-  CommentOutlined: <CommentOutlined />,
-  FundOutlined: <FundOutlined />,
-  CustomerServiceOutlined: <CustomerServiceOutlined />,
-  CalendarOutlined: <CalendarOutlined />,
-  FileTextOutlined: <FileTextOutlined />,
-}
 
 export default function UsageMapPage() {
   const navigate = useNavigate()
@@ -150,33 +135,25 @@ export default function UsageMapPage() {
         })
         // 事件注册（render 前）
         // 悬停效果：阴影加深 + 边框高亮（无尺寸变化）
+        //
+        // 注：原实现用 graph.find()/graph.updateItem()，那是 G6 v4 的 API，v5.1.1 的 Graph 上没有这两个方法
+        // （Graph extends EventEmitter，方法清单见 node_modules/@antv/g6/lib/runtime/graph.js）。原先靠
+        // `as any` 掩盖，运行时一旦悬停即抛 TypeError，高亮从未生效。此处改用 v5 的 updateNodeData
+        // ——传 { id, style } 局部数据即可，且节点是否存在由 hasNode 判定。
         graph.on('node:mouseenter', ((evt: { target: { id?: string } }) => {
-          const nodeId = evt.target?.id
-          if (!nodeId) return
-          // G6 v5 API: 使用 graph.find() 查找节点，graph.updateItem() 更新 + 刷新
-          const node = (graph as any).find('node', (n: any) => n.id === nodeId)
-          if (node) {
-            ;(graph as any).updateItem(nodeId, {
-              style: {
-                shadow: '0 4px 12px rgba(0,0,0,0.25)',
-                lineWidth: 3,
-              },
-            })
-          }
+          const node = activeDef.nodes.find((n) => n.id === evt.target?.id)
+          if (!node || !graph.hasNode(node.id)) return
+          graph.updateNodeData([
+            { id: node.id, style: { shadow: '0 4px 12px rgba(0,0,0,0.25)', lineWidth: 3 } },
+          ])
         }) as never)
         graph.on('node:mouseleave', ((evt: { target: { id?: string } }) => {
-          const nodeId = evt.target?.id
-          if (!nodeId) return
-          // G6 v5 API: 使用 graph.find() 查找节点，graph.updateItem() 更新 + 刷新
-          const node = (graph as any).find('node', (n: any) => n.id === nodeId)
-          if (node) {
-            ;(graph as any).updateItem(nodeId, {
-              style: {
-                shadow: '0 2px 8px rgba(0,0,0,0.15)',
-                lineWidth: 2,
-              },
-            })
-          }
+          const node = activeDef.nodes.find((n) => n.id === evt.target?.id)
+          if (!node || !graph.hasNode(node.id)) return
+          // 恢复初始样式：lineWidth 与 node.style.stroke 一样由 warning 决定，不能一律恢复成 2
+          graph.updateNodeData([
+            { id: node.id, style: { shadow: '0 2px 8px rgba(0,0,0,0.15)', lineWidth: node.warning ? 3 : 2 } },
+          ])
         }) as never)
         graph.on('node:click', ((evt: { target: { id?: string } }) => {
           const nodeId = evt.target?.id
@@ -243,11 +220,6 @@ export default function UsageMapPage() {
     const flow = ALL_FLOWS.find((f) => f.id === key)
     if (flow) setActiveFlow(flow)
   }
-
-  const quickActions: QuickAction[] = QUICK_ACTIONS.map((a) => ({
-    ...a,
-    icon: ICON_MAP[a.icon as string] ?? null,
-  }))
 
   return (
     <div>
@@ -327,10 +299,10 @@ export default function UsageMapPage() {
           gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(140px, 1fr))',
           gap: 12,
         }}>
-          {quickActions.map((a) => (
+          {QUICK_ACTIONS.map((a) => (
             <Button
               key={a.key}
-              icon={a.icon as React.ReactNode}
+              icon={a.icon}
               style={{
                 height: isMobile ? 44 : 48,
                 borderRadius: 10,

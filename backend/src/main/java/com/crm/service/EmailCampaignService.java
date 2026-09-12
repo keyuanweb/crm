@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
 import com.crm.common.PageResult;
+import com.crm.config.MailStatus;
 import com.crm.dto.email.CampaignRequest;
 import com.crm.entity.Customer;
 import com.crm.entity.EmailCampaign;
@@ -22,15 +23,15 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * 邮件群发服务（030-email-marketing，FR-002/003/004）：创建批次 → 解析收件人 → @Async 异步逐封发送（无 SMTP dev 模拟 SENT）→
- * 打开/点击追踪记录。
+ * 邮件群发服务（030-email-marketing，FR-002/003/004）：创建批次 → 解析收件人 → 逐封发送（SMTP 已配置走 @Async，
+ * 未配置则同步标记 SKIPPED）→ 打开/点击追踪记录。
+ *
+ * <p>一期诚信修复：本类不再自行判定"发送成功"——真实状态一律由 {@link EmailSenderService} 回写。
  */
 @Service
 public class EmailCampaignService {
@@ -47,7 +48,7 @@ public class EmailCampaignService {
   private final CustomerMapper customerMapper;
   private final AuditService auditService;
   private final EmailUnsubscribeService unsubscribeService;
-  private final JavaMailSender mailSender;
+  private final MailStatus mailStatus;
   private final EmailSenderService emailSender;
 
   public EmailCampaignService(
@@ -59,8 +60,7 @@ public class EmailCampaignService {
       CustomerMapper customerMapper,
       AuditService auditService,
       EmailUnsubscribeService unsubscribeService,
-      @org.springframework.beans.factory.annotation.Autowired(required = false)
-          JavaMailSender mailSender,
+      MailStatus mailStatus,
       EmailSenderService emailSender) {
     this.campaignMapper = campaignMapper;
     this.sendLogMapper = sendLogMapper;
@@ -70,7 +70,7 @@ public class EmailCampaignService {
     this.customerMapper = customerMapper;
     this.auditService = auditService;
     this.unsubscribeService = unsubscribeService;
-    this.mailSender = mailSender;
+    this.mailStatus = mailStatus;
     this.emailSender = emailSender;
   }
 
@@ -127,16 +127,19 @@ public class EmailCampaignService {
         l.setSubject(template.getSubject());
       }
       l.setContent(template.getContent());
-      l.setStatus("SENT");
+      l.setStatus(EmailSendLog.STATUS_PENDING);
       l.setCreatedAt(java.time.LocalDateTime.now());
       sendLogMapper.insert(l);
       logs.add(l);
     }
-    // 异步真正发送（无 SMTP 时仅日志，状态已 SENT）；subject 已按变体写入 sendLog
-    emailSender.sendAsync(campaign.getId(), logs, template);
-    campaign.setSentCount(logs.size());
-    campaign.setStatus("DONE");
-    campaignMapper.updateById(campaign);
+    // 一期诚信修复：发送前不再预置 SENT，也由发送器（而非此处）回写汇总。
+    //   SMTP 已配置 → 异步发送，完成后发送器回写真实汇总；
+    //   未配置     → 同步标记 SKIPPED（配置检查是纯内存判断，无需异步，也避免异步线程与未提交事务竞争）。
+    if (mailStatus.isConfigured()) {
+      emailSender.sendAsync(campaign, logs);
+    } else {
+      emailSender.send(campaign, logs);
+    }
     auditService.record(
         "SEND",
         "EMAIL_CAMPAIGN",
@@ -162,25 +165,11 @@ public class EmailCampaignService {
     l.setEmail(toEmail);
     l.setSubject(template.getSubject());
     l.setContent(template.getContent());
-    l.setStatus("SENT");
+    l.setStatus(EmailSendLog.STATUS_PENDING);
     l.setCreatedAt(java.time.LocalDateTime.now());
     sendLogMapper.insert(l);
-    try {
-      if (mailSender != null) {
-        SimpleMailMessage msg = new SimpleMailMessage();
-        msg.setTo(toEmail);
-        msg.setSubject(template.getSubject());
-        msg.setText(stripHtml(template.getContent()));
-        mailSender.send(msg);
-      } else {
-        log.debug("No mail sender configured, simulated automation email to {}", toEmail);
-      }
-    } catch (Exception ex) {
-      log.warn("Automation email send failed to {}: {}", toEmail, ex.getMessage());
-      l.setStatus("FAILED");
-      l.setErrorMessage(ex.getMessage());
-      sendLogMapper.updateById(l);
-    }
+    // 一期诚信修复：由发送器统一裁决并回写 SENT / FAILED / SKIPPED，未配置 SMTP 不再假装已发
+    emailSender.sendOne(l);
     auditService.record(
         "SEND", "EMAIL_CAMPAIGN", l.getId(), "自动化邮件（模板 " + templateId + " → " + toEmail + "）");
   }
@@ -299,8 +288,11 @@ public class EmailCampaignService {
     List<EmailSendLog> logs =
         sendLogMapper.selectList(
             new LambdaQueryWrapper<EmailSendLog>().eq(EmailSendLog::getCampaignId, campaignId));
-    long sent = logs.stream().filter(l -> "SENT".equals(l.getStatus())).count();
-    long failed = logs.stream().filter(l -> "FAILED".equals(l.getStatus())).count();
+    long sent = logs.stream().filter(l -> EmailSendLog.STATUS_SENT.equals(l.getStatus())).count();
+    long failed =
+        logs.stream().filter(l -> EmailSendLog.STATUS_FAILED.equals(l.getStatus())).count();
+    long skipped =
+        logs.stream().filter(l -> EmailSendLog.STATUS_SKIPPED.equals(l.getStatus())).count();
     Long openCount = 0L;
     Long clickCount = 0L;
     if (!logs.isEmpty()) {
@@ -317,17 +309,19 @@ public class EmailCampaignService {
     }
     long open = openCount == null ? 0 : openCount;
     long click = clickCount == null ? 0 : clickCount;
-    double sentD = sent == 0 ? 1 : sent;
 
     Map<String, Object> resp = new java.util.HashMap<>();
     resp.put("campaignId", campaignId);
     resp.put("total", logs.size());
     resp.put("sent", sent);
     resp.put("failed", failed);
+    // 一期诚信修复：未配置 SMTP 时整批跳过，界面据此提示"邮件未真实发送"
+    resp.put("skipped", skipped);
     resp.put("openCount", open);
     resp.put("clickCount", click);
-    resp.put("openRate", Math.round(open * 1000.0 / sentD) / 10.0);
-    resp.put("clickRate", Math.round(click * 1000.0 / sentD) / 10.0);
+    // 一封都没发出时打开/点击率按 0 报，不做 sent==0 → 除以 1 的口径掩盖
+    resp.put("openRate", sent == 0 ? 0.0 : Math.round(open * 1000.0 / sent) / 10.0);
+    resp.put("clickRate", sent == 0 ? 0.0 : Math.round(click * 1000.0 / sent) / 10.0);
     resp.put("variant", campaign.getVariant());
 
     // A/B 变体统计
@@ -336,7 +330,8 @@ public class EmailCampaignService {
       for (String variant : List.of("A", "B")) {
         List<EmailSendLog> vLogs =
             logs.stream().filter(l -> variant.equals(l.getVariant())).toList();
-        long vSent = vLogs.stream().filter(l -> "SENT".equals(l.getStatus())).count();
+        long vSent =
+            vLogs.stream().filter(l -> EmailSendLog.STATUS_SENT.equals(l.getStatus())).count();
         Long vOpen = 0L;
         if (!vLogs.isEmpty()) {
           vOpen =
@@ -366,7 +361,7 @@ public class EmailCampaignService {
     return resp;
   }
 
-  /** 测试发送：渲染模板发给自己。 */
+  /** 测试发送：渲染模板发给自己。发送结果由发送器回写（未配置 SMTP 记 SKIPPED）。 */
   @Transactional
   public void testSend(Long campaignId, String email) {
     EmailCampaign c = campaignMapper.selectById(campaignId);
@@ -374,22 +369,13 @@ public class EmailCampaignService {
     EmailSendLog sendLog = new EmailSendLog();
     sendLog.setCampaignId(campaignId);
     sendLog.setEmail(email);
-    sendLog.setSubject(t.getSubject());
+    // 记录与实发主题保持一致（原先记录模板主题、实发带 [测试] 前缀，两边对不上）
+    sendLog.setSubject("[测试] " + t.getSubject());
     sendLog.setContent(t.getContent());
-    sendLog.setStatus("SENT");
+    sendLog.setStatus(EmailSendLog.STATUS_PENDING);
     sendLog.setCreatedAt(java.time.LocalDateTime.now());
     sendLogMapper.insert(sendLog);
-    try {
-      if (mailSender != null) {
-        SimpleMailMessage msg = new SimpleMailMessage();
-        msg.setTo(email);
-        msg.setSubject("[测试] " + t.getSubject());
-        msg.setText(stripHtml(t.getContent()));
-        mailSender.send(msg);
-      }
-    } catch (Exception ex) {
-      log.warn("Test mail failed: {}", ex.getMessage());
-    }
+    emailSender.sendOne(sendLog);
   }
 
   private List<Long> resolveRecipients(CampaignRequest req) {
@@ -438,9 +424,5 @@ public class EmailCampaignService {
     } catch (Exception ex) {
       return String.join(",", ids.stream().map(String::valueOf).toList());
     }
-  }
-
-  private String stripHtml(String html) {
-    return html == null ? "" : html.replaceAll("<[^>]*>", "").replace("&nbsp;", " ");
   }
 }

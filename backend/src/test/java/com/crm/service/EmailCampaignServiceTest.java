@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.crm.config.MailStatus;
 import com.crm.dto.email.CampaignRequest;
 import com.crm.entity.Customer;
 import com.crm.entity.EmailCampaign;
@@ -28,8 +29,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.springframework.mail.javamail.JavaMailSender;
 
 /** EmailCampaignService 单元测试（030 T005）：群发收件人/统计/追踪。 */
 class EmailCampaignServiceTest {
@@ -54,16 +57,10 @@ class EmailCampaignServiceTest {
   private EmailCampaignService service;
   private MockedStatic<SecurityUtil> securityUtilMock;
 
-  @BeforeEach
-  void setUp() {
-    campaignMapper = mock(EmailCampaignMapper.class);
-    sendLogMapper = mock(EmailSendLogMapper.class);
-    trackMapper = mock(EmailTrackMapper.class);
-    templateService = mock(EmailTemplateService.class);
-    segmentService = mock(SegmentService.class);
-    customerMapper = mock(CustomerMapper.class);
-    auditService = mock(AuditService.class);
-    unsubscribeService = mock(EmailUnsubscribeService.class);
+  /** 重建被测服务：sender 用真实实现，使"未发送不得记 SENT"的判定真正被覆盖。 */
+  private void buildService(MailStatus mailStatus, JavaMailSender mailSender) {
+    EmailSenderService emailSender =
+        new EmailSenderService(sendLogMapper, campaignMapper, mailStatus, mailSender);
     service =
         new EmailCampaignService(
             campaignMapper,
@@ -74,8 +71,22 @@ class EmailCampaignServiceTest {
             customerMapper,
             auditService,
             unsubscribeService,
-            null, // 无 SMTP → 模拟
-            mock(EmailSenderService.class));
+            mailStatus,
+            emailSender);
+  }
+
+  @BeforeEach
+  void setUp() {
+    campaignMapper = mock(EmailCampaignMapper.class);
+    sendLogMapper = mock(EmailSendLogMapper.class);
+    trackMapper = mock(EmailTrackMapper.class);
+    templateService = mock(EmailTemplateService.class);
+    segmentService = mock(SegmentService.class);
+    customerMapper = mock(CustomerMapper.class);
+    auditService = mock(AuditService.class);
+    unsubscribeService = mock(EmailUnsubscribeService.class);
+    // 缺省：SMTP 未配置（crm.mail.host 为空）—— 正是此前被谎报成 SENT 的场景
+    buildService(new MailStatus(""), null);
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock

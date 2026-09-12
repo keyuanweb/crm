@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
@@ -13,5 +15,7 @@ public class Segment extends BaseEntity {
   private String name;
   private String description;
   private String conditions;
+
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

@@ -1,5 +1,9 @@
 package com.crm.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.crm.dto.DataRetentionPolicyRequest;
 import com.crm.dto.DataRetentionPolicyResponse;
@@ -17,25 +21,17 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
 /** 数据保留策略 Service 单元测试（080-data-retention）。 */
 @ExtendWith(MockitoExtension.class)
 class DataRetentionPolicyServiceTest {
 
-  @Mock
-  private DataRetentionPolicyRepository policyRepository;
+  @Mock private DataRetentionPolicyRepository policyRepository;
 
-  @Mock
-  private DataRetentionExecutionRepository executionRepository;
+  @Mock private DataRetentionExecutionRepository executionRepository;
 
-  @Mock
-  private AuditService auditService;
+  @Mock private AuditService auditService;
 
-  @InjectMocks
-  private DataRetentionPolicyServiceImpl dataRetentionPolicyService;
+  @InjectMocks private DataRetentionPolicyServiceImpl dataRetentionPolicyService;
 
   private DataRetentionPolicy samplePolicy;
 

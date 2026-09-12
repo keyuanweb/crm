@@ -1,5 +1,10 @@
 package com.crm.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import com.crm.common.BusinessException;
 import com.crm.dto.ScheduledExportExecutionResponse;
 import com.crm.dto.ScheduledExportRequest;
 import com.crm.dto.ScheduledExportResponse;
@@ -16,15 +21,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /** 定时导出 Service 单元测试（079-scheduled-export）。 */
 @ExtendWith(MockitoExtension.class)
@@ -62,14 +62,15 @@ class ScheduledExportServiceTest {
         .thenReturn(new CrmPrincipal(1L, "admin", "ADMIN"));
 
     // Manually inject mocks to ensure proper injection
-    scheduledExportService = new ScheduledExportServiceImpl(
-        scheduledExportRepository,
-        scheduledExportExecutionRepository,
-        emailService,
-        exportExecutor,
-        auditService,
-        null // UserMapper not needed for these tests
-    );
+    scheduledExportService =
+        new ScheduledExportServiceImpl(
+            scheduledExportRepository,
+            scheduledExportExecutionRepository,
+            emailService,
+            exportExecutor,
+            auditService,
+            null // UserMapper not needed for these tests
+            );
   }
 
   @AfterEach
@@ -155,8 +156,9 @@ class ScheduledExportServiceTest {
     // Given
     when(scheduledExportRepository.selectById(1L)).thenReturn(sampleTask);
     when(scheduledExportRepository.updateById(any(ScheduledExport.class))).thenReturn(1);
-    org.mockito.Mockito.when(exportExecutor.executeExportWithRowCount(anyString(), anyString(), anyString()))
-        .thenReturn(new String[] { "/tmp/export.csv", "100" });
+    org.mockito.Mockito.when(
+            exportExecutor.executeExportWithRowCount(anyString(), anyString(), anyString()))
+        .thenReturn(new String[] {"/tmp/export.csv", "100"});
 
     // When
     scheduledExportService.executeNow(1L);
@@ -174,14 +176,16 @@ class ScheduledExportServiceTest {
             eq("ACTIVE"), any(LocalDateTime.class)))
         .thenReturn(List.of(sampleTask));
     when(scheduledExportRepository.updateById(any(ScheduledExport.class))).thenReturn(1);
-    org.mockito.Mockito.when(exportExecutor.executeExportWithRowCount(anyString(), anyString(), anyString()))
-        .thenReturn(new String[] { "/tmp/export.csv", "100" });
+    org.mockito.Mockito.when(
+            exportExecutor.executeExportWithRowCount(anyString(), anyString(), anyString()))
+        .thenReturn(new String[] {"/tmp/export.csv", "100"});
 
     // When
     scheduledExportService.executePendingTasks();
 
     // Then
-    verify(scheduledExportExecutionRepository, times(1)).insert(any(ScheduledExportExecution.class));
+    verify(scheduledExportExecutionRepository, times(1))
+        .insert(any(ScheduledExportExecution.class));
   }
 
   @Test
@@ -199,6 +203,9 @@ class ScheduledExportServiceTest {
   @DisplayName("T028: getExecutions 获取执行历史")
   void getExecutions_shouldReturnExecutionHistory() {
     // Given
+    // 归属判定（FR-G16）需要先定位任务本体，故这里必须桩上父任务，否则服务层无从判断请求者是否有权读该任务的执行记录
+    when(scheduledExportRepository.selectById(1L)).thenReturn(sampleTask);
+
     ScheduledExportExecution execution = new ScheduledExportExecution();
     execution.setId(1L);
     execution.setScheduledExportId(1L);
@@ -209,12 +216,55 @@ class ScheduledExportServiceTest {
         .thenReturn(List.of(execution));
 
     // When
-    List<ScheduledExportExecutionResponse> responses =
-        scheduledExportService.getExecutions(1L);
+    List<ScheduledExportExecutionResponse> responses = scheduledExportService.getExecutions(1L);
 
     // Then
     assertNotNull(responses);
     assertEquals(1, responses.size());
     assertEquals("SUCCESS", responses.get(0).getStatus());
+  }
+
+  // ===== FR-G16：读取端点按当前登录用户限定范围 =====
+
+  /**
+   * 三个读取端点的越权拒绝（FR-G16）。
+   *
+   * <p>当事任务归属 {@code 2L}，而当前登录用户为 {@code 1L}（见 {@link #setUp}）。
+   */
+  private ScheduledExport foreignTask() {
+    ScheduledExport foreign = new ScheduledExport();
+    foreign.setId(2L);
+    foreign.setUserId(2L);
+    foreign.setEntityType("CUSTOMER");
+    foreign.setExportFormat("CSV");
+    foreign.setCronExpression("0 0 2 * * ?");
+    foreign.setStatus("ACTIVE");
+    when(scheduledExportRepository.selectById(2L)).thenReturn(foreign);
+    return foreign;
+  }
+
+  @Test
+  @DisplayName("FR-G16: 他人任务详情不可读")
+  void getScheduledExport_shouldRejectForeignOwner() {
+    foreignTask();
+    assertThrows(BusinessException.class, () -> scheduledExportService.getScheduledExport(2L));
+  }
+
+  @Test
+  @DisplayName("FR-G16: 他人任务执行记录不可读")
+  void getExecutions_shouldRejectForeignOwner() {
+    foreignTask();
+    assertThrows(BusinessException.class, () -> scheduledExportService.getExecutions(2L));
+    // 归属未通过就不该去查记录：只拒绝而不查库，才不会出现"先读了再报错"的时序泄漏
+    verify(scheduledExportExecutionRepository, never())
+        .findByScheduledExportIdOrderByExecutedAtDesc(anyLong());
+  }
+
+  @Test
+  @DisplayName("FR-G16: 列表不接受任意用户标识参数")
+  void getScheduledExports_shouldRejectForeignUserIdParam() {
+    assertThrows(BusinessException.class, () -> scheduledExportService.getScheduledExports(2L));
+    // 参数值不得参与过滤——一旦按传入标识查库，本方法就是越权读取的入口本身
+    verify(scheduledExportRepository, never()).findByUserIdAndStatus(anyLong(), anyString());
   }
 }

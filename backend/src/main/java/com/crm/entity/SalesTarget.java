@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,5 +21,6 @@ public class SalesTarget extends BaseEntity {
   /** 归属用户（NULL=全局目标；非 NULL=个人目标，020）。 */
   private Long userId;
 
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

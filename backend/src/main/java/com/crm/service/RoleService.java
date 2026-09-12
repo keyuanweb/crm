@@ -5,6 +5,7 @@ import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
 import com.crm.common.PageResult;
 import com.crm.common.RoleConstants;
+import com.crm.config.CacheConfig;
 import com.crm.dto.role.RoleOption;
 import com.crm.dto.role.RoleRequest;
 import com.crm.dto.role.RoleResponse;
@@ -20,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -35,18 +38,21 @@ public class RoleService {
   private final RolePermissionMapper rolePermissionMapper;
   private final UserMapper userMapper;
   private final AuditService auditService;
+  private final CacheManager cacheManager;
 
   public RoleService(
       RoleMapper roleMapper,
       RoleMenuMapper roleMenuMapper,
       RolePermissionMapper rolePermissionMapper,
       UserMapper userMapper,
-      AuditService auditService) {
+      AuditService auditService,
+      CacheManager cacheManager) {
     this.roleMapper = roleMapper;
     this.roleMenuMapper = roleMenuMapper;
     this.rolePermissionMapper = rolePermissionMapper;
     this.userMapper = userMapper;
     this.auditService = auditService;
+    this.cacheManager = cacheManager;
   }
 
   /** 角色列表（含菜单/权限码）。 */
@@ -78,6 +84,7 @@ public class RoleService {
     roleMapper.insert(role);
     replaceMenus(role.getId(), req.getMenus());
     replacePermissions(role.getId(), req.getPermissions());
+    evictPermissionsCache(role.getCode());
     auditService.record("CREATE", "ROLE", role.getId(), "创建角色：" + role.getName());
     return toResponse(role);
   }
@@ -107,6 +114,7 @@ public class RoleService {
     }
     if (req.getPermissions() != null) {
       replacePermissions(id, req.getPermissions());
+      evictPermissionsCache(role.getCode());
     }
     auditService.record("UPDATE", "ROLE", id, "编辑角色：" + role.getName());
     return toResponse(role);
@@ -128,6 +136,7 @@ public class RoleService {
     roleMenuMapper.delete(new LambdaQueryWrapper<RoleMenu>().eq(RoleMenu::getRoleId, id));
     rolePermissionMapper.delete(
         new LambdaQueryWrapper<RolePermission>().eq(RolePermission::getRoleId, id));
+    evictPermissionsCache(role.getCode());
     auditService.record("DELETE", "ROLE", id, "删除角色：" + role.getName());
   }
 
@@ -155,9 +164,35 @@ public class RoleService {
     if (!StringUtils.hasText(roleCode)) {
       return List.of();
     }
+    String code = roleCode.trim();
+    // 缓存键就是查库用的键（同一次 trim、不做大小写归一——底层查询 `eq(code)` 本就区分大小写，
+    // 归一化反而会改变语义）。TTL 由 CacheConfig 控制（60 秒）。
+    Cache cache = cacheManager.getCache(CacheConfig.ROLE_PERMISSIONS_CACHE);
+    if (cache != null) {
+      Cache.ValueWrapper hit = cache.get(code);
+      if (hit != null) {
+        Object value = hit.get();
+        if (value instanceof List<?> cached) {
+          @SuppressWarnings("unchecked")
+          List<String> permissions = (List<String>) cached;
+          return permissions;
+        }
+      }
+    }
+    List<String> permissions = loadPermissionsOf(code);
+    if (cache != null) {
+      // 按角色编码缓存：**角色不存在也缓存空列表**（否则不存在的角色每请求都会打两次库，
+      // 而 PermissionAspect 会为每个未知角色走到这里）。该"空"由 create 的失效兜底，
+      // 最坏情况受 TTL 上限约束。
+      cache.put(code, permissions);
+    }
+    return permissions;
+  }
+
+  private List<String> loadPermissionsOf(String code) {
     Role role =
         roleMapper.selectOne(
-            new LambdaQueryWrapper<Role>().eq(Role::getCode, roleCode.trim()).last("LIMIT 1"));
+            new LambdaQueryWrapper<Role>().eq(Role::getCode, code).last("LIMIT 1"));
     if (role == null) {
       return List.of();
     }
@@ -167,6 +202,22 @@ public class RoleService {
         .stream()
         .map(RolePermission::getPermissionCode)
         .toList();
+  }
+
+  /**
+   * 失效某角色编码的权限缓存。
+   *
+   * <p><b>调用点必须与"写入 role_permission 的位置"一一对应</b>：本类只有 {@link #create}／{@link #update}／{@link
+   * #delete} 三处会改角色权限，故三处都必须调用（漏一处即出现"改完权限仍按旧权限放行/拦截"，且窗口受 TTL 上限约束、不易察觉）。
+   *
+   * <p><b>为什么按编码逐条失效就已足够</b>：{@code update} 不接受编码变更（只改名称/描述/数据范围/启用位），
+   * 故不存在"旧编码与新编码同时失效"的场景；缓存键是角色编码，被改动的那个角色就是唯一需要失效的键。
+   */
+  private void evictPermissionsCache(String roleCode) {
+    Cache cache = cacheManager.getCache(CacheConfig.ROLE_PERMISSIONS_CACHE);
+    if (cache != null) {
+      cache.evict(roleCode);
+    }
   }
 
   /** 按角色编码查可见菜单 key 列表（me 用）。 */

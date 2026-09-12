@@ -184,9 +184,7 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
     }
   }
 
-  /**
-   * 处理单个策略：根据 entityType 查询到期数据并执行归档/删除操作。
-   */
+  /** 处理单个策略：根据 entityType 查询到期数据并执行归档/删除操作。 */
   private int processPolicy(DataRetentionPolicy policy) {
     LocalDateTime cutoffDate = LocalDateTime.now().minusDays(policy.getRetentionDays());
     String entityType = policy.getEntityType();
@@ -229,8 +227,8 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
 
   /** 归档过期客户。 */
   private int archiveExpiredCustomers(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Customer> qw = new LambdaQueryWrapper<Customer>()
-        .lt(Customer::getCreatedAt, cutoffDate);
+    LambdaQueryWrapper<Customer> qw =
+        new LambdaQueryWrapper<Customer>().lt(Customer::getCreatedAt, cutoffDate);
     List<Customer> expired = customerMapper.selectList(qw);
     int count = expired.size();
     for (Customer c : expired) {
@@ -243,8 +241,7 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
 
   /** 归档过期线索。 */
   private int archiveExpiredLeads(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Lead> qw = new LambdaQueryWrapper<Lead>()
-        .lt(Lead::getCreatedAt, cutoffDate);
+    LambdaQueryWrapper<Lead> qw = new LambdaQueryWrapper<Lead>().lt(Lead::getCreatedAt, cutoffDate);
     List<Lead> expired = leadMapper.selectList(qw);
     int count = expired.size();
     for (Lead l : expired) {
@@ -257,8 +254,8 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
 
   /** 归档过期联系人。 */
   private int archiveExpiredContacts(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Contact> qw = new LambdaQueryWrapper<Contact>()
-        .lt(Contact::getCreatedAt, cutoffDate);
+    LambdaQueryWrapper<Contact> qw =
+        new LambdaQueryWrapper<Contact>().lt(Contact::getCreatedAt, cutoffDate);
     List<Contact> expired = contactMapper.selectList(qw);
     int count = expired.size();
     for (Contact c : expired) {
@@ -271,8 +268,8 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
 
   /** 归档过期跟进记录。 */
   private int archiveExpiredFollowUps(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<FollowUp> qw = new LambdaQueryWrapper<FollowUp>()
-        .lt(FollowUp::getCreatedAt, cutoffDate);
+    LambdaQueryWrapper<FollowUp> qw =
+        new LambdaQueryWrapper<FollowUp>().lt(FollowUp::getCreatedAt, cutoffDate);
     List<FollowUp> expired = followUpMapper.selectList(qw);
     int count = expired.size();
     for (FollowUp f : expired) {
@@ -285,8 +282,8 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
 
   /** 归档过期商机。 */
   private int archiveExpiredOpportunities(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Opportunity> qw = new LambdaQueryWrapper<Opportunity>()
-        .lt(Opportunity::getCreatedAt, cutoffDate);
+    LambdaQueryWrapper<Opportunity> qw =
+        new LambdaQueryWrapper<Opportunity>().lt(Opportunity::getCreatedAt, cutoffDate);
     List<Opportunity> expired = opportunityMapper.selectList(qw);
     int count = expired.size();
     for (Opportunity o : expired) {
@@ -299,8 +296,8 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
 
   /** 归档过期合同。 */
   private int archiveExpiredContracts(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Contract> qw = new LambdaQueryWrapper<Contract>()
-        .lt(Contract::getCreatedAt, cutoffDate);
+    LambdaQueryWrapper<Contract> qw =
+        new LambdaQueryWrapper<Contract>().lt(Contract::getCreatedAt, cutoffDate);
     List<Contract> expired = contractMapper.selectList(qw);
     int count = expired.size();
     for (Contract c : expired) {
@@ -313,8 +310,8 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
 
   /** 归档过期工单。 */
   private int archiveExpiredTickets(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Ticket> qw = new LambdaQueryWrapper<Ticket>()
-        .lt(Ticket::getCreatedAt, cutoffDate);
+    LambdaQueryWrapper<Ticket> qw =
+        new LambdaQueryWrapper<Ticket>().lt(Ticket::getCreatedAt, cutoffDate);
     List<Ticket> expired = ticketMapper.selectList(qw);
     int count = expired.size();
     for (Ticket t : expired) {
@@ -327,8 +324,8 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
 
   /** 归档过期任务。 */
   private int archiveExpiredTasks(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<TaskItem> qw = new LambdaQueryWrapper<TaskItem>()
-        .lt(TaskItem::getCreatedAt, cutoffDate);
+    LambdaQueryWrapper<TaskItem> qw =
+        new LambdaQueryWrapper<TaskItem>().lt(TaskItem::getCreatedAt, cutoffDate);
     List<TaskItem> expired = taskItemMapper.selectList(qw);
     int count = expired.size();
     for (TaskItem t : expired) {
@@ -341,8 +338,9 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
 
   /** 归档过期工作流执行日志。 */
   private int archiveExpiredWorkflowLogs(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<WorkflowExecutionLog> qw = new LambdaQueryWrapper<WorkflowExecutionLog>()
-        .lt(WorkflowExecutionLog::getCreatedAt, cutoffDate);
+    LambdaQueryWrapper<WorkflowExecutionLog> qw =
+        new LambdaQueryWrapper<WorkflowExecutionLog>()
+            .lt(WorkflowExecutionLog::getCreatedAt, cutoffDate);
     List<WorkflowExecutionLog> expired = workflowExecutionLogMapper.selectList(qw);
     int count = expired.size();
     for (WorkflowExecutionLog w : expired) {

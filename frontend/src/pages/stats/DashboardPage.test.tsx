@@ -10,10 +10,14 @@ vi.mock('react-i18next', () => ({
 
 // mock AnnouncementCard 避免其 useEffect 发起真实请求干扰测试
 vi.mock('../../components/AnnouncementCard', () => ({
-  default: (props: any) => <div data-testid="announcement-card">{props?.children ?? 'Announcement'}</div>,
+  // 本 mock 只渲染 children（`import type` 会被编译期抹除，不影响 vi.mock 的 hoist 约束）
+  default: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="announcement-card">{children ?? 'Announcement'}</div>
+  ),
 }))
 
 import { screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import DashboardPage from './DashboardPage'
 import { fetchDashboardStats } from '../../services/statsService'

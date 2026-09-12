@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react'
 
+/** Safari 的旧前缀全屏 API（DOM lib 未收录，故补声明而不是用 any 抹平）。 */
+type WebkitFullscreenElement = Element & { webkitRequestFullscreen?: () => void }
+type WebkitFullscreenDocument = Document & { webkitExitFullscreen?: () => void }
+
 /**
  * 全屏 API Hook
  * @returns [isFullscreen, toggleFullscreen, enterFullscreen, exitFullscreen]
@@ -8,19 +12,20 @@ export function useFullscreen() {
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement)
 
   const enterFullscreen = () => {
-    const element = document.documentElement
+    const element = document.documentElement as WebkitFullscreenElement
     if (element.requestFullscreen) {
       void element.requestFullscreen()
-    } else if ((element as any).webkitRequestFullscreen) {
-      void (element as any).webkitRequestFullscreen()
+    } else if (element.webkitRequestFullscreen) {
+      void element.webkitRequestFullscreen()
     }
   }
 
   const exitFullscreen = () => {
-    if (document.exitFullscreen) {
-      void document.exitFullscreen()
-    } else if ((document as any).webkitExitFullscreen) {
-      void (document as any).webkitExitFullscreen()
+    const doc = document as WebkitFullscreenDocument
+    if (doc.exitFullscreen) {
+      void doc.exitFullscreen()
+    } else if (doc.webkitExitFullscreen) {
+      void doc.webkitExitFullscreen()
     }
   }
 

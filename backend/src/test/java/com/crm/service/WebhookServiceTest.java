@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.crm.common.OutboundUrlValidator;
 import com.crm.entity.WebhookDelivery;
 import com.crm.entity.WebhookSubscription;
 import com.crm.repository.WebhookDeliveryMapper;
@@ -30,6 +31,7 @@ class WebhookServiceTest {
   private WebhookSubscriptionMapper subscriptionMapper;
   private WebhookDeliveryMapper deliveryMapper;
   private org.springframework.web.client.RestTemplate restTemplate;
+  private OutboundUrlValidator outboundUrlValidator;
   private WebhookService service;
   private MockedStatic<SecurityUtil> securityUtilMock;
 
@@ -46,9 +48,18 @@ class WebhookServiceTest {
     subscriptionMapper = mock(WebhookSubscriptionMapper.class);
     deliveryMapper = mock(WebhookDeliveryMapper.class);
     restTemplate = mock(org.springframework.web.client.RestTemplate.class);
+    // 出站校验的默认策略是「全拒」，故用例里用到的回调主机必须在白名单内，
+    // 否则本类每个建订阅的用例都会因地址被拒而失败——那会把"地址校验"误报成"订阅创建坏了"
+    outboundUrlValidator = new OutboundUrlValidator("example.com");
     service =
         new WebhookService(
-            subscriptionMapper, deliveryMapper, restTemplate, mock(WebhookDeliverer.class));
+            subscriptionMapper,
+            deliveryMapper,
+            restTemplate,
+            mock(WebhookDeliverer.class),
+            // 真实校验器而非 mock：本类的用例都在白名单内建订阅（见下方 setAllowedHosts），
+            // 用 mock 会把「创建时确实过了出站校验」这一事实抹掉
+            outboundUrlValidator);
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock
         .when(SecurityUtil::currentPrincipal)

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts'
+import type { TooltipComponentFormatterCallbackParams } from 'echarts'
 import type { TrendPoint } from '../types'
 
 interface TrendChartProps {
@@ -19,7 +20,13 @@ export default function TrendChart({ data, style }: TrendChartProps) {
     const dates = data.map((d) => d.date)
     const amounts = data.map((d) => d.amount)
     const option = {
-      tooltip: { trigger: 'axis', formatter: (params: any) => `${params[0].name}<br/>金额：${params[0].value.toLocaleString()} 元` },
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: TooltipComponentFormatterCallbackParams) => {
+          const point = Array.isArray(params) ? params[0] : params
+          return `${point.name}<br/>金额：${Number(point.value).toLocaleString()} 元`
+        },
+      },
       grid: { left: '10%', right: '5%', top: '10%', bottom: '15%' },
       xAxis: { type: 'category', data: dates, boundaryGap: false, axisLine: { lineStyle: { color: '#5a7cb8' } }, axisLabel: { color: '#7db4ff', fontSize: 10, interval: Math.floor(dates.length / 10) } },
       yAxis: { type: 'value', axisLine: { show: false }, axisTick: { show: false }, splitLine: { lineStyle: { color: 'rgba(90, 124, 184, 0.1)' } }, axisLabel: { color: '#7db4ff', fontSize: 10, formatter: (v: number) => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : v >= 10000 ? (v / 10000).toFixed(1) + 'W' : v.toString() } },

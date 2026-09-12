@@ -1,23 +1,16 @@
 /** 配额版本历史页面（078-sales-quota，US3 - 配额调整与版本管理）。 */
 
-import { quotaApi, type SalesQuotaResponse } from '../../services/api/quotaApi';
+import {
+  quotaApi,
+  type SalesQuotaResponse,
+  type SalesQuotaVersionResponse as VersionRecord,
+} from '../../services/api/quotaApi';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Button, Card, List, Space, Typography, Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const { Title, Text } = Typography;
-
-interface VersionRecord {
-  id: number;
-  quotaId: number;
-  oldAmount: number;
-  newAmount: number;
-  changedBy: number;
-  changedAt: string;
-  changeReason: string;
-  versionNumber: number;
-}
 
 const QuotaVersionPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();

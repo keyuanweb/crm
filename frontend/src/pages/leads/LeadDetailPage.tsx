@@ -46,7 +46,8 @@ export default function LeadDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [id, message])
+    // t 用于错误文案；i18next 在语言切换时会给出新的 t 引用，故一并列入依赖
+  }, [id, message, t])
 
   useEffect(() => {
     void load()

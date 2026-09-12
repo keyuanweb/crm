@@ -5,23 +5,24 @@ import type { ScheduledExportResponse } from '../../types/scheduledExport';
 import { ENTITY_TYPE_LABELS, EXPORT_FORMAT_LABELS, TASK_STATUS_LABELS } from '../../types/scheduledExport';
 import { PlusOutlined, PauseCircleOutlined, PlayCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Button, Card, Popconfirm, Space, Table, Tag, message } from 'antd';
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-
-
+import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
 
 const ScheduledExportListPage: React.FC = () => {
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const userId = id ? Number(id) : 1;
+  // 改造前这里写死 `useParams().id ?? 1`，而本页路由（`/exports/scheduled`）根本没有 `:id` 参数，
+  // 于是**恒定请求 1 号用户**的列表。服务端已按登录身份限定范围并对不符的参数返回 403（FR-G16），
+  // 故必须改传当前登录用户——写死 1 会让非 1 号用户看到 403 而非自己的任务。
+  const user = useAuthStore((s) => s.user);
+  const userId = user?.id;
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<ScheduledExportResponse[]>([]);
 
-  React.useEffect(() => {
-    loadList();
-  }, [userId]);
-
-  const loadList = async () => {
+  // loadList 依赖 userId：用 useCallback 固定引用后交给 effect 依赖，避免 effect 依赖表不完整。
+  const loadList = useCallback(async () => {
+    // 登录信息尚未就绪时先不请求：带上 undefined 只会换来一个 400，不如等 effect 因 userId 变化重跑
+    if (userId == null) return;
     setLoading(true);
     try {
       const result = await scheduledExportApi.list(userId);
@@ -31,7 +32,11 @@ const ScheduledExportListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
 
   const handleStatusChange = async (id: number, status: string) => {
     try {
@@ -92,7 +97,7 @@ const ScheduledExportListPage: React.FC = () => {
     {
       title: '操作',
       width: 300,
-      render: (_: any, record: ScheduledExportResponse) => [
+      render: (_: unknown, record: ScheduledExportResponse) => [
         <a key="executions" onClick={() => navigate(`/exports/scheduled/${record.id}/executions`)}>
           执行历史
         </a>,

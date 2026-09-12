@@ -1,6 +1,6 @@
 # SDD 规格驱动开发文档索引
 
-**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V78 迁移，85 张表）
+**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V78 迁移，85 张表；083 为工程收口，无迁移）
 
 > 本文档是全部 Spec-Driven Development 产物的导航入口。每个模块按统一流程
 > `spec → plan → tasks → implement → verify` 迭代，文档遵守 [章程](../../.specify/memory/constitution.md) 的
@@ -110,8 +110,9 @@
 | 080 | 数据保留策略（归档/执行历史/合规导出） | P2 | ✅ | [目录](./080-data-retention/) | data-retention-api |
 | 081 | 角色权限更新（11 个预置角色 + 权限矩阵） | P2 | ✅ | [目录](./081-role-permissions-update/) | —（design/tasks，无 spec） |
 | 082 | 双因素认证（TOTP 动态码/绑定向导/恢复码/管理员重置） | 安全 | ✅ | [目录](./082-two-factor-auth/) | auth-mfa |
+| 083 | 工程收口（门禁生效/集成测试执行与覆盖率/安全修复/性能优化/部署缺陷） | 治理 | ✅ | [目录](./083-engineering-consolidation/) | —（无新端点；授权语义变更记入 055 的 open-platform 契约） |
 
-> 编号说明：`069` 未创建（编号空缺）；`081` 仅有 `design.md` / `tasks.md`，未按标准流程产出 `spec.md`；`082` 为标准流程（spec/plan/data-model/contracts/tasks/quickstart）产出的待实施模块。
+> 编号说明：`069` 未创建（编号空缺）；`081` 仅有 `design.md` / `tasks.md`，未按标准流程产出 `spec.md`；`082` 为标准流程（spec/plan/data-model/contracts/tasks/quickstart）产出的待实施模块；`083` 为标准流程产出的**加固类**模块（不产 `contracts/`，与 `003` 同形制），**不含 Flyway 迁移**，故下方迁移对照表无 083 行。
 
 > 阶段：P0=核心销售链路补全；P1=成交链路延伸 / 效率与自动化；P2=扩展模块；
 > P3=智能化与平台增强；P4=营销闭环与协作扩展（批次建议见 [roadmap-p0p1.md](./roadmap-p0p1.md)）；

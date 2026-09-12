@@ -3,6 +3,7 @@ package com.crm.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
+import com.crm.common.OutboundUrlValidator;
 import com.crm.common.PageResult;
 import com.crm.dto.integration.ChannelRequest;
 import com.crm.dto.integration.ChannelResponse;
@@ -27,14 +28,17 @@ public class IntegrationChannelService {
   private final IntegrationChannelMapper channelMapper;
   private final WebhookDeliveryMapper deliveryMapper;
   private final WebhookService webhookService;
+  private final OutboundUrlValidator outboundUrlValidator;
 
   public IntegrationChannelService(
       IntegrationChannelMapper channelMapper,
       WebhookDeliveryMapper deliveryMapper,
-      WebhookService webhookService) {
+      WebhookService webhookService,
+      OutboundUrlValidator outboundUrlValidator) {
     this.channelMapper = channelMapper;
     this.deliveryMapper = deliveryMapper;
     this.webhookService = webhookService;
+    this.outboundUrlValidator = outboundUrlValidator;
   }
 
   // ===== 通道管理 =====
@@ -123,11 +127,15 @@ public class IntegrationChannelService {
     }
   }
 
+  /**
+   * 通道地址校验（FR-G13）：改用统一出站校验器。
+   *
+   * <p>改造前只判 {@code startsWith("http://")}——那连"是不是 http 协议"都判不准（{@code http://} 前缀下仍可写 {@code
+   * http://169.254.169.254/…}），更不拦私网与云元数据端点。错误码沿用既有的 {@code INTEGRATION_URL_INVALID}，
+   * 不因"统一校验"改掉调用方可见的错误码。
+   */
   private void validate(ChannelRequest req) {
-    String url = req.getWebhookUrl().trim();
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      throw new BusinessException(ErrorCode.INTEGRATION_URL_INVALID);
-    }
+    outboundUrlValidator.validate(req.getWebhookUrl(), ErrorCode.INTEGRATION_URL_INVALID);
   }
 
   private IntegrationChannel require(Long id) {

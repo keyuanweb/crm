@@ -5,9 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
 import com.crm.dto.quote.QuoteRequest;
@@ -21,11 +24,9 @@ import com.crm.repository.ProductMapper;
 import com.crm.repository.QuoteItemMapper;
 import com.crm.repository.QuoteMapper;
 import com.crm.security.SecurityUtil;
-import com.baomidou.mybatisplus.core.MybatisConfiguration;
-import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import org.apache.ibatis.builder.MapperBuilderAssistant;
 import java.math.BigDecimal;
 import java.util.List;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -123,8 +124,9 @@ class QuoteServiceTest {
   @DisplayName("创建报价：行小计与总额按 单价×数量×(1-折扣) 计算")
   void createCalculatesTotals() {
     when(customerMapper.selectById(10L)).thenReturn(customer(10L));
-    when(productMapper.selectById(1L)).thenReturn(product(1L, 100000L));
-    when(productMapper.selectById(2L)).thenReturn(product(2L, 200000L));
+    // 083（FR-G24）：产品改为**一次批量取齐**后再算额/建行，故 stub 从两次 selectById 变为一次 selectBatchIds
+    when(productMapper.selectBatchIds(any()))
+        .thenReturn(List.of(product(1L, 100000L), product(2L, 200000L)));
     when(quoteMapper.selectList(any())).thenReturn(List.of());
     when(quoteMapper.insert(any(Quote.class)))
         .thenAnswer(
@@ -148,6 +150,9 @@ class QuoteServiceTest {
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
             + "-0001";
     verify(auditService).record("CREATE", "QUOTE", 1L, "创建报价单：" + todayNo);
+    // 2 行明细只应触发 1 次产品查询（改造前为 2 次：calcTotal 与 buildItems 各一次）
+    verify(productMapper, times(1)).selectBatchIds(any());
+    verify(productMapper, never()).selectById(any());
   }
 
   @Test
@@ -181,10 +186,27 @@ class QuoteServiceTest {
   }
 
   @Test
-  @DisplayName("创建报价：产品不存在或停用抛出 PRODUCT_NOT_FOUND")
+  @DisplayName("创建报价：产品不存在抛出 PRODUCT_NOT_FOUND")
   void createProductMissingThrows() {
     when(customerMapper.selectById(10L)).thenReturn(customer(10L));
-    when(productMapper.selectById(1L)).thenReturn(null);
+    // 批量查询没返回这一行（产品不存在）
+    when(productMapper.selectBatchIds(any())).thenReturn(List.of());
+
+    assertThatThrownBy(() -> service.create(request(10L, List.of(item(1L, 1, "1")))))
+        .isInstanceOf(BusinessException.class)
+        .extracting(e -> ((BusinessException) e).getErrorCode())
+        .isEqualTo(ErrorCode.PRODUCT_NOT_FOUND);
+  }
+
+  @Test
+  @DisplayName("创建报价：产品已停用抛出 PRODUCT_NOT_FOUND（存在但非 ACTIVE）")
+  void createInactiveProductThrows() {
+    when(customerMapper.selectById(10L)).thenReturn(customer(10L));
+    // 批量查询**返回了**这一行，但状态不是 ACTIVE。与上一个用例合起来把
+    // requireActiveProduct 的两个分支（缺失 / 非启用）都钉住——只测"缺失"会让"忘了判状态"逃过验收。
+    Product inactive = product(1L, 100000L);
+    inactive.setStatus("INACTIVE");
+    when(productMapper.selectBatchIds(any())).thenReturn(List.of(inactive));
 
     assertThatThrownBy(() -> service.create(request(10L, List.of(item(1L, 1, "1")))))
         .isInstanceOf(BusinessException.class)

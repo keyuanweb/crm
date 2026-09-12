@@ -65,6 +65,11 @@ class CustomReportsIT extends AbstractIntegrationTest {
     createSalesOpportunity(token, c1, 300000L, "INITIAL_CONTACT");
     createSalesOpportunity(token, c1, 200000L, "NEGOTIATING");
 
+    // 时间窗按"今天"算，不写死日期：报表按 SalesOpportunity.createdAt 过滤（ReportService），
+    // 而本用例的数据是在运行时创建的。原先写死 2026-08-01~2026-08-31，只需跨月就会把数据排除在外，
+    // 表现为"合计为 0"而非报错——这类时间炸弹不报错、只静默失败，最难归因。
+    String today = java.time.LocalDate.now().toString();
+
     mockMvc
         .perform(
             post("/api/v1/reports/query")
@@ -72,7 +77,11 @@ class CustomReportsIT extends AbstractIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     "{\"dimension\":\"STAGE\",\"metric\":\"AMOUNT\","
-                        + "\"startDate\":\"2026-08-01\",\"endDate\":\"2026-08-31\"}"))
+                        + "\"startDate\":\""
+                        + today
+                        + "\",\"endDate\":\""
+                        + today
+                        + "\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.rows").isArray())
         .andExpect(jsonPath("$.data.totalAmount").value(500000));

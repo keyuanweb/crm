@@ -35,7 +35,9 @@ class FieldVisitIT extends AbstractIntegrationTest {
     String token = loginAndGetToken();
     long customerId = createCustomer(token);
 
-    // 建计划
+    // 建计划。visitTime 取"今天"，不写死日期：下方 /stats 默认统计**当月**（FieldVisitService.stats
+    // 用 YearMonth.now()），原写死的 2026-08-25 一跨月就被排除在统计之外，表现为 totalDone=0。
+    String visitTime = java.time.LocalDate.now() + "T10:00:00";
     String visitResp =
         mockMvc
             .perform(
@@ -45,7 +47,9 @@ class FieldVisitIT extends AbstractIntegrationTest {
                     .content(
                         "{\"customerId\": "
                             + customerId
-                            + ", \"theme\": \"拜访IT\", \"visitTime\": \"2026-08-25T10:00:00\", \"durationMinutes\": 60}"))
+                            + ", \"theme\": \"拜访IT\", \"visitTime\": \""
+                            + visitTime
+                            + "\", \"durationMinutes\": 60}"))
             .andExpect(status().isOk())
             .andReturn()
             .getResponse()

@@ -1,22 +1,23 @@
-/** 合规导出 Service（080-data-retention，DSAR）。
-
-支持 GDPR/个人信息保护法的数据主体导出请求。
+/**
+ * 合规导出 Service（080-data-retention，DSAR）。
+ *
+ * <p>支持 GDPR/个人信息保护法的数据主体导出请求。
  */
 package com.crm.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.crm.entity.Customer;
-import com.crm.entity.Lead;
 import com.crm.entity.Contact;
-import com.crm.entity.Opportunity;
 import com.crm.entity.Contract;
+import com.crm.entity.Customer;
 import com.crm.entity.FollowUp;
-import com.crm.repository.CustomerMapper;
-import com.crm.repository.LeadMapper;
+import com.crm.entity.Lead;
+import com.crm.entity.Opportunity;
 import com.crm.repository.ContactMapper;
-import com.crm.repository.OpportunityMapper;
 import com.crm.repository.ContractMapper;
+import com.crm.repository.CustomerMapper;
 import com.crm.repository.FollowUpMapper;
+import com.crm.repository.LeadMapper;
+import com.crm.repository.OpportunityMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +38,8 @@ import org.springframework.stereotype.Service;
 public class ComplianceExportService {
 
   private static final Logger log = LoggerFactory.getLogger(ComplianceExportService.class);
-  private static final String EXPORT_DIR = System.getProperty("user.dir") + "/backend/contract-files/compliance";
+  private static final String EXPORT_DIR =
+      System.getProperty("user.dir") + "/backend/contract-files/compliance";
 
   private final CustomerMapper customerMapper;
   private final LeadMapper leadMapper;
@@ -81,7 +83,11 @@ public class ComplianceExportService {
       byte[] content = generateExportFile(data, exportFormat);
       Files.write(file, content);
 
-      log.info("Compliance export completed: entityType={}, userId={}, file={}", entityType, userId, file);
+      log.info(
+          "Compliance export completed: entityType={}, userId={}, file={}",
+          entityType,
+          userId,
+          file);
       return file.toString();
     } catch (IOException e) {
       throw new RuntimeException("Compliance export failed: " + e.getMessage(), e);
@@ -102,80 +108,98 @@ public class ComplianceExportService {
 
     switch (entityType.toUpperCase()) {
       case "CUSTOMER":
-        customerMapper.selectList(new LambdaQueryWrapper<Customer>()).forEach(c -> {
-          Map<String, Object> row = Map.of(
-              "id", c.getId(),
-              "name", c.getName(),
-              "company", c.getCompany(),
-              "contactPerson", c.getContactPerson(),
-              "phone", c.getPhone(),
-              "email", c.getEmail(),
-              "createdAt", c.getCreatedAt()
-          );
-          data.add(row);
-        });
+        customerMapper
+            .selectList(new LambdaQueryWrapper<Customer>())
+            .forEach(
+                c -> {
+                  Map<String, Object> row =
+                      Map.of(
+                          "id", c.getId(),
+                          "name", c.getName(),
+                          "company", c.getCompany(),
+                          "contactPerson", c.getContactPerson(),
+                          "phone", c.getPhone(),
+                          "email", c.getEmail(),
+                          "createdAt", c.getCreatedAt());
+                  data.add(row);
+                });
         break;
       case "LEAD":
-        leadMapper.selectList(new LambdaQueryWrapper<Lead>()).forEach(l -> {
-          Map<String, Object> row = Map.of(
-              "id", l.getId(),
-              "name", l.getName(),
-              "company", l.getCompany(),
-              "phone", l.getPhone(),
-              "email", l.getEmail(),
-              "status", l.getStatus(),
-              "createdAt", l.getCreatedAt()
-          );
-          data.add(row);
-        });
+        leadMapper
+            .selectList(new LambdaQueryWrapper<Lead>())
+            .forEach(
+                l -> {
+                  Map<String, Object> row =
+                      Map.of(
+                          "id", l.getId(),
+                          "name", l.getName(),
+                          "company", l.getCompany(),
+                          "phone", l.getPhone(),
+                          "email", l.getEmail(),
+                          "status", l.getStatus(),
+                          "createdAt", l.getCreatedAt());
+                  data.add(row);
+                });
         break;
       case "CONTACT":
-        contactMapper.selectList(new LambdaQueryWrapper<Contact>()).forEach(c -> {
-          Map<String, Object> row = Map.of(
-              "id", c.getId(),
-              "name", c.getName(),
-              "phone", c.getPhone(),
-              "email", c.getEmail(),
-              "createdAt", c.getCreatedAt()
-          );
-          data.add(row);
-        });
+        contactMapper
+            .selectList(new LambdaQueryWrapper<Contact>())
+            .forEach(
+                c -> {
+                  Map<String, Object> row =
+                      Map.of(
+                          "id", c.getId(),
+                          "name", c.getName(),
+                          "phone", c.getPhone(),
+                          "email", c.getEmail(),
+                          "createdAt", c.getCreatedAt());
+                  data.add(row);
+                });
         break;
       case "OPPORTUNITY":
-        opportunityMapper.selectList(new LambdaQueryWrapper<Opportunity>()).forEach(o -> {
-          Map<String, Object> row = Map.of(
-              "id", o.getId(),
-              "name", o.getName(),
-              "amount", o.getAmount(),
-              "status", o.getStatus(),
-              "createdAt", o.getCreatedAt()
-          );
-          data.add(row);
-        });
+        opportunityMapper
+            .selectList(new LambdaQueryWrapper<Opportunity>())
+            .forEach(
+                o -> {
+                  Map<String, Object> row =
+                      Map.of(
+                          "id", o.getId(),
+                          "name", o.getName(),
+                          "amount", o.getAmount(),
+                          "status", o.getStatus(),
+                          "createdAt", o.getCreatedAt());
+                  data.add(row);
+                });
         break;
       case "CONTRACT":
-        contractMapper.selectList(new LambdaQueryWrapper<Contract>()).forEach(c -> {
-          Map<String, Object> row = Map.of(
-              "id", c.getId(),
-              "title", c.getTitle(),
-              "status", c.getStatus(),
-              "startDate", c.getStartDate(),
-              "endDate", c.getEndDate(),
-              "createdAt", c.getCreatedAt()
-          );
-          data.add(row);
-        });
+        contractMapper
+            .selectList(new LambdaQueryWrapper<Contract>())
+            .forEach(
+                c -> {
+                  Map<String, Object> row =
+                      Map.of(
+                          "id", c.getId(),
+                          "title", c.getTitle(),
+                          "status", c.getStatus(),
+                          "startDate", c.getStartDate(),
+                          "endDate", c.getEndDate(),
+                          "createdAt", c.getCreatedAt());
+                  data.add(row);
+                });
         break;
       case "FOLLOW_UP":
-        followUpMapper.selectList(new LambdaQueryWrapper<FollowUp>()).forEach(f -> {
-          Map<String, Object> row = Map.of(
-              "id", f.getId(),
-              "method", f.getMethod(),
-              "content", f.getContent(),
-              "createdAt", f.getCreatedAt()
-          );
-          data.add(row);
-        });
+        followUpMapper
+            .selectList(new LambdaQueryWrapper<FollowUp>())
+            .forEach(
+                f -> {
+                  Map<String, Object> row =
+                      Map.of(
+                          "id", f.getId(),
+                          "method", f.getMethod(),
+                          "content", f.getContent(),
+                          "createdAt", f.getCreatedAt());
+                  data.add(row);
+                });
         break;
       default:
         log.warn("Unsupported entity type for compliance export: {}", entityType);
@@ -185,7 +209,8 @@ public class ComplianceExportService {
   }
 
   /** 生成导出文件。 */
-  private byte[] generateExportFile(List<Map<String, Object>> data, String format) throws IOException {
+  private byte[] generateExportFile(List<Map<String, Object>> data, String format)
+      throws IOException {
     if (format.equals("CSV")) {
       return generateCsv(data);
     } else {
@@ -202,7 +227,8 @@ public class ComplianceExportService {
       sb.append("\n");
       // 数据行
       for (Map<String, Object> row : data) {
-        sb.append(String.join(",", row.values().stream().map(Object::toString).toArray(String[]::new)));
+        sb.append(
+            String.join(",", row.values().stream().map(Object::toString).toArray(String[]::new)));
         sb.append("\n");
       }
     }

@@ -43,25 +43,29 @@ class CustomerIT extends AbstractIntegrationTest {
     String token = loginAndGetToken();
     long id = createCustomer(token, "张三", "XX 科技");
 
-    // 列表可见（FR-016：电话/邮箱脱敏）
+    // 列表可见。此处原断言的是 FR-016 的列表脱敏（138****0000），但列表脱敏已被有意移除——
+    // 见 CustomerService 列表分支的注释与 01c8eee「客户列表电话/邮箱显示完整号码（按用户要求）」。
+    // 脱敏现在只保留在导出路径（ExportExecutor，063 对非管理员脱敏），故本条断言改为当前的真实语义。
     mockMvc
         .perform(get("/api/v1/customers").header("Authorization", bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.total").value(1))
-        .andExpect(jsonPath("$.data.items[0].phone").value("138****0000"));
+        .andExpect(jsonPath("$.data.items[0].phone").value("13800000000"));
 
     // FR-017：创建已写入审计日志
     org.assertj.core.api.Assertions.assertThat(auditLogMapper.selectCount(null))
         .isGreaterThanOrEqualTo(1L);
 
     // 详情（FR-016：详情返回完整值）
+    // 原有 `$.data.opportunities` / `$.data.followUps` 两条断言已删除：客户响应契约（CustomerResponse）
+    // 从不含这两个字段，关联数据的出口是客户 360（orders/paymentSummaries/contracts/tickets）与跟进列表
+    // 各自的端点。原断言针对的是一个不存在的响应形状——断言"字段存在"却从未核对契约，正是本规格要治的病。
     mockMvc
         .perform(get("/api/v1/customers/{id}", id).header("Authorization", bearer(token)))
         .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.id").value((int) id))
         .andExpect(jsonPath("$.data.name").value("张三"))
-        .andExpect(jsonPath("$.data.phone").value("13800000000"))
-        .andExpect(jsonPath("$.data.opportunities").isArray())
-        .andExpect(jsonPath("$.data.followUps").isArray());
+        .andExpect(jsonPath("$.data.phone").value("13800000000"));
 
     // 编辑
     String updateBody = """

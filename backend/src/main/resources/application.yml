@@ -37,6 +37,15 @@ crm:
   captcha:
     # 048：验证码默认关闭（开发/演示直接登录）；生产可通过环境变量 CAPTCHA_ENABLED=true 强制开启
     enabled: ${CAPTCHA_ENABLED:false}
+  mail:
+    # 030 邮件营销：SMTP 配置。host 留空 = 邮件通道未启用，此时所有发送记录标记 SKIPPED
+    # （而非 SENT），前端提示"邮件未真实发送"——不会再把未发出的邮件统计成已发送。
+    # 需要真实发信时注入 CRM_MAIL_HOST / CRM_MAIL_USERNAME / CRM_MAIL_PASSWORD。
+    host: ${CRM_MAIL_HOST:}
+    port: ${CRM_MAIL_PORT:587}
+    username: ${CRM_MAIL_USERNAME:}
+    password: ${CRM_MAIL_PASSWORD:}
+    from: ${CRM_MAIL_FROM:crm@example.com}
   scheduler:
     # 定时导出扫描间隔（cron 表达式），默认每 5 分钟
     export-cron: ${CRM_SCHEDULER_EXPORT_CRON:0 0/5 * * * ?}

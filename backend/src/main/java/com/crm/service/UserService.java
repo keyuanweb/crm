@@ -16,6 +16,7 @@ import com.crm.repository.DepartmentMapper;
 import com.crm.repository.UserMapper;
 import com.crm.security.SecurityUtil;
 import com.crm.security.UserStateCache;
+import com.crm.security.VisibleOwnerIdsCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -38,6 +39,7 @@ public class UserService {
   private final UserStateCache userStateCache;
   private final DepartmentMapper departmentMapper;
   private final RoleService roleService;
+  private final VisibleOwnerIdsCache visibleOwnerIdsCache;
 
   public UserService(
       UserMapper userMapper,
@@ -46,7 +48,8 @@ public class UserService {
       AuditService auditService,
       UserStateCache userStateCache,
       DepartmentMapper departmentMapper,
-      RoleService roleService) {
+      RoleService roleService,
+      VisibleOwnerIdsCache visibleOwnerIdsCache) {
     this.userMapper = userMapper;
     this.passwordEncoder = passwordEncoder;
     this.redisTemplate = redisTemplate;
@@ -54,6 +57,7 @@ public class UserService {
     this.userStateCache = userStateCache;
     this.departmentMapper = departmentMapper;
     this.roleService = roleService;
+    this.visibleOwnerIdsCache = visibleOwnerIdsCache;
   }
 
   public PageResult<UserResponse> page(String keyword, String role, long page, long pageSize) {
@@ -94,6 +98,9 @@ public class UserService {
     user.setEnabled(true);
     user.setTokenVersion(0);
     userMapper.insert(user);
+    // 新用户此刻无部门（departmentId 为 null），但仍会进入按部门解析的集合之外／之内取决于后续 setDataPermission。
+    // 为不漏失效，任何用户写入一律全量失效（多失效的代价是一次查库）。
+    visibleOwnerIdsCache.evictAll();
     auditService.record("CREATE", "USER", user.getId(), "创建用户：" + user.getUsername());
     return toResponse(user);
   }
@@ -129,6 +136,10 @@ public class UserService {
       throw new BusinessException(ErrorCode.VERSION_CONFLICT);
     }
     userStateCache.evict(id);
+    // 本方法只改 displayName/role/enabled，不改 departmentId → 严格说 A 的"可见负责人集合"不变。
+    // 但 role 变化会让**被改者自己**从 ADMIN（不过滤）掉到 SELF，而这条缓存键（id）无法从写入推断是否受影响的大小，
+    // 故仍全量失效——本类的写入语义是"用户记录变了"，不是"只有某个键脏了"。
+    visibleOwnerIdsCache.evictAll();
     auditService.record("UPDATE", "USER", id, "编辑用户：" + user.getUsername());
     return toResponse(userMapper.selectById(id));
   }
@@ -144,6 +155,9 @@ public class UserService {
       user.setDataScope(req.getDataScope().trim());
     }
     userMapper.updateById(user);
+    // 本方法是"可见负责人集合"的两大来源同时变更的唯一入口：departmentId 决定**该用户属于谁的部门集合**，
+    // dataScope 决定**他拿到哪一类集合**。两者都变，且第三方（同部门同事）的集合也随之变 —— 全量失效。
+    visibleOwnerIdsCache.evictAll();
     auditService.record(
         "UPDATE",
         "USER",
@@ -163,6 +177,9 @@ public class UserService {
     userMapper.updateById(user);
     invalidateUserTokens(user.getId());
     userStateCache.evict(user.getId());
+    // 改密不改变可见负责人集合，但本方法的语义是"改了一条 user 记录"。为保持本类所有写入路径行为一致
+    // （审计口径统一、且避免将来在此方法里加部门/范围变更时漏失效），同样全量失效。
+    visibleOwnerIdsCache.evictAll();
     auditService.record("RESET_PASSWORD", "USER", id, "重置密码：" + user.getUsername());
   }
 
@@ -180,6 +197,8 @@ public class UserService {
     userMapper.updateById(user);
     invalidateUserTokens(user.getId());
     userStateCache.evict(user.getId());
+    // 同上：改密不动部门/范围，但保持本类写入路径的失效口径一致。
+    visibleOwnerIdsCache.evictAll();
     auditService.record("CHANGE_PASSWORD", "USER", user.getId(), "修改自身密码");
   }
 

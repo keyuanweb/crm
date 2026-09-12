@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,5 +39,6 @@ public class Contract extends BaseEntity {
   /** 续约来源合同 id（046，自引用）。 */
   private Long renewedFromId;
 
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

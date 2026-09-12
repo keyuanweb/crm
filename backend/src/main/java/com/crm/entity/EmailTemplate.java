@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,5 +19,6 @@ public class EmailTemplate extends BaseEntity {
   /** WELCOME / PROMOTION / FOLLOW_UP / NOTICE。 */
   private String category;
 
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

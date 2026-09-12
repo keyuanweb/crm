@@ -4,13 +4,13 @@ import { quotaApi, type SalesQuotaResponse, type SalesQuotaSummary } from '../..
 import { PlusOutlined, TeamOutlined, UserOutlined, BarChartOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import { Button, Card, Col, Flex, Row } from 'antd';
-import type { ProColumns } from '@ant-design/pro-components';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const QuotaListPage: React.FC = () => {
   const navigate = useNavigate();
-  const actionRef = useRef<any>();
+  const actionRef = useRef<ActionType>();
   const [year] = useState(new Date().getFullYear());
   const [summary, setSummary] = useState<SalesQuotaSummary | null>(null);
 

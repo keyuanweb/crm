@@ -3,6 +3,7 @@ package com.crm.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
+import com.crm.common.OutboundUrlValidator;
 import com.crm.common.PageResult;
 import com.crm.dto.open.DeliveryResponse;
 import com.crm.dto.open.WebhookRequest;
@@ -39,22 +40,28 @@ public class WebhookService {
   private final WebhookDeliveryMapper deliveryMapper;
   private final RestTemplate restTemplate;
   private final WebhookDeliverer deliverer;
+  private final OutboundUrlValidator outboundUrlValidator;
 
   public WebhookService(
       WebhookSubscriptionMapper subscriptionMapper,
       WebhookDeliveryMapper deliveryMapper,
       RestTemplate restTemplate,
-      WebhookDeliverer deliverer) {
+      WebhookDeliverer deliverer,
+      OutboundUrlValidator outboundUrlValidator) {
     this.subscriptionMapper = subscriptionMapper;
     this.deliveryMapper = deliveryMapper;
     this.restTemplate = restTemplate;
     this.deliverer = deliverer;
+    this.outboundUrlValidator = outboundUrlValidator;
   }
 
   // ===== 订阅管理 =====
 
   @Transactional
   public WebhookResponse create(WebhookRequest req) {
+    // 回调地址由用户填写、由服务端发起请求，故必须在**落库之前**校验（FR-G13）：
+    // 改造前此处完全不校验，任何能创建订阅的账号都能让服务端去请求 http://169.254.169.254/… 等地址。
+    outboundUrlValidator.validate(req.getCallbackUrl(), ErrorCode.OPEN_WEBHOOK_URL_INVALID);
     WebhookSubscription sub = new WebhookSubscription();
     sub.setEventType(req.getEventType().trim());
     sub.setCallbackUrl(req.getCallbackUrl().trim());

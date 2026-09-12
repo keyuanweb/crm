@@ -21,4 +21,15 @@ public final class SecurityUtil {
     JwtAuthFilter.CrmPrincipal p = currentPrincipal();
     return p == null ? null : p.userId();
   }
+
+  /**
+   * 当前主体是否为**机器主体**（API Key，FR-G11）。
+   *
+   * <p>供行级数据权限判定使用：机器主体的 userId 是其所属主体，但数据边界不等于该主体的数据范围 ——否则管理员创建的密钥会按库中角色判为"无限制"并读到全量。未认证返回 {@code
+   * false}（"无主体"是另一种主体，另有其分支）。
+   */
+  public static boolean isMachineSubject() {
+    JwtAuthFilter.CrmPrincipal p = currentPrincipal();
+    return p != null && p.machineSubject();
+  }
 }

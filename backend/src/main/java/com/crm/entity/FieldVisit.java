@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -26,5 +28,7 @@ public class FieldVisit extends BaseEntity {
   private LocalDateTime checkInTime;
   private String summary;
   private Boolean lateFlag;
+
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }

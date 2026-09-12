@@ -1,5 +1,7 @@
 package com.crm.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 import lombok.Getter;
@@ -28,5 +30,7 @@ public class Invoice extends BaseEntity {
   private String voidReason;
   private LocalDateTime issuedAt;
   private LocalDateTime voidedAt;
+
+  @TableField(fill = FieldFill.INSERT)
   private Long createdBy;
 }
