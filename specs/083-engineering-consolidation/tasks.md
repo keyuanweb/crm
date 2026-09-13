@@ -852,7 +852,48 @@ Task: "新增 backend/src/test/java/com/crm/integration/PerformanceRegressionIT.
   6. **补记（同日）：第 3 条所述"覆盖率门禁至今仍未被执行过"已不再成立——它被执行了，且通过了。** 以 `mvn -B -o verify -Dmaven.test.failure.ignore=true -Dspotless.check.skip=true` 跑到断言末，日志出现 `jacoco:0.8.11:check (coverage-check)`、`BUILD SUCCESS`。这是本规格内该 check **首次被实际判定**（此前一直被 `failsafe:verify` 挡在前面）。同步刷新 `pom.xml`：实测由 0.7516 更新为 **0.7818**（covered 44 008 / total 56 288），并写明"余量单向上移、固定阈值必然逐渐变松"——同日已由 2.2 个百分点变宽到约 5 个百分点。本次 failsafe 实测 **258 run / 4F / 0E**（较原记录 +3 例，即 T063 新增的三条越权 IT；失败集不变）。
      > 这条补记同时说明第 3 条的结论要**限定条件**才准确：门禁的判定能力是存在的、且当前能过；挡在它前面的不是"门禁不工作"，而是"上游用例失败使构建提前中止"。二者常被混为一谈，而处置方式完全不同——前者要修门禁，后者要修用例或改流水线口径。
 
-- [ ] T067 在**具备 Docker 的环境**按 `quickstart.md` 执行容器编排启动验证（干净检出 → `docker-compose up -d` → 首页返回非空白内容），并把实测结果回写 `quickstart.md`／`baseline.md`。当前环境无 Docker，SC-G06 自始至终**从未被执行**，FR-G19–G21 的改动至今只有静态证据 per SC-G06 (missing)
+- [X] T067 在**具备 Docker 的环境**按 `quickstart.md` 执行容器编排启动验证（干净检出 → `docker-compose up -d` → 首页返回非空白内容），并把实测结果回写 `quickstart.md`／`baseline.md`。当前环境无 Docker，SC-G06 自始至终**从未被执行**，FR-G19–G21 的改动至今只有静态证据 per SC-G06 (missing)
+
+  > 【补记，2026-09-13，**订正：卡点不是"无 Docker"，原文保留**】本机探测实测：**WSL Ubuntu-22.04 内的 docker 29.1.3 可用且守护进程 `active`**（`/var/run/docker.sock` 存活、`docker pull alpine:3.20` 成功、`docker build`/`run` 均可用——T070 的镜像构建已借此实跑）。真正缺的是 **compose**：`/usr/local/lib/docker/cli-plugins/docker-compose` 是指向 `/mnt/wsl/docker-desktop/cli-tools/...` 的**悬空软链**（该挂载点只在 Docker Desktop 运行时存在），故 `docker compose` 报 `unknown command`，`docker-compose` 亦不在 PATH。Windows 侧 `C:\Program Files\Docker` 不存在，但 `C:\ProgramData\DockerDesktop` 与用户级 `AppData\Local\Docker\run` 存在——**装过、当前未起**。
+  >
+  > **两条可行路径（均需用户决定，故本项保持未勾选）**：①**启动 Docker Desktop**（已安装，起后其 cli-tools 挂载点恢复，悬空软链即可解析，compose 随即可用）；②在 WSL 内**单独装 compose**（`apt install docker-compose-v2`，或从 GitHub 取插件二进制放进 `/usr/local/lib/docker/cli-plugins/`）——需网络与 root。两者都还要拉取 `mysql:8.0`、`redis:7`、`nginx:alpine`（本机仅缓存 `nginx:latest` 与一个 vllm 镜像，`node:22-alpine` 因 T070 构建已缓存），并构建前端镜像（**该镜像已由 T070 构建成功，可复用**）。
+  >
+  > **另需注意**：`docker-compose.yml` 的验证**不能**用"手工 `docker run` 起同样的容器"替代——FR-G19–G21 改的正是**编排文件本身**（迁移目录的挂载方式、前端产物的来源、允许来源的端口），手工起容器绕开了这三处，等于没验。故本项在 compose 可用前无法以任何形式收口。
+
+  **实跑记录（2026-09-13）——已实跑，结论：SC-G06 前端侧成立、后端侧不成立；并发现一处**全新的阻断性缺陷**（下称 D1，已另立 T079）。**
+
+  0. **口径与偏差声明（先说清楚，否则后面的结论会被误读）**：
+     - compose 由用户裁定以**下载插件二进制**方式取得（`~/.docker/cli-plugins/docker-compose`，用户级、可逆），非 `Docker Desktop` 路线。
+     - **本机是"干净检出"而非"干净机器"**：克隆到 WSL `/tmp/crm-clean`（`git clone --no-hardlinks`，`HEAD=70dcd89`，`git status --porcelain` 为空，**无 `frontend/dist`**）。`--no-hardlinks` 是必需的——drvfs 跨文件系统边界无法建硬链接。
+     - **一处为绕开环境限制的宿主端口改道（须计入解读）**：WSL 内 3306/6379 已被开发用的 MySQL/Redis 占用，而 `sudo` 需密码（`sudo -n` 失败，未索取密码）。故用**独立的** override 文件（`/tmp/crm-port-override.yml`，`!override` 语义）把 mysql/redis 的**宿主侧**发布端口改为 13306/16379；**仓库里的 `docker-compose.yml` 一字未动**。之所以判定不影响结论：容器之间按服务名走 compose 网络，**容器内的 `mysql:3306`/`redis:6379` 未变**；而 FR-G21 的前提是前端仍在 **80**（未改），故 `CORS_ALLOWED_ORIGINS=http://localhost` 的前提依然成立。**但这条偏差使"完全按原文一键起"未被逐字复现**，须如实标注。
+  1. **起得来的部分**：`mysql:8.0`、`redis:7-alpine` 拉取并启动，两者均达 **healthy**；`crm-frontend` 构建成功后 **Up**，`docker compose ps` 显示 `0.0.0.0:80->80/tcp`、`443`。
+  2. **起不来的部分（D1）**：`crm-backend` **`Restarting (1)` 重启循环**，容器**始终未就绪**。根因是 **Flyway 迁移在全新库上失败**：
+     ```
+     Migrating schema `crm_db` to version "54 - search indexes"
+     Migration of schema `crm_db` to version "54 - search indexes" failed!
+     SQL State  : 42000     Error Code : 1061
+     Message    : Duplicate key name 'idx_lead_deleted_name'
+     ```
+     静态核对（可独立复核，不依赖本次运行）：`V7__lead.sql:31` **已创建** `KEY idx_lead_deleted_name (deleted, name)`，`V54__search_indexes.sql:8` 又 `ADD KEY idx_lead_deleted_name`。MySQL **无 `ADD KEY IF NOT EXISTS`**，故任何"V7 先于 V54 执行"的库上 V54 必然失败。逐名核对 V54 的**其余五个**索引（`idx_lead_deleted_phone`/`_email`、`idx_ticket_deleted_title`、`idx_customer_deleted_contact_person`/`_email`）**均仅由 V54 创建**——即**冲突只有这一处，是单行缺陷**，不是整条迁移链腐烂。
+  3. **FR-G19（迁移不挂 initdb.d、按版本序执行）——实跑通过**：`flyway_schema_history` 由 **Flyway 自己创建**（日志 `Schema history table ... does not exist yet` → `Creating Schema History table`），且迁移按 **1,2,3,…,10,11,…,20,21,…,53** 的**数值序**逐条执行——**没有** "V1 之后紧跟 V10"的字母序错乱。这正是 FR-G19 要证明的形态。
+  4. **FR-G20（前端产物来自镜像内构建）——实跑通过**：`curl -I http://localhost` → **`HTTP/1.1 200 OK`**（nginx/1.31.5，`Content-Length: 880`）；正文含 `<div id="root"></div>` 与真实哈希资产，非空页。资产逐个取值：`/assets/index-Ce9wieUM.js` → **200 / 1 442 946 B**、`/assets/index-CJIFhDPt.css` → **200 / 13 083 B**；容器内 `/usr/share/nginx/html` 实测 **179 项**（含 `assets/`、`sw.js`、`manifest.webmanifest`）。改造前该目录由宿主 `./frontend/dist` 挂入且不随仓库交付——两者形态完全不同。
+  5. **FR-G21（允许来源指向编排实际暴露的端口）——本次未验证，不得记为通过**：`crm-backend` 从未就绪，故**没有任何一次带 `Origin` 的真实请求**被处理过，"CORS 是否放行 `http://localhost`"只有**静态**依据（compose 里 `CORS_ALLOWED_ORIGINS=http://localhost` + 前端在 80）。静态一致不等于行为已验，如实划界。
+  6. **SC-G06 的判定：前半句成立、后半句不成立**。"首页返回非空白内容"**已实测满足**（第 4 条）；但"干净检出一键启动"**不成立**——后端重启循环，整套编排**起不来**（且 `crm-frontend` 的 API 反代目标 `crm-backend` 不可达，页面虽非空白、功能不可用）。**故本项保持未勾选。**
+  7. **D1 为什么至今没被发现（一个**假设**，未证实，勿当结论引用）**：开发库实测 **V54 是 `success=1`**（`installed_rank=54`，`installed_on=2026-08-24 00:34:46`，全表 87 行 **0 失败**），而 V7 也 `success=1`（`installed_on=2026-08-22 16:27:58`）。若开发库在 V54 执行时其 `lead` 表**尚无**该索引，V54 就会正常成功——这只在"V7 的索引行是在 V7 于该库执行之后才补进去的"时成立。**时间上吻合但不足以证明**：把该行加进 V7 的提交是 `33934b5`（**2026-08-22 18:23:55**），V54 的引入提交是 `4fb6c4a`（**2026-08-24 22:50:10**）；而开发库执行 V7 的时刻（16:27:58）**早于** `33934b5` 约两小时——但该行完全可能当时已在工作区里，故**这只是与证据一致的解释，不是证据**。
+     - **一次失败的取证尝试（留痕，避免后人重走）**：我试图用 Flyway 的 checksum 来判定"V7 是否自执行后被改过"。**该方法被我自己证伪后作废**：我按 Flyway 算法（逐行 UTF-8 + `\n`）自算的校验值**与开发库存储值全部不符**——**包括当日刚执行、文件肯定未被改动的 V88**（自算 -145772347 vs 库中 634831987）。既然连对照组都对不上，说明**我算错了 Flyway 的算法**，故**本次无法就任何迁移的 checksum 得出结论**，相关推理一律不采信。
+  8. **本次未做／未覆盖**：①**未验 FR-G21 的行为**（第 5 条）；②**未在无 override 的原样编排上跑通**（第 0 条那条偏差）；③**未验证 D1 修复后的编排**（D1 未修，见 T079）；④D1 的**真实触发面未测**——只测到"全新库"这一条路径；**已存在的库**是否会遇到 V54（取决于其历史，见第 7 条）**本次未测**。
+  9. **善后**：`docker compose down -v` 已执行，**残留容器与卷均为空**（实测无 `crm-*` 容器、无 `crm-clean_*` 卷）。一次性克隆、override 文件、构建产物留在 WSL 与守护进程中，清单见本次会话末的告知。
+
+  **补记（2026-09-13，D1 由 T079 修复后**在同一干净检出上重跑**）——**SC-G06 至此成立**（第 0 条那条宿主端口改道的偏差仍在，如实保留）。**
+
+  10. **重跑结果（空库、`--build` 重建后端镜像）**：四个容器**全部 Up**，`crm-backend` **`Up (healthy)`**——**不再重启循环**；日志终局为 `Successfully applied 87 migrations to schema crm_db, now at version v88 (execution time 00:03.723s)`，随后 `Tomcat started on port 8081`、`Started CrmApplication in 13.348 seconds`；`curl -I http://localhost` → **200**。即同一份编排、同一个空库，**修复前起不来的那一步现在是通的**。
+  11. **FR-G21 本次得以补验（此前因后端未就绪而"未验证"，现在有了行为证据）**。三组实测：
+      - 直连后端 8081 带 `Origin: http://localhost` → 响应含 **`Access-Control-Allow-Origin: http://localhost`** 与 `Access-Control-Allow-Credentials: true`；
+      - 经 nginx（80）发同样带 `Origin` 的请求 → **无任何 `Access-Control-*` 头**。**这不是缺陷，机制已查明**：nginx 用 `proxy_set_header Host $host` 转发，后端看到的 `Origin` 与 `Host` 同源，Spring 判定为**非跨域请求**，故**本就不该**回 CORS 头——浏览器同源请求也不需要它；
+      - 带 `Origin: http://localhost:5173`（改造前的 dev 端口）→ **403**。即该来源**确实被拒**，而编排实际暴露的 `http://localhost` 被放行。
+      **结论**：FR-G21 的正/负两侧都实测到了，且"改造前的 5173 会被拒"这一点被反向证实。**这是本规格第一次给出 CORS 的行为证据**，此前只有静态一致性（compose 里的值与 nginx 端口对齐）。
+  12. **对第 7 条那个假设的**新证据**（方向与假设相反，须一并读）**：D1 修复后跑 `flyway:validate` 对 dev 库复核，**只报 V54 一处 checksum 失配**（`Applied: -1305259808` vs `Resolved locally: 616402702`，后者是修复后的值），**V7 未出现在失配清单里**——这意味着 **V7 的存储 checksum 与当前文件一致**。若 V7 真被"执行后再回头编辑"，就必须额外发生过一次 `flyway repair` 才能让 checksum 重新对上，而那一步**没有任何证据**。故第 7 条的假设**证据更弱了**（并非推翻：author 在 16:27 执行、18:23 提交之间改了工作区、事后又 repair 过，仍能解释）。**"V54 当初为何能在 dev 库上成功"这一点，本任务最终未查明，按未决问题留存**——不编故事。
+  13. **本次仍未覆盖**：①**未在无 override 的原样编排上跑通**（WSL 的 3306/6379 仍被开发服务占用，`sudo` 需密码）；②**未验证 `docker-compose.yml` 在全新机器上**（本次是干净检出 + 已有 WSL 守护进程与镜像缓存）；③**未跑原生 `docker-compose` 命令**——用的是 `docker compose`（插件形态），原任务措辞里的连字符写法未逐字复现。
 
 ## Phase 10: Convergence
 
@@ -879,6 +920,13 @@ Task: "新增 backend/src/test/java/com/crm/integration/PerformanceRegressionIT.
   1. **改前先复核前提（未直接采信任务原文）**：`frontend/Dockerfile:9` 实测确为 `FROM node:20-alpine AS builder`；`:13-15` 的注释写明 pnpm 由 `RUN corepack enable` 按 `package.json` 的 `packageManager` 字段**就地启用**（`frontend/package.json:6` = `pnpm@11.7.0`，该文件**无 `engines` 字段**，约束来自 pnpm 自身）；`.github/workflows/ci.yml:29-30` 的注释原文为"Node 版本必须满足 pnpm 的 engines 约束：pnpm 11.7.0 要求 node >= 22.13。原为 '18'，pnpm 无法在其上运行，前端作业整体不可达"，`:31-34` 为 `node-version: '22'`。即：**同一约束 CI 已知、镜像未同步**，且镜像里 corepack 恰好是把它触发出来的那条路径。
   2. **改法**：`node:20-alpine` → `node:22-alpine`，与 CI 同大版本；并在该行上方补了注释，写明约束来源（corepack + `packageManager` 字段）、CI 的实测记录位置、以及"预期失败在 `pnpm install` 处"——避免下一个人再把版本降回去。**只改基础镜像，不动该文件其余部分**（构建阶段结构、`--frozen-lockfile`、`pnpm build` 含 `tsc --noEmit`、运行阶段只搬 `dist` 均保持原样）。
   3. **本条未做的事（本机无 Docker，如实划界）**：①**未构建镜像**，故"改前必然在 `pnpm install` 失败、改后能否成功"两者**都仍是预期**，不是实测——原任务说"若实跑反而通过，也要记录 pnpm 为何允许"，这条**留待 T067 实跑时回答**；②`node:22-alpine` 是**浮动 tag**，今天解析到的 22.x 满足 ≥ 22.13，但小版本未锁——若上游行为变化，同一约束可能再次被破坏，届时以"实跑 + 锁小版本"一并处理；③**SC-G06 的判据（干净检出 → `docker-compose up -d` → 首页非空白）仍未执行过一次**，本项不改变 T067 的缺失状态。
+
+  **实跑补记（2026-09-13，**订正：上面第 3 条①的前提已被推翻**，原文保留）**——镜像构建这一环**已实测**，且**改前确实失败**。之所以能做，是因为第 3 条开头那句"本机无 Docker"**不准确**（见第 5 条的更正）。
+
+  4. **正向：node:22 构建成功**。`cd /mnt/e/code/crm && docker build -f frontend/Dockerfile -t crm-frontend:t070-check .`（WSL Ubuntu-22.04 内的 docker 29.1.3；**legacy builder**——buildx 未安装，日志首行提示其已废弃，不影响结论）→ **`Successfully built 80b277898d12` / `Successfully tagged crm-frontend:t070-check`**，镜像 74.6 MB。`node:22-alpine` 实测解析为 **v22.23.2**（≥ 22.13，满足约束）。运行阶段产物核对：`/usr/share/nginx/html` **176 个文件**，含 `index.html`、`assets/`、`sw.js`、`manifest.webmanifest`——即 `COPY --from=builder /app/dist` 真的搬进了应用产物，不是 nginx 默认页。
+  5. **反向（T020 规矩）：node:20 必然失败，且失败点与预期逐字一致**。把 `FROM` 换成 `node:20-alpine`（临时 Dockerfile 写在 WSL 的 `/tmp/Dockerfile.node20`，**不落进仓库树**）重跑同一构建 → **失败**，报文逐字为：`warn: This version of pnpm requires at least Node.js v22.13`、`Node.js v20.20.2`、`code: 'ERR_UNKNOWN_BUILTIN_MODULE'`、`The command '/bin/sh -c pnpm install --frozen-lockfile' returned a non-zero code: 1`。**失败步骤正是 `pnpm install`**（第 1 条"预期失败在 `pnpm install` 处"得到实测确认），且报文**指名了版本**。因此第 3 条①里那句"若实跑反而通过，也要记录 pnpm 为何允许"**不再需要**：pnpm 不允许，是硬失败，且报错可读。探针已清理（临时 Dockerfile 已删；构建失败故未产生探针镜像，`docker rmi` 报 `No such image` 即其证据），`git status` 确认仓库工作区无新增文件。
+  6. **环境事实更正（对 T067 同样重要）**：此前记的"本机无 Docker"应精确为——**Windows 侧无 Docker Desktop 在运行**（`C:\Program Files\Docker` 不存在，但 `C:\ProgramData\DockerDesktop` 与用户级 `AppData\Local\Docker\run` 存在，即装过、当前未起），而 **WSL Ubuntu-22.04 内 `docker` 29.1.3 可用且守护进程 `active`**（`/var/run/docker.sock` 存活，`docker pull alpine:3.20` 实测成功）。**真正缺的是 compose**：`/usr/local/lib/docker/cli-plugins/docker-compose` 是指向 `/mnt/wsl/docker-desktop/cli-tools/...` 的**悬空软链**（该挂载点只在 Docker Desktop 运行时存在），故 `docker compose` 报 `unknown command`。**结论：T067 卡的不是"无 Docker"而是"无 compose"**，两条可行路径见 T067 补记。
+  7. **本次仍未覆盖**：SC-G06 的**端到端**判据（`docker-compose up -d` → 首页 HTTP 200 且非空白）**仍未执行**——本项只证明了"前端镜像能构建出含正确产物的镜像"，不证明"编排能起、nginx 能把首页发出来"。另：`node:22-alpine` 的**浮动 tag** 问题（第 3 条②）**依旧存在**，本次实测只覆盖今天的解析值 v22.23.2。
 
 - [X] T071 处理 FR-G14 六个权限码的**预置授予**或显式记录其默认后果。实测：`export:scheduled`、`export:compliance`、`retention:create|update|delete|execute` 六个码**在字典中**（`RoleConstants` 内，故可在角色页授予，已排除"授不了权"——`RequirePermissionCatalogTest` 绿），但**全部迁移中零授予**（逐个 grep 0 命中），而矩阵中绝大多数同类码是有种子的。后果：升级后除 ADMIN 外**一律 403**，须管理员手工在角色页授予。二选一：①新增迁移把这六个码种进应当拥有它们的预置角色（须同步 `schema-h2.sql` 镜像，受 SchemaParityIT 约束）；②在 `spec.md` 显式记录"这三个模块默认仅 ADMIN，其余角色须授予"。**同时必须改验证方式**：`SecurityHardeningIT` 用自建持码角色（`ensureRole(..., List.of("export:scheduled"))`）验证的是**机制**，因此"预置矩阵实际不含这些码"这一后果至今无人看见——补一条以**预置角色**为视角的用例，否则同类缺口下次仍会被自建角色的用例掩盖。per FR-G14 (partial)
 
@@ -1030,3 +1078,35 @@ Task: "新增 backend/src/test/java/com/crm/integration/PerformanceRegressionIT.
   9. **开发库残留（已登记，未清理）**：探针在 `crm_db` 留下一条 ACTIVE 的 `CUSTOMER / 9000 天 / ARCHIVE` 策略（id=1）、一条 `created_at = 2000-01-01` 且已被逻辑删除的客户（id=40）、以及三条执行记录（id=1 为修复前所写，2/3 为修复后）。按"不静默改动数据"留存登记。如需清理：删 `data_retention_execution` → `data_retention_policy`（id=1），客户 id=40 物理删或留着（`deleted = 1`，不影响任何查询）。
 
   10. **与 T074 记录的衔接**：T074 的实施记录第 6 条写着"它转红之时即缺陷被修好之日，届时请改回应当的断言并同步本记录"——该条已在其原位追加后续说明（只追加、不改原文），本条目即那次改写的实施记录。
+
+- [X] T079（2026-09-13 由 T067 实跑发现，追加）**CRITICAL**：**全新数据库上 Flyway 迁移链跑不通，编排起不来**——`V54__search_indexes.sql:8` 重复创建了 V7 已经建过的索引。实测报文（`/tmp/crm-clean` 干净检出、空库、`docker compose up -d`）：
+
+  ```
+  Migrating schema `crm_db` to version "54 - search indexes"
+  Migration of schema `crm_db` to version "54 - search indexes" failed!
+  SQL State : 42000   Error Code : 1061
+  Message   : Duplicate key name 'idx_lead_deleted_name'
+  ```
+
+  后果：`crm-backend` **`Restarting (1)` 重启循环、从未就绪**，`SC-G06`「干净检出一键启动」**不成立**（前端首页本身非空白，见 T067 实跑记录第 4 条；但反代目标不可达，功能不可用）。静态根因（与运行无关、可独立复核）：`V7__lead.sql:31` 已 `KEY idx_lead_deleted_name (deleted, name)`，`V54__search_indexes.sql:8` 又 `ADD KEY` 同名；MySQL **无 `ADD KEY IF NOT EXISTS`**，故**任何按 V7→V54 顺序执行过的库都必然在此失败**。**冲突是单行缺陷**：逐名核对后，V54 的其余五个索引（`idx_lead_deleted_phone`/`_email`、`idx_ticket_deleted_title`、`idx_customer_deleted_contact_person`/`_email`）**均仅由 V54 创建**，无冲突；迁移链其余部分在本次实跑中一路执行到 V53 无碍。
+
+  **两种改法（必须由项目负责人裁定，因为都改变已发布迁移的 checksum）**：①**删掉 `V54__search_indexes.sql:8`**（该索引已由 V7 建，此行本就冗余）——全新库可通，语义上对已有库是空操作（索引确实存在）；②把 V54 那段改成 `information_schema` + `PREPARE/EXECUTE` 的条件建索引（幂等）。**两者对已有库的代价相同且不可回避**：V54 的 checksum 必然变化，而 `spring.flyway.validate-on-migrate` 默认开启，故**每个已部署的库都需要跑一次 `flyway repair`**（或显式关闭校验）——**这一点必须在裁定前说清楚，它不是「改一行就完事」**。方案 ① 更可取：改动更小、不引入 MySQL 专有动态 SQL，且冗余行删掉后不会再有人以为该索引由 V54 负责。
+
+  **验收判据**：在**空库**上 `docker compose up -d` 后 `crm-backend` 达 **Up（非重启循环）**，且 `curl -I http://localhost` 为 200——T067 可据此收口；**并须做反向验证**（T020 立下的规矩）：在修复前的字节上复现同一 `Error Code 1061`，以证明该修复确实作用于这个失败点，而不是「顺手改了别的、恰好这次绿了」。
+
+  **另需一并决定**：本类缺陷（老迁移被回头编辑、与后续迁移撞车）**当前无任何门禁可发现**——它只在全新库上暴露，而所有开发库都是增量长出来的。是否补一道「迁移链能在空库上跑通」的检查（例如从零 `migrate` 的用例），属本任务的一并裁决项，否则同类缺陷下次仍会以「某天突然装不上」的形态出现。注意 `SchemaParityIT` 只比对**版本号清单**（T072 已指出它不读内容），故它对本缺陷**完全无感**。per SC-G06 / FR-G19 / G 块部署完整性 (missing)
+
+  **实施记录（2026-09-13，完成）**
+
+  1. **裁定与执行**：项目负责人裁定采用**方案 ①**（删掉 `V54__search_indexes.sql` 的重复建索引行），并同意**补一道门禁**。两问的答案均按此落地。
+  2. **先建守卫、后修缺陷（T020 立下的规矩）**：新增 `backend/src/test/java/com/crm/integration/MigrationDdlCollisionIT.java`（`*IT` → 走 failsafe；纯 JUnit、不启 Spring 上下文，形制对齐 `SchemaParityIT`）。判定模型：按**数值版本序**重放全链，维护"当前活着的 `(表, 名字)` 集合"，遇创建时该键**仍存活**即违规，遇 `DROP` 移除。
+      - **作用域按表、不按库**：MySQL 索引名是**表级**的，不同表同名索引完全合法；若按全库名字比对会对着一段正常迁移报红。
+      - **DROP 分支必须排在正则首位**，否则 `DROP INDEX x` 会被当成一次创建，"先 DROP 再重建"（本仓库 `uk_sales_target_active_month` 即是）立刻变成假红。
+      - **定位不到表名的语句整条跳过**（刻意偏向漏报而非误报），跳过量由 `scanned`/`creations`/`drops` 三道防呆断言兜底——正则整体失效时零违规会假绿。
+  3. **反向验证（红 → 绿，T020 要求）**：在**未修复**的字节上跑该守卫，报红且**只报一处**——`{lead.idx_lead_deleted_name=[V7 → V54]}`，**零误报**；三道防呆断言同时通过（`creations` ≥120、`drops` ≥1 且确实解出了 V44 的 `DROP INDEX uk_sales_target_active_month`、`scanned` ≥120），证明表级作用域与 DROP 感知都在工作。修复后**转绿**。故该守卫确实作用于这个失败点，而非"顺手改了别的恰好绿了"。
+  4. **修复**：删除 `V54__search_indexes.sql:8` 的 `ADD KEY idx_lead_deleted_name`，并在文件头写明**该列索引不在本文件职责内**、原委与所引守卫名（避免下一个人再"补"一次）。其余五个索引未动。
+  5. **空库端到端复验**：干净检出 + 空库 `docker compose up -d --build` → 四容器**全部 Up**，`crm-backend` **`Up (healthy)`**、**不再重启循环**；`Successfully applied 87 migrations to schema crm_db, now at version v88`；`Started CrmApplication in 13.348 seconds`；`curl -I http://localhost` → **200**。**D1 闭合**。
+  6. **对已有库的代价已实际支付**：V54 是**已发布**的迁移，改其内容必然改 checksum，而 `spring.flyway.validate-on-migrate` 默认为真。故对**本机开发库**执行了一次 `flyway repair`：`Repairing Schema History table for version 54 (Description: search indexes, Type: SQL, Checksum: 616402702)` → `Successfully repaired`；随后 `flyway:validate` → **`Successfully validated 87 migrations` / BUILD SUCCESS**。不修这一步，本机后端下次启动会直接校验失败。
+  7. **⚠️ 残留义务（未完成、必须外传）**：**上述 repair 只作用于本机开发库**。任何**其他已部署的库**（同事的、测试环境的）在拉到此修复后**都会**在启动时因 V54 checksum 变化而校验失败，**必须各自跑一次 `flyway repair`**——否则表现为"拉了新代码后后端起不来"。这一条不是可选项，是本次修复的**固有代价**，需在合并说明中显式告知所有环境负责人。
+  8. **守卫的边界（如实划界）**：它是空库可跑通的**静态近似**，不覆盖列级/类型层冲突（如两处 `ADD COLUMN` 同名）、不扫 `schema-h2.sql`。**真正的端到端证据仍只有空库实跑**（见 `quickstart.md` 验证 6）。守卫的价值在于把这类缺陷从"某天突然装不上"变成"提交时即红"。
+  9. **未查明事项（如实留存，不编故事）**：**"V54 当初为何能在开发库上执行成功"最终未获解释**。曾提出"V7 被回头编辑过"的假设，但其证据在本轮**变弱**：`flyway:validate` 对 dev 库复核时**只报 V54 一处失配**，V7 **不在失配清单里**——即 V7 的存储 checksum 与当前文件一致；若 V7 真被执行后再改，就须另有一次 `flyway repair` 才能对上，而那一步**无任何证据**。假设未被推翻（时序上仍可能：16:27 执行、18:23 提交之间改过工作区、事后又 repair 过），但**本任务不以未经证实的机制作为结论**。

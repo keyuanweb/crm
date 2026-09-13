@@ -88,6 +88,24 @@ docker-compose logs crm-backend | head    # 期望迁移按版本序正常执行
 **期望**：前端首页返回 200 且非空白页；数据库迁移按版本序号执行，无字母序错乱（不应出现 `V1` 之后紧跟 `V10` 这类顺序）。
 **改造前**：前端挂载了一个不随仓库交付的宿主机构建产物目录 → 空白页；迁移目录被挂成数据库初始化目录 → 按**字母序**执行；允许来源指向开发端口而非编排实际暴露的端口。
 
+> 【后记，2026-09-13，**实测结果：本验证的前半句通过、后半句不通过**】已于干净检出（WSL `/tmp/crm-clean`，`HEAD=70dcd89`，无 `frontend/dist`）实跑 `docker compose up -d`。**通过的部分**：`curl -I http://localhost` → **200**，首页非空白（正文 880 B、含 `<div id="root">`；`/assets/index.js` 200 / 1 442 946 B、CSS 200 / 13 083 B；容器内 `/usr/share/nginx/html` 179 项）——即**改造前的"空白页"症状确实消失**；且 `flyway_schema_history` 由 **Flyway 自己创建**、迁移按 **1,2,…,10,11,…,53 的数值序**执行，**未出现** `V1` 紧跟 `V10` 的字母序错乱——FR-G19 与 FR-G20 由此**实跑通过**。
+>
+> **不通过的部分（新的阻断性缺陷 D1）**：`crm-backend` **`Restarting (1)` 重启循环、从未就绪**，整套编排**起不来**。根因是**全新库上迁移链跑不通**：`V54__search_indexes.sql:8` 重复创建了 `V7__lead.sql:31` 已建的同名索引，MySQL 无 `ADD KEY IF NOT EXISTS`，实测报 `SQL State 42000 / Error Code 1061 / Duplicate key name 'idx_lead_deleted_name'`。**故本验证的"一键启动"不成立，SC-G06 不成立**；缺陷详情、两种改法及其对已有库的 `flyway repair` 代价见 `tasks.md` **T079**。
+>
+> **另有两处必须知道的口径**：①**本机是"干净检出"而非"干净机器"**——WSL 内 3306/6379 被开发用的 MySQL/Redis 占用且 `sudo` 需密码，故用独立 override 把**宿主侧**端口改道为 13306/16379（仓库里的 `docker-compose.yml` 一字未动，容器内服务名与端口不变，前端仍绑 **80**，故 FR-G21 的前提未被破坏）；**这条偏差使"逐字按原文一键起"未被复现**。②**FR-G21 的行为本次未验证**：后端从未就绪，没有任何一次带 `Origin` 的真实请求被处理过，"CORS 放行 `http://localhost`"目前只有**静态**依据，不得记为通过。完整记录见 `tasks.md` T067 实跑记录。
+
+> 【补记，2026-09-13，**D1 修复后重跑：本验证通过**（上段"后半句不通过"的原文保留，是当时的事实）】`V54__search_indexes.sql` 的重复建索引行已删（T079，方案 ①，另加守卫 `MigrationDdlCollisionIT` 并完成红→绿的反向验证）。在同一干净检出的**空库**上重跑 `docker compose up -d --build`：
+>
+> - **四容器全部 Up**，`crm-backend` **`Up (healthy)`** —— **不再重启循环**，D1 闭合；
+> - 日志终局 `Successfully applied 87 migrations to schema crm_db, now at version v88 (execution time 00:03.723s)`，随后 `Tomcat started on port 8081` / `Started CrmApplication in 13.348 seconds`；
+> - `curl -I http://localhost` → **200**（首页非空白，同前）。
+>
+> **故本验证的"一键启动"与"首页非空白"两条现都成立，SC-G06 成立。**
+>
+> **FR-G21 一并补验**（此前只有静态依据）：直连后端 8081 带 `Origin: http://localhost` → 响应含 `Access-Control-Allow-Origin: http://localhost` 与 `Access-Control-Allow-Credentials: true`；带 `Origin: http://localhost:5173`（改造前的 dev 端口）→ **403**，即该来源**确实被拒**。经 nginx 发同样带 `Origin` 的请求**没有** `Access-Control-*` 头——**这不是缺陷**：nginx 以 `proxy_set_header Host $host` 转发，后端看到 `Origin` 与 `Host` 同源，Spring 判定为**非跨域**，本就不该回 CORS 头，浏览器同源请求也不需要它。正/负两侧都实测到了。
+>
+> **两处仍存的口径**：①**宿主端口改道的偏差未消除**（WSL 的 3306/6379 仍被开发服务占用、`sudo` 需密码），故"逐字按原文一键起"依然未被复现；②**改 V54 的固有代价**：它是**已发布**迁移，checksum 变化使**每个已部署的库都必须跑一次 `flyway repair`**——本机开发库已跑（`Repairing ... version 54 ... Checksum: 616402702` → `Successfully repaired`，随后 `Successfully validated 87 migrations`），**其他环境尚未跑，拉取后不跑就起不来**，已在 T079 实施记录第 7 条标为残留义务。
+
 ## 验证 7 —— SDD 登记与产物一致性
 
 ```bash

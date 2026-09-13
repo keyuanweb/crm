@@ -364,6 +364,9 @@
 - **SC-G04**: 14 个页面在登录后全部加载出数据（当前 14 个全部因凭据问题失败：13 个经由读取错误凭据键的 API 模块，1 个经由未携带任何凭据的独立调用；其中配额列表页表现为空表而非报错）。
 - **SC-G05**: 三项鉴权手工验证 100% 被拒——范围受限密钥读取越权数据、已停用用户旧令牌建立实时连接、指向私有网段的回调地址。
 - **SC-G06**: 干净检出后执行容器编排可启动，首页返回非空白内容。
+  > 【后记，2026-09-13，**订正：本条的判定是"一半成立、一半不成立"，原文保留**】已于干净检出（WSL `/tmp/crm-clean`，`HEAD=70dcd89`，无 `frontend/dist`）实跑。**成立的一半**："首页返回非空白内容"——`curl -I http://localhost` 实测 **200**，正文 880 B 含 `<div id="root">`，`/assets/index.js` 200 / 1 442 946 B（即改造前的"空白页"症状确实消失）；迁移也按**数值序**执行（`1,2,…,10,11,…,53`，无字母序错乱），`flyway_schema_history` 由 Flyway 自己创建而非 `initdb.d`。**不成立的一半**："容器编排可启动"——`crm-backend` 因全新库上 `V54__search_indexes.sql:8` 重复创建 `V7` 已建的同名索引（`Error Code 1061 / Duplicate key name 'idx_lead_deleted_name'`）而**重启循环、从未就绪**，整套编排起不来。**故 SC-G06 当前不成立**，缺陷与两种改法见 `tasks.md` **T079**；完整实跑记录与两处偏差声明（宿主端口改道、FR-G21 未验证）见 T067 实跑记录与 `quickstart.md` 验证 6 的后记。
+
+  > 【补记，2026-09-13，**D1 由 T079 修复后同上干净检重重跑：SC-G06 至此成立**（上条"不成立"的原文保留，是当时的事实）】`V54__search_indexes.sql` 的重复建索引行已删（项目负责人裁定方案 ①），并新增守卫 `MigrationDdlCollisionIT` 拦同类形态（先红后绿、反向验证零误报）。重跑结果：四容器**全部 Up**、`crm-backend` **`Up (healthy)`**（**不再重启循环**）、`Successfully applied 87 migrations ... now at version v88`、`Started CrmApplication in 13.348 seconds`、`curl -I http://localhost` → **200**——即"干净检出后执行容器编排可启动，首页返回非空白内容"**两条都成立**。**FR-G21 也于本次补验**（直连 8081 带 `Origin: http://localhost` → 回 `Access-Control-Allow-Origin: http://localhost` + `Allow-Credentials: true`；经 nginx 不带 CORS 头属**同源**的正确行为；`Origin: http://localhost:5173` → **403**，即改造前的 dev 端口确被拒）。**仍存的两处口径**：①宿主端口改道的偏差未消除（WSL 的 3306/6379 被占用且 `sudo` 需密码），故"逐字按原文一键起"仍未复现；②改 V54 使**所有其他已部署库都必须跑一次 `flyway repair`**，本机已跑，其余环境未跑，已在 T079 实施记录第 7 条标为残留义务。
 - **SC-G07**: 覆盖率低于阈值时，前端与后端各自的测试命令均以失败退出。
 
 ## 假设
