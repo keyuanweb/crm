@@ -157,6 +157,13 @@ const en = {
       invalid_email: 'Invalid email format',
       no_data: 'No data',
     },
+    // 088：与 zh-CN.ts 的 `common.state.*` 逐键对应。`pnpm i18n:check` 会双向比对两棵树，
+    // 只加一边会让门禁转红。
+    state: {
+      loading: 'Loading...',
+      error: 'Failed to load',
+      retry: 'Retry',
+    },
     placeholder: {
       name: 'Enter name',
       company: 'Enter company',

@@ -157,6 +157,15 @@ const zhCN = {
       invalid_email: '邮箱格式不正确',
       no_data: '暂无数据',
     },
+    // 088：`PageState` 三态文案。空态**复用上面的 `message.no_data`**，故这里只有三个键。
+    // ⚠️ 这三个键必须与 `components/ui/PageState.tsx` **同一次提交**落地：
+    // `src/test/setup.ts` 的 react-i18next mock 在**缺键时直接抛错**（只校验 zh-CN），
+    // 所以键晚一步 = 组件一渲染测试就红。
+    state: {
+      loading: '加载中...',
+      error: '加载失败',
+      retry: '重试',
+    },
     placeholder: {
       name: '请输入名称',
       company: '请输入公司',

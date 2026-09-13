@@ -15,6 +15,7 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import 'dayjs/locale/en'
 import { useTranslation } from 'react-i18next'
+import { antdTheme } from '../theme'
 
 export default function LocaleProvider({ children }: { children: React.ReactNode }) {
   const { i18n } = useTranslation()
@@ -30,7 +31,9 @@ export default function LocaleProvider({ children }: { children: React.ReactNode
   }, [isEnglish])
 
   return (
-    <ConfigProvider locale={locale}>
+    // `theme` 与既有 `locale` 并列：本组件是全库唯一的 ConfigProvider，
+    // 主题的单一真源在 `src/theme/index.ts`（088 交付物 1），此处只负责挂上去。
+    <ConfigProvider locale={locale} theme={antdTheme}>
       <ProConfigProvider intl={proLocale}>
         {children}
       </ProConfigProvider>

@@ -14,6 +14,8 @@
     "menu:gen": "node scripts/gen-menu.mjs",
     "menu:check": "node scripts/check-menu.mjs",
     "perms:check": "node scripts/check-perms.mjs",
+    "ui:check": "node scripts/check-ui.mjs",
+    "ui:check:strict": "node scripts/check-ui.mjs --strict",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
