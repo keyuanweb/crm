@@ -209,7 +209,7 @@ export default function ProductListPage() {
   }
 
   return (
-    <>
+    <div className="page-stack">
       <ProTable<Product>
         size="small"
         headerTitle={t('pages.product.list.title')}
@@ -357,6 +357,6 @@ export default function ProductListPage() {
           </>
         )}
       </Modal>
-    </>
+    </div>
   )
 }

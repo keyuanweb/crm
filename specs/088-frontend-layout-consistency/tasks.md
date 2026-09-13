@@ -177,10 +177,13 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
       `onSubmit` 接线、`labelCol` 的来源在本页是零执行的。**证伪力已实测**（标签宽探针 → 只有第 1 条红）。
       读数：**R2 24 → 23 处**（本页无宽度弹窗销账）、R3 仍 96、总问题数 120 → 119。
       **R3 的那处色块 `<Col span={2}>` 本提交不动**，理由见 §12.5（`FormGrid` 对它**是错的修法**），记给 T045。
-- [ ] **T034 **[P] `products/ProductListPage.tsx` —— 外壳。
+- [x] **T034 **[P] `products/ProductListPage.tsx` —— 外壳。
       **本仓库自己的响应式参考实现**（`:260-289`，全库仅有的 6 个响应式表单 Col）
       ⇒ 改它等于验证 `FormGrid` **能复现既有最好行为**；若 `FormGrid` 让该页回退，**那是设计错了，不是页面错了**。
       **注意 `check-ui.mjs` 的 R6 白名单：该页 `Currency`/`Price (CNY)` 两处在册，届时一并复核**。
+      **✅ 完成（1 文件 +2/−2）**：根 fragment → `div.page-stack`。与 T032 一样是**零视觉差异**
+      （根下只有 `ProTable` 一个 DOM 子元素，`Modal` 经 portal 挂到 `body`），纯约定性改动。
+      门禁：typecheck / lint / `src/pages/products/` 7 用例全绿。
 - [ ] **T035** `products/ProductListPage.tsx` —— `FormModal` + `FormGrid`，覆盖 `editing &&` 条件子区块（`:302-340`）。
 - [ ] **T036 **[P] `customers/CustomerListPage.tsx` —— 外壳。**业务价值最高**（销售每天用）、
       `Form.Item` 最多（9 个）、唯一带自定义字段 + 第二个（纵向）转移弹窗的页面。测试耦合 **0/0/6**（中）。
