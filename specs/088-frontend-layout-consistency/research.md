@@ -904,3 +904,315 @@ T035 减 6 个**带断点**的 Col ⇒ 应为 −6 候选点、命中不变）�
 已不可考（本工作区曾有过兄弟 agent 的变异自验期，探针文件会瞬时改变这些计数）。
 **故：R3 的绝对计数在跨小节之间不可比，只有"同一次隔离测量出来的增量"可用。**
 这与 P3 出口判据按文件而非按计数的既定结论方向一致，无需另行处置。
+
+---
+
+## 15. 真实浏览器实测：§12.1 的 watch item 证伪，另挖出一个**先于本批次**的窄屏缺陷（2026-09-13）
+
+P2 八次提交完成后、T038 视觉验收之前，用一次**临时 Playwright 探针**在真机引擎里补量了三件
+jsdom 结构上测不到的事（`cssstyle` 不反映 `gridTemplateColumns` / `overflow` 的计算结果，
+也读不到真实布局）。探针文件按纪律**跑完即删**，脚本原文见 §15.5 以便复现。
+
+### 15.1 §12.1 的担心不成立：文档级横向溢出在 40 组组合下恒为 0
+
+| 组合 | 结论 |
+|---|---|
+| 4 页 × 5 视口（1920/1440/1024/768/375）× zh/en = **40 组** | `documentElement.scrollWidth − clientWidth` **全部 = 0** |
+
+即"`display: grid` 让子元素拿到 `min-content` 的自动最小尺寸、把页面撑破而不是内部滚动"**没有发生**。
+归因不是"没到出事的宽度"，而是**页面本来就有一层自己的横向滚动容器，且它把 grid 的自动最小尺寸也一并压掉了**：
+
+- `App.tsx:693` 的 `<Content className="page-scroll" style={{ overflow: 'auto' }}>` 是横向滚动容器。
+  flexbox 规定 **flex item 的 `min-width: auto` 在其 `overflow` 不为 `visible` 时解析为 `0`** ——
+  于是这一层既承担滚动的，也终止了"内容最小宽"向上传导；`display: grid` 的自动最小尺寸再大，
+  也只能让 `main` 自己的 `scrollWidth` 变大（375px 下量到 708），不会传到文档。
+- 因此 §12.1 的 watch item **可以销案**：在这套外壳下，ProTable 页面不会被 `page-stack` 撑破。
+  （同时也说明 P3 铺开时不必为它准备断点兜底。）
+
+### 15.2 同一批读数挖出的真缺陷：**≤ 767px 时内容区宽度为 0**（全站，不只是样板 4 页）
+
+多路由 × 多宽度复测（`/stats` 是 088 **从未碰过**的对照页）：
+
+```
+inner=1024 | /stats      | 主轴=row    | 内容容器宽= 824 | main 宽= 824 (client= 824) | Sider=  200x852 | 文档溢出=0
+inner= 768 | /stats      | 主轴=row    | 内容容器宽= 568 | main 宽= 568 (client= 568) | Sider=  200x852 | 文档溢出=0
+inner= 767 | /stats      | 主轴=column | 内容容器宽=   0 | main 宽=  24 (client=  24) | Sider=  200x200 | 文档溢出=0
+inner= 500 | /stats      | 主轴=column | 内容容器宽=   0 | main 宽=  24 (client=  24) | Sider=  200x200 | 文档溢出=0
+inner= 375 | /stats      | 主轴=column | 内容容器宽=   0 | main 宽=  24 (client=  24) | Sider=  200x200 | 文档溢出=0
+```
+
+`/invoices`、`/customers` 逐行相同。断点是**阶跃**的：`App.tsx:300` 的 `isMobile = window.innerWidth < 768`
+一翻，`App.tsx:660` 的 `flexDirection` 就从 `row` 变 `column`，内容区宽度从 824/568 直接掉到 **0**。
+
+**成因是三条规则的合成**（`0` 不是我们的 CSS 写的，是 antd 写的）：
+
+```css
+/* node_modules/antd —— 内容容器被**写死** width: 0，指望 flex-grow 在行向里撑开 */
+:where(…).ant-layout.ant-layout-has-sider > .ant-layout,
+:where(…).ant-layout.ant-layout-has-sider > .ant-layout-content { width: 0px; }
+```
+
+1. 该规则给出一个**确定**的 `width: 0`，靠 `flex: 1 1 auto` 在**行向**里长回可用宽 —— 768 及以上正是如此（568/824 ✓）；
+2. `App.tsx:660` 在窄屏把主轴改成 `column` ⇒ `flex-grow` 作用于**高度**，宽度的确定值就停在 `0px`；
+3. `main`（`Content`）的 `clientWidth` 于是只剩 `padding: 12px × 2 = 24`，内容盒 **0 宽** ——
+   `.page-container` / `.page-fade` 跟着是 `0`（`page-container` 只是 `width: 100%`），
+   内部所有内容被 `overflow: auto` 裁进一个 0 宽的可见区 = **页面看上去是空的**。
+
+同一个 `column` 还顺带把 Sider 弄坏了：antd 给 `<Sider>` 写的是 `flex: 0 0 200px` +
+`width/min-width/max-width: 200px`，用于行向；列向里 `flex-basis: 200px` 变成**高度**
+（页内 `style={{ height: 48 }}` 被 `flex-basis` 盖过）⇒ 实测 Sider 是 **200×200 的方块**，
+右侧 175px 空着。
+
+**归属（重要，别记到 088 头上）**：`git log -S "flexDirection: isMobile ? 'column' : 'row'" -- src/App.tsx`
+命中 **`c8bc7f8`（016-system-enhancement「自定义字段/通知中心/数据导出/移动端适配」）**，
+现行行 blame 为 `2026-08-30`。**088 全程未改 `App.tsx`**（P1 只动 `LocaleProvider` 与 `components/ui/`，
+P2 只动 4 个页面 + `index.css` 的 `.page-stack`）。即：**那次「移动端适配」提交让窄屏彻底不可用**，
+且此后一直如此。
+
+**为什么 72 个测试文件一个都没抓到**：jsdom 的 `window.innerWidth` 默认 1024 ⇒ 永远走 `row` 分支，
+而这条缺陷**只在 `column` 分支存在**。它同时解释了为什么这条只可能由真机验收发现。
+
+**处置**：**本批次不改**——`App.tsx` 不在 P2 授权的 8 次提交范围内，且这是全站外壳的行为变更，
+应由你决定是否立独立批次（最小改法是把列向下的两个内联值补齐：内容容器加 `width: '100%'`
+覆盖 antd 的 `0`，`Sider` 的 `flex-basis` 改成 48px 并放宽三个 width 约束）。
+但 **T038 的 375px 那一档必然撞上它**，届时看到空白页即是本条，不是样板页改坏了。
+
+### 15.3 `FormGrid` 与标签宽度的真机读数（补 jsdom 的两个盲区）
+
+| 读数 | 真机结果 |
+|---|---|
+| 标签宽 `useFormMetrics` | zh **96px** / en **112px**，逐像素生效（jsdom 只能读 `style` 字符串，读不到布局） |
+| 创建弹窗宽 | invoices/products/customers **640px**、tags **480px**，且以**内联** `style="width: 640px"` 落地 |
+| 弹窗宽在 375px | 实测 **359px** = antd 的 `calc(100vw − 16px)` 夹取；内联仍是 `640px`（夹的是 `max-width`） |
+| 栅格轨道数 | 容器 **592px**（md 档）⇒ **2 列**；容器 **311px**（375px 视口）⇒ **1 列** ✓ |
+| tags 页弹窗 | **无** `[data-testid="form-grid"]` —— **设计使然**：`TagListPage.tsx:134-155` 是 2 个纵向
+`Form.Item` + 一个颜色选择器 `Row/Col`，**没有成对字段**可进栅格（使用纪律第 1 条），
+但它一样用了 `FormModal` + `useFormMetrics`（标签宽 96/112 同样量到） |
+
+375px 下的 `311px → 1 列` 是本批次**唯一能实测到"修掉了真缺陷"**的地方：
+同一视口下老的 `span={12}` 会给出约 140px 的两列（低于 `MIN_FIELD_WIDTH=160`），
+`FormGrid` 的 `auto-fit` + `minmax(min(100%, 256px), 1fr)` 退成一列。
+
+### 15.4 由此对 T038 验收清单的两处修订
+
+1. **375px 那一档要分开看**：窄屏内容区 0 宽（§15.2）会先于任何样板页的差异呈现，
+   验收 375px 时**先记录这一条的状态**（现状=空白），再谈样板页。
+2. §12.1 的 watch item **从"待肉眼确认"改为"已实测证伪"**，验收清单里可以划掉。
+
+### 15.5 探针脚本（跑完即删，此处留原文以便复现）
+
+以 `frontend/e2e/__measure.spec.ts` 运行（`npx playwright test __measure`），跑完即 `rm`；
+`/stats` 是对照页，`login` 来自 `e2e/helpers/login.ts`：
+
+```ts
+import { test } from '@playwright/test'
+import { login } from './helpers/login'
+
+test('窄屏内容区宽度', async ({ page }) => {
+  test.setTimeout(180_000)
+  await login(page)
+  const rows: string[] = []
+  for (const w of [1024, 768, 767, 500, 375]) {
+    for (const path of ['/stats', '/invoices', '/customers']) {
+      await page.setViewportSize({ width: w, height: 900 })
+      await page.goto(path)
+      await page.waitForTimeout(2200)
+      const r = await page.evaluate(() => {
+        const hasSider = document.querySelector('.ant-layout-has-sider')!
+        const wrapper = hasSider.children[1] as HTMLElement
+        const main = wrapper.querySelector('main') as HTMLElement
+        const sider = hasSider.children[0] as HTMLElement
+        return {
+          inner: window.innerWidth,
+          dir: getComputedStyle(hasSider).flexDirection,
+          wrapperW: Math.round(wrapper.getBoundingClientRect().width),
+          mainW: Math.round(main.getBoundingClientRect().width),
+          sider: `${Math.round(sider.getBoundingClientRect().width)}x${Math.round(sider.getBoundingClientRect().height)}`,
+        }
+      })
+      rows.push(`${r.inner} | ${path} | 主轴=${r.dir} | 内容容器宽=${r.wrapperW} | main=${r.mainW} | Sider=${r.sider}`)
+    }
+  }
+  console.log(rows.join('\n'))
+})
+```
+
+⚠️ 一条**踩坑记录**：第一次写这个探针时用 `getByRole('button', { name: '开票', exact: true })` 点不到任何按钮，
+**全部弹窗读数为 null**。原因是 antd 的图标渲染成 `<span role="img" aria-label="plus">`，
+它的 `aria-label` 会并进按钮的可访问名 ⇒ 实际名字是 `"plus 开票"`。
+**显式按钮名一律用正则、不用 `exact`**（既有 e2e 用例也都是正则）——否则报错形态是"什么都没找到"，
+很容易被误读成"页面上没有这个按钮"。
+
+---
+
+## 16. T038 另两条"只能肉眼判断"的验收项：主色与紧凑密度的实测读数（2026-09-13）
+
+同一次真机探针（跑完即删）顺手把验收清单里的**色差**与**密度**也量了。方法上有一条纪律：
+**token 的落地值从 CSSOM 规则读，不从 DOM 读**——DOM 会被页面级覆盖污染（§16.4 是一例现成的虚惊）。
+
+### 16.1 主色：半 Indigo 半蓝的分裂已经消失，唯一残留在页头 logo
+
+| 表面（接入前是否跟着 Indigo） | 实测计算值 |
+|---|---|
+| `.ant-btn-primary` backgroundColor（前 ✅ CSS 覆盖） | `rgb(99, 102, 241)` |
+| `.ant-pagination-item-active` border + 内层 `a` 颜色（前 ✅） | `rgb(99, 102, 241)` / `rgb(99, 102, 241)` |
+| `.ant-menu-item-selected` backgroundColor（前 ✅） | `rgb(238, 242, 255)`（`#eef2ff`，Indigo-light） |
+| **`.ant-checkbox-checked .ant-checkbox-inner`**（前 ❌ antd 蓝） | `background-color: rgb(99, 102, 241)` |
+| **`.ant-select-focused … .ant-select-selector`**（前 ❌） | `border-color: rgb(99, 102, 241)` |
+| **hover 态**（前 ❌） | `rgb(145, 151, 255)`（由 `#6366f1` 生成的派生色，说明确实由 token 生成而非 CSS 手写） |
+
+"前 ❌"那三行是 CSSOM 里读到的**规则原文**（元素不必处于选中态），它们此前是 `#1677ff`：
+`colorLink` 与 `colorPrimary` 一接，链接色/聚焦环/选中态这一整片就跟着回来了。
+
+**唯一还看得见的 antd 蓝**：`App.tsx:627` 的页头 logo（`<TeamOutlined style={{ fontSize: 20, color: '#1677ff' }} />`）
+与 `:651` 的头像底色。元素级扫描在**每一页**都恰好命中 3 个元素（`span.anticon` + `svg` + `path`，`color` 逐级继承），
+即这两处字面量。它们是 R1 白名单里"租户主题兜底/演示数据"之外的**品牌色字面量**，
+接入 theme 后它们成了全站唯一一块蓝 → **T038 看样板页时若觉得某处蓝得不搭，就是它**；
+要不要改成 `palette.primary` 是 P4 的清扫项（`App.tsx` 不在 P2 授权范围内，本次未动）。
+
+`/stats` 另有 13 个 antd 蓝元素（`DashboardPage` 的 7 处字面量，`plotly`/自绘色），
+**不在本批次范围**，也从不在样板 4 页里。
+
+### 16.2 紧凑密度：四条 token 逐条落地
+
+| token | 落地读数（CSSOM 原文 / DOM） |
+|---|---|
+| `Form.itemMarginBottom: 12` | `.ant-form-item → margin-bottom: 12px`；弹窗内 DOM 实测 `12px` |
+| `Table.cellPaddingBlockSM: 6` | `.ant-table-small … td → padding: 6px 8px`；DOM `6px 8px`（默认是 12px 8px） |
+| `Card.headerHeight: 44` | `.ant-card .ant-card-head → min-height: 44px`（默认 56） |
+| `Card.paddingLG: 16` | `.ant-card .ant-card-body → padding: 16px`（默认 24）；`ant-card-head` 的 `padding: 0 16px` 也由它推导，**独立印证该别名 token 在组件名下确实生效** |
+| `fontSize: 13` | `body` 13px、`.ant-form-item` 13px、`.ant-modal .ant-modal-body` 13px、`.ant-form-item-label > label` 13px |
+| 刻意**未**设 `controlHeight` | `.ant-form-item-control-input → min-height: 32px`、`label → height: 32px` = antd 默认 32 ⇒ 文档说的"写它等于没写"得到实测支持 |
+
+### 16.3 两条新事实（都会影响"看起来紧不紧"的判断，写下来免得当成 bug）
+
+1. **卡片标题仍是 14px**：`.ant-card .ant-card-head → font-size: 14px`、`.ant-card-meta-title → font-size: 14px`。
+   antd 的卡片标题吃的是 `fontSizeLG`，不是 `fontSize` ⇒ 所谓"全站 13"实际是**正文 13 / 卡片标题 14**。
+   要不要把标题也压到 13（或干脆保留这层层级）属视觉判断，**留给 T038 拍板**，本批次未动。
+2. **ProTable 的卡片不受 `Card` token 管辖**：`.ant-pro-card .ant-pro-card-body → padding-block: 16px; padding-inline: 24px`
+   来自 ProComponents 自己的主题；本页 DOM 实测 `.ant-pro-card-body padding=0px 24px 16px`。
+   ⇒ 在 4 个样板页里，"卡片正文 24→16"**并不会**生效（它本来就是 16），
+   这条 token 的受众是**裸 `<Card>` 的页面**。P3 铺开时不要拿样板页的观感去推"Card token 生效了"。
+3. 页面级 `styles={{ body: { padding: … } }}` 会盖过 token：`DashboardPage.tsx:79` 等 **7 处**都写了
+   `padding: '20px 24px'` 或 `padding: 20`。铺开到这类页面时，密度不会跟着 token 变——那不是 token 失效。
+
+### 16.4 一条方法论：token 的落地值别从 DOM 读
+
+第一次量 `/stats` 的 `.ant-card-body` 得到 `20px 24px`，与 theme 里"`Card.paddingLG: 24 → 16`"的声明不符，
+看上去像"token 没生效"。追下去是 `DashboardPage.tsx:79` **自己写死**的 `styles={{ body: { padding: '20px 24px' } }}` ——
+**不是 token 失效，是我量到了别人的内联覆盖**。改从 CSSOM 读规则原文后，`padding: 16px` 立刻现身。
+⚠️ 因此：**"某 token 没生效"这类结论必须用 CSSOM 规则原文佐证**，DOM 计算值只能证明"这个页面上是这样"。
+
+## 17. P2 的四个新测试文件在全量跑时是红的：一次"症状搬了家"的排查（2026-09-13）
+
+P2 收尾时发现：**这四个新文件（`{invoices,tags,products,customers}/*.form.test.tsx`）
+单独跑全绿，跑全量就红**，且每次红的条数不固定（先是 `4 failed | 76 passed (80)`，
+非覆盖模式一次又只剩 1 条）。本节的结论是**并发超订**，而不是断言写错。
+排查里有一次值得记下来的误判，见 17.1。
+
+### 17.1 第一层症状（1000ms 的 `findBy*`）与它为什么不成立
+
+最初的失败形态是 Testing Library 的默认等待：`findBy*` / `waitFor` **只等 1000ms**，
+而 `ProductListPage.form.test.tsx` 在负载下整个文件要 37.8 秒（隔离跑 13.6 秒）。
+据此我加了 `src/test/timeouts.ts` 的 `HEAVY_RENDER_ASYNC_TIMEOUT = 20000`
+（照抄 `src/App.render.test.tsx:98` 的 `SHELL_TIMEOUT` 约定），四个文件各调一次
+`configure({ asyncUtilTimeout })`。
+
+**结果：失败点没有消失，只是换了位置**——变成
+`Error: Test timed out in 20000ms.`，即仓库自己的 `vite.config.ts:24` 的 `testTimeout`。
+
+这条订正的值在于：**"等待上限不够"当时看起来像个解释，其实只是症状**。
+一个上限被撞到时，正确的下一步是问"这条用例的**总耗时**是多少"，
+而不是把那个上限调大——否则会一路把上限搬到下一个边界上，每一层都像是"再大一点就好"。
+
+### 17.2 根因：默认 worker 池在 16 核机器上是超订的
+
+同一棵冻结的树、同一条命令（`vitest run --coverage`），只改 worker 池上限：
+
+| 量 | 默认池（16 核 → ~16 worker） | `--maxWorkers=4 --minWorkers=1` |
+|---|---|---|
+| 结果 | **2 文件 / 6 用例失败** | **80 文件 / 365 用例全绿** |
+| 墙钟 | 142.6s | 239.4s |
+| 累计 `collect` | 459.2s | 245.5s |
+| **累计用例耗时** | **1243.0s** | **622.7s** |
+| `products/*.form`（5 条） | 109.8s（**3 条撞 20s 上限**） | 62.7s（12.5s/条） |
+| `customers/*.form`（7 条） | 132.7s（**3 条撞 20s 上限**） | 92.1s（13.2s/条） |
+| 隔离跑（4 个文件） | — | 3.8s/条 |
+
+**累计用例耗时腰斩**（1243s → 623s）是关键读数：worker 从 ~16 降到 4，
+总计算量少了近一半，说明默认池**不是"多跑并行"而是"排队等 CPU"**——
+每个 worker 都在跑 jsdom + antd，16 个进程互相抢内存带宽。
+墙钟反而变长（142s → 239s）是因为并发度真的降了，而 142s 那次是**带失败**的读数。
+
+失败形态也符合这个解释：**失败条目不固定**（同一条用例这次过、下次超），
+且不是"越靠后越容易失败"的累积形态——`customers` 的第 5 条失败、第 6/7 条又过。
+这正是"每条用例耗时在 20–25s 之间浮动、正好压在 20s 边界上"的样子。
+
+顺带记两个同类读数（说明这不是我那 4 个文件独有的问题）：
+`customers/CustomerListPage.test.tsx` 默认池下 2 条 22.7s、`users/UserManagementPage.test.tsx`
+3 条 21.1s；换 4 个 worker 后 `customers/CustomerListPage.perm.test.tsx` 13 条 51.7s、
+`App.render.test.tsx` 5 条 33.7s。**仓库里已经有一批"重文件"贴着这条线走。**
+
+### 17.3 两层修复：兜底在本批次，根治要独立提交
+
+**（a）本批次（4 个文件，已改，未提交）**：`src/test/timeouts.ts` 增加
+`HEAVY_RENDER_TEST_TIMEOUT = 60000`，四个文件各调一次
+`vi.setConfig({ testTimeout: HEAVY_RENDER_TEST_TIMEOUT })`。
+60s 相对"最坏观测值 25s"留 2.4 倍余量。**这是兜底**：它让这四个文件在任何 worker
+配置下都不再贴边，但没有改善全仓的并发超订。
+
+**（b）根治（`vite.config.ts`，未做）**：加 `maxWorkers`。
+⚠️ **必须同时给 `minWorkers`**：vitest 1.6 单独给 `maxWorkers` 会直接抛
+`RangeError: options.minThreads and options.maxThreads must not conflict`，
+**一条用例都不跑**（我实测撞到过，`Errors 1 error / Test Files no tests / Duration 17ms`）。
+这是一次会改变全仓 80 个文件跑法的改动，**必须能与任何 UI 改动分开归因**，
+因此不并入本批次——它也正是 plan 里 P0 那条阻塞项预留的分支
+（"仍不稳 → 作为一次独立提交加 `maxWorkers`/`fileParallelism` 并复测"）。
+
+### 17.4 一条与 P0 直接相关的结论
+
+P0 要的是"**3 次读数稳定成一个可引用的区间**"。本节说明：
+**读数不稳的观察里，至少有一部分与 `src/pages/**` 的并发编辑无关，而是 worker 池超订。**
+`vite.config.ts:61-64` 当时把成因猜在"多会话并行改 `src/pages/**`"上——
+那个猜测没有被证伪，但**这一条是另一个独立成因，且可复现**。
+后续引用"区间"时，必须同时记录 **worker 池是默认还是被限过**，
+否则两次读数不可比（同一条命令，142.6s / 1243.0s 与 239.4s / 622.7s 是同一棵树）。
+
+## 18. P0 阻塞项的交付物：P2 之后的覆盖率基线带（3 次读数，2026-09-13）
+
+plan 的 P0 要求"在冻结的、无其它会话触碰 `src/pages/**` 的工作区上连跑 3 次
+`pnpm test:coverage`，把读数稳定成一个可引用的区间"。本节是它的结果。
+工作区状态：`git status --short` 只有 `M .github/workflows/ci.yml`、`M Dockerfile`、
+`M backend/pom.xml`（**并行会话的在飞改动，与本批次无关**）与 `M specs/088-*/research.md`；
+`frontend/src/**` 无第三方在写（`ListAgents` 只有 `engineering-consolidation-ci-gates` 一个并行会话，
+手势在 JDK 三件套上）。
+
+| # | 调用 | 结果 | statements | branches | functions | lines |
+|---|---|---|---|---|---|---|
+| 1 | `vitest run --coverage --maxWorkers=4 --minWorkers=1` | 80/80 文件、365/365 用例绿 | 68.21 | 73.71 | 35.86 | 68.21 |
+| 2 | `pnpm test:coverage`（默认池） | 全绿 | 68.21 | 73.71 | 35.86 | 68.21 |
+| 3 | `pnpm test:coverage`（默认池） | 全绿 | 68.21 | **73.78** | 35.86 | 68.21 |
+| — | `pnpm test:coverage`（默认池，第 4 次） | **1 条无关用例失败**（见 §17） | 未打印 | — | — | — |
+
+**可引用的区间**：statements **68.21** / functions **35.86** / lines **68.21**（三次逐字相同）；
+branches **73.7 ± 0.1**（73.71 / 73.71 / 73.78）。
+
+三条推论：
+
+1. **新基线 = P1 快照的自然增量**。P1 后是 67.65 / 73.02 / 34.29 / 67.65（见 `vite.config.ts` 的注释），
+   P2 后是 68.21 / 73.7 / 35.86 / 68.21。statements +0.56pp、functions +1.57pp，
+   与"P2 新增 4 个文件 / 22 条整页渲染用例"同一量级——没有第四个解释需要找。
+2. **覆盖率读数与 worker 池无关**。第 1 行（4 worker）与第 2 行（~16 worker）四项里三项逐字相同，
+   branches 的差异（73.71 vs 73.78）与第 3 行的差异同量级，而第 2/3 行是同一种调用。
+   ⇒ **branches 的小数位抖动是固有的，不是并发产物**；§17 那个"读数不稳里有一部分与并发编辑无关"
+   的结论到此可以收紧成：**并发在这里影响的是"红不红"，不是"覆盖率是多少"**。
+3. **对 P3 的用法**：P3 每批"与基线区间比"时，branches 只比到小数点后一位；
+   statements / functions / lines 可以比到两位。这正好落实 `vite.config.ts` 里那句
+   "不要引用单次运行的小数位当论据"。
+
+**⚠️ 一条跨规格的待办（不得由本批次单方面改）**：`vite.config.ts` 的覆盖率注释里写着
+"改动此值时必须**同步**更新 `specs/083-engineering-consolidation/data-model.md` §4 的实测记录"。
+把本节读数写进 `vite.config.ts` 的注释（P1 时是惯例，见其中"【实测刷新，2026-09-13（088 的 P1 完成后）】"一段）
+**会触发对 083 的同步义务**，而 `specs/083-*` 目前归并行会话 `engineering-consolidation-ci-gates`。
+⇒ 两个选择：**(a)** P2 的快照只写进本文件（research.md），`vite.config.ts` 的注释留到 083 侧空闲时一起刷；
+**(b)** 同时改两处，但要先与并行会话打招呼。**本批次先按 (a) 做**，并把这一条挂在待办上。
