@@ -10,6 +10,8 @@ import {
   type DepartmentPayload,
 } from '../../services/departmentService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { Department } from '../../types/department'
 
 interface FormValues {
@@ -33,6 +35,22 @@ export default function DepartmentListPage() {
   const [flatOptions, setFlatOptions] = useState<{ value: number; label: string }[]>([])
   const [searchValue, setSearchValue] = useState('')
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([])
+  // 086：删除部门挂 `department:manage`（DepartmentController.java:71-73）。
+  //
+  // <p>**当下这道判据是冗余的，如实说明**：本页取数的 `GET /departments/tree`（`:48-50`）挂的是**同一个**
+  // `department:manage`（1.5 把类级 `hasRole('ADMIN')` 换成了它，并把该码授给持有「部门管理」菜单的五个角色
+  // ——`DepartmentController.java:26-28` 记这是本项唯一一处实质扩权）。于是"能渲染出这棵树"本身就蕴含
+  // "持有该码"，而删除端点挂的也是它 ⇒ 对任何加载得出本页的人，判据恒真，**不会真的隐藏任何按钮**。
+  //
+  // 仍然挂上的理由：码与端点**逐字对应**（DELETE /departments/{id}），且一旦后端把读与写拆成两个码
+  // （`department:read` / `department:manage`），这里的判据立刻变成有效的收窄——不挂则会在那时静默漏出。
+  // 这与「读码挂在读端点上 ⇒ 不收口」（见 `QuoteDetailPage` 导出 PDF）**不是**同一种形态，故不豁免。
+  //
+  // <p>顺带记录一处**与权限无关的既有缺陷**（本次刻意不修，避免超出 086 范围）：本文件 `load()` 里
+  // `const t = await fetchDepartmentTree()` **遮蔽了 i18n 的 `t`**，故其 catch 分支的
+  // `t('pages.departmentList.msgLoadFailed')` 会对数组调用函数而抛 TypeError——加载失败时用户看不到任何提示。
+  // 同一函数里 `walk(n.children, …)` 也未防 `children` 为空，`children` 缺失时同样抛错。
+  const canManage = usePerms([PERMS.departmentManage])
 
   const load = async () => {
     setLoading(true)
@@ -186,11 +204,13 @@ export default function DepartmentListPage() {
             <Button size="small" type="link" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); openEdit(node) }}>
               {t('pages.departmentList.btnEdit')}
             </Button>
-            <Popconfirm title={t('pages.departmentList.confirmDelete', { name: node.name })} onConfirm={(e) => { if (e) onDelete(node) }}>
-              <Button size="small" type="link" danger icon={<DeleteOutlined />}>
-                {t('pages.departmentList.btnDelete')}
-              </Button>
-            </Popconfirm>
+            {canManage[PERMS.departmentManage] && (
+              <Popconfirm title={t('pages.departmentList.confirmDelete', { name: node.name })} onConfirm={(e) => { if (e) onDelete(node) }}>
+                <Button size="small" type="link" danger icon={<DeleteOutlined />}>
+                  {t('pages.departmentList.btnDelete')}
+                </Button>
+              </Popconfirm>
+            )}
           </Space>
         </div>
       }

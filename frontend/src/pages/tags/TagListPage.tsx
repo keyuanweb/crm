@@ -5,6 +5,8 @@ import { App, Button, Col, Form, Input, Modal, Popconfirm, Row, Tag } from 'antd
 import { PlusOutlined } from '@ant-design/icons'
 import { createTag, deleteTag, fetchTags, updateTag } from '../../services/tagService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { Tag as TagItem } from '../../types/tag'
 
 interface FormValues {
@@ -22,6 +24,8 @@ export default function TagListPage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<TagItem | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 删除标签走 DELETE /tags/{id}，TagController 上标的是 tag:manage（新建/编辑也是同一个码）。
+  const can = usePerms([PERMS.tagManage])
 
   const reload = () => actionRef.current?.reload()
 
@@ -83,9 +87,11 @@ export default function TagListPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.tagList.edit')}
         </a>,
-        <Popconfirm key="delete" title={t('pages.tagList.confirmDelete', { name: row.name })} onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('pages.tagList.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.tagManage] && (
+          <Popconfirm key="delete" title={t('pages.tagList.confirmDelete', { name: row.name })} onConfirm={() => onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('pages.tagList.delete')}</a>
+          </Popconfirm>
+        ),
       ],
     },
   ]

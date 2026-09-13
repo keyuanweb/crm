@@ -31,6 +31,8 @@ import {
 } from '../../services/visitService'
 import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { FieldVisit, VisitPayload } from '../../types/visit'
 
 export default function VisitListPage() {
@@ -51,6 +53,9 @@ export default function VisitListPage() {
   const [customerOptions, setCustomerOptions] = useState<{ label: string; value: number }[]>([])
   const [stats, setStats] = useState<{ totalPlanned: number; totalDone: number }>({ totalPlanned: 0, totalDone: 0 })
   const [form] = Form.useForm<VisitPayload>()
+  // 签到与取消打的是 POST /field-visits/{id}/check-in 与 /cancel，两个端点同挂 visit:manage
+  // （FieldVisitController）——所以只有一个判据。
+  const can = usePerms([PERMS.visitManage])
 
   const reload = () => actionRef.current?.reload()
 
@@ -201,13 +206,13 @@ export default function VisitListPage() {
       valueType: 'option',
       width: 170,
       render: (_, row) => [
-        row.status === 'PLANNED' ? (
+        row.status === 'PLANNED' && can[PERMS.visitManage] ? (
           <a key="checkin" onClick={() => openCheckIn(row)}>
             <EnvironmentOutlined /> {t('pages.visit.checkIn')}
           </a>
         ) : null,
         row.status === 'PLANNED' ? <a key="edit" onClick={() => openEdit(row)}>{t('common.button.edit')}</a> : null,
-        row.status === 'PLANNED' ? (
+        row.status === 'PLANNED' && can[PERMS.visitManage] ? (
           <Popconfirm key="cancel" title={t('pages.visit.confirmCancel')} onConfirm={() => onCancel(row)}>
             <a style={{ color: '#ff4d4f' }}>{t('common.button.cancel')}</a>
           </Popconfirm>

@@ -8,6 +8,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { usePerms } from '../../hooks/usePerms';
+import { PERMS } from '../../constants/permissions';
 
 const ScheduledExportListPage: React.FC = () => {
   const { t } = useTranslation();
@@ -35,6 +37,10 @@ const ScheduledExportListPage: React.FC = () => {
   const userId = user?.id;
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<ScheduledExportResponse[]>([]);
+  // 暂停 / 恢复 / 删除三个动作打的是同一个码：PUT /scheduled-exports/{id}/status 与
+  // DELETE /scheduled-exports/{id} 挂的都是 export:scheduled（ScheduledExportController.java:63-71）。
+  // 「新建」「执行历史」不在收口范围内，保持无条件渲染。
+  const can = usePerms([PERMS.exportScheduled]);
 
   // loadList 依赖 userId：用 useCallback 固定引用后交给 effect 依赖，避免 effect 依赖表不完整。
   const loadList = useCallback(async () => {
@@ -118,18 +124,22 @@ const ScheduledExportListPage: React.FC = () => {
         <a key="executions" onClick={() => navigate(`/exports/scheduled/${record.id}/executions`)}>
           {t('pages.scheduledExport.common.executionHistory')}
         </a>,
-        record.status === 'ACTIVE' ? (
-          <Popconfirm key="pause" title={t('pages.scheduledExport.list.pauseConfirm')} onConfirm={() => handleStatusChange(record.id, 'SUSPENDED')}>
-            <a><PauseCircleOutlined /> {t('pages.scheduledExport.list.pause')}</a>
-          </Popconfirm>
-        ) : record.status === 'SUSPENDED' ? (
-          <Popconfirm key="resume" title={t('pages.scheduledExport.list.resumeConfirm')} onConfirm={() => handleStatusChange(record.id, 'ACTIVE')}>
-            <a><PlayCircleOutlined /> {t('pages.scheduledExport.list.resume')}</a>
+        can[PERMS.exportScheduled] ? (
+          record.status === 'ACTIVE' ? (
+            <Popconfirm key="pause" title={t('pages.scheduledExport.list.pauseConfirm')} onConfirm={() => handleStatusChange(record.id, 'SUSPENDED')}>
+              <a><PauseCircleOutlined /> {t('pages.scheduledExport.list.pause')}</a>
+            </Popconfirm>
+          ) : record.status === 'SUSPENDED' ? (
+            <Popconfirm key="resume" title={t('pages.scheduledExport.list.resumeConfirm')} onConfirm={() => handleStatusChange(record.id, 'ACTIVE')}>
+              <a><PlayCircleOutlined /> {t('pages.scheduledExport.list.resume')}</a>
+            </Popconfirm>
+          ) : null
+        ) : null,
+        can[PERMS.exportScheduled] ? (
+          <Popconfirm key="delete" title={t('pages.scheduledExport.list.deleteConfirm')} onConfirm={() => handleDelete(record.id)}>
+            <a style={{ color: '#ff4d4f' }}><DeleteOutlined /> {t('common.button.delete')}</a>
           </Popconfirm>
         ) : null,
-        <Popconfirm key="delete" title={t('pages.scheduledExport.list.deleteConfirm')} onConfirm={() => handleDelete(record.id)}>
-          <a style={{ color: '#ff4d4f' }}><DeleteOutlined /> {t('common.button.delete')}</a>
-        </Popconfirm>,
       ],
     },
   ];

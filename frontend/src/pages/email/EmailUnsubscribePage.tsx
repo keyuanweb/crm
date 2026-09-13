@@ -8,12 +8,16 @@ import {
   type EmailUnsubscribe,
 } from '../../services/emailService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 
 /** 邮件退订名单页（052）。 */
 export default function EmailUnsubscribePage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const { t } = useTranslation()
+  // 086：恢复（DELETE /email/unsubscribes/{id}）按权限码收口。
+  const can = usePerms([PERMS.emailManage])
 
   const columns: ProColumns<EmailUnsubscribe>[] = [
     { title: t('pages.emailUnsubscribe.colEmail'), dataIndex: 'email', copyable: true },
@@ -34,21 +38,23 @@ export default function EmailUnsubscribePage() {
       valueType: 'option',
       width: 100,
       render: (_, row) => [
-        <Popconfirm
-          key="restore"
-          title={t('pages.emailUnsubscribe.confirmRestore', { email: row.email })}
-          onConfirm={async () => {
-            try {
-              await restoreUnsubscribe(row.id)
-              message.success(t('pages.emailUnsubscribe.msgRestored'))
-              actionRef.current?.reload()
-            } catch (err) {
-              message.error(extractErrorMessage(err, t('pages.emailUnsubscribe.msgRestoreFailed')))
-            }
-          }}
-        >
-          <a>{t('pages.emailUnsubscribe.btnRestore')}</a>
-        </Popconfirm>,
+        can[PERMS.emailManage] ? (
+          <Popconfirm
+            key="restore"
+            title={t('pages.emailUnsubscribe.confirmRestore', { email: row.email })}
+            onConfirm={async () => {
+              try {
+                await restoreUnsubscribe(row.id)
+                message.success(t('pages.emailUnsubscribe.msgRestored'))
+                actionRef.current?.reload()
+              } catch (err) {
+                message.error(extractErrorMessage(err, t('pages.emailUnsubscribe.msgRestoreFailed')))
+              }
+            }}
+          >
+            <a>{t('pages.emailUnsubscribe.btnRestore')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

@@ -12,6 +12,8 @@ import {
 } from '../../services/contractService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
+import { hasPerm } from '../../hooks/usePermission'
+import { PERMS } from '../../constants/permissions'
 import type { ContractTemplate } from '../../types/contract'
 
 interface FormValues {
@@ -29,11 +31,13 @@ export default function ContractTemplateListPage() {
   const [editing, setEditing] = useState<ContractTemplate | null>(null)
   const [form] = Form.useForm<FormValues>()
   const user = useAuthStore((s) => s.user)
-  // 保留角色判断：ContractTemplateController 的 create / update / delete 自 1.5 批 3 起挂
-  // contract_template:manage（此前是 hasRole('ADMIN')，那时 PERMISSION_DEFS 里没有这一组码）。
-  // 该码**不授给任何角色**——刻意不复用 contract:*，否则"能签合同的人顺便能改法定文本"——
-  // 所以这里的角色判断与后端放行范围仍然一致，无需改动。
-  const isAdmin = user?.role === 'ADMIN'
+  // 086：原先此处是 `user.role === 'ADMIN'`，理由写的是"该码不授给任何角色，所以角色判断与后端放行范围一致"。
+  // 结论当时成立，但**写法**该换：`contract_template:manage` 对非 ADMIN 的持有者确实为零，
+  // 故 `hasPerm` 今天对非 ADMIN 恒 false——**行为逐字等价**，而换成码之后这个权限从此可以被真正授予。
+  // 硬编码 `role === 'ADMIN'` 则永远授不出去，即便管理员在角色页给它勾上。
+  // 一个码管住 ContractTemplateController 的整个写面（create / update / delete 挂的是同一个码），
+  // 所以行内的「编辑+删除」与工具栏的「新建」共用同一个判据——与后端一致，不拆成两个。
+  const canManage = hasPerm(PERMS.contractTemplateManage, user)
 
   const reload = () => actionRef.current?.reload()
 
@@ -113,7 +117,7 @@ export default function ContractTemplateListPage() {
       valueType: 'option',
       width: 140,
       render: (_, row) =>
-        isAdmin
+        canManage
           ? [
               <a key="edit" onClick={() => openEdit(row)}>
                 <EditOutlined /> {t('pages.contractTemplate.edit')}
@@ -149,7 +153,7 @@ export default function ContractTemplateListPage() {
           return { data: res.items, success: true, total: res.total }
         }}
         toolBarRender={() =>
-          isAdmin
+          canManage
             ? [
                 <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                   {t('pages.contractTemplate.btnAdd')}

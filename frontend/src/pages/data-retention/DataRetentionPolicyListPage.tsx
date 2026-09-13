@@ -7,12 +7,17 @@ import { Button, Card, Popconfirm, Space, Table, Tag, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { usePerms } from '../../hooks/usePerms';
+import { PERMS } from '../../constants/permissions';
 
 const DataRetentionPolicyListPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<DataRetentionPolicyResponse[]>([]);
+  // 删除保留策略：DELETE /data-retention/policies/{id} 挂的是 retention:delete
+  // （DataRetentionPolicyController.java:66-67）。工具栏的「合规导出」只 navigate、不发请求，不收口。
+  const can = usePerms([PERMS.retentionDelete]);
 
   const entityTypeLabels: Record<string, string> = {
     CUSTOMER: t('pages.dataRetention.common.entityTypeLabels.CUSTOMER'),
@@ -101,9 +106,11 @@ const DataRetentionPolicyListPage: React.FC = () => {
         <a key="edit" onClick={() => navigate(`/data-retention/${record.id}/edit`)}>
           <EditOutlined /> {t('common.button.edit')}
         </a>,
-        <Popconfirm key="delete" title={t('pages.dataRetention.list.deleteConfirm')} onConfirm={() => handleDelete(record.id)}>
-          <a style={{ color: '#ff4d4f' }}><DeleteOutlined /> {t('common.button.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.retentionDelete] ? (
+          <Popconfirm key="delete" title={t('pages.dataRetention.list.deleteConfirm')} onConfirm={() => handleDelete(record.id)}>
+            <a style={{ color: '#ff4d4f' }}><DeleteOutlined /> {t('common.button.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ];

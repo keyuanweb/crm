@@ -28,6 +28,8 @@ import {
 } from '../../services/contactService'
 import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import { ROLE_COLORS, type Contact, type ContactRole } from '../../types/contact'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import type { ImportResult } from '../../types/importResult'
@@ -54,6 +56,8 @@ export default function ContactListPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [importing, setImporting] = useState(false)
+  // 删除联系人走 DELETE /contacts/{id}，ContactController 上标的是 contact:delete。
+  const can = usePerms([PERMS.contactDelete])
 
   const reload = () => actionRef.current?.reload()
 
@@ -175,11 +179,13 @@ export default function ContactListPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           <EditOutlined /> {t('pages.contact.list.edit')}
         </a>,
-        <Popconfirm key="delete" title={t('pages.contact.list.deleteConfirm', { name: row.name })} onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>
-            <DeleteOutlined /> {t('pages.contact.list.delete')}
-          </a>
-        </Popconfirm>,
+        can[PERMS.contactDelete] ? (
+          <Popconfirm key="delete" title={t('pages.contact.list.deleteConfirm', { name: row.name })} onConfirm={() => onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>
+              <DeleteOutlined /> {t('pages.contact.list.delete')}
+            </a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

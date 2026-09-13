@@ -38,6 +38,8 @@ import { updateCustomer, type CustomerPayload } from '../../services/customerSer
 import { extractErrorMessage } from '../../services/apiClient'
 import { formatAmount } from '../../types/opportunity'
 import { useAuthStore } from '../../store/authStore'
+import { hasPerm } from '../../hooks/usePermission'
+import { PERMS } from '../../constants/permissions'
 import FollowUpTimeline from '../../components/FollowUpTimeline'
 import CommentSection from '../../components/CommentSection'
 import type {
@@ -56,9 +58,17 @@ export default function CustomerDetailPage() {
   const { message } = App.useApp()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  // 共享客户是**数据归属**规则而不是权限码：后端 CustomerShareService.share 里就是
-  // `if (!isAdmin && !currentUserId.equals(customer.getOwnerId())) throw FORBIDDEN`，
-  // CustomerShareController 上也没有（字典里也还没有）可用的权限码，所以这里保留角色判断。
+  // 086：共享客户在后端是**两道**闸门，前端必须与它逐字对上：
+  //   ① 码：POST/DELETE /customer-shares 挂 `customer:update`（CustomerShareController.java:52,60）；
+  //   ② 数据归属：CustomerShareService.share 里 `if (!isAdmin && !ownerId.equals(currentUserId)) throw FORBIDDEN`。
+  //
+  // 改造前此处只写了 ②，注释的依据是"字典里也还没有可用的权限码"——那句话已过时：1.5 批 3 起该码存在，
+  // 持有者是 ADMIN / SALES / SUPPORT / SALES_MANAGER / SALES_REP（**不是仅 ADMIN**，
+  // 见 CustomerShareController.java:36-37 的类注释）。只写 ② 的后果：
+  // 一个**拥有客户但没有 `customer:update`** 的角色（如 VIEWER）会看到「共享」按钮却必然 403。
+  const canManageShare = hasPerm(PERMS.customerUpdate, user)
+  // ② 的 ADMIN 例外必须保留：后端允许管理员共享任何人的客户，而 `hasPerm` 无法表达
+  // "是 ADMIN 但不是 owner"这一支（它对 ADMIN 与持码者都返回 true，两者被合并了）。
   const isAdmin = user?.role === 'ADMIN'
   const [shareOpen, setShareOpen] = useState(false)
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
@@ -176,7 +186,8 @@ export default function CustomerDetailPage() {
     }
   }
 
-  const canShare = data && (isAdmin || data.ownerId === user?.id)
+  // 两道闸门缺一不可（见上方 :59-70 的注释）：码 ∧（归属者 ∨ 管理员）。
+  const canShare = !!data && canManageShare && (isAdmin || data.ownerId === user?.id)
 
   if (isLoading) {
     return (

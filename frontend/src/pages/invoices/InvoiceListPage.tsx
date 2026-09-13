@@ -24,6 +24,8 @@ import {
   voidInvoice,
 } from '../../services/invoiceService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { Invoice } from '../../types/invoice'
 
 const getSTATUS_META = (t: (key: string, params?: Record<string, unknown>) => string): Record<string, { text: string; color: string }> => ({
@@ -52,6 +54,8 @@ export default function InvoiceListPage() {
     invoiceRate: 0,
   })
   const [form] = Form.useForm<{ orderId: number; title: string; taxNo?: string; amount: number; invoiceType: string }>()
+  // 作废发票走 POST /invoices/{id}/void，InvoiceController 上标的是 invoice:manage。
+  const can = usePerms([PERMS.invoiceManage])
 
   const reload = () => {
     actionRef.current?.reload()
@@ -151,7 +155,7 @@ export default function InvoiceListPage() {
       valueType: 'option',
       width: 90,
       render: (_, row) =>
-        row.status === 'ISSUED' ? (
+        row.status === 'ISSUED' && can[PERMS.invoiceManage] ? (
           <a style={{ color: '#ff4d4f' }} onClick={() => setVoidRow(row)}>
             {t('pages.invoiceList.status.void')}
           </a>

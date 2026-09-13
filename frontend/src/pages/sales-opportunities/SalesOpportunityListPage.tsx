@@ -24,6 +24,8 @@ import {
   type SalesOpportunityPayload,
 } from '../../services/opportunityService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import { formatAmount, type OpportunityStage, type SalesOpportunity } from '../../types/opportunity'
 import { useOpportunityStages } from '../../hooks/useOpportunityStages'
 import OpportunityBoard from './OpportunityBoard'
@@ -46,6 +48,10 @@ export default function SalesOpportunityListPage() {
   const [view, setView] = useState<'list' | 'board'>('list')
   const [form] = Form.useForm<FormValues>()
   const { stages, selectableStages, stageLabel, isTerminal } = useOpportunityStages()
+  // 赢单/输单打的是 POST /sales-opportunities/{id}/close，挂 opportunity:update（商机终态不可逆，收口）。
+  // 看板拖拽改阶段打的是同一个 PUT /sales-opportunities/{id}（同码），但**刻意不收**——
+  // 拖拽可逆、且是销售最高频操作，挂判据只添堵（086 决策 7）。
+  const can = usePerms([PERMS.opportunityUpdate])
 
   /** 编码 → 阶段定义。用 Map 而不是每格 `stages.find`：列表一页 20 行 × 每行一次线性查找没必要。 */
   const stageByCode = useMemo(() => new Map(stages.map((s) => [s.code, s])), [stages])
@@ -135,22 +141,24 @@ export default function SalesOpportunityListPage() {
         // 终态不可再关单（服务端会抛 ALREADY_CLOSED）。判定用字典的 stage_type，
         // 而不是比对两个写死的编码——否则自建阶段会被当成「已关闭」而不给操作入口。
         !isTerminal(row.stage)
-          ? [
-              <Popconfirm
-                key="won"
-                title={t('pages.salesOpportunity.confirmWon')}
-                onConfirm={() => onClose(row, 'WON')}
-              >
-                <a style={{ color: '#52c41a' }}>{t('pages.salesOpportunity.btnWon')}</a>
-              </Popconfirm>,
-              <Popconfirm
-                key="lost"
-                title={t('pages.salesOpportunity.confirmLost')}
-                onConfirm={() => onClose(row, 'LOST')}
-              >
-                <a style={{ color: '#ff4d4f' }}>{t('pages.salesOpportunity.btnLost')}</a>
-              </Popconfirm>,
-            ]
+          ? can[PERMS.opportunityUpdate]
+            ? [
+                <Popconfirm
+                  key="won"
+                  title={t('pages.salesOpportunity.confirmWon')}
+                  onConfirm={() => onClose(row, 'WON')}
+                >
+                  <a style={{ color: '#52c41a' }}>{t('pages.salesOpportunity.btnWon')}</a>
+                </Popconfirm>,
+                <Popconfirm
+                  key="lost"
+                  title={t('pages.salesOpportunity.confirmLost')}
+                  onConfirm={() => onClose(row, 'LOST')}
+                >
+                  <a style={{ color: '#ff4d4f' }}>{t('pages.salesOpportunity.btnLost')}</a>
+                </Popconfirm>,
+              ]
+            : null
           : [<span key="closed" style={{ color: '#999' }}>{t('pages.salesOpportunity.statusClosed')}</span>],
     },
   ]

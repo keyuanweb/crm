@@ -27,6 +27,8 @@ import {
   updateSegment,
 } from '../../services/segmentService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { Segment, SegmentCondition } from '../../types/tag'
 
 interface FilterRow {
@@ -51,6 +53,9 @@ export default function SegmentListPage() {
   const [memberDrawer, setMemberDrawer] = useState<Segment | null>(null)
   const [memberData, setMemberData] = useState<{ id: number; name: string; company?: string }[]>([])
   const nextKey = useRef(1)
+  // 删除细分走 DELETE /segments/{id}，而 SegmentController 上标的是 **tag:manage**（不是 segment:manage
+  // ——后者零端点校验，挂上会让按钮对所有人消失）。新建/编辑挂的也是同一个码。
+  const can = usePerms([PERMS.tagManage])
 
   // 条件字段下拉的显示名（原为模块级常量，含中文需 t()，故搬入组件内）
   const fieldLabels: Record<string, string> = {
@@ -186,13 +191,15 @@ export default function SegmentListPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('common.button.edit')}
         </a>,
-        <Popconfirm
-          key="delete"
-          title={t('pages.segmentList.confirmDelete', { name: row.name })}
-          onConfirm={() => onDelete(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.tagManage] && (
+          <Popconfirm
+            key="delete"
+            title={t('pages.segmentList.confirmDelete', { name: row.name })}
+            onConfirm={() => onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
+          </Popconfirm>
+        ),
       ],
     },
   ]

@@ -13,6 +13,8 @@ import {
 } from '../../services/integrationService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import { type IntegrationChannel } from '../../types/integration'
 
 interface FormValues {
@@ -31,6 +33,9 @@ export default function IntegrationHubPage() {
   const [editing, setEditing] = useState<IntegrationChannel | null>(null)
   const [deliveryChannel, setDeliveryChannel] = useState<IntegrationChannel | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 启停与删除通道分别走 POST /integration-channels/{id}/toggle 与 DELETE /integration-channels/{id}，
+  // IntegrationChannelController 上两个方法挂的是同一个 integration:manage。
+  const can = usePerms([PERMS.integrationManage])
 
   const columns: ProColumns<IntegrationChannel>[] = [
     {
@@ -54,15 +59,19 @@ export default function IntegrationHubPage() {
         <a key="deliveries" onClick={() => setDeliveryChannel(row)}>
           {t('pages.integrationHub.deliveryRecords')}
         </a>,
-        <a key="toggle" onClick={() => void onToggle(row)}>
-          {row.enabled ? t('pages.integrationHub.disable') : t('pages.integrationHub.enable')}
-        </a>,
+        can[PERMS.integrationManage] && (
+          <a key="toggle" onClick={() => void onToggle(row)}>
+            {row.enabled ? t('pages.integrationHub.disable') : t('pages.integrationHub.enable')}
+          </a>
+        ),
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.integrationHub.edit')}
         </a>,
-        <Popconfirm key="del" title={t('pages.integrationHub.confirmDelete')} onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('pages.integrationHub.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.integrationManage] && (
+          <Popconfirm key="del" title={t('pages.integrationHub.confirmDelete')} onConfirm={() => void onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('pages.integrationHub.delete')}</a>
+          </Popconfirm>
+        ),
       ],
     },
   ]

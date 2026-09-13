@@ -13,6 +13,8 @@ import {
 } from '../../services/landingPageService'
 import { fetchForms } from '../../services/formService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { LandingPage } from '../../types/landingPage'
 import type { Color } from 'antd/es/color-picker'
 
@@ -34,6 +36,8 @@ export default function LandingPageListPage() {
   const [editing, setEditing] = useState<LandingPage | null>(null)
   const [formOptions, setFormOptions] = useState<{ value: number; label: string }[]>([])
   const [form] = Form.useForm<FormValues>()
+  // 086：删除落地页按权限码收口（DELETE /landing-pages/{id} 挂 marketing:manage）。
+  const can = usePerms([PERMS.marketingManage])
 
   const loadForms = async () => {
     const res = await fetchForms()
@@ -111,9 +115,11 @@ export default function LandingPageListPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.landing.btnEdit')}
         </a>,
-        <Popconfirm key="del" title={t('pages.landing.confirmDelete')} onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('pages.landing.btnDelete')}</a>
-        </Popconfirm>,
+        can[PERMS.marketingManage] ? (
+          <Popconfirm key="del" title={t('pages.landing.confirmDelete')} onConfirm={() => void onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('pages.landing.btnDelete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

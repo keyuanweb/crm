@@ -13,8 +13,27 @@ import {
   toggleWebhook,
 } from '../../services/openPlatformService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import { type ApiKey, type WebhookSubscription } from '../../types/openPlatform'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+
+/**
+ * 086 权限判据：本页的**全部**端点（含两个列表读端点）挂的都是 `open_platform:manage`
+ * （`OpenPlatformController.java:70,77,86,97,104,111,118`），故：
+ *
+ * <ul>
+ *   <li>「吊销 API Key」「启停 Webhook」「删除 Webhook」三个破坏性动作收口到该码；
+ *   <li>**但要如实说明：这三道判据当下是冗余的**——列表本身（`:77` / `:104`）挂的也是同一个码，
+ *       "能看见这张表"已蕴含"持有该码"，所以判据恒真、不会真的隐藏按钮。仍挂的理由同
+ *       `DepartmentListPage`：码与端点逐字对应，且后端若把读与写拆码，这里立刻变成有效收窄。
+ *   <li>「新建 API Key」「新建 Webhook」按 086 决策 1（新建不收口）**刻意不挂**。
+ * </ul>
+ *
+ * <p>注意本页 JSDoc 自称"仅 ADMIN"：`open_platform:manage` 的**非 ADMIN 持有者为零**，
+ * 故对非管理员的效果与"仅 ADMIN"一致，但表达成了可授予的码。
+ */
+const OPEN_PLATFORM_PERMS = [PERMS.openPlatformManage] as const
 
 /** 开放平台页（055，仅 ADMIN）：API Key + Webhook。 */
 export default function OpenPlatformPage() {
@@ -39,6 +58,7 @@ function ApiKeyTab() {
   const [modalOpen, setModalOpen] = useState(false)
   const [created, setCreated] = useState<ApiKey | null>(null)
   const [form] = Form.useForm()
+  const can = usePerms(OPEN_PLATFORM_PERMS)
 
   const columns: ProColumns<ApiKey>[] = [
     { title: t('pages.openPlatform.colName'), dataIndex: 'name' },
@@ -62,15 +82,19 @@ function ApiKeyTab() {
     {
       title: t('pages.openPlatform.colAction'),
       valueType: 'option',
+      // 权限判据嵌在状态判据**之内**：已吊销的行照旧显示灰色状态文案（那是状态指示不是动作），
+      // 只有 ACTIVE 行才轮到"有没有权限吊销我"这个问题。两个判据是 ∧，不互相替代。
       render: (_, row) =>
         row.status === 'ACTIVE' ? (
-          <Popconfirm
-            key="revoke"
-            title={t('pages.openPlatform.confirmRevoke', { name: row.name })}
-            onConfirm={() => void onRevoke(row)}
-          >
-            <a style={{ color: '#ff4d4f' }}>{t('pages.openPlatform.revoke')}</a>
-          </Popconfirm>
+          can[PERMS.openPlatformManage] ? (
+            <Popconfirm
+              key="revoke"
+              title={t('pages.openPlatform.confirmRevoke', { name: row.name })}
+              onConfirm={() => void onRevoke(row)}
+            >
+              <a style={{ color: '#ff4d4f' }}>{t('pages.openPlatform.revoke')}</a>
+            </Popconfirm>
+          ) : null
         ) : (
           <span key="revoked" style={{ color: '#bbb' }}>{t('pages.openPlatform.revoked')}</span>
         ),
@@ -164,6 +188,7 @@ function WebhookTab() {
   const [modalOpen, setModalOpen] = useState(false)
   const [createdSecret, setCreatedSecret] = useState<WebhookSubscription | null>(null)
   const [form] = Form.useForm()
+  const can = usePerms(OPEN_PLATFORM_PERMS)
 
   const reload = () => {
     void fetchWebhooks().then(setWebhooks).catch(() => undefined)
@@ -197,14 +222,18 @@ function WebhookTab() {
             <Tag color="blue">{labelOf(t, ENUM_KEYS.webhookEvent, w.eventType)}</Tag>
             <Typography.Text code>{w.callbackUrl}</Typography.Text>
             {w.enabled ? <Tag color="green">{t('pages.openPlatform.enabled')}</Tag> : <Tag>{t('pages.openPlatform.disabled')}</Tag>}
-            <Button size="small" onClick={() => void toggle(w.id)}>
-              {w.enabled ? t('pages.openPlatform.disable') : t('pages.openPlatform.enable')}
-            </Button>
-            <Popconfirm title={t('pages.openPlatform.confirmDelete')} onConfirm={() => void remove(w.id)}>
-              <Button size="small" danger>
-                {t('pages.openPlatform.delete')}
+            {can[PERMS.openPlatformManage] && (
+              <Button size="small" onClick={() => void toggle(w.id)}>
+                {w.enabled ? t('pages.openPlatform.disable') : t('pages.openPlatform.enable')}
               </Button>
-            </Popconfirm>
+            )}
+            {can[PERMS.openPlatformManage] && (
+              <Popconfirm title={t('pages.openPlatform.confirmDelete')} onConfirm={() => void remove(w.id)}>
+                <Button size="small" danger>
+                  {t('pages.openPlatform.delete')}
+                </Button>
+              </Popconfirm>
+            )}
           </Space>
         </div>
       ))}

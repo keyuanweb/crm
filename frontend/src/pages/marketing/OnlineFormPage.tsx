@@ -27,6 +27,8 @@ import {
   updateForm,
 } from '../../services/formService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { FormField, OnlineForm, Submission } from '../../types/form'
 
 interface FieldRow extends FormField {
@@ -45,6 +47,8 @@ export default function OnlineFormPage() {
   const [subDrawer, setSubDrawer] = useState<OnlineForm | null>(null)
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const nextKey = useRef(1)
+  // 086：启停与删除按权限码收口（toggle / delete 两个端点挂的都是 form:manage）。
+  const can = usePerms([PERMS.formManage])
 
   const FIELD_TYPES = [
     { value: 'TEXT', label: t('pages.marketing.onlineForm.fieldType.TEXT') },
@@ -184,9 +188,10 @@ export default function OnlineFormPage() {
       dataIndex: 'status',
       width: 90,
       search: false,
-      render: (_, row) => (
-        <Switch checked={row.status === 'ENABLED'} size="small" onChange={(c) => void onToggle(row, c)} />
-      ),
+      render: (_, row) =>
+        can[PERMS.formManage] ? (
+          <Switch checked={row.status === 'ENABLED'} size="small" onChange={(c) => void onToggle(row, c)} />
+        ) : null,
     },
     {
       title: t('pages.marketing.onlineForm.colAction'),
@@ -202,13 +207,15 @@ export default function OnlineFormPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.marketing.onlineForm.btnEdit')}
         </a>,
-        <Popconfirm
-          key="delete"
-          title={t('pages.marketing.onlineForm.confirmDelete')}
-          onConfirm={() => onDelete(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>{t('pages.marketing.onlineForm.btnDelete')}</a>
-        </Popconfirm>,
+        can[PERMS.formManage] ? (
+          <Popconfirm
+            key="delete"
+            title={t('pages.marketing.onlineForm.confirmDelete')}
+            onConfirm={() => onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{t('pages.marketing.onlineForm.btnDelete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

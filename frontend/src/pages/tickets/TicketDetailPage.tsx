@@ -14,7 +14,10 @@ import {
 } from '../../services/ticketService'
 import { fetchUsers } from '../../services/userService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import SurveyBlock from '../../components/SurveyBlock'
+import PermissionGuard from '../../components/PermissionGuard'
 import {
   TICKET_PRIORITY_COLORS,
   TICKET_SLA_COLORS,
@@ -36,6 +39,16 @@ export default function TicketDetailPage() {
   const [assignOpen, setAssignOpen] = useState(false)
   const [assigneeOptions, setAssigneeOptions] = useState<{ value: number; label: string }[]>([])
   const [assigneeId, setAssigneeId] = useState<number | undefined>()
+  // 四个动作挂四个**各自独立**的码（TicketController.java:110-135），不共用判据：
+  // 删除 ticket:delete、分配 ticket:assign、状态流转 ticket:update、回复 ticket:reply。
+  // 「开始处理 / 标记已解决 / 关闭工单」打的是同一个 POST /tickets/{id}/transition、同一个码，
+  // 故三处整组同判据，界面上不出现第二个判据。
+  const can = usePerms([
+    PERMS.ticketDelete,
+    PERMS.ticketAssign,
+    PERMS.ticketUpdate,
+    PERMS.ticketReply,
+  ])
 
   const ticketId = Number(id)
 
@@ -144,7 +157,7 @@ export default function TicketDetailPage() {
           </Typography.Text>
         </div>
         <Space>
-          {ticket.status !== 'CLOSED' && (
+          {ticket.status !== 'CLOSED' && can[PERMS.ticketDelete] && (
             <Button danger onClick={() => void onDelete()}>
               {t('pages.ticket.detail.deleteTicket')}
             </Button>
@@ -158,18 +171,20 @@ export default function TicketDetailPage() {
         styles={{ header: { borderBottom: '1px solid #f0f0f0' } }}
         extra={
           <Space>
-            <Button onClick={() => void openAssign()}>{t('pages.ticket.detail.assignAssignee')}</Button>
-            {canOperate && ticket.status === 'OPEN' && (
+            {can[PERMS.ticketAssign] && (
+              <Button onClick={() => void openAssign()}>{t('pages.ticket.detail.assignAssignee')}</Button>
+            )}
+            {can[PERMS.ticketUpdate] && canOperate && ticket.status === 'OPEN' && (
               <Button type="primary" onClick={() => void onTransition('IN_PROGRESS')}>
                 {t('pages.ticket.detail.startProcess')}
               </Button>
             )}
-            {canOperate && ticket.status === 'IN_PROGRESS' && (
+            {can[PERMS.ticketUpdate] && canOperate && ticket.status === 'IN_PROGRESS' && (
               <Button type="primary" onClick={() => void onTransition('RESOLVED')}>
                 {t('pages.ticket.detail.markResolved')}
               </Button>
             )}
-            {ticket.status === 'RESOLVED' && (
+            {can[PERMS.ticketUpdate] && ticket.status === 'RESOLVED' && (
               <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => void onTransition('CLOSED')}>
                 {t('pages.ticket.detail.closeTicket')}
               </Button>
@@ -263,23 +278,30 @@ export default function TicketDetailPage() {
         />
       </Card>
 
+      {/* 086 T083：整块条件渲染改用 `PermissionGuard`——本组件此前全库零引用（死代码），
+          它的适用场景正是这里："包裹一整块"而不是给单个按钮加判据。
+          业务状态判据 `canOperate`（`status !== 'CLOSED'`）留在**外层**、权限判据交给守卫，
+          故两者仍是 ∧，与上面几处 `can[...]` 的语义逐字一致，只是换了承载形式。
+          守卫内部对 ADMIN 直通（`PermissionGuard.tsx:36`），与 `hasPerm` 同一语义（该处已在护栏白名单）。 */}
       {canOperate && (
-        <div style={{ marginTop: 16 }}>
-          <Input.TextArea
-            rows={3}
-            placeholder={t('pages.ticket.detail.replyPlaceholder')}
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-          />
-          <Button
-            type="primary"
-            icon={<SendOutlined />}
-            style={{ marginTop: 8 }}
-            onClick={() => void onReply()}
-          >
-            {t('pages.ticket.detail.sendReply')}
-          </Button>
-        </div>
+        <PermissionGuard permission={PERMS.ticketReply}>
+          <div style={{ marginTop: 16 }}>
+            <Input.TextArea
+              rows={3}
+              placeholder={t('pages.ticket.detail.replyPlaceholder')}
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+            />
+            <Button
+              type="primary"
+              icon={<SendOutlined />}
+              style={{ marginTop: 8 }}
+              onClick={() => void onReply()}
+            >
+              {t('pages.ticket.detail.sendReply')}
+            </Button>
+          </div>
+        </PermissionGuard>
       )}
 
       <Modal

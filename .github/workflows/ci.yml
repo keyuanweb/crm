@@ -68,6 +68,13 @@ jobs:
       - name: Menu manifest is up to date
         working-directory: frontend
         run: pnpm run menu:check
+      # 权限判定接线（086）。挂错一个权限码是**静默失效**：`hasPerm` 走 permissions.includes(code)，
+      # 字典里不存在的码不会被授给任何角色，于是按钮无声无息地消失——没有报错、没有 403、控制台无提示。
+      # 后端 `FrontendPermissionCodeAlignmentTest` 只管住登记表那半边（码是否合法），
+      # 管不到「页面有没有用对键」与「有没有人写回 role === 'ADMIN' 的旧写法」，故必须单独设一道门禁。
+      - name: Permission gating is wired correctly
+        working-directory: frontend
+        run: pnpm run perms:check
       # 必须走 test:coverage 而不是 test：覆盖率阈值（vite.config.ts 的 coverage.thresholds，
       # FR-G09）只在该命令下生效。跑 test 的话门禁「配了但不管」——正是本规格要消除的形态。
       - name: Unit tests (with coverage threshold)

@@ -30,6 +30,8 @@ import {
   type TaskPayload,
 } from '../../services/taskService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import { useQuery } from '@tanstack/react-query'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import {
@@ -65,6 +67,9 @@ export default function TaskListPage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<TaskItem | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 完成 / 重开打的是 POST /tasks/{id}/toggle（task:update），删除打的是 DELETE /tasks/{id}
+  // （task:delete）——两个码不同，分开判断。
+  const can = usePerms([PERMS.taskUpdate, PERMS.taskDelete])
 
   const summaryQuery = useQuery({
     queryKey: ['task-reminder-summary'],
@@ -207,21 +212,23 @@ export default function TaskListPage() {
       valueType: 'option',
       width: 200,
       render: (_, row) => [
-        row.status === 'TODO' ? (
+        row.status === 'TODO' && can[PERMS.taskUpdate] ? (
           <a key="done" onClick={() => onToggle(row)}>
             <CheckOutlined /> {t('pages.task.list.done')}
           </a>
-        ) : (
+        ) : row.status !== 'TODO' && can[PERMS.taskUpdate] ? (
           <a key="redo" onClick={() => onToggle(row)}>
             <RedoOutlined /> {t('pages.task.list.redo')}
           </a>
-        ),
+        ) : null,
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.task.list.edit')}
         </a>,
-        <Popconfirm key="delete" title={t('pages.task.list.deleteConfirm', { name: row.title })} onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('pages.task.list.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.taskDelete] ? (
+          <Popconfirm key="delete" title={t('pages.task.list.deleteConfirm', { name: row.title })} onConfirm={() => onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('pages.task.list.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

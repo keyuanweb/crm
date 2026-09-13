@@ -10,6 +10,8 @@ import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import { type User, type UserRole } from '../../types/user'
 import { type DataScope } from '../../types/department'
 import { useAuthStore } from '../../store/authStore'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import dayjs from 'dayjs'
 
 interface CreateValues {
@@ -65,6 +67,10 @@ export default function UserManagementPage() {
     ? roleOptions
     : Object.keys(ENUM_KEYS.userRole).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.userRole, code) }))
   const currentUser = useAuthStore((s) => s.user)
+  // 数据权限 / 重置密码 / 启停三个动作打的是同一个码：PUT /users/{id}、/users/{id}/password、
+  // /users/{id}/data-permission 挂的都是 user:manage（UserController.java:76-94），故共用判据。
+  // 「编辑」不在收口范围内，保持无条件渲染。
+  const can = usePerms([PERMS.userManage])
 
   const reload = () => actionRef.current?.reload()
 
@@ -231,19 +237,25 @@ export default function UserManagementPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.userManagement.edit')}
         </a>,
-        <a key="perm" onClick={() => void openPermission(row)}>
-          {t('pages.userManagement.dataPermission')}
-        </a>,
-        <a key="reset" style={{ color: '#fa8c16' }} onClick={() => openReset(row)}>
-          {t('pages.userManagement.resetPassword')}
-        </a>,
-        <Popconfirm
-          key="toggle"
-          title={t('pages.userManagement.toggleConfirm', { action: row.enabled ? 'pages.userManagement.toggleAction.disable' : 'pages.userManagement.toggleAction.enable', username: row.username })}
-          onConfirm={() => onToggle(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>{row.enabled ? t('pages.userManagement.disable') : t('pages.userManagement.enable')}</a>
-        </Popconfirm>,
+        can[PERMS.userManage] ? (
+          <a key="perm" onClick={() => void openPermission(row)}>
+            {t('pages.userManagement.dataPermission')}
+          </a>
+        ) : null,
+        can[PERMS.userManage] ? (
+          <a key="reset" style={{ color: '#fa8c16' }} onClick={() => openReset(row)}>
+            {t('pages.userManagement.resetPassword')}
+          </a>
+        ) : null,
+        can[PERMS.userManage] ? (
+          <Popconfirm
+            key="toggle"
+            title={t('pages.userManagement.toggleConfirm', { action: row.enabled ? 'pages.userManagement.toggleAction.disable' : 'pages.userManagement.toggleAction.enable', username: row.username })}
+            onConfirm={() => onToggle(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{row.enabled ? t('pages.userManagement.disable') : t('pages.userManagement.enable')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

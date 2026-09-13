@@ -10,6 +10,8 @@ import {
 } from '../../services/exportService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import { type ExportJob, type ExportType } from '../../types/export'
 
 export default function ExportCenterPage() {
@@ -17,6 +19,10 @@ export default function ExportCenterPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [exportType, setExportType] = useState<ExportType>('LEAD')
+  // 发起导出：POST /exports 挂的是 export:create（ExportController.java:52-53）。
+  // 行内的「下载」（GET /exports/{id}/download，ExportController.java:67）**刻意不收**：
+  // 该端点没有任何权限注解，硬挂号会造成真收窄（详见 specs/086-frontend-button-gating/research.md）。
+  const can = usePerms([PERMS.exportCreate])
 
   const onExport = async () => {
     try {
@@ -91,9 +97,11 @@ export default function ExportCenterPage() {
           onChange={setExportType}
           options={Object.keys(ENUM_KEYS.exportType).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.exportType, code) }))}
         />
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => void onExport()}>
-          {t('pages.exportCenter.btnExport')}
-        </Button>
+        {can[PERMS.exportCreate] && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => void onExport()}>
+            {t('pages.exportCenter.btnExport')}
+          </Button>
+        )}
       </div>
       <ProTable<ExportJob>
         size="small"

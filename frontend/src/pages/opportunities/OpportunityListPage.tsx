@@ -12,6 +12,8 @@ import {
 } from '../../services/opportunityService'
 import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import { formatAmount, type Opportunity } from '../../types/opportunity'
 import { useQuery } from '@tanstack/react-query'
 import { extractCfParams, useCustomFieldFilterColumns } from '../../hooks/useCustomFieldFilters'
@@ -39,6 +41,8 @@ export default function OpportunityListPage() {
   const [editing, setEditing] = useState<Opportunity | null>(null)
   const [saving, setSaving] = useState(false)
   const [form] = Form.useForm<FormValues>()
+  // 删除商机走 DELETE /opportunities/{id}，OpportunityController 上标的是 opportunity:delete。
+  const can = usePerms([PERMS.opportunityDelete])
 
   const customers = useQuery({
     queryKey: ['customers-options'],
@@ -132,13 +136,15 @@ export default function OpportunityListPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('common.button.edit')}
         </a>,
-        <Popconfirm
-          key="delete"
-          title={t('pages.opportunity.list.deleteConfirm', { name: row.name })}
-          onConfirm={() => onDelete(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.opportunityDelete] ? (
+          <Popconfirm
+            key="delete"
+            title={t('pages.opportunity.list.deleteConfirm', { name: row.name })}
+            onConfirm={() => onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

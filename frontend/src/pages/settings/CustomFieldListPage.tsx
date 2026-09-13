@@ -11,6 +11,8 @@ import {
   type CustomFieldPayload,
 } from '../../services/customFieldService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { CustomField, FieldEntityType, FieldType } from '../../types/customField'
 
 interface FormValues {
@@ -31,6 +33,8 @@ export default function CustomFieldListPage() {
   const [editing, setEditing] = useState<CustomField | null>(null)
   const [fieldType, setFieldType] = useState<FieldType>('TEXT')
   const [form] = Form.useForm<FormValues>()
+  // 删除字段走 DELETE /custom-fields/{id}，CustomFieldController 上标的是 custom_field:delete。
+  const can = usePerms([PERMS.customFieldDelete])
 
   const FIELD_ENTITY_LABELS: Record<FieldEntityType, string> = {
     LEAD: t('pages.customField.fieldEntityLead'),
@@ -147,13 +151,15 @@ export default function CustomFieldListPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.customField.edit')}
         </a>,
-        <Popconfirm
-          key="delete"
-          title={t('pages.customField.confirmDelete', { name: row.name })}
-          onConfirm={() => onDelete(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>{t('pages.customField.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.customFieldDelete] && (
+          <Popconfirm
+            key="delete"
+            title={t('pages.customField.confirmDelete', { name: row.name })}
+            onConfirm={() => onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{t('pages.customField.delete')}</a>
+          </Popconfirm>
+        ),
       ],
     },
   ]

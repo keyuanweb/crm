@@ -82,6 +82,9 @@ export default function LeadListPage() {
   // 改造前写 `role === 'ADMIN'`——081 新增的角色里凡是拿到 lead:assign 的（如 SALES_MANAGER）
   // 在列表上根本看不到这个操作。
   const canAssign = hasPerm(PERMS.leadAssign, user)
+  // 删除线索走 DELETE /leads/{id}，LeadController 上标的是 lead:delete。
+  // 改造前这一处**完全没有判据**——谁都能看到「删除」并按下去，是本规格要补的漏网。
+  const canDelete = hasPerm(PERMS.leadDelete, user)
   const customFieldFilterColumns = useCustomFieldFilterColumns('LEAD')
 
   const onImport = async (file: File) => {
@@ -268,7 +271,7 @@ export default function LeadListPage() {
             <SwapOutlined /> {t('pages.lead.list.convert')}
           </a>
         ),
-        canEdit(row) && (
+        canEdit(row) && canDelete && (
           <Popconfirm key="delete" title={t('pages.lead.list.deleteConfirm', { name: row.name })} onConfirm={() => onDelete(row)}>
             <a style={{ color: '#ff4d4f' }}>
               <DeleteOutlined /> {t('pages.lead.list.delete')}

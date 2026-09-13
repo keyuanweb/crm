@@ -7,6 +7,8 @@ import { Button, Card, Descriptions, List, Space, Tag, Typography, Alert, messag
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
+import { usePerms } from '../../hooks/usePerms';
+import { PERMS } from '../../constants/permissions';
 
 const { Title, Text } = Typography;
 
@@ -17,6 +19,10 @@ const ScheduledExportExecutionHistoryPage: React.FC = () => {
   const [task, setTask] = useState<ScheduledExportResponse | null>(null);
   const [executions, setExecutions] = useState<ScheduledExportExecutionResponse[]>([]);
   const [loading, setLoading] = useState(false);
+  // 立即执行：POST /scheduled-exports/{id}/execute-now 挂的是 export:scheduled
+  // （ScheduledExportController.java:84-85），与列表页的暂停/恢复/删除同码。
+  // 「刷新」只是重新拉取，不在收口范围内。
+  const can = usePerms([PERMS.exportScheduled]);
 
   const entityTypeLabels: Record<string, string> = {
     CUSTOMER: t('pages.scheduledExport.common.entityTypeLabels.CUSTOMER'),
@@ -95,9 +101,11 @@ const ScheduledExportExecutionHistoryPage: React.FC = () => {
         <Button icon={<ReloadOutlined />} onClick={loadDetail}>
           {t('pages.scheduledExport.history.refresh')}
         </Button>
-        <Button type="primary" icon={<ReloadOutlined />} onClick={handleExecuteNow}>
-          {t('pages.scheduledExport.history.executeNow')}
-        </Button>
+        {can[PERMS.exportScheduled] && (
+          <Button type="primary" icon={<ReloadOutlined />} onClick={handleExecuteNow}>
+            {t('pages.scheduledExport.history.executeNow')}
+          </Button>
+        )}
       </Space>
 
       <Card title={t('pages.scheduledExport.history.taskInfo')} style={{ marginBottom: 16 }}>

@@ -7,6 +7,8 @@ import { Button, Card, Descriptions, List, Space, Tag, Typography, Alert, messag
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
+import { usePerms } from '../../hooks/usePerms';
+import { PERMS } from '../../constants/permissions';
 
 const { Title, Text } = Typography;
 
@@ -17,6 +19,9 @@ const DataRetentionExecutionHistoryPage: React.FC = () => {
   const [policy, setPolicy] = useState<DataRetentionPolicyResponse | null>(null);
   const [executions, setExecutions] = useState<DataRetentionExecutionResponse[]>([]);
   const [loading, setLoading] = useState(false);
+  // 立即执行：POST /data-retention/execute 挂的是 retention:execute（DataRetentionPolicyController.java:78-79）。
+  // 「返回」只 navigate、不发请求，不收口。
+  const can = usePerms([PERMS.retentionExecute]);
 
   const entityTypeLabels: Record<string, string> = {
     CUSTOMER: t('pages.dataRetention.common.entityTypeLabels.CUSTOMER'),
@@ -91,9 +96,11 @@ const DataRetentionExecutionHistoryPage: React.FC = () => {
           {t('pages.dataRetention.common.back')}
         </Button>
         <Title level={4}>{t('pages.dataRetention.common.historyTitle', { entity: entityTypeLabels[policy.entityType] ?? policy.entityType })}</Title>
-        <Button type="primary" icon={<PlayCircleOutlined />} onClick={handleExecute}>
-          {t('pages.dataRetention.history.executeNow')}
-        </Button>
+        {can[PERMS.retentionExecute] && (
+          <Button type="primary" icon={<PlayCircleOutlined />} onClick={handleExecute}>
+            {t('pages.dataRetention.history.executeNow')}
+          </Button>
+        )}
       </Space>
 
       <Card title={t('pages.dataRetention.history.policyInfo')} style={{ marginBottom: 16 }}>

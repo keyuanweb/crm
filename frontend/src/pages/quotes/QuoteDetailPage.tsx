@@ -158,6 +158,9 @@ export default function QuoteDetailPage() {
               </Button>
             </>
           )}
+          {/* 「导出报价单 PDF」**刻意不加权限判据**：该端点（`QuoteController.java:128-131`）挂的是
+              **读码** `quote:read`，而能渲染出本页的人必然已持有该码（否则连 `GET /quotes/{id}` 都过不去），
+              挂上去是一个恒真的空动作——既收不窄任何人，又会让后来者以为这里已经收过口。 */}
           <Button icon={<DownloadOutlined />} onClick={() => void onAction(() => exportQuotePdf(quoteId), t('pages.quote.detail.msgPdf'))}>
             {t('pages.quote.detail.exportPdf')}
           </Button>

@@ -25,6 +25,8 @@ import {
 } from '../../services/emailService'
 import { fetchSegments } from '../../services/segmentService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { EmailCampaign, EmailSendLog } from '../../types/email'
 import type { Segment } from '../../types/tag'
 
@@ -75,6 +77,8 @@ export default function EmailCampaignPage() {
   const [hasSkippedBatch, setHasSkippedBatch] = useState(false)
   const [form] = Form.useForm<FormValues>()
   const [testEmail, setTestEmail] = useState('')
+  // 086：测试发送按权限码收口（POST /email-campaigns/{id}/test 挂 email:manage）。
+  const can = usePerms([PERMS.emailManage])
 
   useEffect(() => {
     void fetchEmailTemplates().then((ts) =>
@@ -176,15 +180,17 @@ export default function EmailCampaignPage() {
         <a key="detail" onClick={() => void openDetail(row)}>
           {t('pages.marketing.emailCampaign.btnRecords')}
         </a>,
-        <a
-          key="test"
-          onClick={() => {
-            setTestEmail('')
-            void onTestSend(row)
-          }}
-        >
-          {t('pages.marketing.emailCampaign.btnTest')}
-        </a>,
+        can[PERMS.emailManage] ? (
+          <a
+            key="test"
+            onClick={() => {
+              setTestEmail('')
+              void onTestSend(row)
+            }}
+          >
+            {t('pages.marketing.emailCampaign.btnTest')}
+          </a>
+        ) : null,
       ],
     },
   ]

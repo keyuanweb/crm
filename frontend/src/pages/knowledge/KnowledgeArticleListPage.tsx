@@ -13,6 +13,8 @@ import {
   type ArticlePayload,
 } from '../../services/knowledgeService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import { type ArticleCategory, type KnowledgeArticle } from '../../types/knowledge'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 
@@ -31,6 +33,9 @@ export default function KnowledgeArticleListPage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<KnowledgeArticle | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 086：发布/下架（knowledge:update）与删除（knowledge:delete）挂的是两个不同的码，
+  // 分别按各自端点收口。
+  const can = usePerms([PERMS.knowledgeUpdate, PERMS.knowledgeDelete])
 
   const reload = () => actionRef.current?.reload()
 
@@ -142,24 +147,28 @@ export default function KnowledgeArticleListPage() {
       width: 200,
       render: (_, row) => [
         row.status === 'DRAFT' ? (
-          <a key="publish" onClick={() => onPublish(row)}>
-            {t('pages.knowledge.btnPublish')}
-          </a>
-        ) : (
+          can[PERMS.knowledgeUpdate] ? (
+            <a key="publish" onClick={() => onPublish(row)}>
+              {t('pages.knowledge.btnPublish')}
+            </a>
+          ) : null
+        ) : can[PERMS.knowledgeUpdate] ? (
           <a key="unpublish" onClick={() => onUnpublish(row)}>
             {t('pages.knowledge.btnUnpublish')}
           </a>
-        ),
+        ) : null,
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.knowledge.btnEdit')}
         </a>,
-        <Popconfirm
-          key="delete"
-          title={t('pages.knowledge.confirmDelete', { title: row.title })}
-          onConfirm={() => onDelete(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.knowledgeDelete] ? (
+          <Popconfirm
+            key="delete"
+            title={t('pages.knowledge.confirmDelete', { title: row.title })}
+            onConfirm={() => onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

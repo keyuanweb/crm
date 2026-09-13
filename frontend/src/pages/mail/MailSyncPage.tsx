@@ -13,6 +13,8 @@ import {
   updateMailAccount,
 } from '../../services/mailService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { MailAccount, MailSyncRecord } from '../../types/mail'
 
 interface FormValues {
@@ -34,6 +36,8 @@ export default function MailSyncPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<MailAccount | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 086：删除邮箱账号按权限码收口（DELETE /mail-accounts/{id} 挂 mail_account:manage）。
+  const can = usePerms([PERMS.mailAccountManage])
 
   const columns: ProColumns<MailAccount>[] = [
     { title: t('pages.mail.email'), dataIndex: 'email' },
@@ -57,9 +61,11 @@ export default function MailSyncPage() {
       valueType: 'option',
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>{t('common.button.edit')}</a>,
-        <Popconfirm key="del" title={t('pages.mail.confirmDeleteAccount')} onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.mailAccountManage] ? (
+          <Popconfirm key="del" title={t('pages.mail.confirmDeleteAccount')} onConfirm={() => void onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]
@@ -187,6 +193,9 @@ function SyncRecordList({ accountId }: { accountId: number }) {
   const { t } = useTranslation()
   const { message } = App.useApp()
   const actionRef = useRef<ActionType>()
+  // 086：模拟同步（POST /mail-accounts/{id}/sync）与删除同步记录
+  // （DELETE /mail-accounts/{id}/records/{recordId}）两个端点挂的都是 mail_sync:manage。
+  const can = usePerms([PERMS.mailSyncManage])
   const SYNC_DIRECTION_LABELS: Record<string, string> = {
     INBOUND: t('pages.mail.directionInbound'),
     OUTBOUND: t('pages.mail.directionOutbound'),
@@ -207,9 +216,11 @@ function SyncRecordList({ accountId }: { accountId: number }) {
       title: t('pages.mail.action'),
       valueType: 'option',
       render: (_, row) => [
-        <Popconfirm key="del" title={t('pages.mail.confirmDeleteSyncRecord')} onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.mailSyncManage] ? (
+          <Popconfirm key="del" title={t('pages.mail.confirmDeleteSyncRecord')} onConfirm={() => void onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]
@@ -250,23 +261,27 @@ function SyncRecordList({ accountId }: { accountId: number }) {
           return { data: res.items, success: true, total: res.total }
         }}
         toolBarRender={() => [
-          <Button
-            key="sync"
-            type="primary"
-            ghost
-            icon={<SyncOutlined />}
-            onClick={async () => {
-              try {
-                await simulateSync(accountId)
-                message.success(t('pages.mail.msgSyncTriggered'))
-                actionRef.current?.reload()
-              } catch (err) {
-                message.error(extractErrorMessage(err, t('pages.mail.msgSyncFailed')))
-              }
-            }}
-          >
-            {t('pages.mail.btnSimulateSync')}
-          </Button>,
+          ...(can[PERMS.mailSyncManage]
+            ? [
+                <Button
+                  key="sync"
+                  type="primary"
+                  ghost
+                  icon={<SyncOutlined />}
+                  onClick={async () => {
+                    try {
+                      await simulateSync(accountId)
+                      message.success(t('pages.mail.msgSyncTriggered'))
+                      actionRef.current?.reload()
+                    } catch (err) {
+                      message.error(extractErrorMessage(err, t('pages.mail.msgSyncFailed')))
+                    }
+                  }}
+                >
+                  {t('pages.mail.btnSimulateSync')}
+                </Button>,
+              ]
+            : []),
         ]}
       />
     </>

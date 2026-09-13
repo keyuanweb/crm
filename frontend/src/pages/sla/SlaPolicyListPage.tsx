@@ -14,6 +14,8 @@ import {
 import { extractErrorMessage } from '../../services/apiClient'
 import { type TicketPriority } from '../../types/ticket'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { SlaPolicy } from '../../types/sla'
 
 interface FormValues {
@@ -32,6 +34,8 @@ export default function SlaPolicyListPage() {
   const [editing, setEditing] = useState<SlaPolicy | null>(null)
   const [overview, setOverview] = useState<{ totalOpen: number; overdue: number } | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 删除策略走 DELETE /sla-policies/{id}，SlaPolicyController 上标的是 sla:manage。
+  const can = usePerms([PERMS.slaManage])
 
   const reload = () => actionRef.current?.reload()
 
@@ -139,13 +143,15 @@ export default function SlaPolicyListPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.slaPolicy.edit')}
         </a>,
-        <Popconfirm
-          key="delete"
-          title={t('pages.slaPolicy.confirmDelete', { priority: labelOf(t, ENUM_KEYS.ticketPriority, row.priority) })}
-          onConfirm={() => onDelete(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>{t('pages.slaPolicy.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.slaManage] && (
+          <Popconfirm
+            key="delete"
+            title={t('pages.slaPolicy.confirmDelete', { priority: labelOf(t, ENUM_KEYS.ticketPriority, row.priority) })}
+            onConfirm={() => onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{t('pages.slaPolicy.delete')}</a>
+          </Popconfirm>
+        ),
       ],
     },
   ]

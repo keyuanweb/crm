@@ -13,6 +13,8 @@ import {
 import { extractErrorMessage } from '../../services/apiClient'
 import type { StageActionTemplate } from '../../types/playbook'
 import { useOpportunityStages } from '../../hooks/useOpportunityStages'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 
 interface FormValues {
   stage: string
@@ -42,6 +44,8 @@ export default function StageActionTemplatePage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<StageActionTemplate | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 删除模板走 DELETE /stage-actions/{id}，PlaybookController 上标的是 playbook:manage。
+  const can = usePerms([PERMS.playbookManage])
 
   const reload = () => actionRef.current?.reload()
 
@@ -154,13 +158,15 @@ export default function StageActionTemplatePage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('common.button.edit')}
         </a>,
-        <Popconfirm
-          key="delete"
-          title={t('pages.playbook.confirmDelete', { name: row.actionName })}
-          onConfirm={() => onDelete(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.playbookManage] && (
+          <Popconfirm
+            key="delete"
+            title={t('pages.playbook.confirmDelete', { name: row.actionName })}
+            onConfirm={() => onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
+          </Popconfirm>
+        ),
       ],
     },
   ]

@@ -17,6 +17,8 @@ import {
   useOpportunityStages,
 } from '../../hooks/useOpportunityStages'
 import { ENUM_KEYS } from '../../constants/enumLabels'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { OpportunityStageDef } from '../../types/opportunity'
 
 interface StageFormValues {
@@ -41,6 +43,9 @@ export default function OpportunityStagePage() {
   const [editing, setEditing] = useState<OpportunityStageDef | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [form] = Form.useForm<StageFormValues>()
+  // 停用/启用走 POST /opportunity-stages/{id}/enabled、删除走 DELETE /opportunity-stages/{id}，
+  // OpportunityStageController 上两个方法挂的都是 stage:manage。
+  const can = usePerms([PERMS.stageManage])
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: OPPORTUNITY_STAGES_QUERY_KEY })
 
@@ -185,7 +190,7 @@ export default function OpportunityStagePage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.opportunityStageSettings.btnEdit')}
         </a>,
-        row.enabled === 1 ? (
+        can[PERMS.stageManage] && row.enabled === 1 && (
           <Popconfirm
             key="disable"
             title={t('pages.opportunityStageSettings.confirmDisable', { name: row.name })}
@@ -193,7 +198,8 @@ export default function OpportunityStagePage() {
           >
             <a>{t('pages.opportunityStageSettings.btnDisable')}</a>
           </Popconfirm>
-        ) : (
+        ),
+        can[PERMS.stageManage] && row.enabled !== 1 && (
           <a key="enable" onClick={() => toggle.mutate({ id: row.id, enabled: true })}>
             {t('pages.opportunityStageSettings.btnEnable')}
           </a>
@@ -203,7 +209,7 @@ export default function OpportunityStagePage() {
           <span key="delete" style={{ color: '#bbb' }}>
             {t('pages.opportunityStageSettings.btnDelete')}
           </span>
-        ) : (
+        ) : can[PERMS.stageManage] ? (
           <Popconfirm
             key="delete"
             title={t('pages.opportunityStageSettings.confirmDelete', { name: row.name })}
@@ -211,7 +217,7 @@ export default function OpportunityStagePage() {
           >
             <a style={{ color: '#ff4d4f' }}>{t('pages.opportunityStageSettings.btnDelete')}</a>
           </Popconfirm>
-        ),
+        ) : null,
       ],
     },
   ]

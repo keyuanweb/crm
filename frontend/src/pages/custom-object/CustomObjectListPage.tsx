@@ -12,6 +12,8 @@ import {
   updateCustomObject,
 } from '../../services/customObjectService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { CustomObject, ObjectFieldDef } from '../../types/customObject'
 
 interface FormValues {
@@ -29,6 +31,9 @@ export default function CustomObjectListPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<CustomObject | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 启停走 POST /custom-objects/{id}/toggle（custom_object:update）、删除走 DELETE /custom-objects/{id}
+  // （custom_object:delete）——两个端点挂的码不同，不能合成一个判据。
+  const can = usePerms([PERMS.customObjectUpdate, PERMS.customObjectDelete])
 
   const columns: ProColumns<CustomObject>[] = [
     { title: t('pages.customObject.colName'), dataIndex: 'name' },
@@ -50,12 +55,16 @@ export default function CustomObjectListPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.customObject.edit')}
         </a>,
-        <a key="toggle" onClick={() => void onToggle(row)}>
-          {row.enabled ? t('pages.customObject.disable') : t('pages.customObject.enable')}
-        </a>,
-        <Popconfirm key="del" title={t('pages.customObject.confirmDelete')} onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('pages.customObject.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.customObjectUpdate] && (
+          <a key="toggle" onClick={() => void onToggle(row)}>
+            {row.enabled ? t('pages.customObject.disable') : t('pages.customObject.enable')}
+          </a>
+        ),
+        can[PERMS.customObjectDelete] && (
+          <Popconfirm key="del" title={t('pages.customObject.confirmDelete')} onConfirm={() => void onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('pages.customObject.delete')}</a>
+          </Popconfirm>
+        ),
       ],
     },
   ]

@@ -16,6 +16,8 @@ import {
 import { ScanOutlined } from '@ant-design/icons'
 import { fetchDuplicates, mergeCustomers } from '../../services/customerMergeService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { DuplicateGroup, DuplicateItem } from '../../types/merge'
 
 const SIM_COLORS: Record<number, string> = {
@@ -31,6 +33,9 @@ export default function DuplicateMergePage() {
   const [scanning, setScanning] = useState(false)
   const [scanned, setScanned] = useState(false)
   const [merging, setMerging] = useState(false)
+  // 扫描与合并打的是 GET /customers/duplicates 与 POST /customers/merge，两个端点同挂
+  // customer:merge（CustomerMergeController）——所以只有一个判据。合并不可逆，是收口重点。
+  const can = usePerms([PERMS.customerMerge])
 
   const onScan = async () => {
     setScanning(true)
@@ -74,9 +79,11 @@ export default function DuplicateMergePage() {
       <Card style={{ borderRadius: 10 }}>
         <Space direction="vertical" style={{ width: '100%' }}>
           <Space>
-            <Button type="primary" icon={<ScanOutlined />} loading={scanning} onClick={() => void onScan()}>
-              {t('pages.duplicateMerge.btnScan')}
-            </Button>
+            {can[PERMS.customerMerge] ? (
+              <Button type="primary" icon={<ScanOutlined />} loading={scanning} onClick={() => void onScan()}>
+                {t('pages.duplicateMerge.btnScan')}
+              </Button>
+            ) : null}
             <Typography.Text type="secondary" style={{ fontSize: 13 }}>
               {t('pages.duplicateMerge.scanHint')}
             </Typography.Text>
@@ -131,17 +138,18 @@ export default function DuplicateMergePage() {
                 {
                   title: t('pages.duplicateMerge.colAction'),
                   width: 90,
-                  render: (_, item) => (
-                    <Popconfirm
-                      title={t('pages.duplicateMerge.mergeConfirmTitle', { name: item.name, primary: g.primaryName })}
-                      description={t('pages.duplicateMerge.mergeConfirmDesc')}
-                      onConfirm={() => void onMerge(g, item)}
-                    >
-                      <Button size="small" type="primary" danger loading={merging}>
-                        {t('pages.duplicateMerge.btnMerge')}
-                      </Button>
-                    </Popconfirm>
-                  ),
+                  render: (_, item) =>
+                    can[PERMS.customerMerge] ? (
+                      <Popconfirm
+                        title={t('pages.duplicateMerge.mergeConfirmTitle', { name: item.name, primary: g.primaryName })}
+                        description={t('pages.duplicateMerge.mergeConfirmDesc')}
+                        onConfirm={() => void onMerge(g, item)}
+                      >
+                        <Button size="small" type="primary" danger loading={merging}>
+                          {t('pages.duplicateMerge.btnMerge')}
+                        </Button>
+                      </Popconfirm>
+                    ) : null,
                 },
               ]}
             />

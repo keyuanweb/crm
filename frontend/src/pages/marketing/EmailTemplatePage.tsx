@@ -21,6 +21,8 @@ import {
   updateEmailTemplate,
 } from '../../services/emailService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { EmailTemplate } from '../../types/email'
 
 interface FormValues {
@@ -41,6 +43,8 @@ export default function EmailTemplatePage() {
   const [previewContent, setPreviewContent] = useState('')
   const [previewSubject, setPreviewSubject] = useState('')
   const [form] = Form.useForm<FormValues>()
+  // 086：删除模板按权限码收口（EmailController 全线只有 email:manage 一个写码）。
+  const can = usePerms([PERMS.emailManage])
 
   const categoryLabels: Record<string, string> = {
     WELCOME: t('pages.marketing.emailTemplate.catWelcome'),
@@ -123,13 +127,15 @@ export default function EmailTemplatePage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('common.button.edit')}
         </a>,
-        <Popconfirm
-          key="delete"
-          title={t('pages.marketing.emailTemplate.confirmDelete', { name: row.name })}
-          onConfirm={() => onDelete(row)}
-        >
-          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.emailManage] ? (
+          <Popconfirm
+            key="delete"
+            title={t('pages.marketing.emailTemplate.confirmDelete', { name: row.name })}
+            onConfirm={() => onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

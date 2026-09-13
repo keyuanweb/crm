@@ -16,6 +16,8 @@ import { fetchUsers } from '../../services/userService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { type WorkflowActionType, type WorkflowEventType, type WorkflowRule } from '../../types/workflow'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 
 interface FormValues {
   name: string
@@ -42,6 +44,9 @@ export default function WorkflowRuleListPage() {
   const [actionType, setActionType] = useState<WorkflowActionType>('ASSIGN')
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
   const [form] = Form.useForm<FormValues>()
+  // 启停（POST /workflows/rules/{id}/toggle，WorkflowController.java:92-93）与删除
+  // （DELETE /workflows/rules/{id}，WorkflowController.java:99-100）是两个独立的码，不共用判据。
+  const can = usePerms([PERMS.workflowUpdate, PERMS.workflowDelete])
 
   // 加载用户列表（动作=分配时选择目标用户，替代手输 ID）
   const loadUsers = async () => {
@@ -186,15 +191,19 @@ export default function WorkflowRuleListPage() {
       valueType: 'option',
       width: 200,
       render: (_, row) => [
-        <a key="toggle" onClick={() => onToggle(row)}>
-          {row.enabled ? t('pages.workflowRule.disable') : t('pages.workflowRule.enable')}
-        </a>,
+        can[PERMS.workflowUpdate] ? (
+          <a key="toggle" onClick={() => onToggle(row)}>
+            {row.enabled ? t('pages.workflowRule.disable') : t('pages.workflowRule.enable')}
+          </a>
+        ) : null,
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.workflowRule.edit')}
         </a>,
-        <Popconfirm key="delete" title={t('pages.workflowRule.confirmDelete', { name: row.name })} onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('pages.workflowRule.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.workflowDelete] ? (
+          <Popconfirm key="delete" title={t('pages.workflowRule.confirmDelete', { name: row.name })} onConfirm={() => onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('pages.workflowRule.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

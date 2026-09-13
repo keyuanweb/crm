@@ -10,6 +10,8 @@ import {
   updateCurrency,
 } from '../../services/currencyService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { CurrencyRate } from '../../types/currency'
 
 interface FormValues {
@@ -27,6 +29,8 @@ export default function CurrencyRatePage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<CurrencyRate | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 删除汇率走 DELETE /currencies/{id}，CurrencyRateController 上标的是 currency:manage。
+  const can = usePerms([PERMS.currencyManage])
 
   const columns: ProColumns<CurrencyRate>[] = [
     { title: t('pages.currency.colCode'), dataIndex: 'code', render: (_, row) => <Tag color={row.isBase ? 'gold' : 'blue'}>{row.code}</Tag> },
@@ -50,9 +54,11 @@ export default function CurrencyRatePage() {
             <a key="edit" onClick={() => openEdit(row)}>
               {t('pages.currency.btnEdit')}
             </a>
-            <Popconfirm key="del" title={t('pages.currency.confirmDelete')} onConfirm={() => void onDelete(row)}>
-              <a style={{ color: '#ff4d4f', marginLeft: 8 }}>{t('pages.currency.btnDelete')}</a>
-            </Popconfirm>
+            {can[PERMS.currencyManage] && (
+              <Popconfirm key="del" title={t('pages.currency.confirmDelete')} onConfirm={() => void onDelete(row)}>
+                <a style={{ color: '#ff4d4f', marginLeft: 8 }}>{t('pages.currency.btnDelete')}</a>
+              </Popconfirm>
+            )}
           </>
         ),
     },

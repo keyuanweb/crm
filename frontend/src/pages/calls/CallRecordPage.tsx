@@ -12,6 +12,8 @@ import {
 } from '../../services/callRecordService'
 import { fetchCustomers } from '../../services/customerService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { CallRecord, CallStats } from '../../types/callRecord'
 
 interface FormValues {
@@ -32,6 +34,8 @@ export default function CallRecordPage() {
   const [editing, setEditing] = useState<CallRecord | null>(null)
   const [stats, setStats] = useState<CallStats | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 删除通话记录走 DELETE /call-records/{id}，CallRecordController 上标的是 call_record:delete。
+  const can = usePerms([PERMS.callRecordDelete])
 
   const CALL_DIRECTION_LABELS: Record<string, string> = {
     INBOUND: t('pages.call.directionInbound'),
@@ -88,9 +92,11 @@ export default function CallRecordPage() {
       valueType: 'option',
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>{t('common.button.edit')}</a>,
-        <Popconfirm key="del" title={t('pages.call.confirmDelete')} onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.callRecordDelete] ? (
+          <Popconfirm key="del" title={t('pages.call.confirmDelete')} onConfirm={() => void onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('common.button.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

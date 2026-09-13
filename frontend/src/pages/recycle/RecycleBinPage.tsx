@@ -4,6 +4,8 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import { App, Button, Input, Popconfirm, Select, Tag, Typography } from 'antd'
 import { DeleteOutlined, ReloadOutlined } from '@ant-design/icons'
 import { fetchRecycleBin, purgeItems, restoreItems } from '../../services/recycleService'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { RecycleItem } from '../../types/recycle'
 
 const { Title, Paragraph } = Typography
@@ -22,6 +24,9 @@ export default function RecycleBinPage() {
   const [type, setType] = useState<string | undefined>()
   const [keyword, setKeyword] = useState('')
   const [selected, setSelected] = useState<RecycleItem[]>([])
+  // 同页两个按钮挂**不同的码**：恢复走 POST /recycle-bin/restore（recycle:restore），
+  // 彻底删除走 POST /recycle-bin/purge（recycle:purge，不可逆）——不得一刀切。
+  const can = usePerms([PERMS.recycleRestore, PERMS.recyclePurge])
 
   const onRestore = async () => {
     if (!selected.length) return
@@ -103,20 +108,28 @@ export default function RecycleBinPage() {
               actionRef.current?.reload()
             }}
           />,
-          <Popconfirm key="restore" title={t('pages.recycleBin.confirmRestore')} onConfirm={() => void onRestore()}>
-            <Button type="primary" icon={<ReloadOutlined />} disabled={!selected.length}>
-              {t('pages.recycleBin.btnRestore')}
-            </Button>
-          </Popconfirm>,
-          <Popconfirm
-            key="purge"
-            title={t('pages.recycleBin.confirmPurge')}
-            onConfirm={() => void onPurge()}
-          >
-            <Button danger icon={<DeleteOutlined />} disabled={!selected.length}>
-              {t('pages.recycleBin.btnDelete')}
-            </Button>
-          </Popconfirm>,
+          ...(can[PERMS.recycleRestore]
+            ? [
+                <Popconfirm key="restore" title={t('pages.recycleBin.confirmRestore')} onConfirm={() => void onRestore()}>
+                  <Button type="primary" icon={<ReloadOutlined />} disabled={!selected.length}>
+                    {t('pages.recycleBin.btnRestore')}
+                  </Button>
+                </Popconfirm>,
+              ]
+            : []),
+          ...(can[PERMS.recyclePurge]
+            ? [
+                <Popconfirm
+                  key="purge"
+                  title={t('pages.recycleBin.confirmPurge')}
+                  onConfirm={() => void onPurge()}
+                >
+                  <Button danger icon={<DeleteOutlined />} disabled={!selected.length}>
+                    {t('pages.recycleBin.btnDelete')}
+                  </Button>
+                </Popconfirm>,
+              ]
+            : []),
         ]}
         request={async (params) => {
           const res = await fetchRecycleBin({

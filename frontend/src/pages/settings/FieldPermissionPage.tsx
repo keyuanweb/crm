@@ -12,6 +12,8 @@ import { fetchCustomFields } from '../../services/customFieldService'
 import { fetchRoleOptions } from '../../services/roleService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import { type FieldPermission } from '../../types/fieldPermission'
 
 interface FormValues {
@@ -41,6 +43,9 @@ export default function FieldPermissionPage() {
   const [fieldOptions, setFieldOptions] = useState<{ value: number; label: string }[]>([])
   const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([])
   const [form] = Form.useForm<FormValues>()
+  // 删除字段权限配置走 DELETE /field-permissions/{id}，FieldPermissionController 上标的是
+  // field_permission:manage（与 upsert 是同一个码）。
+  const can = usePerms([PERMS.fieldPermissionManage])
 
   useEffect(() => {
     void (async () => {
@@ -92,9 +97,11 @@ export default function FieldPermissionPage() {
       title: t('pages.fieldPermission.colAction'),
       valueType: 'option',
       render: (_, row) => [
-        <Popconfirm key="del" title={t('pages.fieldPermission.confirmDelete')} onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('pages.fieldPermission.btnDelete')}</a>
-        </Popconfirm>,
+        can[PERMS.fieldPermissionManage] && (
+          <Popconfirm key="del" title={t('pages.fieldPermission.confirmDelete')} onConfirm={() => void onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('pages.fieldPermission.btnDelete')}</a>
+          </Popconfirm>
+        ),
       ],
     },
   ]

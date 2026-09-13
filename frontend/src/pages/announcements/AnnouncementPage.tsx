@@ -23,6 +23,8 @@ import {
   updateAnnouncement,
 } from '../../services/announcementService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { Announcement } from '../../types/announcement'
 import dayjs from 'dayjs'
 
@@ -41,6 +43,8 @@ export default function AnnouncementPage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<Announcement | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 086：删除公告按权限码收口（DELETE /announcements/{id} 挂 announcement:manage）。
+  const can = usePerms([PERMS.announcementManage])
 
   const reload = () => actionRef.current?.reload()
 
@@ -147,9 +151,11 @@ export default function AnnouncementPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.announcement.action.edit')}
         </a>,
-        <Popconfirm key="delete" title={t('pages.announcement.confirmDelete')} onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('pages.announcement.action.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.announcementManage] ? (
+          <Popconfirm key="delete" title={t('pages.announcement.confirmDelete')} onConfirm={() => onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('pages.announcement.action.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

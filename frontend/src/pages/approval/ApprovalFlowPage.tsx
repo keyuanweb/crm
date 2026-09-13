@@ -25,6 +25,8 @@ import {
 } from '../../services/approvalService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { ApprovalFlow, FlowNode } from '../../types/approval'
 
 interface NodeRow extends FlowNode {
@@ -62,6 +64,9 @@ export default function ApprovalFlowPage() {
     extraNodes: [],
   })
   const nextKey = useRef(1)
+  // 删除审批流：DELETE /approval-flows/{id} 挂的是 workflow:manage（ApprovalController.java:66-67）。
+  // 同端点族的 create / update 挂的是同一个码，但「新建」「编辑」不在收口范围内，故这里只判删除。
+  const can = usePerms([PERMS.workflowManage])
 
   const reload = () => actionRef.current?.reload()
 
@@ -284,9 +289,11 @@ export default function ApprovalFlowPage() {
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.approvalFlow.edit')}
         </a>,
-        <Popconfirm key="delete" title={t('pages.approvalFlow.confirmDelete')} onConfirm={() => onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('pages.approvalFlow.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.workflowManage] ? (
+          <Popconfirm key="delete" title={t('pages.approvalFlow.confirmDelete')} onConfirm={() => onDelete(row)}>
+            <a style={{ color: '#ff4d4f' }}>{t('pages.approvalFlow.delete')}</a>
+          </Popconfirm>
+        ) : null,
       ],
     },
   ]

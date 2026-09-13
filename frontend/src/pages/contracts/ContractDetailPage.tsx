@@ -119,6 +119,11 @@ export default function ContractDetailPage() {
   const canApprove = hasPerm(PERMS.contractApprove, user) && status === 'PENDING_APPROVAL'
   const canEffective = status === 'APPROVED' || status === 'SIGNED'
   const canFinish = status === 'APPROVED' || status === 'SIGNED' || status === 'EFFECTIVE'
+  // 终止合同 / 删除附件：PUT /contracts/{id}/terminate（ContractController.java:138-144）与
+  // DELETE /contracts/{id}/attachments/{aid}（ContractAttachmentController.java:82-86）挂的都是
+  // contract:update——与上面的 contractApprove **两码独立、不可互替**（FR-B07）。
+  // 此处只加码闸门，审批判据不动；与状态判据（canFinish）是 ∧ 关系。
+  const canUpdate = hasPerm(PERMS.contractUpdate, user)
 
   // 状态 Tag
   const renderStatus = (status?: string) => {
@@ -163,13 +168,15 @@ export default function ContractDetailPage() {
         >
           <DownloadOutlined /> {t('pages.contract.detail.download')}
         </a>,
-        <a
-          key="delete"
-          style={{ color: 'var(--color-danger)', marginLeft: 8 }}
-          onClick={() => onAction(() => deleteContractAttachment(contractId, row.id), t('pages.contract.detail.msgDeleted'))}
-        >
-          {t('pages.contract.detail.delete')}
-        </a>,
+        canUpdate ? (
+          <a
+            key="delete"
+            style={{ color: 'var(--color-danger)', marginLeft: 8 }}
+            onClick={() => onAction(() => deleteContractAttachment(contractId, row.id), t('pages.contract.detail.msgDeleted'))}
+          >
+            {t('pages.contract.detail.delete')}
+          </a>
+        ) : null,
       ],
     },
   ]
@@ -276,9 +283,11 @@ export default function ContractDetailPage() {
                 <Button onClick={() => onAction(() => completeContract(contractId), t('pages.contract.detail.msgCompleted'))}>
                   {t('pages.contract.detail.markComplete')}
                 </Button>
-                <Button danger onClick={() => { terminateForm.resetFields(); setTerminateOpen(true) }}>
-                  {t('pages.contract.detail.terminate')}
-                </Button>
+                {canUpdate && (
+                  <Button danger onClick={() => { terminateForm.resetFields(); setTerminateOpen(true) }}>
+                    {t('pages.contract.detail.terminate')}
+                  </Button>
+                )}
               </>
             )}
             <Button icon={<ReloadOutlined />} onClick={() => void refetch()}>
