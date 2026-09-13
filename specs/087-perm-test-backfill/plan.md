@@ -40,7 +40,7 @@
 **一处口径订正（已写入 `086/tasks.md` T103，此处复述以免复发）**：
 "码字面量出现在测试里" **≠** "有正向用例"。`campaign:delete` 的字面量确实出现在
 `LandingPageListPage.perm.test.tsx:104`，但那是**负向夹具**（断言某角色不该因此获得能力），
-它真正的判据落点 `CampaignListPage.tsx:200` 从未被执行。若按"字面量出现"计数，本规格会漏掉它。
+它真正的判据落点 `can[PERMS.campaignDelete]`（成文时 `CampaignListPage.tsx:200`）从未被执行。若按"字面量出现"计数，本规格会漏掉它。
 
 **第二遍（执行收尾时，改用正确口径重扫全仓）**：口径改为
 「该码的判据落点所在页面，是否有用例**引用该码**（`PERMS.<key>` 或码字符串）」，对**所有**含 `PERMS.` 的
@@ -81,13 +81,19 @@
 | `product:create` | `products/ProductListPage` | 工具栏「新建」 | `:232` | |
 | `product:update` | 同上 | 行内「编辑」 | `:191` | |
 | `product:delete` | 同上 | 行内「删除」 | `:196` | |
-| `campaign:create` | `marketing/CampaignListPage` | 工具栏「新建」 | `:239` | |
-| `campaign:update` | 同上 | 行内「开始」/「结束」/「编辑」 | `:185` `:190` `:195` | ⚠️ **∧ 状态**：开始仅 `PLANNING`、结束仅 `RUNNING`、编辑非 `ENDED` |
+| `campaign:create` | `marketing/CampaignListPage` | 工具栏「新建」 | `:266` | 成文时 `:239`（见下方行号漂移注） |
+| `campaign:update` | 同上 | 行内「开始」/「结束」/「编辑」 | `:212` `:217` `:222` | ⚠️ **∧ 状态**：开始仅 `PLANNING`、结束仅 `RUNNING`、编辑非 `ENDED`；成文时 `:185` `:190` `:195` |
 | `role:manage` | `roles/RoleListPage` | 行内「编辑/删除」**+ 工具栏「新建」** | `:199` `:263` | **一码管两处** |
-| `campaign:delete` | `marketing/CampaignListPage` | 行内「删除」 | `:200` | 范围订正扩入（原被误判为已覆盖） |
+| `campaign:delete` | `marketing/CampaignListPage` | 行内「删除」 | `:227` | 范围订正扩入（原被误判为已覆盖）；成文时 `:200` |
 | `email:manage` | `email/EmailUnsubscribePage` | 「恢复」 | `:41` | 范围订正扩入；**同码在 `EmailTemplatePage` 另有落点，已在册** |
 | `email:manage` | `marketing/EmailCampaignPage` | 「测试发送」 | `:183` | 同上；**与上一行是两个独立站点，不可互推** |
 | `export:scheduled` | `exports/ScheduledExportExecutionHistoryPage` | 「立即执行」 | `:104` | 范围订正扩入；**同码在 `ScheduledExportListPage` 的落点已覆盖，勿重复** |
+
+> ⚠️ **行号漂移注（2026-09-13 复核）**：上表里 `marketing/CampaignListPage` 的 5 个行号在成文后**整体下移 27 行**——
+> `a642426`（本规格之外的金额修复，该文件净增 27 行）把 `:185/:190/:195/:200/:239` 顶成 `:212/:217/:222/:227/:266`。
+> 表中已填**现值**。**这是引用订正，不涉范围、需求或决策的任何变更**（旧值全部留痕于括号与注中）。
+> 教训：**行号会腐坏，锚字符串（`can[PERMS.xxx]`）才长生**——再动这个文件时请连带核这一列。
+> （同批被顶走的还有 `tasks.md` T092 记录里那串"在飞探针"行号；那是**历史记录**，按当时实况保留不改。）
 
 > ⚠️ 标记者是本规格最容易写错的地方：**把状态判据的差异误读成权限判据的差异**
 > （例：`campaign:update` 下「开始」在 PLANNING 行有、在 RUNNING 行没有——那是状态不是权限）。

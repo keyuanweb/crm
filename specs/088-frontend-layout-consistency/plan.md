@@ -83,8 +83,8 @@
 英文分支在 hook 里**不可测**；抽出来后按语言取值的分支才有真实覆盖。
 
 **③ `PageState` 合成一个组件、`PageShell` 不做。** `PageShell` 的真陷阱是：带 `title` 的 shell 会诱使页面
-**同时**在 shell 头和 ProTable 的 `headerTitle` 里渲染标题，而 `CampaignListPage.perm.test.tsx:104,110` 的
-`screen.getByText(TITLE)` **遇到重复即抛错**。改为一条纯布局类 `.page-stack { display:grid; row-gap:16px }`：
+**同时**在 shell 头和 ProTable 的 `headerTitle` 里渲染标题，而 `CampaignListPage.perm.test.tsx:112` 的
+`screen.getByText(TITLE)`（2026-09-13 复核：该文件**唯一**一处，原稿误记为 `:104,110`；**引用订正，非范围变更**）**遇到重复即抛错**。改为一条纯布局类 `.page-stack { display:grid; row-gap:16px }`：
 零函数计数、不诱发那个错误。
 
 **④ 只有 `data-testid` 与 `display` 进渲染测试。** 间距类属性（`columnGap`/`rowGap`/`gridTemplateColumns`）

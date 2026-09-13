@@ -73,14 +73,24 @@
 
 ## 测试（范围订正扩入的 4 个判据点，3 个码）
 
-- [ ] **T018** `CampaignListPage.perm.test.tsx` —— `campaign:delete`（行内删除，落点 `:200`）
+- [x] **T018** `CampaignListPage.perm.test.tsx` —— `campaign:delete`（行内删除，落点 `:227`）
       **追加**进 T012 的同一文件（故与 T012 串行）；头部 docstring 里「campaign:delete 不在本文件范围内」
       一句须同步订正（否则文档立刻失真）
-- [ ] **T019** `email/EmailUnsubscribePage.perm.test.tsx` + `marketing/EmailCampaignPage.perm.test.tsx` ——
+      → 已订正为「本文件已覆盖」；交付第 6/7 两条用例（正 / 负）。
+      ⚠️ 落点 `:200` 在**成文时是对的**（`a1108d4` 时 `can[PERMS.campaignDelete]` 正在 `:200`），
+      是被 `a642426`（本规格之外的金额单位修复，该文件净增 27 行，22:18）顶到 `:227` 的——
+      **行号引用会腐坏**，与 T018 要求同步订正 docstring 是同一个理由。
+      **锚字符串（`can[PERMS.campaignDelete]`）比锚行号稳**；本文件头部 docstring 已同步为现值。
+      **本次补勾只订正引用与勾选框，不涉范围、需求或决策的任何变更。**（2026-09-13 补勾）
+- [x] **T019** `email/EmailUnsubscribePage.perm.test.tsx` + `marketing/EmailCampaignPage.perm.test.tsx` ——
       `email:manage`（「恢复」`:41` / 「测试发送」`:183`）
       **同码两个独立站点，必须各自双向成对，不得互推**
-- [ ] **T020** `exports/ScheduledExportExecutionHistoryPage.perm.test.tsx` —— `export:scheduled`
+      → 已各自成对，两个文件各 5 条（正 / 负 / 异码 `campaign:delete` 不构成放行 / ADMIN 锚点 / 行为），
+      且**互不引用对方文件**（同一套结构各写一遍，不是一个文件里断言两处）（2026-09-13 补勾）
+- [x] **T020** `exports/ScheduledExportExecutionHistoryPage.perm.test.tsx` —— `export:scheduled`
       （「立即执行」`:104`）。⚠️ 同码在 `ScheduledExportListPage` 的落点**已覆盖**，勿重复
+      → 交付 5 条：正 ×2（ADMIN 直通 / 持码可授予）、负 ×2（无码不可见 / 只持同族 `export:create` 不串门）、
+      行为 ×1；与 `ScheduledExportListPage` 的落点无重复（2026-09-13 补勾）
       `role:manage`（⚠️ **行内编辑/删除 + 工具栏新建，一码两处**）
 
 ## 收尾

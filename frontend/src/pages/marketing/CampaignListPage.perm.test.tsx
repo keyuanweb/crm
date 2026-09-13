@@ -24,7 +24,7 @@ vi.mock('../../services/marketingService', () => ({
  *   行内「开始」        ← campaign:update **∧ status==='PLANNING'**  （:185）
  *   行内「结束」        ← campaign:update **∧ status==='RUNNING'**   （:190）
  *   行内「编辑」        ← campaign:update **∧ status!=='ENDED'**     （:195）
- *   行内「删除」        ← campaign:delete（**本文件已覆盖**；**不带状态判据**，三行恒同）  （:200）
+ *   行内「删除」        ← campaign:delete（**本文件已覆盖**；**不带状态判据**，三行恒同）（`can[PERMS.campaignDelete]`；成文 `:200`／现 `:227`）
  * </pre>
  *
  * <p><b>本文件最容易写错的地方：把状态判据的差异误读成权限判据的差异。</b>

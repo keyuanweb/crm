@@ -28,10 +28,14 @@
 
 | 判据点 | 码 | 误判来源 |
 |---|---|---|
-| `marketing/CampaignListPage:200` 行内「删除」 | `campaign:delete` | `landing/LandingPageListPage.perm.test.tsx:104` 的负向夹具 |
+| `marketing/CampaignListPage` 行内「删除」（`can[PERMS.campaignDelete]`，成文时 `:200`／现 `:227`） | `campaign:delete` | `landing/LandingPageListPage.perm.test.tsx:104` 的负向夹具 |
 | `email/EmailUnsubscribePage:41`「恢复」 | `email:manage` | 同上（同一行的夹具里同时列了 `email:manage` 与 `campaign:delete`） |
 | `marketing/EmailCampaignPage:183`「测试发送」 | `email:manage` | 同上 |
 | `exports/ScheduledExportExecutionHistoryPage:104`「立即执行」 | `export:scheduled` | 同类 |
+
+> **引用订正（2026-09-13，非范围变更）**：上表首行的行号由 `:200` 改为现值 `:227` 并补上锚字符串，
+> 原因是 `a642426`（**本规格之外**的金额单位修复）给 `CampaignListPage.tsx` 净增 27 行。
+> 这是**引用保真**——**不涉范围、需求、决策的任何变更**；旧值全部留痕。表中其余三行未漂移。
 
 所以 `campaign:delete` **不是孤例，而是这一类的一个样本**——086 的 T103 只点出了它一个，没有把这一类扫完。这 4 处与 15 个码**同类同源**（都是"已接线、零本页用例、错了也不会有任何信号"），本规格按同类扩入，**范围由 15 个码订正为 18 个码**（新增 `campaign:delete` / `email:manage` / `export:scheduled`）。
 
@@ -39,7 +43,7 @@
 
 **为什么这不是吹毛求疵**：086 自己给出了反例。`campaign:delete` 的**字面量确实出现在测试文件里**，
 看起来"有覆盖"，但逐个核对后发现它只是 `LandingPageListPage.perm.test.tsx:104` 里的一个**负向夹具**
-（断言"该角色不该因此拿到能力"），而它真正的判据落点 `CampaignListPage.tsx:200` **从未被任何用例执行过**。
+（断言"该角色不该因此拿到能力"），而它真正的判据落点 `can[PERMS.campaignDelete]`（成文时 `CampaignListPage.tsx:200`；后因 `a642426` 净增 27 行，现 `:227`）**从未被任何用例执行过**。
 于是"数一数测试里出现过多少个码"这种口径会给出**虚高的覆盖率**——
 本规格的 T003 因此把口径写成"有**正向**用例"，而不是"码字面量出现在测试里"。
 
