@@ -97,7 +97,7 @@ export default function TagListPage() {
   ]
 
   return (
-    <>
+    <div className="page-stack">
       <ProTable<TagItem>
         size="small"
         headerTitle={t('pages.tagList.title')}
@@ -150,6 +150,6 @@ export default function TagListPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </>
+    </div>
   )
 }
