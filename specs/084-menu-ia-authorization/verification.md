@@ -672,6 +672,10 @@ FR-005 用例（两次新密码不一致）的 `waitFor` 用默认 1 s，在**�
 `SchemaParityIT`（已镜像进测试库）在构建内覆盖，但这两者是**静态断言**，不能替代活库端到端验证——
 这一点如实记为**未完成项**，不混入上面的 37/37。
 
+> **【后记，2026-09-13】本节已可由文末「T021（手工一半）」一节替代**：那里在含 V85–V87 的实例上重跑了同一套件
+> （37 passed / 45.9s），并证明该进程确实加载了 084 的字节码。另需注意：本节把那个 8081 实例归因为
+> 「可能属于并行会话」，**该归因是错的**，订正见同一节末的「订正 ①」。
+
 ## T039–T040 收口：两处治理记录的补齐（2026-09-12）
 
 `/speckit-converge` 在本次复核中报出两条 CRITICAL，都不是"代码没写"，而是**记录不合规格要求**。
@@ -846,3 +850,203 @@ FR-005 用例（两次新密码不一致）的 `waitFor` 用默认 1 s，在**�
    故只在本节与 `plan.md` 的订正注记、`tasks.md` 的 Convergence 相位留痕，不动 `spec.md` 的需求文本
    （FR-N20/N21 的文字本身没有错，错的是 plan 那句对**残留映射数量**的枚举）。
 
+## T021（手工一半）：浏览器逐角色验收（2026-09-13，084 最后一条任务）
+
+T021 的机械一半（`MenuAccessGrantAlignmentTest`、行为层 IT）早已全绿，剩的只有 quickstart D1/D2/D3 的**浏览器**步骤。
+本节是那一步的实跑记录。它与上文「SC-N07」节同源同因地被卡过一次，故先解决**「跑的是不是含 084 改动的那一套」**——
+项目记忆里那条「e2e 打的是已在跑的后端，不一定是本次改动」正是针对这一点。
+
+### 环境（先自证，否则证据会被读大）
+
+| 侧 | 事实 | 依据 |
+|---|---|---|
+| 后端 | PID 9104，`-Djava.version=17` 启动于 **08:08:31**；V85/V86/V87 由 Flyway 在**本次启动时**应用（日志 `Successfully applied`） | `Get-CimInstance Win32_Process -Filter 'ProcessId=9104'` 得 CreationDate `2026/9/13 8:08:31` |
+| 关键类 | `RoleConstants.class`、`CustomObjectController.class`、`CurrencyRateController.class` 的 mtime 均为 **08:08:26**，**早于进程启动 5 秒** | `ls -l target/classes/com/crm/{common/RoleConstants,controller/CustomObjectController,controller/CurrencyRateController}.class` |
+| 前端 | Vite dev server（5173）直接服务工作区当前源码 | `pnpm dev`，`reuseExistingServer` |
+| 浏览器 | 仓库已装的 Playwright chromium（`@playwright/test` 1.62.1，headless） | 脚本见下 |
+
+> 上一版把「8081 上的实例可能属于并行会话」当作不重启它的理由，**该归因是错的**（订正见本节末）。事实上那个实例就是本次会话自己的后台任务，它随 WSL/MySQL 一起死掉之后，才有这次用 `-Djava.version=17` 起的新实例。
+
+### 夹具：用真实接口建号、用真实登录接口取「被授了什么」
+
+不去猜 `role_menu` 里有什么，也不读迁移文件——直接问服务端：
+
+1. `POST /api/v1/users`（管理员令牌）为 10 个预置角色各建一个用户（`e2e_analyst`…`e2e_viewer`，口令 `Test12345`，HTTP 201 ×10）；D2 另要求的两个**回归项**角色另建 `e2e_sales`（role=`SALES`），`ADMIN` 用内置 `admin`
+2. 逐个 `POST /api/v1/auth/login`，读回 `data.user.menus` —— 这是「授权」一侧的**权威副本**
+3. 浏览器里以同一批账号登录，读侧边栏真实 DOM —— 这是「渲染」一侧
+4. 第三侧「权威」＝ `RoleConstants.MENU_TREE`（解析得 11 组 / 56 项，键无重复）
+
+夹具脚本与验收脚本都在 `frontend/node_modules/.t021/`（**临时目录，不进版本控制、也不该被引用**）——
+它们是本次**一次性**的核对手段；判据本身已按下面的「固化形态」进仓库，日后以那份为准。
+
+### 判据（逐角色 6 条，不是只看「有几个菜单」）
+
+| # | 断言 | 对应的需求 |
+|---|---|---|
+| A | 渲染键集合 **==** 服务端下发的授权键集合（多一个＝「没勾却出现」，少一个＝「勾了看不到」） | FR-N01/N02 |
+| B | 每个渲染出的分组，其成员在权威处都属该组；组标题逐字 == 权威组名 | FR-N09/N18 |
+| C | 空组不渲染：授权 ∩ 该组成员为空的分组**不得出现**，且渲染出的组不得为空 | FR-N03 |
+| D | 组内成员 == 授权 ∩ 该组成员 | FR-N02 |
+| E | 组顺序、组内顺序 == 权威顺序（过滤空组后） | FR-N09 |
+| F | 项名逐字 == 权威 `title`（「借分组显示」的两个子页面除外，其名来自路由表） | FR-N10/N11 |
+
+`data-menu-id` 里携带的就是 route path（`rc-menu-uuid-…-<path>`），故 DOM → 菜单键的还原走的是
+`menuKeys.ts` 同一套 `COARSE_ALIASES` 约定，不引入第三张表。
+
+### 固化形态：`frontend/e2e/menu-visibility.spec.ts`（14 条用例，进仓库）
+
+上面 6 条判据**不能只停在一次性脚本里**——那样它既进不了 CI，也没人会重跑。故同一套判据已固化为 e2e 用例：
+
+| 用例 | 覆盖 |
+|---|---|
+| 10 个预置角色各一条「侧边栏可见集合 == 授权集合」 | A + B/C/D（归组、空组不渲染、组顺序） |
+| `SALES`（既有角色回归项） | D2 点名 |
+| `ADMIN：全量兜底` | D3 |
+| `ANALYST：已授权的「自定义对象」打得开` | D1-3 |
+| `ANALYST：未授权的「角色管理」仍 403` | D1-4 |
+
+**三条设计要点**（都是为了让它在 CI 里成立）：
+
+1. **不读仓库文件**：授权取自 `POST /api/v1/auth/login` 的 `data.user.menus`，权威树取自
+   `GET /api/v1/roles/menu-tree`（就是 `RoleConstants.MENU_TREE` 的序列化），两者都走 dev server 的 `/api` 代理
+   ——故**不硬编码后端端口**，与浏览器同一条路径。
+2. **不复制映射表**：DOM → 菜单键直接 `import { menuKeyOf } from '../src/constants/menuKeys'`。
+   一次性的脚本里是「照抄那份约定」（第三份副本），固化时改为**引用同一份代码**，否则这套「反重复」的工作自己又添一张表。
+3. **夹具自建且幂等**：`beforeAll` 用管理员令牌 `POST /api/v1/users` 建 11 个夹具用户；
+   已存在时建号返回 409，记一行日志继续（不静默，也不因此失败）。
+
+`pnpm exec playwright test e2e/menu-visibility.spec.ts` → **14 passed**；并入全套后
+`pnpm test:e2e` → **51 passed (46.2s)**（原 37 条 + 新 14 条）；`pnpm lint` → 0 problems。
+
+### 结果：12 个角色 / 0 问题
+
+| 角色 | 授权（`user.menus`） | 渲染 | 判定 |
+|---|---|---|---|
+| ANALYST | 7 | 7 | ✅ |
+| FINANCE_ACCOUNTANT | 8 | 8 | ✅ |
+| FINANCE_MANAGER | 13 | 13 | ✅ |
+| MARKETING_MANAGER | 15 | 15 | ✅ |
+| MARKETING_SPECIALIST | 11 | 11 | ✅ |
+| SALES_MANAGER | 26 | 26 | ✅ |
+| SALES_REP | 21 | 21 | ✅ |
+| SUPPORT_AGENT | 10 | 10 | ✅ |
+| SUPPORT_MANAGER | 16 | 16 | ✅ |
+| VIEWER | 12 | 12 | ✅ |
+| `ADMIN`（D3 回归项） | 56（全量兜底） | 56 | ✅ 含全部 56 项 |
+| `SALES`（D2 回归项） | 22 | 22 | ✅ |
+
+**与 T002 基准的独立互证**：T002 的授权项数是**按文件名序解析 83 个迁移文件**推出来的；
+本表的授权项数是**问登录接口**得来的。两条独立路径在 12 个角色上逐一对上
+（ANALYST 7 / FINANCE_ACCOUNTANT 8 / FINANCE_MANAGER 13 / MARKETING_MANAGER 15 / MARKETING_SPECIALIST 11 /
+SALES 22 / SALES_MANAGER 26 / SALES_REP 21 / SUPPORT_AGENT 10 / SUPPORT_MANAGER 16 / VIEWER 12）。
+`SALES` 是 D2 点名的「既有可见集合未变」回归项：22 == T002 的 22，且改造前它就被硬门隐藏 0 项，故本次也无变化。
+
+`ADMIN` 一行即 D3：撤掉 UI 硬门后管理员仍是全量 56 项，三个管理组（系统管理 / 流程配置 / 审计维护）一个不少。
+
+**借分组显示的子页面**（D4 的第三条，本次顺带实测）：`/marketing/roi` 对
+`MARKETING_MANAGER`/`MARKETING_SPECIALIST`/`SALES_MANAGER`/`SALES`/`ADMIN` 渲染在「营销管理」组内，
+`/workflows/logs` 只对 `ADMIN` 渲染在「流程配置」组内——与它们各自锚定的菜单键授权范围一致，未因归位而扩大。
+
+### D1：ANALYST 的两个导航判据（机械化的「不是 403、不是空白页」）
+
+**D1-3 打开「自定义对象」**（`/custom-objects`，改造前该角色在此恒 403）：
+
+```
+200 GET /api/v1/auth/me    200 GET /api/v1/notifications/unread-count
+200 GET /api/v1/custom-objects?page=1&pageSize=20          ← 这一条就是被测行为
+```
+
+页面正文（原样摘录）：
+
+```
+首页 / 流程配置 / 自定义对象
+[重置] [查询]                          [新建对象]
+名称 | 编码 | 字段数 | 状态 | 操作
+暂无数据
+```
+
+故「正常加载」成立：查询表单、表头、操作按钮齐备，面包屑也被收口后的 `breadcrumbTrail` 正确解成
+「首页 / 流程配置 / 自定义对象」。**「暂无数据」是 dev 库的真实空集**（该库没有任何自定义对象定义），
+不是加载失败——判据是接口 `200` 与页面结构齐备，而非「有行数据」。
+
+**D1-4 未授权项直接输 URL**（`/roles`）→ 服务端仍拒绝，5 次调用全 `403`：
+
+```
+403 GET /api/v1/roles/menu-tree      403 GET /api/v1/roles/permission-defs
+403 GET /api/v1/roles/menu-tree      403 GET /api/v1/roles/permission-defs
+403 GET /api/v1/roles                                        ← 角色管理列表
+```
+
+即 FR-N05「本规格不得削弱任何既有的服务端校验」在浏览器路径上也成立：**隐藏菜单项不是访问控制，服务端照旧拦。**
+
+### 反向验证：这套判据能不能变红（不做这一步，「12 个角色 0 问题」可能只是空转）
+
+在 `frontend/src/constants/menuVisibility.ts` 里**临时**删掉 `custom-objects` 与 `settings/custom-fields`
+（复刻改造前 `isAdmin` 硬门对 ANALYST 的隐藏效果），**对固化后的 e2e 用例**复跑：
+
+```
+› ANALYST：侧边栏可见集合 == 授权集合
+  Error: expect(received).toEqual(expected) // deep equality
+    Array [
+      "approvals",
+  -   "custom-objects",
+      "data-vision",
+      "exports",
+      "reports",
+  -   "settings/custom-fields",
+      "stats",
+    ]
+  1 failed
+```
+
+红得**指名叫姓**：缺的正是那两个键。同一变异对一次性脚本也跑过一遍，除集合断言外还多报一条
+「整组因空而不渲染」（`E 组集合/顺序≠预期: 渲染 工作台,数据分析 / 预期 工作台,数据分析,流程配置`）——
+两种现象合起来就是改造前的原故障形态。
+
+还原后 `sha256sum` 与 `git show HEAD:…` 逐字节相同（`fa89edde…`）、`git diff` 为空，复跑 14 条用例全绿。
+**本轮唯一的源码改动就是这处已还原的变异**，产品代码零改动。
+
+### SC-N07 的「适用范围限定」就此解除
+
+上文 SC-N07 节曾如实声明：那次 37/37 跑的是「084 前端 + **084 之前**的后端」，故 084 的后端侧未被覆盖。
+现在有了含 V85/V86/V87 的实例，`cd frontend && pnpm test:e2e` 重跑 → **37 passed (45.9s)，退出码 0**
+（按上文同一口径先核对过进程启动时间 08:08:31 > 类 mtime 08:08:26，即进程确实加载了 084 的字节码）。
+> 那 37 条是**追加本节的 14 条新用例之前**的规模；并入之后同一命令为 **51 passed (46.2s)**。
+
+**但仍要说清楚它没有证明什么**：这套用例绝大多数用管理员登录（`role-permissions.spec.ts` 全程 admin，
+`module-page-auth.spec.ts` 亦然），唯一一处非管理员登录是 `user-management.spec.ts:47`（用刚建的用户登录）。
+所以这次重跑证明的是「**既有套件在含 084 改动的后端上不回归**」，**不是**「084 的角色可见性被这套用例验过」——
+后者是本节上面那张 12 角色的表在做的事。两件事不要互相顶替。
+
+### 订正（订正不静默、原文留痕）
+
+**订正 ①：8081 实例的归属，原文归因错误。** 上文 SC-N07 节与本文件第 844 行写的是
+「那个 8081 实例**可能属于并行会话**，本次不重启它」。**这是错的**：本项目本会话的后台任务记录显示，
+2026-09-12 16:54:09 启动的那个 `spring-boot:run` 实例是**本会话自己**起的后台任务（PID 36968），
+它在 2026-09-13 03:15 前后以**退出码 4** 结束。真实根因也不在「别人的进程」：
+MySQL 8.0.46 装在 WSL 的 Ubuntu-22.04 里、监听 127.0.0.1:3306，而该发行版在调用它的 `wsl` 命令退出后进入
+Stopped 状态，MySQL 随之消失，后端 HikariPool 报 `Communications link failure` / `Connection refused` 后退出。
+原文保留在上面，此处以本条为准。
+
+**订正 ②：quickstart D1 第 2 步的分组名。** 原文写「「数据分析」组中存在「自定义对象」」，
+实测它在**「流程配置」**组下——这正是 FR-N18 归位的结果，且权威处 `MENU_TREE`、生成物 `menuManifest.ts`、
+浏览器 DOM 三处一致。`quickstart.md` 里已就地订正并保留原文（活文档刷新为实测值）。
+
+### 局限（不要把这些证据读大）
+
+1. **判据已固化，但「12 个角色」这件事本身就慢**：`e2e/menu-visibility.spec.ts` 14 条用例约 24 秒
+   （逐角色真实登录 + 展开分组），是全套 46 秒的主要增量。这是拿时间换覆盖面的取舍，
+   不是可以顺手优化掉的——真要缩短，只能减少角色数，而那正是 D2 要求不许减的地方。
+2. **只验了 Chromium**（仓库唯一装好的浏览器）；`App.tsx` 的移动端分支（`isMobile` 拍平）不在本次覆盖内。
+3. **D4 只验了「借分组显示的子页面」一条**；「缺文案降级」由 T026 的单测与 `i18n:check` 覆盖，
+   「同名冲突」由 T022 的断言覆盖，本次未在浏览器里重做。
+4. **本用例会往被测库写夹具用户**（11 个 `e2e_*`，口令 `Test12345`，幂等）。这与既有
+   `user-management.spec.ts` 的做法一致（它同样在用例内建号），但**意味着这套 e2e 的语义是
+   「可写」，不是「只读」**——指向生产库跑会留下痕迹。夹具是**故意保留**的（D2 要求逐角色可复现），
+   需要清理时按用户名前缀删。
+5. **未改任何产品代码**：本次唯一的源码改动是那处**已还原**的临时变异；`git diff` 为空已逐字节核对。
+   新增文件只有 `frontend/e2e/menu-visibility.spec.ts`。
+6. **本用例自身的一次红与产品无关**（记下来免得后人误读）：首跑 13/14，红的那条是 D1-3——
+   我用「事后读一个响应数组」的写法，请求确实发了但数组是空的，报错成了误导性的
+   `Array [] ≠ Array [200]`。改用 `page.waitForResponse` 后稳定通过。**断言写法问题，不是产品缺陷**；
+   同类写法若再出现，症状就是「明明页面正常却报空数组」。
