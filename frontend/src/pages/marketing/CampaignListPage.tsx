@@ -22,6 +22,7 @@ import {
   type MarketingCampaign,
 } from '../../types/marketing'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { formatAmount } from '../../types/opportunity'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 
@@ -33,6 +34,19 @@ interface FormValues {
   startDate?: dayjs.Dayjs
   endDate?: dayjs.Dayjs
 }
+
+/*
+  金额的**分 ↔ 元**边界。
+
+  后端 `marketing_campaign.budget`/`cost` 是分（`V32__marketing_campaign.sql:9-10` 的列注释写着
+  「预算（分）」「成本（分）」），而用户脑子里和输入框里都是元。本页原先两端都不换算：
+  表里 500 元显示成 `50000`，编辑时又把 `50000` 填进"元"的框里，保存时原样回传——
+  这笔账**只在用户没碰过金额字段时才碰巧对**，一旦动手改就成了 100 倍的静默金额错误。
+
+  三处换算：显示用仓库既有的 `formatAmount`（`types/opportunity.ts:72`）；回填与提交按仓库
+  通行写法内联（`ContractListPage.tsx:104`、`OrderListPage.tsx:116` 都是
+  `x === undefined ? undefined : Math.round(x * 100)`），不另造 helper。
+*/
 
 export default function CampaignListPage() {
   const { t } = useTranslation()
@@ -60,8 +74,10 @@ export default function CampaignListPage() {
     form.setFieldsValue({
       name: row.name,
       channel: row.channel,
-      budget: row.budget,
-      cost: row.cost,
+      // 分 → 元（表单里填的是元）。与下面的提交是同一个边界的另一半，两处必须成对存在：
+      // 只转一处会让同一页上有两个"预算"，且编辑一次就把金额改掉 100 倍。
+      budget: row.budget == null ? undefined : row.budget / 100,
+      cost: row.cost == null ? undefined : row.cost / 100,
       startDate: row.startDate ? dayjs(row.startDate) : undefined,
       endDate: row.endDate ? dayjs(row.endDate) : undefined,
     })
@@ -73,8 +89,9 @@ export default function CampaignListPage() {
     const payload: CampaignPayload = {
       name: values.name.trim(),
       channel: values.channel,
-      budget: values.budget,
-      cost: values.cost,
+      // 元 → 分。`Math.round` 是必需的：`199.99 * 100` 在浮点下是 `19998.999…`。
+      budget: values.budget == null ? undefined : Math.round(values.budget * 100),
+      cost: values.cost == null ? undefined : Math.round(values.cost * 100),
       startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : undefined,
       endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : undefined,
     }
@@ -151,8 +168,18 @@ export default function CampaignListPage() {
         ]),
       ),
     },
-    { title: t('pages.marketing.campaign.colBudget'), dataIndex: 'budget', search: false },
-    { title: t('pages.marketing.campaign.colCost'), dataIndex: 'cost', search: false },
+    {
+      title: t('pages.marketing.campaign.colBudget'),
+      dataIndex: 'budget',
+      search: false,
+      render: (_, row) => formatAmount(row.budget),
+    },
+    {
+      title: t('pages.marketing.campaign.colCost'),
+      dataIndex: 'cost',
+      search: false,
+      render: (_, row) => formatAmount(row.cost),
+    },
     {
       title: t('pages.marketing.campaign.colAttributionLeads'),
       dataIndex: 'leadCount',
