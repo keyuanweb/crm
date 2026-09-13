@@ -38,9 +38,10 @@ description: "Task list for 089-jdk21-upgrade"
 
 **目的**：把"方案可行"这件事在动手之前钉死。
 
-- [ ] T001 确认 JDK 21 可用并记录其路径：`"$JDK21/bin/java" -version` 应输出 `21.0.12`。**不得**修改系统 `JAVA_HOME`（它当前是 `C:\Program Files\Java\jdk-17`）。同时记录 `mvn -v` 在指定该 JDK 后报出的 Java 版本，作为后续每条验证任务的前置确认
+- [x] T001 确认 JDK 21 可用并记录其路径：`"$JDK21/bin/java" -version` 应输出 `21.0.12`。~~**不得**修改系统 `JAVA_HOME`（它当前是 `C:\Program Files\Java\jdk-17`）~~。同时记录 `mvn -v` 在指定该 JDK 后报出的 Java 版本，作为后续每条验证任务的前置确认
+  > **⚠️ 订正（2026-09-13，原文留痕未删）**：删除线那句已被**项目负责人裁决取代**——`JAVA_HOME`（User 作用域）**已切换**到 `C:\Users\Administrator\.jdks\jdk-21.0.12.1+1`。原因：不切换则"本机已装新基线"这一唯一前置条件（SC-J04）只在**显式指定** JDK 时才成立，任何裸 `mvn` 都会落到 17 上。**残留未解决**：裸 `java -version` 仍是 17.0.12，因 Machine PATH 的 Oracle `javapath` 转发器排在所有 User PATH 项之前。**故本项一律以 `mvn -v` 为见证，不以 `java -version` 为见证。**
 
-- [ ] T002 **可行性哨兵**：执行 quickstart.md 第 0 组 —— 取一个新基线产出的 class 文件，用 `javap -v` 读出 `major version`（期望 **65**），并与框架内置 ASM 的读取上限（**66**）比较。**判据：65 ≤ 66**。
+- [x] T002 **可行性哨兵**：执行 quickstart.md 第 0 组 —— 取一个新基线产出的 class 文件，用 `javap -v` 读出 `major version`（期望 **65**），并与框架内置 ASM 的读取上限（**66**）比较。**判据：65 ≤ 66**。
   **⚠️ 本任务不通过即停止整个实施**——它意味着 plan.md 与 research.md R1 所依赖的唯一技术依据已失效，此时正确的动作是**重新裁决目标基线**，而不是就地调参或改方案。测试用例：用 `major version` 为 67/68/69 的 class 走一次真实组件扫描，应抛 `BeanDefinitionStoreException`（证明这条检查确实有区分度）
 
 **Checkpoint**：确认新基线可用、且可行性依据成立 → 可以开始改动
