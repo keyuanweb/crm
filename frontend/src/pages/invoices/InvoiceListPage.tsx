@@ -8,11 +8,9 @@ import {
   Form,
   Input,
   InputNumber,
-  Modal,
   Row,
   Select,
   Space,
-  Statistic,
   Tag,
 } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -26,6 +24,7 @@ import {
 import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
+import { FormGrid, FormModal, StatCard, useFormMetrics } from '../../components/ui'
 import type { Invoice } from '../../types/invoice'
 
 const getSTATUS_META = (t: (key: string, params?: Record<string, unknown>) => string): Record<string, { text: string; color: string }> => ({
@@ -44,7 +43,6 @@ export default function InvoiceListPage() {
   const { t } = useTranslation()
   const { message } = App.useApp()
   const [createOpen, setCreateOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [orderOptions, setOrderOptions] = useState<{ label: string; value: number }[]>([])
   const [voidRow, setVoidRow] = useState<Invoice | null>(null)
   const [voidReason, setVoidReason] = useState('')
@@ -54,6 +52,8 @@ export default function InvoiceListPage() {
     invoiceRate: 0,
   })
   const [form] = Form.useForm<{ orderId: number; title: string; taxNo?: string; amount: number; invoiceType: string }>()
+  // 标签宽度与栅格下限的唯一来源（中文 96 / 英文 112），取代此前写死的 '90px'。
+  const metrics = useFormMetrics()
   // 作废发票走 POST /invoices/{id}/void，InvoiceController 上标的是 invoice:manage。
   const can = usePerms([PERMS.invoiceManage])
 
@@ -84,8 +84,11 @@ export default function InvoiceListPage() {
   }
 
   const onCreate = async () => {
-    const values = await form.validateFields()
-    setSaving(true)
+    // 校验失败的 rejection 就地吃掉：antd 已把错误显示在字段下方，再弹一条 message
+    // 只会重复；而放它逃出去会让 FormModal 的 handleOk 产生一个无人接管的 promise
+    // rejection（FormModal **刻意不吞异常**，见其文件头）。
+    const values = await form.validateFields().catch(() => undefined)
+    if (!values) return
     try {
       await createInvoice({ ...values, amount: Math.round(values.amount * 100) })
       message.success(t('pages.invoiceList.messages.created'))
@@ -93,8 +96,6 @@ export default function InvoiceListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, t('pages.invoiceList.messages.createFailed')))
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -104,7 +105,6 @@ export default function InvoiceListPage() {
       message.warning(t('pages.invoiceList.voidForm.reasonRequired'))
       return
     }
-    setSaving(true)
     try {
       await voidInvoice(voidRow.id, voidReason.trim())
       message.success(t('pages.invoiceList.messages.voided'))
@@ -112,8 +112,6 @@ export default function InvoiceListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, t('pages.invoiceList.messages.voidFailed')))
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -165,21 +163,15 @@ export default function InvoiceListPage() {
 
   return (
     <div className="page-stack">
-      <Row gutter={16}>
-        <Col span={8}>
-          <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-            <Statistic title={t('pages.invoiceList.statCards.invoiceRate')} value={stats.invoiceRate} suffix="%" valueStyle={{ color: '#1677ff' }} />
-          </div>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} lg={8}>
+          <StatCard label={t('pages.invoiceList.statCards.invoiceRate')} value={`${stats.invoiceRate}%`} />
         </Col>
-        <Col span={8}>
-          <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-            <Statistic title={t('pages.invoiceList.statCards.totalInvoiceAmount')} value={(stats.totalInvoiceAmount / 100).toFixed(2)} valueStyle={{ color: '#3f8600' }} />
-          </div>
+        <Col xs={24} sm={12} lg={8}>
+          <StatCard label={t('pages.invoiceList.statCards.totalInvoiceAmount')} value={(stats.totalInvoiceAmount / 100).toFixed(2)} />
         </Col>
-        <Col span={8}>
-          <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-            <Statistic title={t('pages.invoiceList.statCards.totalOrderAmount')} value={(stats.totalOrderAmount / 100).toFixed(2)} />
-          </div>
+        <Col xs={24} sm={12} lg={8}>
+          <StatCard label={t('pages.invoiceList.statCards.totalOrderAmount')} value={(stats.totalOrderAmount / 100).toFixed(2)} />
         </Col>
       </Row>
 
@@ -204,49 +196,58 @@ export default function InvoiceListPage() {
       />
 
       {/* 开票 */}
-      <Modal
+      <FormModal
+        size="md"
         title={t('pages.invoiceList.modal.createInvoice')}
         open={createOpen}
-        onOk={() => void onCreate()}
-        confirmLoading={saving}
         onCancel={() => setCreateOpen(false)}
         okText={t('pages.invoiceList.modal.createOk')}
-        destroyOnClose
+        onSubmit={onCreate}
       >
-        <Form form={form} name="invoiceForm" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
-          <Form.Item name="orderId" label={t('pages.invoiceList.form.order')} rules={[{ required: true, message: t('pages.invoiceList.form.orderRequired') }]}>
-            <Select showSearch optionFilterProp="label" placeholder={t('pages.invoiceList.form.orderPlaceholder')} options={orderOptions} />
-          </Form.Item>
-          <Form.Item name="title" label={t('pages.invoiceList.form.title')} rules={[{ required: true, message: t('pages.invoiceList.form.titleRequired') }]}>
-            <Input placeholder={t('pages.invoiceList.form.titlePlaceholder')} />
-          </Form.Item>
-          <Form.Item name="taxNo" label={t('pages.invoiceList.form.taxNo')}>
-            <Input placeholder={t('pages.invoiceList.form.taxNoPlaceholder')} />
-          </Form.Item>
-          <Form.Item name="amount" label={t('pages.invoiceList.form.amount')} rules={[{ required: true, message: t('pages.invoiceList.form.amountRequired') }]}>
-            <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="invoiceType" label={t('pages.invoiceList.form.invoiceType')}>
-            <Select
-              options={[
-                { value: 'GENERAL', label: t('pages.invoiceList.type.generalFull') },
-                { value: 'SPECIAL', label: t('pages.invoiceList.type.specialFull') },
-              ]}
-            />
-          </Form.Item>
+        <Form
+          form={form}
+          name="invoiceForm"
+          layout="horizontal"
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
+          wrapperCol={{ flex: 1 }}
+        >
+          {/* 成对字段进栅格：md 档 640px 弹窗里可用约 592px，下限 256px ⇒ 自动两列。
+              本页 5 个字段都是短输入，没有需要全宽的项；有全宽项时须放在 FormGrid **之后**
+              作兄弟节点，否则会静默退化成两列里的一列（见 FormGrid 文件头的使用纪律）。 */}
+          <FormGrid>
+            <Form.Item name="orderId" label={t('pages.invoiceList.form.order')} rules={[{ required: true, message: t('pages.invoiceList.form.orderRequired') }]}>
+              <Select showSearch optionFilterProp="label" placeholder={t('pages.invoiceList.form.orderPlaceholder')} options={orderOptions} />
+            </Form.Item>
+            <Form.Item name="title" label={t('pages.invoiceList.form.title')} rules={[{ required: true, message: t('pages.invoiceList.form.titleRequired') }]}>
+              <Input placeholder={t('pages.invoiceList.form.titlePlaceholder')} />
+            </Form.Item>
+            <Form.Item name="taxNo" label={t('pages.invoiceList.form.taxNo')}>
+              <Input placeholder={t('pages.invoiceList.form.taxNoPlaceholder')} />
+            </Form.Item>
+            <Form.Item name="amount" label={t('pages.invoiceList.form.amount')} rules={[{ required: true, message: t('pages.invoiceList.form.amountRequired') }]}>
+              <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="invoiceType" label={t('pages.invoiceList.form.invoiceType')}>
+              <Select
+                options={[
+                  { value: 'GENERAL', label: t('pages.invoiceList.type.generalFull') },
+                  { value: 'SPECIAL', label: t('pages.invoiceList.type.specialFull') },
+                ]}
+              />
+            </Form.Item>
+          </FormGrid>
         </Form>
-      </Modal>
+      </FormModal>
 
       {/* 作废 */}
-      <Modal
+      <FormModal
+        size="sm"
         title={t('pages.invoiceList.modal.voidInvoice', { invoiceNo: voidRow?.invoiceNo ?? '' })}
         open={!!voidRow}
-        onOk={() => void onVoid()}
-        confirmLoading={saving}
         onCancel={() => setVoidRow(null)}
         okText={t('pages.invoiceList.modal.voidOk')}
         okButtonProps={{ danger: true }}
-        destroyOnClose
+        onSubmit={onVoid}
       >
         <Space direction="vertical" style={{ width: '100%' }}>
           <div>{t('pages.invoiceList.voidForm.description')}</div>
@@ -257,7 +258,7 @@ export default function InvoiceListPage() {
             onChange={(e) => setVoidReason(e.target.value)}
           />
         </Space>
-      </Modal>
+      </FormModal>
     </div>
   )
 }

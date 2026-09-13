@@ -134,12 +134,26 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
 > 排序原则是**用测试风险换验证速度**：先挑缺陷密度最高、测试耦合最低的页面，
 > 把 API 在简单情形上跑通再上难的。**一页一提交；页内「外壳」与「表单原语」再分两次提交。**
 
-- [ ] **T030 **[P] `invoices/InvoiceListPage.tsx` —— 外壳（`.page-stack`）。
+- [x] **T030** [P] `invoices/InvoiceListPage.tsx` —— 外壳（`.page-stack`）。
       该页是**最小页面里缺陷种类最全**的：4 个无宽度横向表单弹窗之一（`:209`）、
       3 个写死 `borderRadius:10` 的统计块（`:168-180`）、1 处 `#1677ff`（`:171`）、3 处 `/100` 分转元。
       测试耦合 **0 `within` / 0 `closest` / 2 `getByText`**（最低）。
-- [ ] **T031** `invoices/InvoiceListPage.tsx` —— `FormModal` + `FormGrid`，并顺手收掉该页的
+      **✅ 完成（`f9f2f57`，2 文件 +16/−5）**：`index.css` 加 `.page-stack`（紧贴已死的 `.page-header` 块）、
+      页面根 fragment → `div.page-stack`、删掉 `Row` 的 `marginBottom:16` 与手搓 spacer。
+      **唯一视觉差异：统计行到表格 32px → 16px**（research.md §11.1）。
+      门禁全绿：typecheck / lint / 7 项脚本检查 / 本页 3 用例。
+- [x] **T031** `invoices/InvoiceListPage.tsx` —— `FormModal` + `FormGrid`，并顺手收掉该页的
       1 处 `#1677ff` 与 3 个手搓统计块（**并删掉 `check-ui.mjs` 的 R1 对应白名单条目**）。
+      **✅ 完成**：两个 `Modal` → `FormModal`（创建 `md` / 作废 `sm`）、5 个字段进 `FormGrid`、
+      统计块 → `StatCard` + 响应式 `Col`（`xs/sm/lg`）、标签宽度改从 `useFormMetrics()` 取（90px → 96/112）、
+      删掉 `saving` state（提交中状态由 `FormModal` 的 `confirmLoading` 接管）、
+      R1 白名单 33/12 → **32/11**、白名单合计 56 → **55**。
+      新增 `InvoiceListPage.form.test.tsx`（5 用例）：该页此前**从不打开弹窗**，
+      故 `FormModal` 的默认脚注、`onSubmit` 接线、`FormGrid` 渲染在本页是零执行的。
+      **一处计划落空并经实测否决**：`/100` 一处都没收（4 处里只有 1 处可换 `AmountDisplay`，
+      只换 1 处会让"表格有 ¥ 而统计块没有"——正是本批次要消除的不一致）。见 research.md §11.3。
+      **一处既有缺陷被新用例抓出**：本页首屏从不拉统计（`loadStats` 只被 `reload` 调用），
+      三个数字恒为 0；已在用例里钉住，**另起一次提交修**。见 research.md §11.4。
 - [ ] **T032 **[P] `tags/TagListPage.tsx` —— 外壳。**全库最简单的表单**（3 项）、**最窄标签（80px）**、
       第 2 个无宽度弹窗（`:121`）。测试耦合 **0/0/1**。
 - [ ] **T033** `tags/TagListPage.tsx` —— `FormModal`（先用它把 API 在最简单的情形上验证）。
