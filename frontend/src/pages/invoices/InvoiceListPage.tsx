@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
@@ -62,14 +62,23 @@ export default function InvoiceListPage() {
     void loadStats()
   }
 
-  const loadStats = async () => {
+  // `useCallback` + `useEffect` 的形态照本仓惯例（`exports/ScheduledExportListPage.tsx:60-62`）：
+  // 直接写 `useEffect(() => { void loadStats() }, [])` 会让 `react-hooks/exhaustive-deps` 报缺依赖，
+  // 而本仓 lint 是**零警告**的。
+  const loadStats = useCallback(async () => {
     try {
       const s = await fetchInvoiceStats()
       setStats({ totalInvoiceAmount: s.totalInvoiceAmount, totalOrderAmount: s.totalOrderAmount, invoiceRate: s.invoiceRate })
     } catch {
       // 忽略
     }
-  }
+  }, [])
+
+  // 首屏加载：此前 `loadStats` 只从 `reload()` 进来，而 `reload()` 只被 `onCreate`/`onVoid` 调用，
+  // 于是首次进入页面时三个统计卡片恒为 0%，只有开过票或作废过一张之后才变成真值。
+  useEffect(() => {
+    void loadStats()
+  }, [loadStats])
 
   const openCreate = async () => {
     form.resetFields()

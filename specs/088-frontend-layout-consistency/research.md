@@ -593,6 +593,15 @@ plan 的非目标里写"本批次只在样板页里顺手收掉已经在那儿�
 不把修复混进 T031，理由与 plan 的原则一（每个视觉变化必须可归因）同源：
 一个行为修复与一次布局改造捆在一起，会让"数字对了"这件事无法归因到任何一次提交。
 
+**修复的实测留痕**（2026-09-13）：加 `useEffect` 后，**临时禁用它再跑一次**——
+`form.test` 首条失败且**只有它失败**（`Unable to find an element with the text: 3500.00`，
+其余 4 条仍绿），确认这条断言承载的是真实行为而不是恰好为真；随后已还原并复跑全绿。
+效果只挂载期调用一次，形态照本仓惯例 `useCallback` + `useEffect(..., [load])`
+（`exports/ScheduledExportListPage.tsx:60-62`）——直接写 `[]` 会让 `react-hooks/exhaustive-deps`
+报缺依赖，而本仓 lint 是**零警告**的。
+另注：mock 的 `totalInvoiceAmount` 由 123456 改为 **350000**，使三个统计值在页内**互不相同**
+（123456 分 → 1234.56 元，会与表格行金额撞车，`getByText` 命中多个元素即抛错）。
+
 ### 11.5 `Statistic` → `StatCard` 的四处可见差异（验收清单）
 
 | # | 差异 | 说明 |

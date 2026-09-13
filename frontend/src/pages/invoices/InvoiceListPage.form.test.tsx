@@ -55,7 +55,9 @@ async function renderPage() {
   const { fetchInvoices, fetchInvoiceStats, fetchOrdersForInvoice } = await import('../../services/invoiceService')
   vi.mocked(fetchInvoices).mockResolvedValue({ items: [issuedInvoice], total: 1, page: 1, pageSize: 10 } as never)
   vi.mocked(fetchInvoiceStats).mockResolvedValue({
-    totalInvoiceAmount: 123456,
+    // 350000 是特意取的：它 → 3500.00 元，与表格行金额（123456 分 → 1234.56 元）不同，
+    // 于是三个统计值都能**唯一**定位。若两处数字相同，`getByText` 撞上多个元素会直接抛错。
+    totalInvoiceAmount: 350000,
     totalOrderAmount: 200000,
     invoiceRate: 61.7,
     byOrder: [],
@@ -75,21 +77,25 @@ describe('InvoiceListPage 的布局原语转换（088 P2 T031）', () => {
     localStorage.clear()
   })
 
-  it('三个统计块换成 StatCard 后：标签仍在，且格式化仍发生在调用点', async () => {
+  it('三个统计块换成 StatCard 后：首屏就加载出真实值，且格式化仍发生在调用点', async () => {
     await renderPage()
 
     expect(screen.getByText('pages.invoiceList.statCards.invoiceRate')).toBeInTheDocument()
     expect(screen.getByText('pages.invoiceList.statCards.totalInvoiceAmount')).toBeInTheDocument()
     expect(screen.getByText('pages.invoiceList.statCards.totalOrderAmount')).toBeInTheDocument()
 
-    // ⚠️ 这里断言的是**零值**，钉的是一个**既有的、与本批次无关的缺陷**：
-    // `loadStats()` 只被 `reload()` 调用，而 `reload()` 只在 onCreate/onVoid 里调用，
-    // 首屏没有任何 effect 拉统计（`InvoiceListPage.tsx:60-67`）⇒ 三个卡片在首屏恒为 0。
-    // 换成 StatCard 之前它们同样是 0（原 `<Statistic>` 拿的是同一个 `stats` state），
-    // 所以这不是本次改动引入的——把它单独列一条，是为了让下一条修复提交
-    // 能把这两行断言**翻成真实值**，使"修好了"这件事在 diff 里可见。
-    expect(screen.getByText('0%')).toBeInTheDocument()
-    expect(screen.getAllByText('0.00')).toHaveLength(2)
+    // 首屏就要有值：`loadStats` 现在由一次挂载期 `useEffect` 调用。
+    // **这条断言此前是 `0%` 与两个 `0.00`** —— 那时 `loadStats` 只被 `reload()` 调用，
+    // 而 `reload()` 只被 onCreate/onVoid 调用，首屏恒为 0（research.md §11.4）。
+    // 用 `findByText` 而不是 `getByText`：统计与表格是两条独立的 promise 链，
+    // "表格渲染出发票号"并不代表统计已经落地。
+    expect(await screen.findByText('3500.00')).toBeInTheDocument()
+    // 350000 分 → 3500.00 元、200000 分 → 2000.00 元；比率带 % 后缀。
+    expect(screen.getByText('2000.00')).toBeInTheDocument()
+    expect(screen.getByText('61.7%')).toBeInTheDocument()
+    // 格式化仍发生在调用点：`StatCardProps.value` 是 `string | number`，
+    // 传进去的是已经 `toFixed(2)` 好的字符串，组件自身不做数值格式化——
+    // 这条是"金额口径没有被藏进组件"的证据。
   })
 
   it('创建弹窗里渲染出 FormGrid，且 5 个字段都在栅格内', async () => {
@@ -148,10 +154,14 @@ describe('InvoiceListPage 的布局原语转换（088 P2 T031）', () => {
     expect(createInvoice).not.toHaveBeenCalled()
   })
 
-  it('作废弹窗的 onSubmit 接到 onVoid：提交落到 service，随后的 reload 把统计块填上真实值', async () => {
+  it('作废弹窗的 onSubmit 接到 onVoid：提交落到 service，且随后的 reload 会重新拉统计', async () => {
     await renderPage()
 
-    const { voidInvoice } = await import('../../services/invoiceService')
+    const { voidInvoice, fetchInvoiceStats } = await import('../../services/invoiceService')
+    // 先记下挂载期那次加载的次数：断言"又拉了一次"而不是"屏上有值"——
+    // 挂载期已经让屏上有值了，再断言值就证明不了 reload 真的跑过。
+    const statsCallsBefore = vi.mocked(fetchInvoiceStats).mock.calls.length
+
     fireEvent.click(screen.getByText('pages.invoiceList.status.void'))
     const voidDialog = dialogWithTitle('pages.invoiceList.modal.voidInvoice') as HTMLElement
 
@@ -161,12 +171,6 @@ describe('InvoiceListPage 的布局原语转换（088 P2 T031）', () => {
     fireEvent.click(within(voidDialog).getByRole('button', { name: /pages\.invoiceList\.modal\.voidOk/ }))
 
     await waitFor(() => expect(voidInvoice).toHaveBeenCalledWith(1, '抬头开错'))
-
-    // 作废成功后走 reload() → loadStats()，统计块这时才有值。
-    // 只断言 2000.00 与 61.7%：1234.56 在**这一页同时出现在表格的金额列**上
-    // （mock 行的 amount=123456 分），用它当断言会撞上"命中多个元素"，
-    // 而 200000 分与 61.7% 在全页唯一 —— 断言要挑唯一的那个，不是挑好看的那个。
-    expect(await screen.findByText('2000.00')).toBeInTheDocument()
-    expect(screen.getByText('61.7%')).toBeInTheDocument()
+    await waitFor(() => expect(vi.mocked(fetchInvoiceStats).mock.calls.length).toBeGreaterThan(statsCallsBefore))
   })
 })
