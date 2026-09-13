@@ -1,0 +1,181 @@
+# 实施计划：前端布局规范与表单体验（088）
+
+## 摘要
+
+建立**单一真源**（antd theme token）→ 建**一套表单/布局原语** → 建**一道机器护栏** → 先改 **4 个代表页**交验收 →
+按**表单形态**分批机械铺开到其余 ~55 个含表单页面 → 退役与本批次相关的对抗性 CSS。
+
+五阶段**每阶段独立可回退**；P1 是纯增量（**零 `pages/**` 改动**），整块 diff 可一次提交删掉。
+
+## 技术上下文
+
+- **前端**：React 18 + antd **5.22.0** + @ant-design/pro-components 2.8.10 + React Query + react-i18next + vitest 1.6.1 + jsdom。
+- **唯一生产 `ConfigProvider`**：`src/components/LocaleProvider.tsx:33`（**只传 `locale`**，本规格在此接 `theme`）。
+- **测试辅助**：`src/test/renderWithProviders.tsx`（`ConfigProvider(zhCN)` + antd `App` + `QueryClient(retry:false)` + `MemoryRouter`）；
+  `src/test/setup.ts` 的 i18n mock（`t(key) => key`，**缺键时抛错，只查 zh-CN**，且 `language` 硬编码为 `'zh'`）。
+- **两条硬约束来自工具链，不是风格偏好**：
+  ① `eslint.config.js:21` 的 `react-refresh/only-export-components` + `allowConstantExport` ⇒
+  组件文件**不得**导出对象字面量或函数 ⇒ 纯函数必须另起文件；
+  ② jsdom 的 `cssstyle` **反射** `display`/`width`，**不反射** `gridTemplateColumns`/`columnGap`/`rowGap` ⇒
+  栅格算术只能在纯函数层断言。
+- **antd 的两个反直觉行为**（都会让测试无关地转红）：
+  `Button` 在**恰好两个汉字**之间自动插空格（`autoInsertSpace`）⇒ 断言用 `/创\s*建/`；
+  `Alert` 走 `pickAttrs(otherProps,{aria:true,data:true})` ⇒ `data-testid` 能存活（已核对）。
+
+## 章程检查
+
+- **原则一（不得静默）**：本规格的**每个视觉变化都必须可归因**——一页一提交、外壳与原语分两次提交，
+  正是为了让"色差"能被指到具体那次提交上。
+- **原则二（不得假门禁）**：护栏自身必须被证明会红（FR-010 / SC-004），
+  且**白名单是债务台账不是批准清单**（每条 `reason` 必须写清为什么）。
+- 不产 `contracts/`：**无端点语义变更、无 Flyway 迁移、无后端改动**（与 085/086/087 同类）。
+
+## 调研结论
+
+**全部数字由 `measure-ui-baseline.mjs` 产出（含定义），不是手数的**——理由与两次翻车记录见 research.md 开头。
+
+### 三条推翻或订正 plan 初稿的结论
+
+1. **P0 的"阻塞项"不存在**（research.md §1）。初稿称 `functions` 只有约 0.9pp 余量（阈值 21.4，实测 22.29–22.43）。实测 **33.94**，余量 **12.54pp**；原因是 `vite.config.ts:45-56` 那次快照写的是"22 文件 / 96 用例"，而当时已是 72 文件 / 308 用例——**记录过期，不是数字错**。
+   ⇒ 计划里"作为一次独立提交加 `maxWorkers`/`fileParallelism`"**取消**。
+   ⇒ 连带地，初稿**用"函数计数余量"论证的架构决定**（"`PageState` 只能合成一个、`PageShell` 干脆不做"）**论证失效**：结论可以保留（更少更大的组件本身仍是好设计），但**不许再引用余量当理由**。
+2. **"49 页裸 fragment / 12 页包 Card"撤回**（research.md §5）。用 TypeScript AST 重新导出：**46 页 fragment / 38 页自裹 `<div>` / 仅 4 页 `<Card>`**。旧数的口径**已无从考证**。若要说"页面外壳不统一"，正确表述是**三个来源平分天下**——这正是 `index.css:126-130` 那条 `.page-container > .ant-card { margin-bottom:16px }` hack（注释自陈"避免各页 12/16/20 混用"）不得不存在的原因。
+3. **两处计数订正**：`Form.Item` 277 → **289**、`vertical` 48 → **43**（另 5 个未设 layout）、`gutter` 8 种 → **6 种**、`Modal` 宽度 11 种 → **10 种**、`borderRadius: 10` 31 处 → **66 处**、`<StatusTag>` ~20 → **26**、`<StatCard>` 5 → **3**。逐条对账表在 research.md §3。
+
+### 实现期新发现的两条（见 research.md §8/§9）
+
+4. **规则 2 的真实基数是 25 处 / 19 文件，不是 23**。research.md §7 记的 23 是**只看 `src/pages/`** 的口径；
+   规则实际扫**全部产品 tsx**，多出的 2 处在 `src/components/`（`FollowUpTimeline.tsx:141`、`LeadConvertModal.tsx:43`）。
+   **两个数都对，量的是不同范围**——23 是 pages-only，25 是全仓。
+5. **规则 6 的 11 处构成与 research.md §2.9 不同**：§2.9 把 `title=` 也计入（故 `LoginPage` 记 2 处），
+   实现只扫 `placeholder` / `aria-label`（`LoginPage` 记 1 处），差额由 `ScheduledExportCreatePage.tsx:115`
+   的 JSON 示例补上。**总数巧合相同（11），构成不同**——故 §2.9 的"6 处该翻译"应改为**2 处**
+   （`App.tsx:623` 与 `LoginPage.tsx:274` 两个 `aria-label`）。
+
+### 密度：真正的杠杆不是 token
+
+初稿把 `size: 'middle'` 当密度杠杆——**已证伪**：antd 默认 `controlHeight` 就是 32（即 middle），写它等于没写；
+`size` 也不是全局种子 token（已在 `node_modules/antd/es/theme/interface/seeds.d.ts` 核对，**不存在**）。
+按收益排序的真实杠杆：**① 栅格（43 个单列纵向表单进两列 = 每个表单高度直接减半）** >
+② `Form.itemMarginBottom: 24→12` > ③ `Card.bodyPadding: 24→16` / `Card.headerHeight: 56→44` >
+④ 外壳 padding > ⑤ `Table.cellPaddingBlockSM: 8→6`。
+
+## 实现策略
+
+### 阶段划分
+
+| 阶段 | 内容 | 出口判据 |
+|---|---|---|
+| **P0 前置** | 覆盖率基线（3 次冻结读数）+ `measure-ui-baseline.mjs` + `research.md` 写实 | 3 次读数稳定成一个可引用的区间 |
+| **P1 纯增量，单独提交** | `src/theme/index.ts` + `LocaleProvider`/`renderWithProviders` 接线 + 4 个原语 + barrel + `check-ui.mjs` + `package.json`/`ci.yml` 各一行 + 每个新件一个测试 | **零调用点改动，全绿** |
+| **P2 样板 4 页** | 按测试风险升序逐页转换，**一页一提交**；页内"外壳"与"表单原语"**再分两次** | **用户在 dev server 上验收** |
+| **P3 铺开** | **按表单形态分批，不按业务模块分批**：3.1 四个无宽度弹窗 → 3.2 其余 `layout="vertical"` 表单（**43 个，密度收益最大**）→ 3.3 横向表单（22 个）→ 3.4 13 个页面级表单 → 3.5 详情页 | 每批把自己那条规则从 warn 翻成 error，并删掉对应白名单条目 |
+| **P4 退役** | 删 `index.css` 里因接入 token 而多余的三处 `!important`（`.ant-btn-primary`/`.ant-menu-item-selected`/`.ant-pagination-item-active`），**各一次提交**；清扫 66 处 `borderRadius:10`；删 `ContactsCard.tsx` | 每步都能单独回退 |
+
+### 原语设计（四条关键取舍）
+
+**① 列数由容器宽度推导，不用视口断点。** `auto-fit` 看的是**容器**宽度，而弹窗改变的是容器、不是视口——
+**断点恰恰测错了东西**。`min(100%, N)` 防止容器比 `N` 还窄时 grid track 强制 `N` px（320px 视口的病灶）。
+不需 container query（jsdom 测不了）、不需 `ResizeObserver`（多一个副作用与一个覆盖率负担），
+且**不改任何类名、文本或 DOM 结构** ⇒ 对现有 76 个测试文件是中性的。
+
+**② `useFormMetrics` 的 `labelWidthFor` 抽成纯函数。** 全局 mock 把 `i18n.language` 硬编码成 `'zh'`，
+英文分支在 hook 里**不可测**；抽出来后按语言取值的分支才有真实覆盖。
+
+**③ `PageState` 合成一个组件、`PageShell` 不做。** `PageShell` 的真陷阱是：带 `title` 的 shell 会诱使页面
+**同时**在 shell 头和 ProTable 的 `headerTitle` 里渲染标题，而 `CampaignListPage.perm.test.tsx:104,110` 的
+`screen.getByText(TITLE)` **遇到重复即抛错**。改为一条纯布局类 `.page-stack { display:grid; row-gap:16px }`：
+零函数计数、不诱发那个错误。
+
+**④ 只有 `data-testid` 与 `display` 进渲染测试。** 间距类属性（`columnGap`/`rowGap`/`gridTemplateColumns`）
+全部在纯函数层断言——jsdom 不反射它们（见技术上下文）。
+
+### 护栏设计
+
+`check-ui.mjs` 沿用 `check-i18n.mjs` / `check-menu.mjs` / `check-perms.mjs` 的房规：
+① 白名单按 `{file,count,reason}` 登记并**双向校验**（多了 = 新增违规，少了 = 条目陈旧，**两种都报错**）——
+这正是让白名单随迁移**单调收缩**的机制；② 每规则一条**反假绿**下界（候选点为 0 即非零退出）；
+③ 失败按类型分组，打印**可粘贴的白名单条目**。
+
+**先宽后紧**（决策 5）：R1/R4/R5/R6/R7 自第一天起就是 error（既存债少且都不大），
+R2/R3 躲在 `--strict` 后面（它们是**正在被 P3 逐页还掉的债**）。**为什么不全加白名单**：
+一份需要人工维护的长白名单没人会维护，**最终等价于没有门禁**。
+
+| 规则 | 内容 | 实测基数 | 档位 |
+|---|---|---|---|
+| R1 | 品牌色字面量（`#1677ff`/`#6366f1`/`#4f46e5`/`#4338ca`/`#eef2ff`） | **33 处 / 12 文件**（`#1677ff` 33 + 另三个各 1，全在 `index.css`） | error |
+| R2 | 承载表单的 `Modal` 必须显式定宽 | **25 处 / 19 文件**（61 个候选点） | `--strict` |
+| R3 | 表单内 `<Col>` 不得只写 `span` | **96/102** | `--strict` |
+| R4 | `required: true` 必须带 `message` | **5 处 / 4 文件** | error |
+| R5 | `required: true` 必须带 `label` | **6 处 / 2 文件** | error |
+| R6 | 禁裸字符串 `placeholder`/`aria-label` | **11 处 / 8 文件**（其中 9 处**不该翻译**） | error |
+| R7 | 组件零非测试引用（孤儿） | **1**（`components/ContactsCard.tsx`） | error |
+
+白名单合计 **56 处**。
+
+**R1 的第一价值是禁止一次批量替换**：R1 的 33 处里有两处**不是品牌色**——
+`pages/landing/LandingPageView.tsx:54` 的 `lp.themeColor || '#1677ff'` 是**租户自配主题的兜底值**、
+`types/usageMap.ts` 的 11 处是**图谱演示数据**。`sed -i 's/#1677ff/#6366f1/g'` 是一个**现成的生产事故**。
+
+**R6 从第一天起就必须带白名单**（初稿没预见）：11 处里 9 处是**格式/单位示例**
+（`sales@corp.com`、`Currency`、`{"status":"active"}`、`BUDGET_APPROVAL`…），
+中文界面下把示例改写成中文反而让人看不出该填什么格式。真正的缺陷只有 **2 处** `aria-label`，
+且都因**既有测试正断言当前值**（`App.render.test.tsx:274,277`、`LoginPage.test.tsx:48`）而留给 i18n 批次。
+
+### 为什么既存的 56 处不修，而是冻结
+
+P1 的退出判据是**"零调用点改动"**，它是整个阶段"不合口味就整体删掉"的保险（FR-012）。
+为 56 处既有债破例会把这个保险拆掉，而它们的修法各不相同（R1 里有 13 处要连同整条色阶一起决定）。
+故登记为**债务台账**，随 P3/P4 逐页销账——**错误信息里给出可粘贴的修复指引**，让销账是机械动作。
+
+## 风险与缓解
+
+| 风险 | 缓解 |
+|---|---|
+| **主色切换后每个页面都有色差**（一半 Indigo 一半蓝 → 全部 Indigo） | 属**验收项**不是回归；4 个样板页一次看清。**注意这不是"变色"而是"补齐"**——按钮/菜单/分页本来就是 Indigo |
+| **`FormGrid` 最常见的误用：把全宽项放进 grid** | 静默退化成 N 列里的一列。写进规范 + 样板页各留一个全宽项做示范；**不进门禁**（静态识别"该全宽"不现实） |
+| **`fontSize: 13` 的主观风险** | 它是可见度最高、最容易一眼否掉的一项 → **明确列为验收项，不默认辩护** |
+| **`destroyOnClose` 被"顺手修"成 `destroyOnHidden`** | 5.22.0 静默忽略未知 prop ⇒ 无报错、无红测。用注释锁在 `FormModal` 的默认值上，并在 research.md §2.4/§7 记录 |
+| **碰 `check-perms.mjs` 钉死的 8 个文件** | 样板阶段**不碰** `CustomerDetailPage`/`UserManagementPage`；其余 6 个**可改内容但绝不改名/移动**，且不得改变其中 `role === 'ADMIN'` 的命中次数 |
+| **DOM 结构敏感测试（13 个）** | 通用铁律只有一条：**数据行必须仍是 `<tr>`**（`closest('tr')` 后 `within(tr)`，`tr` 为 null 会硬抛）。另需逐页遵守：不得重复渲染标题、不得把 `<a>` 换成 `<Button>`（`OpportunityStagePage` 靠 `tagName` 判别）、不得动 `rowSelection`/`Card` 包裹 |
+| **新增文案缺 i18n 键 → 测试抛错** | `setup.ts` 缺键即抛（只查 zh-CN）；每个新键**同时**进两个语言文件，且与组件**同一次提交** |
+| **`index.css` 与 TS token 两个真源** | 本批次只做相关迁移 + 注释指向 `src/theme/index.ts`；**已在本规格明文取代 `077/spec.md:196` 的『用 CSS 覆盖、不接 theme』决策**——不许把这个矛盾留在暗处 |
+| **白名单腐烂成"没有门禁"** | 双向校验（多了/少了都报错）+ 每条 `reason` 必填 + 反假绿下界 + P3 每批**删条目**而非留着 |
+| **并行会话/agent 造成的瞬时红** | 跑全仓门禁前 `ListAgents` + `git status` 确认无 writer；瞬时 `TS6133` 与探针残留先核 mtime 再采信 |
+
+## 验证
+
+```bash
+cd frontend
+pnpm typecheck && pnpm lint && pnpm i18n:check && pnpm menu:check && pnpm perms:check && pnpm ui:check && pnpm test:coverage
+```
+
+- **护栏必须证明它真会红**（SC-004，三条路径各留痕）：造违规 → 确认非零退出 → 还原。
+  **护栏不验证自身 = 又一个"看起来有门禁"**。
+- **覆盖率与基线区间比，不与上一次比**——`vite.config.ts:61-64` 自己记录了复跑非确定性；
+  本规格实测到 `branches` 在一次会话内报过 73.08 与 73.02（余量 25.8pp，无害），
+  再次印证**单次小数位不可当论据**。
+- **视觉验收（用户执行，SC-005）**：`pnpm dev`，4 个样板页的列表 + 弹窗 + 详情，
+  覆盖 **1920/1440/1024/768/375 × 中英文**。
+- ⚠️ **e2e 只自起前端**（playwright 不打后端）。按钮可见性与布局属纯前端渲染，e2e 可覆盖；
+  但**不能用它证明任何后端行为**。
+- ⚠️ **不得 `git add -A`**（多会话共用工作区），提交需用户明确说「提交」。
+
+## 不覆盖的范围
+
+见 spec.md 的「非目标」。此处只强调三条**最容易"顺手做"的错**：
+
+1. **不升 antd 版本**（会逼 62 处改名，且所有宽度结论都要重验）。
+2. **不批量补 `placeholder`**（那是约 324 个新 i18n 键，而字段已有 `label`）。
+3. **不做 `AmountDisplay`/`StatusTag` 全库替换**（`/100` 改错是静默的金额错误，风险归属不对）。
+
+## 需用户在样板验收时拍板的 6 件事
+
+样板阶段的意义就是让这些**在只改了 4 个页面时**被否掉，而不是在改完 59 个页面之后：
+
+1. **`fontSize: 13`** —— 全站字号缩一档，可见度最高的一项。（推荐：接——`index.css:59` 的 `--font-size-base: 13px` 与 `body{font-size:13px}` **今天已生效**，而 antd 默认 14 ⇒ 页面上已经是混的，接 token 是**统一**而非"改小"）
+2. **全站统一标签宽度**（中文 96 / 英文 112）取代现 5 种取值。（推荐：统一——那 5 个值不承载意图）
+3. **保留 `layout="horizontal"`** 而非把表单改成纵向。（推荐：保留——定宽横标签更**矮**，正是 Salesforce/HubSpot 的紧凑形态；密度收益来自栅格，不来自标签方向）
+4. **`FormModal` 用自定义 footer + Enter 提交**取代 antd 默认的 `Modal.onOk` 脚注。（推荐：采用——这是把 `validateFields()` 从 ~58 个页面里删掉的机制。代价：OK 按钮不再是 antd 默认脚注，那 **9 个已自定义 `footer=` 的弹窗**需要一个透传口）
+5. **`check-ui.mjs` 先宽后紧**（R2/R3 先 `--strict`、销账后再翻 error）。（推荐：是）
+6. **内容区是否加 `maxWidth` 封顶**（见 spec.md 非目标）。（推荐：先 `none`，P1 只引入变量、零视觉变化）

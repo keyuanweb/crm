@@ -1,0 +1,224 @@
+
+## 1. 规模
+
+- src 下产品 .ts/.tsx 文件数: **259**  — 定义：排除 *.test.* 与 src/test/**
+- src 下 .css 文件数: **2**  — src/index.css, src/pages/dataVision/styles/dataVision.css
+- 其中 src/pages 下的页面文件数: **101**  — 定义：src/pages 下的 .tsx（组件）
+- src/pages 下的非组件 .ts（被上面的口径排除）: **4**  — src/pages/dataVision/hooks/useCountUp.ts, src/pages/dataVision/hooks/useFullscreen.ts, src/pages/dataVision/hooks/useResponsiveGrid.ts, src/pages/dataVision/types.ts
+- 页面文件总行数: **22514**
+- 测试文件数: **72**
+- src/index.css 行数: **816**
+- src/index.css 里 `!important` 次数: **20**
+
+## 2. 表单（定义：页面文件里 `<Form` 开标签，不含 `<Form.Item`/`<Form.List`）
+
+- 含表单的页面文件数: **59**
+- `<Form` 总数: **71**
+- `<Form.Item` 总数: **289**
+- layout=vertical: **43**
+- layout=horizontal: **22**
+- layout=inline: **1**
+- 未设 layout: **5**
+- <Descriptions layout="horizontal"> 处数（**不是表单**）: **4**  — src/pages/contracts/ContractDetailPage.tsx:313, src/pages/customers/CustomerDetailPage.tsx:353, src/pages/leads/LeadDetailPage.tsx:213, src/pages/orders/OrderDetailPage.tsx:295
+
+### labelCol flex 取值分布（定义：`<Form ... labelCol={{ flex: 'Npx' }}`）
+
+- 100px × 11
+- 90px × 6
+- 110px × 2
+- 80px × 2
+- 70px × 1
+- labelCol 用 span 数字的表单数: **0**  — 为 0 ⇒「横向表单漏设 labelCol 退化成 8/16 分栏」这个常见判断**不成立**
+
+## 3. 栅格
+
+- `<Col` 总数（**页面级**，含非表单布局）: **160**
+- 其中带响应式断点的: **31**  — src/pages/products/ProductListPage.tsx:260, src/pages/products/ProductListPage.tsx:265, src/pages/products/ProductListPage.tsx:270, src/pages/products/ProductListPage.tsx:275, src/pages/products/ProductListPage.tsx:280, src/pages/products/ProductListPage.tsx:289, src/pages/products/ProductListPage.tsx:312, src/pages/products/ProductListPage.tsx:321, src/pages/products/ProductListPage.tsx:331, src/pages/roles/RoleListPage.tsx:465, src/pages/stats/DashboardPage.tsx:632, src/pages/stats/DashboardPage.tsx:647, src/pages/stats/DashboardPage.tsx:657, src/pages/stats/DashboardPage.tsx:667, src/pages/stats/DashboardPage.tsx:677, src/pages/stats/DashboardPage.tsx:750, src/pages/stats/DashboardPage.tsx:770, src/pages/stats/DashboardPage.tsx:799, src/pages/stats/DashboardPage.tsx:829, src/pages/stats/DashboardPage.tsx:856, src/pages/stats/DashboardPage.tsx:880, src/pages/surveys/SatisfactionStatsPage.tsx:50, src/pages/surveys/SatisfactionStatsPage.tsx:53, src/pages/surveys/SatisfactionStatsPage.tsx:61, src/pages/surveys/SatisfactionStatsPage.tsx:68, src/pages/surveys/SatisfactionStatsPage.tsx:79, src/pages/surveys/SatisfactionStatsPage.tsx:91, src/pages/surveys/SatisfactionStatsPage.tsx:103, src/pages/tasks/TaskListPage.tsx:239, src/pages/tasks/TaskListPage.tsx:244, src/pages/tasks/TaskListPage.tsx:249
+- 其中只写死 span 的: **129**
+- `<Col` 落在 `<Form>` 区域内（**表单级**，plan 的判据口径）: **102**
+- 其中只写死 span 的（表单级）: **96**  — 94.1%
+
+⚠️ **页面级与表单级是两个不同的分母**——plan.md 起草时写的「96/102 个表单 Col」是表单级口径。
+
+### Row gutter 取值分布
+
+- gutter={16} × 28
+- gutter={8} × 4
+- gutter={12} × 3
+- gutter={20} × 2
+- gutter={24} × 1
+- gutter={4} × 1
+
+## 4. 弹窗（定义：页面文件里的 `<Modal` 开标签）
+
+- `<Modal` 总数: **70**
+- width 缺失 **且区域内含表单**（受「必须显式定宽」约束）: **23**
+- width 缺失但不含表单（不在该规则内）: **9**
+
+### Modal width 取值分布
+
+- width={640} × 13
+- width={480} × 5
+- width={520} × 5
+- width={720} × 4
+- width={680} × 3
+- width={560} × 3
+- width={760} × 2
+- width={600} × 1
+- width={800} × 1
+- width={420} × 1
+- 不同 width 取值个数: **10**
+
+### Modal 属性覆盖
+
+- okText: 60
+- cancelText: 0
+- confirmLoading: 36
+- destroyOnClose: 62
+- destroyOnHidden: 0
+- footer: 9
+
+## 5. 宽度缺陷（定义：无 width **且无 style** 的控件标签）
+
+- DatePicker/RangePicker/TimePicker 无 width（**真缺陷**，antd 无 in-form-item 规则）: **4**  — DatePicker src/pages/announcements/AnnouncementPage.tsx:207, DatePicker src/pages/sla/SlaCalendarPage.tsx:109, TimePicker src/pages/sla/SlaCalendarPage.tsx:94, TimePicker src/pages/sla/SlaCalendarPage.tsx:97
+- Select/TreeSelect/Cascader/InputNumber 无 width（**非缺陷**，antd 5 自动补 `.ant-select-in-form-item{width:100%}`）: **79**
+
+## 5b. 表单字段规范（check-ui.mjs 规则 4/5/6 的实测基数）
+
+- rules 里含 `required: true` 的 Form.Item: **143**  — 其中在 <Form.List> 区域内 3
+- 规则 4 违规：`required: true` 无 `message`: **5**  — src/pages/calls/CallRecordPage.tsx:224, src/pages/calls/CallRecordPage.tsx:229, src/pages/custom-object/CustomObjectListPage.tsx:179, src/pages/marketing/EmailCampaignPage.tsx:254, src/pages/roles/RoleListPage.tsx:326
+- 规则 5 违规（Form.List **之外**）: **3**  — src/pages/LoginPage.tsx:218, src/pages/LoginPage.tsx:229, src/pages/LoginPage.tsx:240
+- 规则 5 在 Form.List **之内**（有意为之，进白名单）: **3**  — src/pages/custom-object/CustomObjectListPage.tsx:173, src/pages/custom-object/CustomObjectListPage.tsx:176, src/pages/custom-object/CustomObjectListPage.tsx:179
+- 规则 6 违规：裸字符串 `placeholder`/`aria-label`/`title`: **11**
+
+裸字符串清单：
+
+- src/App.tsx aria-label="折叠/展开菜单"
+- src/pages/contacts/ContactListPage.tsx placeholder="Default: Other"
+- src/pages/LoginPage.tsx title="点击刷新验证码"
+- src/pages/LoginPage.tsx aria-label="验证码图片"
+- src/pages/mail/MailSyncPage.tsx placeholder="sales@corp.com"
+- src/pages/mail/MailSyncPage.tsx placeholder="imap.corp.com"
+- src/pages/mail/MailSyncPage.tsx placeholder="smtp.corp.com"
+- src/pages/marketing/OnlineFormPage.tsx placeholder="field"
+- src/pages/products/ProductListPage.tsx placeholder="Currency"
+- src/pages/products/ProductListPage.tsx placeholder="Price (CNY)"
+- src/pages/settings/OpportunityStagePage.tsx placeholder="BUDGET_APPROVAL"
+
+
+## 5c. 孤儿组件（定义：`src/components/**/*.tsx` 的组件名，在任何**别的**产品文件里 0 次出现）
+
+- src/components 下的 .tsx 组件数: **19**
+- 零引用（**真孤儿**）: **1**  — src/components/ContactsCard.tsx
+- 只被 barrel 提到（可疑：导出了但没人用）: **0**  — （无）
+
+## 6. 设计系统采纳度（定义：**JSX 调用点**计数，不含 import 与组件自身定义）
+
+- `<Tag` 带 `color=`: **138**  — 67 个文件
+- `<StatusTag`: **26**  — 4 个文件
+- `<AmountDisplay`: **4**  — 1 个文件
+- `<StatCard`: **3**  — 3 个文件
+- `<Statistic`: **28**  — 8 个文件
+- `.toLocaleString(`: **39**  — 22 个文件
+- `¥` 字面量: **23**  — 11 个文件
+- `/ 100`（分转元形态）: **34**  — 11 个文件
+- `borderRadius: 10` 字面量: **66**  — 54 个文件
+- 从 `components/ui` barrel 导入的文件数: **4**  — src/pages/contracts/ContractDetailPage.tsx, src/pages/customers/CustomerDetailPage.tsx, src/pages/leads/LeadDetailPage.tsx, src/pages/orders/OrderDetailPage.tsx
+
+### 品牌色字面量分布（定义：全 src，含 .css）
+
+- #1677ff: **33**  — 12 个文件
+  - src/App.tsx×2, src/components/CommentSection.tsx×2, src/components/InstallPrompt.tsx×1, src/pages/dataVision/components/FunnelChart.tsx×1, src/pages/invoices/InvoiceListPage.tsx×1, src/pages/landing/LandingPageView.tsx×1, src/pages/LoginPage.tsx×1, src/pages/map/UsageMapPage.tsx×4, src/pages/stats/DashboardPage.tsx×7, src/pages/tasks/TaskListPage.tsx×1, src/pages/visits/VisitListPage.tsx×1, src/types/usageMap.ts×11
+- #6366f1: **1**  — 1 个文件
+  - src/index.css×1
+- #4f46e5: **1**  — 1 个文件
+  - src/index.css×1
+- #4338ca: **1**  — 1 个文件
+  - src/index.css×1
+- #eef2ff: **1**  — 1 个文件
+  - src/index.css×1
+
+## 6b. index.css 里的类选择器：antd 覆盖 vs 自有类，各自的使用率
+
+- 类选择器名总数: **85**
+- 其中 antd/pro 生成的（`.ant-*` / `.anticon-*` / `.pro-*`）: **44**  — 这些无 tsx 引用是**正常的**——它们由 antd 渲染，CSS 在此是覆盖
+- 其中**自有类**: **41**
+- 自有类里 0 处 tsx 引用的（**真死代码**）: **12**  — 29% of own
+
+真死代码清单（自有类 × 0 引用，全量）：
+
+- .dashboard-progress
+- .filter-bar
+- .filter-tag
+- .funnel-bar
+- .page-header
+- .page-header-actions
+- .page-header-subtitle
+- .page-header-title
+- .progress-lg
+- .progress-sm
+- .view-switcher
+- .view-switcher-item
+
+仍在用的自有类（29）：.active, .ai-icon-pulse, .ai-suggestion-card, .danger, .dashboard-card, .dashboard-header, .dashboard-table, .dashboard-tag, .dashboard-welcome-sub, .dashboard-welcome-title, .default, .down, .info, .kpi-card, .kpi-icon-wrapper, .login-brand, .page-container, .page-fade, .page-scroll, .skeleton, .stat-card, .stat-card-label, .stat-card-trend, .stat-card-value, .stat-number, .status-tag, .success, .up, .warning
+
+
+## 7. 页面根元素（定义：默认导出组件的返回表达式的最外层 JSX；走 TypeScript AST）
+
+根元素种类 → 页数（**这是 plan 起草时数错的那一对数，以本节为准**）：
+
+- `fragment`: 46
+- `div`: 38
+- `<other>`: 9
+- `Card`: 4
+- `span`: 2
+- `Space`: 1
+- `GlowBorder`: 1
+- 无法解析的页面: **0**  — （无）
+
+明细：
+
+**div** (38): src/pages/account/ChangePasswordPage.tsx, src/pages/assistant/SuggestionCenterPage.tsx, src/pages/contracts/ContractDetailPage.tsx, src/pages/customers/CustomerDetailPage.tsx, src/pages/data-retention/ComplianceExportPage.tsx, src/pages/data-retention/DataRetentionExecutionHistoryPage.tsx, src/pages/data-retention/DataRetentionPolicyCreatePage.tsx, src/pages/data-retention/DataRetentionPolicyEditPage.tsx, src/pages/dataVision/components/GlowBorder.tsx, src/pages/dataVision/components/KpiMetricsRow.tsx, src/pages/dataVision/components/LeaderboardChart.tsx, src/pages/dataVision/components/SuggestionCards.tsx, src/pages/dataVision/DataVisionPage.tsx, src/pages/exports/ScheduledExportCreatePage.tsx, src/pages/exports/ScheduledExportExecutionHistoryPage.tsx, src/pages/landing/LandingPageView.tsx, src/pages/leads/LeadDetailPage.tsx, src/pages/LoginPage.tsx, src/pages/map/UsageMapPage.tsx, src/pages/marketing/PublicFormPage.tsx, src/pages/NotFoundPage.tsx, src/pages/orders/OrderDetailPage.tsx, src/pages/personal/PersonalCenterPage.tsx, src/pages/portal/CustomerPortalPage.tsx, src/pages/quotas/QuotaAchievementPage.tsx, src/pages/quotas/QuotaBreakdownPage.tsx, src/pages/quotas/QuotaComparisonPage.tsx, src/pages/quotas/QuotaCreatePage.tsx, src/pages/quotas/QuotaListPage.tsx, src/pages/quotas/QuotaVersionPage.tsx, src/pages/quotes/QuoteDetailPage.tsx, src/pages/recycle/RecycleBinPage.tsx, src/pages/reports/ReportCenterPage.tsx, src/pages/search/SearchResultPage.tsx, src/pages/stats/DashboardPage.tsx, src/pages/stats/TeamLeaderboardPage.tsx, src/pages/surveys/SatisfactionStatsPage.tsx, src/pages/tasks/TaskCalendarPage.tsx
+
+**fragment** (46): src/pages/announcements/AnnouncementPage.tsx, src/pages/approval/ApprovalCenterPage.tsx, src/pages/approval/ApprovalFlowPage.tsx, src/pages/calls/CallRecordPage.tsx, src/pages/contacts/ContactListPage.tsx, src/pages/contract-templates/ContractTemplateListPage.tsx, src/pages/contracts/ContractListPage.tsx, src/pages/contracts/ContractRenewalPage.tsx, src/pages/custom-object/CustomObjectListPage.tsx, src/pages/custom-object/CustomObjectRecordPage.tsx, src/pages/customers/AtRiskCustomersPage.tsx, src/pages/customers/CustomerListPage.tsx, src/pages/exports/ExportCenterPage.tsx, src/pages/invoices/InvoiceListPage.tsx, src/pages/knowledge/KnowledgeArticleListPage.tsx, src/pages/landing/LandingPageListPage.tsx, src/pages/leads/LeadListPage.tsx, src/pages/mail/MailSyncPage.tsx, src/pages/marketing/CampaignListPage.tsx, src/pages/marketing/ChannelRoiPage.tsx, src/pages/marketing/EmailCampaignPage.tsx, src/pages/marketing/EmailTemplatePage.tsx, src/pages/marketing/OnlineFormPage.tsx, src/pages/opportunities/OpportunityListPage.tsx, src/pages/orders/OrderListPage.tsx, src/pages/playbook/StageActionTemplatePage.tsx, src/pages/products/ProductListPage.tsx, src/pages/quotes/QuoteListPage.tsx, src/pages/roles/RoleListPage.tsx, src/pages/sales-opportunities/OpportunityBoard.tsx, src/pages/sales-opportunities/SalesOpportunityListPage.tsx, src/pages/settings/CurrencyRatePage.tsx, src/pages/settings/CustomFieldListPage.tsx, src/pages/settings/FieldPermissionPage.tsx, src/pages/settings/IntegrationHubPage.tsx, src/pages/settings/OpportunityStagePage.tsx, src/pages/sla/SlaPolicyListPage.tsx, src/pages/tags/SegmentListPage.tsx, src/pages/tags/TagListPage.tsx, src/pages/tasks/TaskListPage.tsx, src/pages/tickets/TicketDetailPage.tsx, src/pages/tickets/TicketListPage.tsx, src/pages/users/UserManagementPage.tsx, src/pages/visits/VisitListPage.tsx, src/pages/workflows/WorkflowLogListPage.tsx, src/pages/workflows/WorkflowRuleListPage.tsx
+
+**<other>** (9): src/pages/audit/AuditLogPage.tsx, src/pages/dataVision/components/FunnelChart.tsx, src/pages/dataVision/components/HealthChart.tsx, src/pages/dataVision/components/ParticleBackground.tsx, src/pages/dataVision/components/TrendChart.tsx, src/pages/email/EmailUnsubscribePage.tsx, src/pages/marketing/EmailMarketingPage.tsx, src/pages/open/OpenPlatformPage.tsx, src/pages/tags/TagSegmentPage.tsx
+
+**Space** (1): src/pages/customers/DuplicateMergePage.tsx
+
+**Card** (4): src/pages/data-retention/DataRetentionPolicyListPage.tsx, src/pages/departments/DepartmentListPage.tsx, src/pages/exports/ScheduledExportListPage.tsx, src/pages/sla/SlaCalendarPage.tsx
+
+**span** (2): src/pages/dataVision/components/CountUp.tsx, src/pages/dataVision/components/NeonText.tsx
+
+**GlowBorder** (1): src/pages/dataVision/components/KpiMetricCard.tsx
+
+
+## 8. 测试耦合（定义：每个测试文件里以下 API 的出现次数）
+
+- 测试文件数: **72**
+- 含 `within(` 或 `closest(` 的文件数（DOM 结构敏感）: **13**
+- 其中含 `closest(` 的（**致命**：`closest("tr")` 为 null 会硬抛）: **11**
+- 含 `.tagName` 判别的文件数（`<a>`→`<Button>` 会**静默翻转**匹配）: **1**  — src/pages/settings/OpportunityStagePage.perm.test.tsx×2
+- 含 `toHaveClass(` 判别的文件数: **1**  — src/pages/customers/CustomerListPage.perm.test.tsx×2
+
+按 `within` 降序：
+
+- src/pages/marketing/CampaignListPage.perm.test.tsx: within×33 closest×1 getByText×8 tagName×0 toHaveClass×0
+- src/pages/settings/OpportunityStagePage.perm.test.tsx: within×12 closest×1 getByText×1 tagName×2 toHaveClass×0
+- src/pages/settings/CurrencyRatePage.perm.test.tsx: within×10 closest×1 getByText×2 tagName×0 toHaveClass×0
+- src/pages/settings/FieldPermissionPage.perm.test.tsx: within×8 closest×1 getByText×2 tagName×0 toHaveClass×0
+- src/pages/settings/CustomFieldListPage.perm.test.tsx: within×5 closest×1 getByText×2 tagName×0 toHaveClass×0
+- src/pages/audit/AuditLogPage.test.tsx: within×4 closest×0 getByText×4 tagName×0 toHaveClass×0
+- src/pages/visits/VisitListPage.perm.test.tsx: within×4 closest×1 getByText×6 tagName×0 toHaveClass×0
+- src/pages/customers/CustomerListPage.test.tsx: within×3 closest×0 getByText×0 tagName×0 toHaveClass×0
+- src/App.render.test.tsx: within×1 closest×1 getByText×6 tagName×0 toHaveClass×0
+- src/pages/mail/MailSyncPage.perm.test.tsx: within×1 closest×1 getByText×3 tagName×0 toHaveClass×0
+- src/pages/users/UserManagementPage.test.tsx: within×1 closest×2 getByText×0 tagName×0 toHaveClass×0
+- src/components/BreadcrumbNav.test.tsx: within×0 closest×0 getByText×0 tagName×0 toHaveClass×0
+- src/components/breadcrumbTrail.test.ts: within×0 closest×0 getByText×0 tagName×0 toHaveClass×0
+- src/components/InstallPrompt.test.tsx: within×0 closest×0 getByText×1 tagName×0 toHaveClass×0
+- src/constants/menuKeys.test.ts: within×0 closest×0 getByText×0 tagName×0 toHaveClass×0
+
+## 9. 反空洞自检（护栏在输入为空时通过 = 没有护栏）
+
+- ✓ 61 项指标全部产出，且各项下限自检通过

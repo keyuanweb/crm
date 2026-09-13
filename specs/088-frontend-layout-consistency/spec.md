@@ -1,0 +1,185 @@
+# 功能规格：前端布局规范与表单体验
+
+**模块**: 088-frontend-layout-consistency
+**形制**: **改造类**（与 086 同类——**改生产代码**，与 003/083/085/087 的「加固类」相对）
+**归属**: **新独立批次**，不在一期/二期/三期之内，不动 086/087 的任何产物
+**优先级**: P1
+**取证底稿**: [research.md](./research.md)（所有数字由 `measure-ui-baseline.mjs` 产出，可复现）
+
+---
+
+## 背景：本规格要解决的是三个断层，不是"页面丑"
+
+| 断层 | 实测证据（research.md 出处） |
+|---|---|
+| **设计与实现的断层** | `specs/077-core-sales-redesign` 建过一套设计系统，此后**没有任何规格引用、扩展或回收它**。101 个页面里只有 **4 个** import 了 `components/ui` 的 barrel（§2.6）。同一个"状态"有 3 套写法：`<Tag color=>` **138 处** vs `<StatusTag>` 26 处；"金额"是 `toLocaleString` 39 处、`¥` 字面量 23 处、`/ 100` 34 处 vs `<AmountDisplay>` 4 处 |
+| **布局的断层** | 102 个表单级 `<Col>` 里 **96 个（94.1%）** 写死 `span` 且无任何响应式断点（§2.3）→ 320px 屏上 `span={12}` 仍是两列。Modal **10 种宽度取值**、**32 个根本没设宽度**（§2.4）；`Row gutter` 6 种取值；`labelCol` 定宽 5 种取值（§2.2） |
+| **主题的断层（本批次最大的杠杆）** | `LocaleProvider.tsx:33` 是全库唯一的生产 `ConfigProvider`，**只传了 `locale`**——`src/` 里 `theme`/`token`/`algorithm` **零命中**。于是视觉全靠 `index.css`（816 行）覆盖 antd 生成的类名去对抗：`:root` 的设计 token 写的是 Indigo `#6366f1`，antd 的 `colorPrimary` 仍是默认蓝 `#1677ff`，**两套主色并存**——且**没有任何一个文件同时含两套**（`#6366f1` 只在 CSS、`#1677ff` 只在 TS/TSX，§2.7）。可见的不一致正是这么来的：按钮/菜单/分页被 `!important` 强制成 Indigo，而链接色、聚焦环、Checkbox/Radio/Switch 选中态、Select/DatePicker 激活边框、Tabs 墨条、Steps、Progress 全是 antd 蓝 |
+
+**为什么现在做**：一期 1.5（后端注解 + 086/087 前端按钮收口）已闭合，"销售看不到不该看的操作"这半已交付；下一件影响销售**每天体感**的事就是界面本身。本批次与总方案 §二期 2.7（暗色模式）相邻但**不重叠**——只做明色下的规范与密度。
+
+**预期结果**：建立**单一真源**（antd theme token）+ **一套表单/布局原语** + **两道机器护栏**；先改 4 个代表页交付验收，验收通过后按**表单形态**分批机械铺开到其余 ~55 个含表单页面。
+
+---
+
+## 已定决策（本规格开工前的问答结论）
+
+| # | 决策项 | 结果 |
+|---|---|---|
+| 1 | 主攻方向 | **三者都做**：一致性规范 + 响应式可用性 + 视觉现代化 |
+| 2 | 主题路线 | **接入 `ConfigProvider theme`** |
+| 3 | 节奏 | **先样板后铺开**：建规范层 + 改 4 个代表页 → 验收 → 再机械铺开 |
+| 4 | 信息密度 | **紧凑**（对标 Salesforce/HubSpot） |
+| 5 | 护栏范围 | **布局与主题规范 + 表单字段规范**两类都加 |
+
+**决策 2 是本规格唯一一处推翻既有冻结决策的地方**：`specs/077-core-sales-redesign/spec.md:196` 明确选了"保持 ProComponents、用自定义样式覆盖默认主题、**不接 theme**"。本规格**取代该决策**，理由与代价：
+
+- **理由**：不接 theme 就永远有两个真源，`index.css` 的对抗性覆盖只会越长越厚，而它已经漏掉了一半组件（上面第三行的那种不一致正是漏掉的部分）。
+- **代价（必须明说）**：接入后主色真值变成 Indigo `#6366f1`，这会改变**全库**的聚焦环、链接色、Switch/Checkbox/Radio 选中色。**这是有意为之的视觉统一，不是回归**——但会让每个页面都有轻微色差，属**验收项**。
+- **遗留**：此后主题有**两个来源**（TS token 与 `index.css`）。本批次只迁与本批次相关的部分，**不做 816 行的全量清理**（见「非目标」）。
+
+---
+
+## 用户场景与测试 *（必填）*
+
+### 用户故事 1 - 窄屏上表单能填完（优先级：P1）
+
+作为**在外用笔记本或平板的销售**，当我打开一个客户编辑弹窗时，字段应当**按可用宽度自动排成一列或两列**，
+因为我今天的界面上 `span={12}` 在任何宽度下都是两列 —— 320px 的屏上输入框被压到不可用。
+
+**验收**：把同一张表单放进 320 / 375 / 768 / 1024 / 1440 / 1920 六种宽度的容器里，
+断言**列数随容器宽度单调变化**，且在 320px 下**不出现横向溢出**。
+
+### 用户故事 2 - 同一件事在每个页面上长一样（优先级：P1）
+
+作为**每天在十几个页面之间来回的销售**，同一个"保存"按钮、同一个"标签宽度"、同一个"加载失败"提示
+应当是同一个样子，因为不一致会让我每次都要重新找。
+
+**验收**：标签宽度全站**只有两个取值**（中文 96 / 英文 112，由语言推导），弹窗宽度**只有四档**
+（480/640/800/960），空/错/载三态**只有一种组件**。
+
+### 用户故事 3 - 改一个页面不必记住十条不成文的规矩（优先级：P1）
+
+作为**维护者**，我改一个表单页时应当能从**类型签名**和**机器门禁**里知道该怎么做，
+而不是靠"上次那个页面是怎么写的"。
+
+**验收**：新原语有明确 props；`pnpm ui:check` 对六类违规给出**非零退出 + 可粘贴的修复指引**；
+`tasks.md` 的每项任务含**确切文件路径**。
+
+### 用户故事 4 - 验收时一眼看出对不对（优先级：P1）
+
+作为**产品负责人**，我要在**只改了 4 个页面**的时候就能否掉不合口味的方向，
+而不是在改完 59 个页面之后。
+
+**验收**：4 个样板页在 dev server 上覆盖 **1920/1440/1024/768/375 × 中英文**；
+`tasks.md` 列出需拍板的 6 件事（见 plan.md 末节）。
+
+### 边界场景
+
+- **英文界面**：`labelWidth` 必须按 `i18n.language` 取值 —— 写死 96px 会让 `Contact Person` 折成两行，
+  那会变成一个"为了一致性而引入的英文专属回归"。
+- **`FormGrid` 里放全宽项**（`Input.TextArea` / `Divider`）：会静默退化成 N 列里的一列。
+  规范要求全宽项放在 grid **之后**作为兄弟节点；这条**不进机器门禁**（静态识别"该全宽"不现实），靠代码评审 + 样板页示范。
+- **`destroyOnClose`**：当前 antd **5.22.0**，该属性拼写正确；`destroyOnHidden` 是 5.25 才改名。
+  **不得"顺手修"**，`FormModal` 里用注释锁住。
+- **两个 `CustomerListPage` 的测试文件**：`.perm.test.tsx` 的 `within`/`closest` 是 **0/0**（约束是 `toHaveClass`×2），
+  另一个非 perm 文件有 **3 处 `within`**。两份报告都没说错，说的是两个文件（research.md §4.2）。
+
+---
+
+## 需求 *（必填）*
+
+### 功能需求
+
+- **FR-001 主题单一真源**：新建 `frontend/src/theme/index.ts` 导出 antd `ThemeConfig`，
+  由 `LocaleProvider.tsx` 的 `ConfigProvider` 消费（`theme` 与既有 `locale` 并列，`ProConfigProvider` 不变）。
+  颜色取自 `index.css:13-38` 的 `:root`；`index.css` 的 `:root` 保留但注释**声明 `src/theme/index.ts` 为真源**。
+  **不接 `theme.algorithm`**（明色批次），也**不显式写 `defaultAlgorithm`**（只给将来留歧义）。
+- **FR-002 紧凑密度**：密度杠杆按收益排序，**最大的那个不是 token 而是栅格**：
+  ① `FormGrid` 让 43 个单列纵向表单进两列栅格（见 FR-003）；
+  ② `Form.itemMarginBottom: 24 → 12`；③ `Card.bodyPadding: 24 → 16`、`Card.headerHeight: 56 → 44`；
+  ④ 外壳 `App.tsx` 的 `padding: '20px 24px' → '16px 20px'`；⑤ `Table.cellPaddingBlockSM: 8 → 6`。
+  ⚠️ `size: 'middle'` / `componentSize="middle"` **不是密度杠杆**——antd 默认 `controlHeight` 本来就是 32，
+  写它等于没写；`size` 也不是全局种子 token（已在 `node_modules/antd/es/theme/interface/seeds.d.ts` 核对）。
+- **FR-003 表单栅格原语**：`FormGrid` 用 CSS Grid，列数由**容器实际宽度**推导：
+  `repeat(auto-fit, minmax(min(100%, Npx), 1fr))`，`N` 默认 = `labelWidth + 160`。
+  `min(100%, N)` **不可省**——它是 320px 视口不溢出的唯一保证；用 `auto-fit` 而非 `auto-fill`。
+  **不引入** `ResizeObserver`、container query、视口断点表。
+- **FR-004 标签宽度单一来源**：`useFormMetrics()` 的 `labelWidth` 由语言推导（中文 96 / 英文 112），
+  取代现状 5 种 `labelCol` 定宽。
+- **FR-005 弹窗契约收口**：`FormModal` 必设 `confirmLoading`（现状 34 个表单弹窗缺）、
+  `destroyOnClose`、`okText`/`cancelText` 默认值（现状 `cancelText` **70 个全缺**）；
+  宽度分四档 `sm|md|lg|xl` = 480/640/800/960（640 是现状事实上的默认档）；
+  需为已自定义 `footer` 的 9 个弹窗留**透传口**。
+- **FR-006 页面三态收口**：`PageState` **只有一个组件**，覆盖 loading / empty / error 三态（不是三个组件）。
+- **FR-007 新组件必须配测试**：每个新原语一个测试文件，**必须跑到分支**
+  （`PageState` 的三态、`FormGrid` 的 `cols` 与 auto-fit 两条路径、`FormModal` 的 `onSubmit` resolve 与 reject）。
+  **覆盖率阈值一律不得下调**（`specs/084-menu-ia-authorization/tasks.md` T037 明令）。
+- **FR-008 纯函数优先**：栅格算术与档位表抽成**纯函数**独立文件，理由有两条且都成立：
+  ① `react-refresh/only-export-components` 禁止组件文件导出对象/函数（`eslint.config.js:21`）；
+  ② jsdom 的 `cssstyle` **不反射** `gridTemplateColumns`/`columnGap`/`rowGap`，
+  把结论押在"jsdom 恰好认这个属性"上会让测试在依赖升级时无关地转红。
+- **FR-009 护栏脚本**：`frontend/scripts/check-ui.mjs`，六条规则 + **先宽后紧**（`--strict`）+
+  白名单按 `{file,count,reason}` **双向校验** + **反假绿断言**（候选点为 0 即非零退出）。
+  **新脚本，不扩张 `check-perms.mjs`**（不同受众、不同白名单生命周期）。
+- **FR-010 护栏必须被实测验证会红**：对每条规则各造一次违规，确认非零退出后再还原。
+  **护栏不验证自身 = 又一个"看起来有门禁"**（086 已验过一次这条教训）。
+- **FR-011 i18n 同批**：任何新文案**同时**进 `src/i18n/zh-CN.ts` 与 `en.ts`，且与组件**同一次提交**——
+  `src/test/setup.ts` 的 mock 在缺键时**抛错**（只查 zh-CN）。
+- **FR-012 P1 零调用点改动**：本规格第一批（P1）**不得修改任何 `pages/**`**。
+  它是"规范不合口味就只废掉样板"的保险——整个 diff 可一次提交删掉。
+- **FR-013 一页一提交**：P2 每页转换**一页一提交**，页内"外壳"与"表单原语"**再分成两次提交**，让视觉差异可归因。
+- **FR-014 并行工作区纪律**：本仓库常有多个会话共用同一工作区——**不得 `git add -A`**，只按显式路径暂存；
+  跑全仓门禁前确认无其它 writer（`ListAgents` + `git status`）。
+
+### 关键实体
+
+- **新增源文件（6 个）**：`src/theme/index.ts`、`src/components/ui/{FormGrid,FormModal,PageState,useFormMetrics}.tsx|.ts`、
+  `src/components/ui/{formGridStyle,formModalSize}.ts`（纯函数，不入 barrel）。
+- **新增测试（4 个文件 / 35 用例）**：同目录 `*.test.tsx`。
+- **护栏**：`frontend/scripts/check-ui.mjs`（约 600 行）+ `package.json` 的 `ui:check` / `ui:check:strict`。
+- **规格产物**：`specs/088-frontend-layout-consistency/{spec,plan,tasks,research}.md`
+  + `measure-ui-baseline.mjs` + `baseline-output.txt`。
+- **P2 样板页（4 个）**：`invoices/InvoiceListPage`、`tags/TagListPage`、`products/ProductListPage`、`customers/CustomerListPage`。
+- **两处 `check-perms.mjs` 钉死的文件不得在样板阶段触碰**：`customers/CustomerDetailPage.tsx`、`users/UserManagementPage.tsx`
+  （按路径 + `role === 'ADMIN'` 命中数双向校验）。
+
+---
+
+## 成功标准 *（必填）*
+
+- **SC-001**：P1 交付后 **`git status` 中不含任何 `pages/**` 改动**（FR-012），
+  且**全部测试文件全绿**——基线 72 个 → 现在 **76 个 / 343 用例**。
+- **SC-002**：覆盖率**不比基线低**（基线见 research.md §1：67.15 / 72.60 / 33.94 / 67.15）。
+  实测：**67.65 / 73.02 / 34.29 / 67.65** —— 四项**全部上升**，`functions` 余量由 12.54pp 扩到 **12.89pp**。
+- **SC-003**：前端七道门禁全部退出码 0：
+  `typecheck` / `lint`（**零 warning**——本规格拒绝用 `eslint-disable`）/ `i18n:check` / `menu:check` /
+  `perms:check` / `ui:check` / `test:coverage`。
+- **SC-004**：`check-ui.mjs` 的**三条自检路径各实测转红一次**（造违规 → 非零退出 → 还原）：
+  ① 品牌色字面量（探针文件）；② 白名单计数陈旧（双向校验的"少"方向）；
+  ③ 某规则候选点为 0（反假绿）。三条留痕于 `tasks.md`。
+- **SC-005**：4 个样板页在 dev server 上通过 **1920/1440/1024/768/375 × 中英文** 的视觉验收
+  （**由用户执行**，是本规格唯一的验收关口）。
+- **SC-006**：白名单**单调收缩**——每批铺开把对应条目删掉，`ui:check` 的错误信息里给出**可粘贴的修复指引**。
+
+---
+
+## 非目标（本批次不做，明确留给后续）
+
+- **antd 版本升级**：升过 5.25 需要把 **62 处 `destroyOnClose` 一次性改名**，且本文所有
+  "Select / DatePicker 是否需要宽度"的结论都是版本相关的。**不得与布局改造捆在一起做。**
+- **批量补 `placeholder`**：⚠️ 这条看起来像显然的待办，但不是——**162 个 `Form.Item` 无 placeholder
+  不是 162 个缺陷，而是约 324 个新 i18n 键**，且这些字段的 `label` 已经写明了字段名。
+  护栏只保留"必须走 `t()`"这一条，**不追求覆盖率**。同理"129 个无 `rules`"对可选字段是正常的。
+- **`AmountDisplay` / `StatusTag` 的全库替换**（4/101 采纳 vs 138 处 `<Tag color=>`、34 处 `/ 100`）：
+  **单独立项**。理由不是工作量而是**风险归属**——`/100` 是分转元，改错是**静默的金额错误**。
+- **`ImportResultModal` 抽取**（3 处逐字重复）：真缺陷，但会改动弹窗正文（测试可见的 DOM 变更），
+  放在那三页的布局转换**之后**另起提交。
+- **`index.css` 全量清理**（816 行里自有类 29% 是真死代码）：纯删除、无测试覆盖也无 CI 保护，
+  样板阶段没有演示价值却带风险。
+- **内容区 `maxWidth` 封顶**（`072` 规格过、从未落地）：**这是需用户拍板的一项**，
+  P1 只引入 `--content-max-width` 变量并默认 `none`（零视觉变化）。
+- **暗色模式**（总方案 §二期 2.7）：本批次不接 `algorithm`。
+- **5 个 `.ant-*` 类名耦合的测试**不改造——它们现在绿，改它们是另一个批次。
+- **FunnelChart / 大屏自绘部分**不动。
+- **其余 ~55 个含表单页面的铺开**：样板验收通过后按 P3 形态分批。
