@@ -108,18 +108,24 @@ const DataRetentionPolicyListPage: React.FC = () => {
     },
   ];
 
+  // 标题与操作按钮放在同一张 Card 上：改造前这里是一个**没有孩子的** `<Card title={…} />` 塞在 `Space` 里，
+  // 渲染出来只是「一条只写着标题的空边框」贴在两个按钮左边（`style={{flex:1}}` 落在 antd 的
+  // `ant-space-item` 包装层里面，也不起作用）。同页族的详情/历史页（本目录另三个页面、
+  // `DepartmentListPage`）都是「Card 标题 + `extra` 放按钮」，此处照此收口。
   return (
-    <div>
-      <Space style={{ marginBottom: 16 }}>
-        <Card title={t('pages.dataRetention.list.title')} style={{ flex: 1 }} />
-        <Button icon={<FileProtectOutlined />} onClick={() => navigate('/data-retention/compliance-export')}>
-          {t('pages.dataRetention.list.complianceExport')}
-        </Button>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/data-retention/create')}>
-          {t('pages.dataRetention.common.createPolicy')}
-        </Button>
-      </Space>
-
+    <Card
+      title={t('pages.dataRetention.list.title')}
+      extra={
+        <Space>
+          <Button icon={<FileProtectOutlined />} onClick={() => navigate('/data-retention/compliance-export')}>
+            {t('pages.dataRetention.list.complianceExport')}
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/data-retention/create')}>
+            {t('pages.dataRetention.common.createPolicy')}
+          </Button>
+        </Space>
+      }
+    >
       <Table<DataRetentionPolicyResponse>
         columns={columns}
         dataSource={data}
@@ -128,7 +134,7 @@ const DataRetentionPolicyListPage: React.FC = () => {
         pagination={{ pageSize: 10 }}
         scroll={{ x: 800 }}
       />
-    </div>
+    </Card>
   );
 };
 

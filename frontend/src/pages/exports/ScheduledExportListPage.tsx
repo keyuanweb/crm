@@ -134,15 +134,19 @@ const ScheduledExportListPage: React.FC = () => {
     },
   ];
 
+  // 同 `DataRetentionPolicyListPage`：改造前是一个没有孩子的 `<Card title={…} />` 塞在 `Space` 里，
+  // 渲染成「只写着标题的空边框」；标题与按钮改为同一张 Card 的头部 + `extra`。
   return (
-    <div>
-      <Space style={{ marginBottom: 16 }}>
-        <Card title={t('pages.scheduledExport.list.title')} style={{ flex: 1 }} />
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/exports/scheduled/create')}>
-          {t('pages.scheduledExport.common.createTask')}
-        </Button>
-      </Space>
-
+    <Card
+      title={t('pages.scheduledExport.list.title')}
+      extra={
+        <Space>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/exports/scheduled/create')}>
+            {t('pages.scheduledExport.common.createTask')}
+          </Button>
+        </Space>
+      }
+    >
       <Table<ScheduledExportResponse>
         columns={columns}
         dataSource={data}
@@ -154,7 +158,7 @@ const ScheduledExportListPage: React.FC = () => {
         }}
         scroll={{ x: 800 }}
       />
-    </div>
+    </Card>
   );
 };
 
