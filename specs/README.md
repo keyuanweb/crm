@@ -113,6 +113,8 @@
 | 083 | 工程收口（门禁生效/集成测试执行与覆盖率/安全修复/性能优化/部署缺陷） | 治理 | ✅ | [目录](./083-engineering-consolidation/) | —（无新端点；授权语义变更记入 055 的 open-platform 契约） |
 | 084 | 菜单信息架构与授权可见性收口（撤三组硬门/名称与分组两侧统一/归属按业务域归位/单一真相源与护栏） | P1 | ✅ | [目录](./084-menu-ia-authorization/) | authorization-semantics |
 
+> 【后记，2026-09-13，**订正：083 行"门禁生效"须加限定，原文保留**】T069 实测本仓库**无远端、无 `gh`**，`.github/workflows/ci.yml` 的全部作业（含 e2e）**一次都不会触发**，故 083 的门禁口径**正式改为以本地命令为准**——声明见 `083-engineering-consolidation/spec.md`（FR-G10 处）与 `quickstart.md`（验证 8，逐道门禁的本地等效命令 + 实测记录）。**当日实测**：后端 `mvn -B verify` 退出码 1（surefire 551 例全绿、failsafe 274 例 4 失败、`failsafe-reports` 72 份），覆盖率门禁经 `-Dmaven.test.failure.ignore=true` 实际判定**通过**（INSTRUCTION 45 035/56 169 = **0.8018** ≥ 0.73）；前端六道门禁全部退出码 0；e2e `module-page-auth.spec.ts` 14 passed。**门禁本身有牙齿，缺的是"谁在跑它"**——配置远端后应改回以 CI 为准。
+
 > 编号说明：`069` 未创建（编号空缺）；`081` 仅有 `design.md` / `tasks.md`，未按标准流程产出 `spec.md`；`082` 为标准流程（spec/plan/data-model/contracts/tasks/quickstart）产出的待实施模块；`083` 为标准流程产出的**加固类**模块（不产 `contracts/`，与 `003` 同形制），原设计**不含 Flyway 迁移**，但实施 T077 时发现 078 的三张 quota 子表缺 `BaseEntity` 公共列、写端点在生产库上 500，故**新增一条补列迁移 V88**（V87 属 1.5 批 3，一并补登），下方迁移对照表**已有 083 行**；`084` 为标准流程产出的**收口类**模块，与 `083` 的差别有二——它**产出了一份最小契约** `contracts/authorization-semantics.md`（因为自定义对象端点的授权判定语义确有变更，按原则一不得静默），且**含两条数据迁移**（V85/V86），故本表有 084 行。
 
 > 阶段：P0=核心销售链路补全；P1=成交链路延伸 / 效率与自动化；P2=扩展模块；

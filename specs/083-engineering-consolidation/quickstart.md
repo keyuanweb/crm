@@ -48,6 +48,8 @@ pnpm run test:e2e
 ```
 
 **期望**：Lint 输出 0 problems；覆盖率不足时命令以非零码失败；E2E 在持续集成中也执行（检查 `.github/workflows/ci.yml` 的前端作业含端到端步骤）。
+
+> 【后记，2026-09-13，**订正：末句不再成立，原文保留**】本仓库无远端、无 `gh`，CI **从未运行**，故"E2E 在持续集成中也执行"无法按字面核对。`ci.yml` 的 e2e 作业已存在且完整（自带 MySQL/Redis 服务、等后端就绪、安装 chromium），但**不可执行**；e2e 门禁改以本地执行为准（后端 8081 + `pnpm run test:e2e`），执行记录见「验证 8」。
 **改造前**：`npx eslint .` 为 **31 errors / 9 warnings**；`vite.config.ts` 无 `thresholds`；CI 前端作业为 typecheck → lint → test → build，**无**端到端步骤。
 
 ## 验证 4 —— 14 个页面恢复正常加载（US4 / SC-G04）
@@ -98,3 +100,26 @@ grep -n "083" specs/README.md specs/roadmap.md
 > 【后记，2026-09-13，**订正：末句不再成立，原文保留**】T077 交付了 `V88__quota_child_tables_base_entity_columns.sql`，故迁移对照表**已新增 083 行**（并顺带补上此前漏登的 V87，1.5 批 3）。登记面见 tasks.md T077 实施记录第 11 条。
 
 **约定核对**：本规格与 `003-system-hardening` 同形制，**不产 `contracts/`**（无新端点）。唯一的契约动件是 `specs/055-open-platform/contracts/open-platform.md` 的授权语义澄清——见验证 5。
+
+## 验证 8 —— 门禁口径：以本地命令为准（T069 声明）
+
+**为什么有这一节**：本仓库 `git remote -v` 为空、无 `gh`，故 `.github/workflows/ci.yml` 里的作业**永不执行**。门禁口径因此正式改为**以本地命令为准**（`spec.md` 的 FR-G10 处已就地声明）。下表列出 CI 定义的**每一道**门禁及其本地等效命令，**并附 2026-09-13 的实测执行记录**——"门禁生效"的主张今后必须附这种记录，不得以 `ci.yml` 的存在为证。
+
+| # | CI 中的步骤 | 本地等效命令 | 实测（2026-09-13） |
+|---|---|---|---|
+| 1 | backend: `mvn -B verify` | `cd backend && mvn -B verify` | **退出码 1**。spotless:check 通过（727 文件 0 需改）；surefire **551 例 / 0 失败 / 0 错误**（全绿）；failsafe **274 例 / 4 失败 / 0 错误**；中止在 `failsafe:verify` |
+| 2 | backend: 覆盖率门禁（`jacoco:check`，阈值 0.73） | `cd backend && mvn -B -Dmaven.test.failure.ignore=true verify` | **退出码 0**，`jacoco:check (coverage-check)` **实际执行并判定通过**：INSTRUCTION covered **45 035 / 56 169 = 0.8018** ≥ 0.73；BRANCH 2 809 / 4 626 = 0.6072 |
+| 3 | frontend: typecheck | `pnpm run typecheck` | 退出码 0 |
+| 4 | frontend: lint | `pnpm run lint` | 退出码 0（0 problems） |
+| 5 | frontend: i18n key parity | `pnpm run i18n:check` | 退出码 0（zh-CN 2 883 键 / en 2 883 键；路由 58 / 清单 56 / 粗粒度别名 3） |
+| 6 | frontend: menu manifest 陈旧性 | `pnpm run menu:check` | 退出码 0（56 项，来源 `RoleConstants.MENU_TREE`） |
+| 7 | frontend: unit + 覆盖率阈值 | `pnpm run test:coverage` | 退出码 0（22 文件 / 96 用例全通过；statements 47.02 / branches 71.35 / functions 22.43） |
+| 8 | frontend: build | `pnpm run build` | 退出码 0（11.50s；有一条 >500 kB 分块告警，非失败） |
+| 9 | e2e 作业 | 后端 8081 就绪后 `pnpm run test:e2e` | `e2e/module-page-auth.spec.ts` **14 passed**（T073） |
+
+**四条必须知道的前提**（否则上表会被误读）：
+
+1. **第 1 行与第 2 行的关系不是"换个参数"**：`jacoco:check` 与 `failsafe:verify` **同绑 `verify` 相位，且声明在其后**，而 Maven 是失败即中止 —— 故只要存在**任何一例** IT 失败，覆盖率就**永远判不出来**。当前那 4 例失败均为 T068 已批准的业务类失败（`IntegrationHubIT.integrationFlow`、`OpportunityIT.closeWithoutResultReturns422`、`UserIT.disableUserRevokesAccess`、`UserIT.userLifecycle`），**不属** SC-G01 要求清零的"因环境原因失败"。想看到覆盖率判定就必须加 `-Dmaven.test.failure.ignore=true`。**同相位内 `spotless:check` 又声明在两者之前**，故格式违规比用例失败更早中止。
+2. **`target/failsafe-reports/` 现有 72 份 XML**——SC-G01 要求的"≥60 份报告"这一条**已满足**（改造前该目录不存在）。
+3. **⚠️ 不要传 `-DargLine`（实测陷阱，会静默废掉覆盖率门禁）**：命令行给的 `-DargLine` 是**用户属性**，优先级高于插件属性，会把 `jacoco:prepare-agent` 追加的代理参数挤掉。后果链**全程无报错**：测试照跑（551 例全绿）→ 构建成功 → `jacoco:report` 只打印一行 INFO `Skipping JaCoCo execution due to missing execution data file` → `target/jacoco.exec` **根本不生成** → `jacoco:check`（阈值 0.73）**BUILD SUCCESS 空过**。实测：`mvn -B -Djava.version=17 -DargLine="-Dfile.encoding=UTF-8" test` 后 `target/jacoco.exec` **不存在**；去掉该参数后同样命令生成 681 KB 的 exec。`pom.xml:33` 已用 `<argLine>-Dfile.encoding=UTF-8</argLine>` 设好编码，故该参数**既多余又有害**；要追加 JVM 参数应改 `pom.xml` 的 `<argLine>` 属性（该属性的注释已警告插件级同类陷阱，但未覆盖命令行这条路径）。**判据**：跑完 `ls backend/target/jacoco.exec` 必须存在，且 `jacoco:report` 那行应是 `Loading execution data file` 而非 `Skipping`。
+4. **JDK 版本在本机与 CI 不一致**：本机**只装了 JDK 17**；`.github/workflows/ci.yml` 的后端作业（当前工作区版本）为 **25**、e2e 作业仍为 **17**，而 `backend/pom.xml` 的 `java.version` 被并行会话改为 **25**（尚未提交）。故上表第 1、2 行实测时**显式带了 `-Djava.version=17`** 覆盖 pom 的值。该参数在 `pom.xml` 提交为 17 后即不再需要，此处如实记下以免被当作稳定做法。
