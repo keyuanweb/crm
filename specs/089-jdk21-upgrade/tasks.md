@@ -296,7 +296,12 @@ description: "Task list for 089-jdk21-upgrade"
   **口径披露**：第 5 组的「⚠️部分实测」是**真·部分**，不是措辞保守——本机无 Docker（`docker: command not found`），容器构建那一半**确实没做**，`docker build/run` 已列为 T014 的悬置半项。
 
 
-- [ ] T020 提交。**先 `ListAgents`**；**只用显式路径** `git add specs/089-jdk21-upgrade/ backend/pom.xml Dockerfile .github/workflows/ci.yml README.md INSTALL.md PROJECT_FEATURES.md`；**绝不** `git add -A` / `git commit -a`。提交信息遵循 Conventional Commits，结尾附 `Co-Authored-By: Claude Code <noreply@anthropic.com>`
+- [x] T020 提交。**先 `ListAgents`**；**只用显式路径** `git add specs/089-jdk21-upgrade/ backend/pom.xml Dockerfile .github/workflows/ci.yml README.md INSTALL.md PROJECT_FEATURES.md`；**绝不** `git add -A` / `git commit -a`。提交信息遵循 Conventional Commits，结尾附 `Co-Authored-By: Claude Code <noreply@anthropic.com>`
+
+  **✅ 完成，提交 `5252e20`**（16 files changed, 1491 insertions(+), 15 deletions(-)）。实际暂存路径比本条多两处：`specs/README.md` 与 `specs/roadmap.md`（T018 的登记面，本条的清单里漏列了，已补）。
+
+  **`ListAgents` 结果与隔离确认**：当时有 1 个并行会话 `crm-gap-remediation`（waiting）。它与本规格无关的两处改动 `frontend/vite.config.ts`、`specs/083-engineering-consolidation/data-model.md` **未被暂存**——提交后 `git status --porcelain | grep -v '^[AM]'` 仍原样显示为 ` M`，**逐条核对过**。
+
 
 ---
 
