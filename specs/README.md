@@ -1,6 +1,6 @@
 # SDD 规格驱动开发文档索引
 
-**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V88 迁移，85 张表；083 为工程收口，另含一条补列迁移 V88；084 含 V85/V86 两条**数据迁移**——只动 `role_permission`，无 DDL、无新表）
+**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（Flyway V1~V88，共 **87** 个迁移脚本，**V72 不存在**；083 为工程收口，其中 V88 是补列迁移；084 含 V85/V86 两条**数据迁移**——只动 `role_permission`，无 DDL、无新表）
 
 > 本文档是全部 Spec-Driven Development 产物的导航入口。每个模块按统一流程
 > `spec → plan → tasks → implement → verify` 迭代，文档遵守 [章程](../../.specify/memory/constitution.md) 的
@@ -120,7 +120,7 @@
 > P5=体验优化（前端）。
 > 完整阶段定义与依赖关系见 [roadmap.md](./roadmap.md)。
 
-## 数据库迁移对照（Flyway V1~V78）
+## 数据库迁移对照（Flyway V1~V88，共 87 个脚本，V72 不存在）
 
 | 迁移 | 模块 | 内容 |
 |---|---|---|

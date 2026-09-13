@@ -925,7 +925,21 @@ Task: "新增 backend/src/test/java/com/crm/integration/PerformanceRegressionIT.
   4. **未验证边界**：「重定向落点是被拒地址」这一组合**仍无端到端用例**（类 javadoc 已登记的时长折扣：为一个断言付约 36 秒套件时长不划算）。本任务的拒绝是**首跳前**判死、不进重试循环，故不受该折扣影响；但那组合的两个事实仍由 `OutboundUrlValidatorTest.redirectsAreValidatedPerHop`（落点判定）与 `legitimateRedirectIsFollowedHopByHop`（同样的循环与 `resolveRedirect` 调用，只是判定通过）分担，本次未新增覆盖。
   5. **实测**：`WebhookRedirectIT` **4/4 绿**（2 存量 + 2 新增）；存量 webhook 相关 IT 均已白名单回环地址，未见回归（`PermissionMatrixIT`/`PermissionEnforcementIT`/`SchemaParityIT` 同批定向运行亦全绿）。
 
-- [ ] T076 对齐 `specs/README.md` 的迁移事实：`:3` 版本行写"V1~V78 迁移，85 张表"，`:122` 表格标题写"Flyway V1~V78"且止于 V78，而实测为 **V1~V84、83 个脚本、无 V72**（`ls V*.sql | wc -l` = 83，最大 V84）。T065 已把 `INSTALL.md` 更正为同一组实测值，两份文档现在互相矛盾。"85 张表"与 INSTALL.md 原件中已删除的"75 张表"同属无法从仓库核实的数字（权威结果只存在于运行中的库），按 T062 规则应改为可核实的"脚本数 + 末条版本号"。V79–V84 的模块归属由各自特性登记，不在本项范围。per FR-G04 登记面 / T062 (partial)
+- [X] T076 对齐 `specs/README.md` 的迁移事实：`:3` 版本行写"V1~V78 迁移，85 张表"，`:122` 表格标题写"Flyway V1~V78"且止于 V78，而实测为 **V1~V84、83 个脚本、无 V72**（`ls V*.sql | wc -l` = 83，最大 V84）。T065 已把 `INSTALL.md` 更正为同一组实测值，两份文档现在互相矛盾。"85 张表"与 INSTALL.md 原件中已删除的"75 张表"同属无法从仓库核实的数字（权威结果只存在于运行中的库），按 T062 规则应改为可核实的"脚本数 + 末条版本号"。V79–V84 的模块归属由各自特性登记，不在本项范围。per FR-G04 登记面 / T062 (partial)
+
+  **实施记录（2026-09-13）**——按 T062 规则把两处数字换成**当场实测值**，并把同一组数字同步到已经漂移的 `INSTALL.md`（见第 3 条，属本项的**范围外延**，理由如下）。
+
+  1. **实测（本项的唯一事实来源）**：`cd backend/src/main/resources/db/migration && ls V*.sql | wc -l` = **87**，末条版本号 = **V88**；用 `seq 1 88` 与实有编号求差集，缺号只有 **V72** 一个。**原文里的"实测为 V1~V84、83 个脚本"是 2026-09-12 那次测量的快照**，此后 V85/V86（084）与 V87（1.5 批 3）/V88（083 T077）相继落盘，故本次改为 87/V88——原文保留在此，以免被读成本次测量得 83。
+
+  2. **`specs/README.md` 两处**：①`:3` 版本行——删去**无法从仓库核实的"85 张表"**（与 INSTALL.md 原件里被删掉的"75 张表"同源，权威表数只存在于运行中的库），改为"Flyway V1~V88，共 **87** 个迁移脚本，**V72 不存在**"；②`:123` 表格标题——"Flyway V1~V78"改为"Flyway V1~V88，共 87 个脚本，V72 不存在"。**没有选另一个猜的数字去替换"85 张表"**：那正是 T062 记录里点名的错法。
+
+  3. **范围外延：`INSTALL.md` 一并更正（原文只说 README）**。理由是本项原文的命题是"两份文档互相矛盾"，而**矛盾的另一端自己也在漂**：T065 当时把 INSTALL.md 更正为"V1~V84、83 个脚本、末条 V84"，那组数字在今天同样是错的（`:124`、`:262`）。只改 README 会让两份文档继续不一致，只是方向反过来。故一并改为 87/V88，并把 `:269` 的迁移清单表尾行从"V76~V84"延到"V76~V88"（补 V85 菜单信息架构与自定义对象读码、V86 多币种读写分码、V87 权限矩阵对齐批 3、V88 quota 子表补公共列四条，各自归属见迁移对照表）。
+
+  4. **未动的数字（有意保留快照）**：`specs/084-menu-ia-authorization/` 下的 `tasks.md` 与 `verification.md` 里有多处"V1~V86 迁移，85 张表""解析 83 个迁移文件"——它们记的是**084 当时那次登记/解析的事实**（历史日志），按"活文档刷新为实测值、历史日志保留快照"的规则不改。同理，本条目上方第 1 条里保留的"83 个脚本"也照此保留。
+
+  5. **未验证边界**：本次数字来自**仓库文件计数**，不是运行中库的表数——`flyway_schema_history` 的实际行数与 `SHOW TABLES` 的表数**均未测量**（dev 库可用，但 T062 的规则本就要求只写可核实的量，故未引入）。若日后要写"表数"，须以 `flyway_schema_history` 为准并注明测量时间。
+
+  6. **实测**：`ls V*.sql | wc -l` = 87、末条 V88、唯一缺号 V72；`grep -rn "85 张表\|V1~V84\|V1~V78"` 在 `specs/README.md` 与 `INSTALL.md` 上**零命中**（余下命中全在 084 的历史记录里，见第 4 条）。本项为纯文档改动，未改任何代码与迁移文件，故未重跑构建。
 
 - [X] T077（2026-09-12 由 T074 发现，追加）**CRITICAL**：让 078 的配额版本／分解写路径可用——`sales_quota_version`／`sales_quota_breakdown`／`sales_quota_achievement` 三张表缺 `BaseEntity` 声明的列，而它们的实体全部 `extends BaseEntity`。实测：50 个 `BaseEntity` 实体中 47 张表带全四列，例外只有这三张；`PUT /api/v1/sales-quota/{id}` 因此报 `Column "deleted" not found`（`@TableLogic` 的 `deleted` 进 SELECT 的 WHERE），版本行／分解行的 INSERT 带 `updated_at`／`version` 而被拒（H2 与 MySQL 同因，SQL 由 MP 生成——即这两个端点在**生产上一直 500**，而 078 已交付）。二选一：①**新增迁移补列**（`deleted INT NOT NULL DEFAULT 0`、`version INT NOT NULL DEFAULT 0`；`sales_quota_version` 与 `sales_quota_achievement` 还需 `updated_at TIMESTAMP ... DEFAULT CURRENT_TIMESTAMP`，`sales_quota_breakdown` 已有该列），并同步 `schema-h2.sql` 镜像（受 `SchemaParityIT` 的迁移清单守卫约束）——与其余 47 张表的约定一致，**推荐**；②让三个实体不再继承 `BaseEntity`、各自声明所需字段——不动生产 schema，但这三张表从此不参与逻辑删除与乐观锁（它们本来也没有这些列）。**验收判据**：`SalesQuotaIT.quotaChildTablesLackBaseEntityColumnsSoWritesFail`（现为缺陷留痕，钉的是"缺列 + 5xx"）必须转红，随后按该用例断言描述里的指示改写为正常断言（版本号 `count+1`、分解两条、`GET /{id}/versions` 与 `GET /{id}/breakdown` 回读到行）。per FR-G04 / 078 交付完整性 (contradicts)
 
