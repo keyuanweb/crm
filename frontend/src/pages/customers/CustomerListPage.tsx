@@ -315,7 +315,7 @@ export default function CustomerListPage() {
   }
 
   return (
-    <>
+    <div className="page-stack">
       <Space>
         <Button type={view === 'all' ? 'primary' : 'default'} onClick={() => { setView('all'); reload() }}>
           {t('pages.customer.list.viewAll')}
@@ -327,8 +327,6 @@ export default function CustomerListPage() {
           {t('pages.customer.list.viewPool')}
         </Button>
       </Space>
-
-      <div style={{ height: 16 }} />
 
       <ProTable<Customer>
         size="small"
@@ -486,6 +484,6 @@ export default function CustomerListPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </>
+    </div>
   )
 }

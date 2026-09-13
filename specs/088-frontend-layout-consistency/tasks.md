@@ -199,12 +199,23 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
       新增 `ProductListPage.form.test.tsx`（**5 用例**）：`.perm.test.tsx` 的 7 个用例从不打开弹窗，
       故本页的 `FormModal`/`FormGrid`/子区块是零执行的。**证伪力已实测**（把栅格提前闭合、让 5 个字段
       落到栅格外 → 只有第 1 条红，其余 4 条仍绿）。
-- [ ] **T036 **[P] `customers/CustomerListPage.tsx` —— 外壳。**业务价值最高**（销售每天用）、
+- [x] **T036 **[P] `customers/CustomerListPage.tsx` —— 外壳。**业务价值最高**（销售每天用）、
       `Form.Item` 最多（9 个）、唯一带自定义字段 + 第二个（纵向）转移弹窗的页面。测试耦合 **0/0/6**（中）。
       **三条约束已逐行坐实，不得违反**：① `:154` 与 `:245`（`not.toHaveClass`）的 `toHaveClass('ant-btn-primary')`
       ⇒ **不得把视图切换的 `<Space>`/`<Button>` 组换成 `Segmented`/`Radio.Group`**；
       ② `:136` 的 `getByText('Acme 科技')` 与 `getByRole(..., {name:/viewPool/})` **重复渲染即抛错**；
       ③ `:133` 的 `queryAllByRole('checkbox')` 按数量断言 ⇒ **不得改动 `rowSelection`**。
+      **✅ 完成（1 文件 +2/−4）**：根 fragment → `div.page-stack`，并删掉 `<Space>` 与 `ProTable` 之间那个
+      手搓的 `<div style={{ height: 16 }} />`。**位置差异如实记**：三条约束全落在**页首的 `<Space>`** 与被
+      `rowSelection` 管着的复选框上，本次改动**一个都没碰**——`Space` 原样保留（未换成 `Segmented`）、
+      `rowSelection` 原样保留、`viewColumns` 原样保留。
+      **本页与 T030 不同、与 T032/T034 相同：净视觉变化为零。** T030 删掉的是一条"自身 16px + 手搓 spacer 16px"
+      里的一层，故间距净减 16px（可归因）；本页那条手搓 spacer 本来就是**唯一的**那 16px，
+      换成 `row-gap: 16px` 后间距**逐像素相同**，删掉的只是一个不再需要的 DOM 占位元素。
+      另：`index.css:127-130` 的 `.page-container > div > .ant-card { margin-bottom: 16px }` 与 `.page-stack`
+      的 `row-gap` **叠加**（§11.1 第 2 条）——本页 `ProTable` 也是最后一个 DOM 子元素
+      （两个 `Modal` 经 portal 挂到 `body`），故只表现为页面底部多 16px，与 T030 同形，无害。
+      门禁：typecheck / lint / `src/pages/customers/` **25 用例（5 文件）** 全绿。
 - [ ] **T037** `customers/CustomerListPage.tsx` —— `FormModal` + `FormGrid`。
       **不在此提交里抽 `ImportResultModal`**（会改动弹窗正文，属测试可见的 DOM 变更，另起提交）。
 - [ ] **T038** 视觉验收（**用户执行，SC-005**）：1920/1440/1024/768/**375** × 中英文，
