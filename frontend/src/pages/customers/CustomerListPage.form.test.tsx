@@ -1,9 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { screen, within, fireEvent, waitFor } from '@testing-library/react'
+import { configure, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '../../test/renderWithProviders'
+import { HEAVY_RENDER_ASYNC_TIMEOUT, HEAVY_RENDER_TEST_TIMEOUT } from '../../test/timeouts'
 import CustomerListPage from './CustomerListPage'
 import { useAuthStore } from '../../store/authStore'
 import type { UserInfo } from '../../store/authStore'
+
+// 整页渲染型用例的两个上限（取值与实测依据见 `src/test/timeouts.ts`）：
+// ① `findBy*`/`waitFor` 的等待上限——默认只等 1000ms，全量并发下不够用；
+// ② 单条用例上限——仓库默认 20000ms，而本页每条要挂载 antd Modal + Form。
+configure({ asyncUtilTimeout: HEAVY_RENDER_ASYNC_TIMEOUT })
+vi.setConfig({ testTimeout: HEAVY_RENDER_TEST_TIMEOUT })
 
 /*
   同目录另两个文件的 mock 集合：本页要跑完整渲染，缺任一个都会打真接口。
