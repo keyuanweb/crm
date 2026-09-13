@@ -24,6 +24,8 @@
 
 **Storage**: **无生产 schema 变更、无新增 Flyway 迁移**。`backend/src/test/resources/schema-h2.sql`（测试资产）补齐镜像：**8 张新表 + 3 个新增列 + 1 组角色权限种子**，覆盖 V70/V71/V73/V74/V75/V76/V77 共 7 个迁移（V72 不存在）。详见 data-model.md §2
 
+> 【后记，2026-09-13，**订正：本行后半句在交付收尾时不再成立，原文保留**】上面这行的"无生产 schema 变更、无新增 Flyway 迁移"是本次规划时的**范围声明**（当时的意图是只动测试资产）。收尾阶段由 T074 发现的两处 CRITICAL 缺陷使该声明必须被打破：**T077 新增了 `V88__quota_child_tables_base_entity_columns.sql`**——078 交付的三张 quota 子表缺 `BaseEntity` 声明的列，不动 schema 就修不了（另一选项"让三个实体不再继承 `BaseEntity`"会让这三张表退出逻辑删除与乐观锁，与另外 47 张表分叉，task 文本已判为不推荐）。章程要求"任何偏差必须明确说明理由**并经批准**"，故此处先说明、后请批准。逐字记录见 tasks.md T077 实施记录第 10 条。
+
 **Testing**: JUnit 5 + Spring Boot Test（单元 `*Test` / 集成 `*IT`）、H2（`MODE=MySQL`）、Vitest + React Testing Library、Playwright
 
 **Target Platform**: Web（前后端分离）+ Docker Compose
@@ -57,6 +59,8 @@
 | 原则四：测试优先与质量门禁（不可协商） | 每次合并必须通过构建、单元、集成、Lint、类型检查与覆盖率门槛 | ✅ 满足（**本规格的主题**）。并反向补齐：新增守卫使"新增迁移未同步测试库镜像"成为构建失败 |
 | 原则五：简洁、可维护与可观测 | 禁 N+1；结构化日志；YAGNI；列表分页 | ✅ 满足（FR-G24 消除 2N 查询；FR-G22 保留既有日志字段不降低可观测性；不新增权限码；缓存实现选型在 research.md 论证必要性） |
 | 技术与架构约束 | 复用既有技术栈；schema 变更须附迁移计划 | ✅ 满足（无 schema 变更。新增 failsafe 属构建期插件、Caffeine 为 Spring Boot 版本管理的必要依赖，均在 research.md 论证） |
+
+> 【后记，2026-09-13，**订正：本行"无 schema 变更"在交付收尾时不再成立，原文保留**】T077 新增 `V88`（补三张 quota 子表的 `BaseEntity` 列），**附有迁移计划**（迁移文件 + `schema-h2.sql` 镜像 + `SchemaParityIT.MIRRORED_MIGRATIONS` 登记 + `-- V88` 标记），故约束的**实质**（schema 变更须附迁移计划）仍满足，但"无 schema 变更"这一表述已不准确。理由与批准请求见上文 Storage 节的后记与 tasks.md T077 实施记录第 10 条。
 
 **结论**: 无门禁违规，无需豁免。
 

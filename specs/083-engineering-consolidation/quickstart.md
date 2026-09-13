@@ -95,4 +95,6 @@ grep -n "083" specs/README.md specs/roadmap.md
 
 **期望**：`specs/README.md` 的模块清单、版本行、编号说明已登记 083；`specs/roadmap.md` 的"最后更新"、"整体覆盖度"与"当前进度"已更新。本规格**无 Flyway 迁移**，故迁移对照表不动。
 
+> 【后记，2026-09-13，**订正：末句不再成立，原文保留**】T077 交付了 `V88__quota_child_tables_base_entity_columns.sql`，故迁移对照表**已新增 083 行**（并顺带补上此前漏登的 V87，1.5 批 3）。登记面见 tasks.md T077 实施记录第 11 条。
+
 **约定核对**：本规格与 `003-system-hardening` 同形制，**不产 `contracts/`**（无新端点）。唯一的契约动件是 `specs/055-open-platform/contracts/open-platform.md` 的授权语义澄清——见验证 5。

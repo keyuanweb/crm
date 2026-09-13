@@ -1367,7 +1367,10 @@ CREATE TABLE sales_quota_version (
   changed_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   change_reason  VARCHAR(500),
   version_number INT           NOT NULL,
-  created_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- V88
+  deleted        INT           NOT NULL DEFAULT 0,  -- V88
+  version        INT           NOT NULL DEFAULT 0  -- V88
 );
 CREATE INDEX idx_sqv_quota_id ON sales_quota_version (quota_id);
 CREATE INDEX idx_sqv_quota_version ON sales_quota_version (quota_id, version_number);
@@ -1379,6 +1382,8 @@ CREATE TABLE sales_quota_breakdown (
   amount          DECIMAL(15,2) NOT NULL,
   created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted         INT           NOT NULL DEFAULT 0,  -- V88
+  version         INT           NOT NULL DEFAULT 0,  -- V88
   CONSTRAINT uk_parent_child UNIQUE (parent_quota_id, child_quota_id)
 );
 CREATE INDEX idx_sqb_parent ON sales_quota_breakdown (parent_quota_id);
@@ -1394,7 +1399,10 @@ CREATE TABLE sales_quota_achievement (
   quota_quarter    SMALLINT,
   quota_team_id    BIGINT,
   quota_user_id    BIGINT,
-  created_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- V88
+  deleted          INT           NOT NULL DEFAULT 0,  -- V88
+  version          INT           NOT NULL DEFAULT 0  -- V88
 );
 CREATE INDEX idx_sqa_quota_id ON sales_quota_achievement (quota_id);
 CREATE INDEX idx_sqa_year_quarter_team ON sales_quota_achievement (quota_year, quota_quarter, quota_team_id);

@@ -2,7 +2,6 @@ package com.crm.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -10,12 +9,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.crm.AbstractIntegrationTest;
-import com.crm.entity.SalesQuotaBreakdown;
+import com.crm.entity.SalesQuotaAchievement;
 import com.crm.entity.SalesQuotaVersion;
-import com.crm.repository.quota.SalesQuotaBreakdownRepository;
+import com.crm.repository.quota.SalesQuotaAchievementRepository;
 import com.crm.repository.quota.SalesQuotaVersionRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSetMetaData;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -42,12 +42,19 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * YEAR(closed_at)}、{@code sq.year}、{@code FROM user}、以及 {@code SUM(bigint) / 1000000}
  * 的整数除法都是方言敏感的写法。
  *
- * <p><b>本类同时是一份缺陷留痕</b>：第一次运行就暴露了 078-sales-quota 的真实缺陷（三张子表缺 {@code BaseEntity}
- * 的四列，导致版本与分解写路径在任何数据库上都报错）， 见 {@link
- * #quotaChildTablesLackBaseEntityColumnsSoWritesFail()}。该用例**钉的是当前事实**，缺陷修好之日它会转红——那时请连同本 javadoc 与
- * {@code specs/083-engineering-consolidation/tasks.md} 的 T074 记录一起改写。
+ * <p><b>本类的来历：一份缺陷留痕被改写成了正常断言</b>。T074 首次运行本类时暴露了 078-sales-quota 的真实缺陷——三张子表的实体都 {@code extends
+ * BaseEntity}，而 V71 建表时没给它们 {@code deleted/version/updated_at} 三列，于是版本与分解的写路径在**任何**数据库上 都报 {@code
+ * Unknown column}（用户可见形态：{@code PUT /{id}} 与 {@code POST /{id}/breakdown} 双双
+ * 5xx）。当时留了一条钉住缺陷的用例（断言"缺这三列""两个端点 5xx"），并把改写指示写在它的断言消息里。
  *
- * <p><b>刻意不覆盖</b>：不测权限（{@code PermissionEnforcementIT} 已按码覆盖）、不测前端、不测参数校验分支。
+ * <p>T077 按该指示做了两件事：V88 补齐三张子表的列（镜像同步进 {@code schema-h2.sql} 并加进 {@code
+ * SchemaParityIT.MIRRORED_MIGRATIONS}），本条用例随之转红——转红本身就是"修复生效"的证据——随后改写为 {@link
+ * #quotaChildTablesCarryBaseEntityColumnsSoWritesSucceed()}：断言列齐备、版本号递增、两条分解回读得到行。 缺陷经过与转红时的原始输出记在
+ * {@code specs/083-engineering-consolidation/tasks.md} 的 T077 记录里。
+ *
+ * <p><b>刻意不覆盖</b>：不测权限（{@code PermissionEnforcementIT} 已按码覆盖）、不测前端、不测参数校验分支。 {@code
+ * sales_quota_achievement} 只探到"可写"——生产代码至今没有任何写入它的路径（{@code SalesQuotaServiceImpl} 注入了 Repository
+ * 却从不调用，达成率是 {@code SalesQuotaRepository} 现算的），这是 078 的既有事实，不是本次修复的范围。
  */
 class SalesQuotaIT extends AbstractIntegrationTest {
 
@@ -55,14 +62,15 @@ class SalesQuotaIT extends AbstractIntegrationTest {
   private static final int YEAR = 2099;
 
   /**
-   * {@code BaseEntity} 声明的四列。50 个继承 {@code BaseEntity} 的实体里，47 张表带全这四列；例外只有三张 quota 子表（见缺陷留痕用例）。
+   * {@code BaseEntity} 声明的四列。50 个继承 {@code BaseEntity} 的实体全部对应的表带全这四列——三张 quota 子表曾缺列（T077 已补齐，
+   * {@link #quotaChildTablesCarryBaseEntityColumnsSoWritesSucceed()} 钉住）。
    */
   private static final Set<String> BASE_ENTITY_COLUMNS =
       Set.of("deleted", "version", "created_at", "updated_at");
 
   @Autowired private JdbcTemplate jdbc;
   @Autowired private SalesQuotaVersionRepository versionRepository;
-  @Autowired private SalesQuotaBreakdownRepository breakdownRepository;
+  @Autowired private SalesQuotaAchievementRepository achievementRepository;
 
   @Test
   @DisplayName("配额父表：建/查/列表（含批量达成率子查询）都打到镜像表（T074）")
@@ -204,66 +212,67 @@ class SalesQuotaIT extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("T074 发现 2 · 缺陷留痕：三张 quota 子表缺 BaseEntity 列，078 的版本/分解写路径必然报错")
-  void quotaChildTablesLackBaseEntityColumnsSoWritesFail() throws Exception {
-    // ---- 一、事实：三张子表各缺哪些列（镜像与生产 V71 逐列一致，SchemaParityIT 已核）----
-    // 实体继承 BaseEntity → MyBatis-Plus 认为这几列存在：@TableLogic 的 deleted 会进每条 SELECT 的 WHERE，
-    // @TableField(fill) 的 updated_at 与初始化为 0 的 version 会进每条 INSERT 的列清单。
-    assertThat(missingBaseEntityColumns("sales_quota_version"))
-        .as("版本表缺列 → Service 的 selectCount 与 insert 都会带上它们")
-        .containsExactlyInAnyOrderElementsOf(Set.of("deleted", "version", "updated_at"));
-    assertThat(missingBaseEntityColumns("sales_quota_breakdown"))
-        .containsExactlyInAnyOrderElementsOf(Set.of("deleted", "version"));
-    assertThat(missingBaseEntityColumns("sales_quota_achievement"))
-        .containsExactlyInAnyOrderElementsOf(Set.of("deleted", "version", "updated_at"));
-
-    // 对照：父表带全四列，所以本类的其它用例能绿——不是"MP 不好用"，是这三张表没跟上约定
+  @DisplayName("T077 修复后：三张 quota 子表带全 BaseEntity 列，版本与分解写路径端到端可写可读")
+  void quotaChildTablesCarryBaseEntityColumnsSoWritesSucceed() throws Exception {
+    // ---- 一、结构：三张子表不再缺列（修复前它们的缺列清单由本用例的前身钉着，见 tasks.md T074）----
+    assertThat(missingBaseEntityColumns("sales_quota_version")).isEmpty();
+    assertThat(missingBaseEntityColumns("sales_quota_breakdown")).isEmpty();
+    assertThat(missingBaseEntityColumns("sales_quota_achievement")).isEmpty();
+    // 对照：父表从一开始就带全四列——修复前的失败不是"MP 不好用"，是这三张表没跟上约定
     assertThat(missingBaseEntityColumns("sales_quota")).isEmpty();
 
-    // ---- 二、后果（读）：逻辑删除条件让 selectCount 直接语法/列名错误 ----
-    Throwable readFailure =
-        catchThrowable(
-            () ->
-                versionRepository.selectCount(
-                    new LambdaQueryWrapper<SalesQuotaVersion>()
-                        .eq(SalesQuotaVersion::getQuotaId, 0L)));
-    assertThat(rootMessage(readFailure))
-        .as("MP 给 selectCount 追加了 `WHERE deleted = 0`，而版本表没有 deleted 列")
-        .contains("deleted");
+    // ---- 二、读：逻辑删除条件不再让 selectCount 报列名错误（修复前的第一个失败点）----
+    assertThat(
+            versionRepository.selectCount(
+                new LambdaQueryWrapper<SalesQuotaVersion>().eq(SalesQuotaVersion::getQuotaId, 0L)))
+        .as("deleted 列存在后，MP 追加的 `WHERE deleted = 0` 才成立")
+        .isZero();
 
-    // ---- 三、后果（写）：insert 带上 updated_at / version ----
-    SalesQuotaVersion version = new SalesQuotaVersion();
-    version.setQuotaId(0L);
-    version.setOldAmount(new BigDecimal("1.00"));
-    version.setNewAmount(new BigDecimal("2.00"));
-    version.setChangedBy(1L);
-    version.setChangedAt(LocalDateTime.now());
-    version.setVersionNumber(1);
-    String insertMessage = rootMessage(catchThrowable(() -> versionRepository.insert(version)));
-    assertThat(insertMessage)
-        .as("版本/分解的写路径在**任何**库上都跑不通（生产 MySQL 报的是同一个 Unknown column）")
-        .containsAnyOf("updated_at", "version", "deleted");
-
-    SalesQuotaBreakdown breakdown = new SalesQuotaBreakdown();
-    breakdown.setParentQuotaId(0L);
-    breakdown.setChildQuotaId(0L);
-    breakdown.setAmount(new BigDecimal("1.00"));
-    assertThat(rootMessage(catchThrowable(() -> breakdownRepository.insert(breakdown))))
-        .as("分解表同样缺列")
-        .containsAnyOf("updated_at", "version", "deleted");
-
-    // ---- 四、用户可见后果：两个真实端点 5xx ----
     String token = loginAndGetToken();
     long quotaId = createQuota(token, "4.00");
 
-    mockMvc
-        .perform(
-            put("/api/v1/sales-quota/" + quotaId)
-                .header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(quotaBody("8.00", null)))
-        .andExpect(status().is5xxServerError());
+    // ---- 三、写（版本表）：PUT 触发 insert，随后回读 ----
+    updateQuotaAmount(token, quotaId, "8.00");
+    assertThat(versionNumbersOf(quotaId)).as("一次改额留下一条版本记录，版本号从 1 起").containsExactly(1);
+    assertThat(
+            count(
+                "SELECT COUNT(*) FROM sales_quota_version WHERE quota_id = ? AND deleted = 0",
+                quotaId))
+        .as("deleted 由 @TableLogic 参与读取；NOT NULL DEFAULT 0 让新行落为未删除")
+        .isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT updated_at FROM sales_quota_version WHERE quota_id = ? AND version_number = 1",
+                Timestamp.class,
+                quotaId))
+        .as("updated_at 由 MetaObjectHandler 的 INSERT 填充写入（V88 之前该列不存在，INSERT 直接失败）")
+        .isNotNull();
 
+    JsonNode versions = readJson(token, "/api/v1/sales-quota/" + quotaId + "/versions");
+    assertThat(versions.isArray()).isTrue();
+    assertThat(versions.size()).isEqualTo(1);
+    assertThat(versions.get(0).path("versionNumber").asInt()).isEqualTo(1);
+    assertThat(versions.get(0).path("oldAmount").decimalValue()).isEqualByComparingTo("4.00");
+    assertThat(versions.get(0).path("newAmount").decimalValue()).isEqualByComparingTo("8.00");
+    assertThat(versions.get(0).path("changeReason").asText()).isEqualTo("季度调整");
+
+    // 第二次改额：版本号 = 该配额已有的版本数 + 1（Service 里那行 selectCount 现在真的执行得下去）
+    updateQuotaAmount(token, quotaId, "12.00");
+    assertThat(versionNumbersOf(quotaId))
+        .as("版本号应递增而不是覆盖——这正是 Service 用 selectCount 算版本号的那行代码")
+        .containsExactlyInAnyOrder(1, 2);
+
+    JsonNode versions2 = readJson(token, "/api/v1/sales-quota/" + quotaId + "/versions");
+    assertThat(versions2.get(0).path("versionNumber").asInt()).as("接口按版本号降序返回").isEqualTo(2);
+    assertThat(versions2.get(0).path("oldAmount").decimalValue()).isEqualByComparingTo("8.00");
+    assertThat(versions2.get(0).path("newAmount").decimalValue()).isEqualByComparingTo("12.00");
+
+    // ---- 四、写（分解表）：POST 触发 insert，随后回读 ----
+    // 分解会建出子配额，而子配额的 user_id 在生产库上有外键（fk_sales_quota_user）——故这里建两个**真实用户**，
+    // 不凭空编 id。踩过的坑：镜像不建外键（T074 已登记的不覆盖项），早先版本用 userId=2/3 在 H2 上通过，
+    // 而在生产 MySQL 上会被 FK 拒成 409（GlobalExceptionHandler 把 DataIntegrityViolationException 也映射为 409）。
+    long firstUser = createUser(token, "t077_quota_u1");
+    long secondUser = createUser(token, "t077_quota_u2");
     mockMvc
         .perform(
             post("/api/v1/sales-quota/" + quotaId + "/breakdown")
@@ -271,18 +280,98 @@ class SalesQuotaIT extends AbstractIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
-                    [{"quarter": 1, "userId": 2, "amount": 4.00}]
-                    """))
-        .andExpect(status().is5xxServerError());
+                    [{"quarter": 1, "userId": %d, "amount": 6.00},
+                     {"quarter": 2, "userId": %d, "amount": 6.00}]
+                    """
+                        .formatted(firstUser, secondUser)))
+        .andExpect(status().isCreated());
 
-    // 注意：分解请求的金额与父配额相等，故不会先被"分解总额必须等于配额"的校验拦下——这里红的是写库。
-    // 好消息是两条路径都是 @Transactional，失败会整体回滚，不会留下半条子配额。
+    assertThat(
+            count("SELECT COUNT(*) FROM sales_quota_breakdown WHERE parent_quota_id = ?", quotaId))
+        .as("两条分解各留一行关系记录（修复前一行都不会有：insert 直接抛 Unknown column，事务整体回滚）")
+        .isEqualTo(2);
+    assertThat(
+            count(
+                "SELECT COUNT(*) FROM sales_quota_breakdown WHERE parent_quota_id = ? AND deleted = 0",
+                quotaId))
+        .isEqualTo(2);
     assertThat(count("SELECT COUNT(*) FROM sales_quota WHERE parent_id = ?", quotaId))
-        .as("失败的分解不得留下子配额（事务回滚）")
-        .isZero();
+        .as("分解同时建出两条子配额")
+        .isEqualTo(2);
+
+    JsonNode breakdown = readJson(token, "/api/v1/sales-quota/" + quotaId + "/breakdown");
+    assertThat(breakdown.size()).isEqualTo(2);
+    BigDecimal total = BigDecimal.ZERO;
+    for (JsonNode row : breakdown) {
+      assertThat(row.path("childQuota").path("quarter").asInt()).isIn(1, 2);
+      assertThat(row.path("childQuota").path("amount").decimalValue())
+          .as("回读的子配额金额应等于写入值")
+          .isEqualByComparingTo("6.00");
+      total = total.add(row.path("amount").decimalValue());
+    }
+    assertThat(total).as("分解总额等于父配额（Service 的校验，能过说明金额确实落库了）").isEqualByComparingTo("12.00");
+
+    // ---- 五、达成统计表：修复只到"可写"这一层 ----
+    // 生产代码至今没有任何写入 sales_quota_achievement 的路径（Service 注入了 Repository 却从不调用，
+    // 达成率是 SalesQuotaRepository 现算的）。故这里只能探写，不能断言业务行为——该事实另行登记。
+    SalesQuotaAchievement achievement = new SalesQuotaAchievement();
+    achievement.setQuotaId(quotaId);
+    achievement.setActualAmount(new BigDecimal("6.00"));
+    achievement.setAchievementRate(new BigDecimal("50.00"));
+    achievement.setCalculatedAt(LocalDateTime.now());
+    achievement.setQuotaYear(YEAR);
+    achievement.setQuotaQuarter(1);
+    achievementRepository.insert(achievement);
+    assertThat(achievement.getId()).as("插入应拿到自增主键").isNotNull();
+    assertThat(
+            count(
+                "SELECT COUNT(*) FROM sales_quota_achievement WHERE quota_id = ? AND deleted = 0",
+                quotaId))
+        .isEqualTo(1);
   }
 
   // ===== 辅助 =====
+
+  /** 改配额金额（走 PUT，触发版本记录写入），断言 200。 */
+  private void updateQuotaAmount(String token, long id, String amount) throws Exception {
+    mockMvc
+        .perform(
+            put("/api/v1/sales-quota/" + id)
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(quotaBody(amount, null)))
+        .andExpect(status().isOk());
+  }
+
+  /**
+   * 建一个真实用户（走 {@code POST /api/v1/users}），返回其 id。
+   *
+   * <p>用于分解用例：子配额的 {@code user_id} 在生产库上有外键，凭空编一个 id 只能在本镜像上通过（镜像不建外键）。
+   */
+  private long createUser(String token, String username) throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/users")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"username": "%s", "password": "Passw0rd!", "displayName": "quota bd user", "role": "SALES"}
+                    """
+                        .formatted(username)))
+        .andExpect(status().isCreated());
+    Long id = jdbc.queryForObject("SELECT id FROM user WHERE username = ?", Long.class, username);
+    assertThat(id).as("建完用户应能在 user 表里查到：" + username).isNotNull();
+    return id;
+  }
+
+  /** 该配额在版本表里的版本号（直接读表，不经接口——接口口径见 GET /{id}/versions）。 */
+  private List<Integer> versionNumbersOf(long quotaId) {
+    return jdbc.queryForList(
+        "SELECT version_number FROM sales_quota_version WHERE quota_id = ?",
+        Integer.class,
+        quotaId);
+  }
 
   /** 建一个顶层配额（year=2099，挂 userId=1，期间为整年），返回其 id。 */
   private long createQuota(String token, String amount) throws Exception {
@@ -361,7 +450,10 @@ class SalesQuotaIT extends AbstractIntegrationTest {
             .andExpect(status().isOk())
             .andReturn()
             .getResponse()
-            .getContentAsString();
+            // 显式按 UTF-8 解码：响应的 Content-Type 不带 charset 时，无参的 getContentAsString() 按
+            // ISO-8859-1 解，中文断言会拿去比一串 mojibake（"季度调整" → "å­£åº¦è°æ´"）。产品本身没问题，
+            // 是读取侧的口径问题——本类另一处中文断言在 ContactIT 已有同样处理。
+            .getContentAsString(StandardCharsets.UTF_8);
     return objectMapper.readTree(resp);
   }
 
@@ -397,17 +489,6 @@ class SalesQuotaIT extends AbstractIntegrationTest {
     Set<String> missing = new TreeSet<>(BASE_ENTITY_COLUMNS);
     missing.removeAll(columnsOf(table));
     return missing;
-  }
-
-  private static String rootMessage(Throwable t) {
-    if (t == null) {
-      return "<未抛出异常>";
-    }
-    Throwable cur = t;
-    while (cur.getCause() != null) {
-      cur = cur.getCause();
-    }
-    return cur.getMessage() == null ? cur.toString() : cur.getMessage();
   }
 
   private static List<Long> idsIn(JsonNode records) {

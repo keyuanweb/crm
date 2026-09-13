@@ -1,6 +1,6 @@
 # SDD 规格驱动开发文档索引
 
-**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V86 迁移，85 张表；083 为工程收口、无迁移；084 含 V85/V86 两条**数据迁移**——只动 `role_permission`，无 DDL、无新表）
+**仓库**: `E:\code\crm` | **流程**: Spec Kit（`/speckit-*` 命令）| **版本**: v0.1.0+（V1~V88 迁移，85 张表；083 为工程收口，另含一条补列迁移 V88；084 含 V85/V86 两条**数据迁移**——只动 `role_permission`，无 DDL、无新表）
 
 > 本文档是全部 Spec-Driven Development 产物的导航入口。每个模块按统一流程
 > `spec → plan → tasks → implement → verify` 迭代，文档遵守 [章程](../../.specify/memory/constitution.md) 的
@@ -113,7 +113,7 @@
 | 083 | 工程收口（门禁生效/集成测试执行与覆盖率/安全修复/性能优化/部署缺陷） | 治理 | ✅ | [目录](./083-engineering-consolidation/) | —（无新端点；授权语义变更记入 055 的 open-platform 契约） |
 | 084 | 菜单信息架构与授权可见性收口（撤三组硬门/名称与分组两侧统一/归属按业务域归位/单一真相源与护栏） | P1 | ✅ | [目录](./084-menu-ia-authorization/) | authorization-semantics |
 
-> 编号说明：`069` 未创建（编号空缺）；`081` 仅有 `design.md` / `tasks.md`，未按标准流程产出 `spec.md`；`082` 为标准流程（spec/plan/data-model/contracts/tasks/quickstart）产出的待实施模块；`083` 为标准流程产出的**加固类**模块（不产 `contracts/`，与 `003` 同形制），**不含 Flyway 迁移**，故下方迁移对照表无 083 行；`084` 为标准流程产出的**收口类**模块，与 `083` 的差别有二——它**产出了一份最小契约** `contracts/authorization-semantics.md`（因为自定义对象端点的授权判定语义确有变更，按原则一不得静默），且**含两条数据迁移**（V85/V86），故本表有 084 行。
+> 编号说明：`069` 未创建（编号空缺）；`081` 仅有 `design.md` / `tasks.md`，未按标准流程产出 `spec.md`；`082` 为标准流程（spec/plan/data-model/contracts/tasks/quickstart）产出的待实施模块；`083` 为标准流程产出的**加固类**模块（不产 `contracts/`，与 `003` 同形制），原设计**不含 Flyway 迁移**，但实施 T077 时发现 078 的三张 quota 子表缺 `BaseEntity` 公共列、写端点在生产库上 500，故**新增一条补列迁移 V88**（V87 属 1.5 批 3，一并补登），下方迁移对照表**已有 083 行**；`084` 为标准流程产出的**收口类**模块，与 `083` 的差别有二——它**产出了一份最小契约** `contracts/authorization-semantics.md`（因为自定义对象端点的授权判定语义确有变更，按原则一不得静默），且**含两条数据迁移**（V85/V86），故本表有 084 行。
 
 > 阶段：P0=核心销售链路补全；P1=成交链路延伸 / 效率与自动化；P2=扩展模块；
 > P3=智能化与平台增强；P4=营销闭环与协作扩展（批次建议见 [roadmap-p0p1.md](./roadmap-p0p1.md)）；
@@ -160,6 +160,8 @@
 | V79~V84 | 修复 / 055 | opportunity.stage（V79）与权限矩阵对齐批 2~2d（V80~V84，撤门接线与死授权清理；逐条见各迁移文件注释，本表不展开） |
 | V85 | 084 | role_permission：新增读码 `custom_object:read` 并授予 ADMIN/ANALYST（数据迁移，无 DDL） |
 | V86 | 084 | role_permission：多币种读写分码——新增 `currency:read`、复用既有 `currency:manage`，CurrencyRateController 改按码放行（数据迁移，无 DDL） |
+| V87 | 1.5 批 3 | 权限矩阵对齐批 3：九个控制器的权限接线（`role_permission` 补授，数据迁移，无 DDL） |
+| V88 | 083 | 三张 quota 子表补 `BaseEntity` 公共列（`updated_at`/`deleted`/`version`），修 078 的 `PUT /{id}` 与 `POST /{id}/breakdown` 在生产库上 500（加列，无新表） |
 
 ## 使用建议
 
