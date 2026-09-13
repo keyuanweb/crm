@@ -691,13 +691,19 @@ function Shell() {
             <Content
               ref={contentRef}
               className="page-scroll"
-              style={{ 
-                background: '#f0f2f5', 
-                padding: isMobile ? 12 : '20px 24px', 
-                overflow: 'auto' 
+              style={{
+                background: '#f0f2f5',
+                padding: isMobile ? 12 : '20px 24px',
+                overflow: 'auto',
+                // 列表页的卡片要撑满剩余高度，故内容区做成纵向 flex 容器；
+                // 高度由此传给 .page-container（见 index.css 的列表页段落），
+                // 不再用 minHeight: calc(100vh - ...) 硬算——那个算式忘了减 Footer 的高度，
+                // 会让每个页面恒定多出约 36px 幽灵滚动。
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
-              <div className="page-container" style={{ minHeight: 'calc(100vh - 48px - 40px)' }}>
+              <div className="page-container">
                 <div style={{ marginBottom: 12 }}>
                   <BreadcrumbNav />
                 </div>

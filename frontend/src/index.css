@@ -346,6 +346,131 @@ body {
   row-gap: 16px;
 }
 
+/* ========== 列表页：表格卡片撑满内容区剩余高度 ==========
+
+   背景：`<Content>` 的高度恒等于 100vh − Header(48) − Footer(≈36)，与页面内容多少无关；
+   而 `.page-container` 往下全是「文档流 + 自动高度」——本文件此前没有任何一条高度规则。
+   于是表格只按内容长，剩下的可用高度就露成 Content 的背景色 #f0f2f5。
+   实测（1280×1100）：/data-retention 卡片下方空 754px、/exports/scheduled 706px、
+   /departments 676px；短内容页在 720 视口下也有 197–279px。
+
+   做法：把容器链打通成 flex，让表格卡片吃满余量。
+   两条**刻意**的约束，改动时不要破坏：
+
+   ① **全程不写 `min-height: 0`**。保持 flex 项默认的 `min-height: auto`，
+      长表格（如 /customers）只会把页面撑高，绝不会被压扁，也不会被
+      本文件上文 `.ant-table { overflow: hidden }` 裁掉。
+   ② **只用 `>` 直接子选择器**。`mail/MailSyncPage.tsx` 的 `expandedRowRender` 里
+      嵌了第二张 ProTable（`SyncRecordList`），用后代选择器会连它一起命中、
+      破坏展开行布局；锚成 `>` 链后它天然落在两层之外。
+
+   ③ `:has()` 在本段之前全库零使用：无 PostCSS/autoprefixer，它会原样发出，
+      支持基线是 Chrome 105+/Safari 15.4+；不支持的浏览器上**整段规则不生效**，
+      退回改动前的布局，不会画坏。**`:has()` 不能嵌套**（`:has()` 里再写 `:has()`
+      属非法，整条规则会被丢弃），故判据一律写成「相对选择器列表」。 */
+
+/* 只在「页面里确实有列表卡片」时才把容器链改成 flex：表单页、仪表盘、居中页
+   一律保持块布局。这不只是保守 —— **flex 列里嵌套的 margin 不再合并**，会给
+   这些页面带来 12~24px 的位移（实测 /account/password 内容高了 24px），
+   而它们本来也不需要撑满。判据与下面几条入口规则一一对应。 */
+.page-fade:has(> .ant-pro-table, > div > .ant-pro-table, > .ant-card .ant-table, > .ant-card .ant-tree, > .ant-card .ant-list),
+.page-container:has(> .page-fade > .ant-pro-table, > .page-fade > div > .ant-pro-table, > .page-fade > .ant-card .ant-table, > .page-fade > .ant-card .ant-tree, > .page-fade > .ant-card .ant-list) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+/* flex 列里相邻/嵌套的 margin 不再合并，这里补回一处被合并掉的间距：
+   面包屑自己的 `marginBottom: 12`（BreadcrumbNav.tsx）与 App.tsx 包裹 div 的
+   `marginBottom: 12` 是父子嵌套的两层 12px，块布局下合并成 12px、flex 下变成 24px
+   —— 实测会让**每一页**的内容整体下移 12px（`.page-fade` 顶边 101 → 113）。
+   把内层那 12px 收掉，外层 div 的 12px 仍是唯一来源，观感与改动前一致。 */
+.page-container .ant-breadcrumb {
+  margin-bottom: 0 !important;
+}
+
+/* 入口 A：ProTable 挂在页面根上（42 页直挂；6 页多包一层 div，含 4 个 .page-stack）。
+   那层 div 只在「里面确实有 ProTable」时才改成 flex，免得波及表单页的 `.page-fade > div`。
+
+   ⚠️ 这两支**必须并列写**，不能收进 `:is()`：
+   `.page-fade > :is(.ant-pro-table, div > .ant-pro-table)` 里的 `div > …` 那一支，
+   主体要求「元素的父级是 div」，而外层 `>` 又要求「元素的父级是 .page-fade」，
+   两条互斥 ⇒ 该分支恒不命中（浏览器实测 `.matches()` 返回 false，包一层 div 的页面
+   会静默退回旧布局）。这正是本段命中面变窄过一次的原因，改动时不要「顺手化简」。 */
+.page-fade > .ant-pro-table,
+.page-fade > div > .ant-pro-table {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.page-fade > div:has(> .ant-pro-table) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  /* .page-stack 是 grid；这里的 flex 是有意覆盖，它的 row-gap: 16px 在 flex 列下语义相同 */
+}
+
+/* 入口 B：Card 作页根的列表页（数据保留 / 计划导出 / 部门 …）。
+   `:has()` 限定「卡片里确实有表格 / 树 / 列表」，表单页的 Card 不受影响。 */
+.page-fade > .ant-card:has(.ant-table, .ant-tree, .ant-list) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+/* 卡片 → 卡片体，**两步都要有**：卡片自己不吃余量时，卡片体再怎么吃也撑不起来，
+   余量会留在卡片外面（就是最初那片 #f0f2f5）。
+   注意 `.ant-pro-table` 下挂着**两张** `.ant-pro-card`：搜索表单那张
+   （`.ant-pro-table-search`）与表格那张；只撑后者，否则查询区也会被拉高。
+   （入口 B 那张 antd Card 已在上面的入口 B 规则里撑开，不重复。） */
+.page-fade > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search),
+.page-fade > div > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.page-fade > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body,
+.page-fade > div > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body,
+.page-fade > .ant-card:has(.ant-table, .ant-tree, .ant-list) > .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+/* 卡片体 → 表体，逐层下传。链路（每层都必须有规则，漏一层整条就断）：
+     .ant-pro-card-body → .ant-table-wrapper → .ant-spin-nested-loading
+                        → .ant-spin-container → .ant-table
+   ① 每层都写「直挂 / 多包一层 div」两支，别收进 `:is()`（原因见入口 A 那段）；
+   ② 分页 `ul.ant-pagination` 是 `.ant-table` 的**兄弟**（实测 dom：
+      `.ant-spin-container > [.ant-table, ul.ant-pagination]`），
+      所以让 `.ant-table` 吃掉余量后，分页自然落到卡片底部——不必动它的 margin。 */
+.page-fade > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper,
+.page-fade > div > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper,
+.page-fade > .ant-card:has(.ant-table, .ant-tree, .ant-list) > .ant-card-body > .ant-table-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.page-fade > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading,
+.page-fade > div > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading,
+.page-fade > .ant-card:has(.ant-table, .ant-tree, .ant-list) > .ant-card-body > .ant-table-wrapper > .ant-spin-nested-loading {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.page-fade > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container,
+.page-fade > div > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container,
+.page-fade > .ant-card:has(.ant-table, .ant-tree, .ant-list) > .ant-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.page-fade > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container > .ant-table,
+.page-fade > div > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container > .ant-table,
+.page-fade > .ant-card:has(.ant-table, .ant-tree, .ant-list) > .ant-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container > .ant-table {
+  flex: 1 1 auto;
+}
+
 /* 筛选栏样式 */
 .filter-bar {
   background: var(--color-bg-page);
@@ -778,6 +903,18 @@ body {
 .ant-row .ant-col .ant-form-item,
 .ant-row .ant-form-item {
   margin-bottom: 24px !important;
+}
+
+/* ProTable 的查询表单不吃上面这 24px —— 那条是给弹窗/详情页的多行表单加的。
+   pro-components 的查询表单**自带**行距：`.ant-pro-query-filter-row { row-gap: 24px }`。
+   两者叠加后：末行下方恒多 24px 死白，换行时行距变 48px。
+   实测（1280）改前每一页的查询卡片都是 104px = 24 上内边距 + 56 行 + 24 下内边距，
+   而 56 = 32px 输入框 + 24px 外边距 —— 卡片里一半是空白；去掉后 104 → 80，
+   换行间距则交回 row-gap（这也是它存在的意义）。
+   两条选择器与上文同特异性但位置更靠后，故能盖住那条 !important。 */
+.ant-pro-table-search .ant-row .ant-form-item,
+.ant-pro-table-search .ant-pro-query-filter-row .ant-form-item {
+  margin-bottom: 0 !important;
 }
 
 /* ProTable 搜索区域顶部间距 */
