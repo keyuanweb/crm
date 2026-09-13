@@ -216,8 +216,25 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
       的 `row-gap` **叠加**（§11.1 第 2 条）——本页 `ProTable` 也是最后一个 DOM 子元素
       （两个 `Modal` 经 portal 挂到 `body`），故只表现为页面底部多 16px，与 T030 同形，无害。
       门禁：typecheck / lint / `src/pages/customers/` **25 用例（5 文件）** 全绿。
-- [ ] **T037** `customers/CustomerListPage.tsx` —— `FormModal` + `FormGrid`。
+- [x] **T037** `customers/CustomerListPage.tsx` —— `FormModal` + `FormGrid`。
       **不在此提交里抽 `ImportResultModal`**（会改动弹窗正文，属测试可见的 DOM 变更，另起提交）。
+      **✅ 完成**：**两个** `Modal` → `FormModal`（创建 `size="md"`，宽度 640 与原值**逐像素相同**；
+      转移 `size="sm"` = **520 → 480，−40px，本页唯一可归因的像素变化**，见 §14.3）、
+      7 个 `<Col span={12}>` → `FormGrid`、标签宽 `100px` → `useFormMetrics()` 的 96/112、
+      删 `saving` state、`onOk={() => void onSave()}` → `onSubmit={onSave}`（顺带修掉一处**改前就存在**
+      的裸 rejection）。`CustomFieldFormItems` 与备注框**刻意留在栅格之外**（全宽项，纪律第 1 条），
+      见 §14.4。
+      **本页是四页里唯一真的修掉一个可用性缺陷的**：原 `<Row>` + 7 个 `<Col span={12}>`
+      **写死两列且零断点**，375px 视口下每列仅约 140px（< 160），`FormGrid` 退成一列——逐档算术见 §14.2。
+      另清掉转移弹窗的两笔债：R2（此前根本没设宽度）与 `confirmLoading`（`batchTransferCustomers` 无幂等键）。
+      新增 `CustomerListPage.form.test.tsx`（**7 用例**）：两个既有测试文件**都不碰栅格、也不断言标签宽度**，
+      故这一页的 `FormModal`/`FormGrid`/第二个弹窗此前是零执行的。**证伪力已实测两次**：
+      ① 把备注 `Form.Item` 挪进一个新 `<FormGrid>` → 第 1、2 条红（`form-grid` 命中多个），其余 5 条绿；
+      ② 创建弹窗 `size="md"` → `"sm"` → **只有第 1 条红**，报文 `expected '480px' to be '640px'`。
+      两次探针均已还原，`PROBE` 残留 0，之后 6 文件 32 用例全绿。
+      **门禁**：R2 `23 处/58 → 22 处/56`、R3 `97 处/99 → 90 处/92`（隔离测量，各减 7）、
+      白名单 54 处不变、i18n 2888/2888（本页零新增键）。⚠️ §11.2 的 T031 读数与本次隔离测量**对不上**
+      （+1 命中/−3 候选点，本批次提交解释不了），已记进 §14.5：**R3 绝对计数跨小节不可比**。
 - [ ] **T038** 视觉验收（**用户执行，SC-005**）：1920/1440/1024/768/**375** × 中英文，
       4 个页面的列表 + 弹窗 + 详情；并就 plan.md 末节的 **6 件事**给出裁决。
 

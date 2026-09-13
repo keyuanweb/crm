@@ -5,12 +5,9 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
-  Col,
   Form,
   Input,
-  Modal,
   Popconfirm,
-  Row,
   Select,
   Space,
   Upload,
@@ -45,6 +42,7 @@ import { fetchCampaigns } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
+import { FormGrid, FormModal, useFormMetrics } from '../../components/ui'
 import { extractCfParams, useCustomFieldFilterColumns } from '../../hooks/useCustomFieldFilters'
 import type { Customer } from '../../types/customer'
 import { fromCustomFieldValues, toCustomFieldPayload } from '../../utils/customField'
@@ -77,8 +75,10 @@ export default function CustomerListPage() {
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
   const [campaignOptions, setCampaignOptions] = useState<{ value: number; label: string }[]>([])
   const [transferForm] = Form.useForm<{ targetOwnerId: number }>()
-  const [saving, setSaving] = useState(false)
   const [toolbarBusy, setToolbarBusy] = useState(false)
+  // 标签宽度的唯一来源（中文 96 / 英文 112），取代此前写死的 '100px'
+  // ——那是全库 5 种 labelCol 定宽里**出现次数最多**的一个（11 处）。
+  const metrics = useFormMetrics()
   // 028：操作权限（ADMIN 由 hasPerm 短路放行，不需要再 || isAdmin）
   const can = usePerms([
     PERMS.customerCreate,
@@ -121,7 +121,12 @@ export default function CustomerListPage() {
   }
 
   const onSave = async () => {
-    const values = await form.validateFields()
+    // 校验失败的 rejection 就地吃掉（同 T031/T033/T035）：antd 已把错误显示在字段下方，
+    // 再弹一条 message 只会重复；而放它逃出去会让 FormModal 的 handleOk 产生一个无人接管的
+    // promise rejection（FormModal **刻意不吞异常**，见其文件头）。原先的
+    // `onOk={() => void onSave()}` 是裸调用，只是那时没人注意到这个 rejection。
+    const values = await form.validateFields().catch(() => undefined)
+    if (!values) return
     const payload: CustomerPayload = { name: values.name, company: values.company }
     for (const [key, value] of Object.entries(values)) {
       if (key !== 'name' && key !== 'company' && key !== 'customFieldValues' && value !== undefined && value !== '') {
@@ -130,7 +135,6 @@ export default function CustomerListPage() {
     }
     const cf = toCustomFieldPayload(values.customFieldValues as Record<string, unknown>)
     if (cf) payload.customFieldValues = cf
-    setSaving(true)
     try {
       if (editing) {
         await updateCustomer(editing.id, { ...payload, version: editing.version })
@@ -143,8 +147,6 @@ export default function CustomerListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, t('common.message.failed')))
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -394,80 +396,77 @@ export default function CustomerListPage() {
         ]}
       />
 
-      <Modal
+      <FormModal
+        size="md"
         title={editing ? t('pages.customer.list.editModal') : t('pages.customer.list.createModal')}
         open={modalOpen}
-        onOk={() => void onSave()}
         onCancel={() => setModalOpen(false)}
         okText={t('common.button.save')}
-        confirmLoading={saving}
-        destroyOnClose
-        width={640}
+        onSubmit={onSave}
       >
         <Form
           form={form}
           name="customerForm"
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="name" label={t('pages.customer.list.formName')} rules={[{ required: true, message: t('pages.customer.list.msgNameRequired') }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="company" label={t('pages.customer.list.formCompany')} rules={[{ required: true, message: t('pages.customer.list.msgCompanyRequired') }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="contactPerson" label={t('pages.customer.list.formContact')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="phone" label={t('pages.customer.list.formPhone')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="email" label={t('pages.customer.list.formEmail')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="address" label={t('pages.customer.list.formAddress')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="campaignId" label={t('pages.customer.list.formCampaign')}>
-                <Select
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
-                  placeholder={t('pages.customer.list.formCampaignPlaceholder')}
-                  options={campaignOptions}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 7 个成对字段进栅格。原先的 `<Row gutter={16}>` + 7 个 `<Col span={12}>`
+              是**写死两列、无任何断点**的（R3 的 96 处之一）：375px 视口下 antd 把弹窗夹到
+              `calc(100vw - 32px)` = 343px，扣掉 24×2 内边距只剩约 295px，`span={12}` 仍要排两列
+              ⇒ 每列约 140px（低于 MIN_FIELD_WIDTH=160），是 088 要修的那类真缺陷。
+              `FormGrid` 的 auto-fit 在 md 档 640px 里算出的可用宽 592 ≥ 2 × 256 ⇒ 同样是两列，
+              只在容器窄到装不下两个字段时自动退成一列。 */}
+          <FormGrid>
+            <Form.Item name="name" label={t('pages.customer.list.formName')} rules={[{ required: true, message: t('pages.customer.list.msgNameRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="company" label={t('pages.customer.list.formCompany')} rules={[{ required: true, message: t('pages.customer.list.msgCompanyRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="contactPerson" label={t('pages.customer.list.formContact')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="phone" label={t('pages.customer.list.formPhone')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="email" label={t('pages.customer.list.formEmail')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="address" label={t('pages.customer.list.formAddress')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="campaignId" label={t('pages.customer.list.formCampaign')}>
+              <Select
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder={t('pages.customer.list.formCampaignPlaceholder')}
+                options={campaignOptions}
+              />
+            </Form.Item>
+          </FormGrid>
+          {/* 以下两项**刻意留在栅格之外**（`FormGrid` 的使用纪律第 1 条）：自定义字段的数量与
+              宽度都由后端配置决定、备注是长文本，两者都是**全宽项**；放进栅格会悄悄退化成
+              N 列里的一列。**同一表单内也不再混用 `<Col>`**（纪律第 2 条）。 */}
           <CustomFieldFormItems entityType="CUSTOMER" />
           <Form.Item name="remark" label={t('pages.customer.list.formRemark')}>
             <Input.TextArea rows={2} />
           </Form.Item>
         </Form>
-      </Modal>
+      </FormModal>
 
-      <Modal
+      {/* 第二个弹窗（纵向、单字段）。同样换成 `FormModal`：原写法既没设宽度（吃 antd 默认 520，
+          是 R2 的 23 处之一）、也没有 `confirmLoading`——提交期间 OK 按钮可重复点，
+          而 `batchTransferCustomers` 不带幂等键。改为 `sm`(480) 是一处**可归因的视觉变化**（−40px），
+          与 T031 的作废弹窗同一取档理由（单字段纵向表单，432px 可用宽足够）。 */}
+      <FormModal
+        size="sm"
         title={t('pages.customer.list.transferModal', { count: selectedKeys.length })}
         open={transferOpen}
-        onOk={() => void onTransfer()}
         onCancel={() => setTransferOpen(false)}
         okText={t('pages.customer.list.transferOk')}
-        destroyOnClose
+        onSubmit={onTransfer}
       >
         <Form form={transferForm} name="transferForm" layout="vertical">
           <Form.Item
@@ -483,7 +482,7 @@ export default function CustomerListPage() {
             />
           </Form.Item>
         </Form>
-      </Modal>
+      </FormModal>
     </div>
   )
 }
