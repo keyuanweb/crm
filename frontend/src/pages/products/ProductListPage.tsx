@@ -9,7 +9,6 @@ import {
   Form,
   Input,
   InputNumber,
-  Modal,
   Popconfirm,
   Row,
   Select,
@@ -33,6 +32,7 @@ import {
 import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
+import { FormGrid, FormModal, useFormMetrics } from '../../components/ui'
 import type { Product } from '../../types/product'
 
 interface FormValues {
@@ -55,9 +55,11 @@ export default function ProductListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 标签宽度与栅格下限的唯一来源（中文 96 / 英文 112），取代此前写死的 '110px'
+  // ——那是全库 5 种 labelCol 定宽里第二宽的一个。
+  const metrics = useFormMetrics()
   // 按权限码判断（1.5 批 3 起 ProductController 的增删改挂 product:*，此前是 hasRole('ADMIN')）。
   // 三个码的授予范围不同：create / delete 仅 ADMIN + MARKETING_MANAGER，update 另有销售角色
   // （V83 授出）——所以销售能看到「编辑」却看不到「新建/删除」，这是矩阵的答案，不是界面漏改。
@@ -116,7 +118,12 @@ export default function ProductListPage() {
   }
 
   const onSave = async () => {
-    const values = await form.validateFields()
+    // 校验失败的 rejection 就地吃掉：antd 已把错误显示在字段下方，再弹一条 message
+    // 只会重复；而放它逃出去会让 FormModal 的 handleOk 产生一个无人接管的 promise
+    // rejection（FormModal **刻意不吞异常**，见其文件头）。
+    // 原先的 `onOk={() => void onSave()}` 同样是裸调用，只是那时没人注意到这个 rejection。
+    const values = await form.validateFields().catch(() => undefined)
+    if (!values) return
     const payload: ProductPayload = {
       code: values.code.trim(),
       name: values.name.trim(),
@@ -125,7 +132,6 @@ export default function ProductListPage() {
       standardPrice: Math.round((values.standardPrice ?? 0) * 100),
       status: values.status,
     }
-    setSaving(true)
     try {
       if (editing) {
         await updateProduct(editing.id, { ...payload, version: editing.version })
@@ -147,8 +153,6 @@ export default function ProductListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, t('common.message.failed')))
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -239,64 +243,56 @@ export default function ProductListPage() {
         }
       />
 
-      <Modal
+      <FormModal
+        size="md"
         title={editing ? t('pages.product.list.editModal') : t('pages.product.list.createModal')}
         open={modalOpen}
-        onOk={() => void onSave()}
-        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText={t('common.button.save')}
-        destroyOnClose
-        width={640}
+        onSubmit={onSave}
       >
         <Form
           form={form}
           name="productForm"
           layout="horizontal"
-          labelCol={{ flex: '110px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col xs={24} sm={12}>
-              <Form.Item name="code" label={t('pages.product.list.formCode')} rules={[{ required: true, message: t('pages.product.list.msgCodeRequired') }]}>
-                <Input placeholder={t('pages.product.list.formCodePlaceholder')} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item name="name" label={t('pages.product.list.formName')} rules={[{ required: true, message: t('pages.product.list.msgNameRequired') }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item name="spec" label={t('pages.product.list.formSpec')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item name="unit" label={t('pages.product.list.formUnit')}>
-                <Input placeholder={t('pages.product.list.formUnitPlaceholder')} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item
-                name="standardPrice"
-                label={t('pages.product.list.formPrice')}
-                rules={[{ required: true, message: t('pages.product.list.msgPriceRequired') }]}
-              >
-                <InputNumber min={0} precision={2} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item name="status" label={t('pages.product.list.formStatus')}>
-                <Select
-                  options={[
-                    { value: 'ACTIVE', label: t('common.status.active') },
-                    { value: 'INACTIVE', label: t('common.status.inactive') },
-                  ]}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 6 个字段全是成对的短输入，整组进栅格。本页此前用 `<Col xs={24} sm={12}>`
+              手写响应式（`:260-289`，全库仅有的 6 个响应式表单 Col），`FormGrid` 的
+              auto-fit 在 md 档 640px 里算出的可用宽 592 ≥ 2 × 256 = 512 ⇒ 同样是两列。
+              差异只在 576–591px 视口这一带：Col 版按 `sm` 断点排两列（每列控件约 154px，
+              已低于 MIN_FIELD_WIDTH=160），auto-fit 版认为不够宽而**退成一列**——
+              即栅格比断点更收敛，不是回退（见 research.md §13.2）。 */}
+          <FormGrid>
+            <Form.Item name="code" label={t('pages.product.list.formCode')} rules={[{ required: true, message: t('pages.product.list.msgCodeRequired') }]}>
+              <Input placeholder={t('pages.product.list.formCodePlaceholder')} />
+            </Form.Item>
+            <Form.Item name="name" label={t('pages.product.list.formName')} rules={[{ required: true, message: t('pages.product.list.msgNameRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="spec" label={t('pages.product.list.formSpec')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="unit" label={t('pages.product.list.formUnit')}>
+              <Input placeholder={t('pages.product.list.formUnitPlaceholder')} />
+            </Form.Item>
+            <Form.Item
+              name="standardPrice"
+              label={t('pages.product.list.formPrice')}
+              rules={[{ required: true, message: t('pages.product.list.msgPriceRequired') }]}
+            >
+              <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="status" label={t('pages.product.list.formStatus')}>
+              <Select
+                options={[
+                  { value: 'ACTIVE', label: t('common.status.active') },
+                  { value: 'INACTIVE', label: t('common.status.inactive') },
+                ]}
+              />
+            </Form.Item>
+          </FormGrid>
         </Form>
 
         {/* 057：多币种价格（仅编辑模式） */}
@@ -312,7 +308,7 @@ export default function ProductListPage() {
                   <Col xs={24} sm={9}>
                     <Select
                       style={{ width: '100%' }}
-                      placeholder="Currency"
+                      placeholder={t('pages.product.list.priceCurrencyPlaceholder')}
                       value={row.currencyCode || undefined}
                       options={currencyOptions}
                       onChange={(v) => updatePriceRow(idx, { currencyCode: v })}
@@ -356,7 +352,7 @@ export default function ProductListPage() {
             </div>
           </>
         )}
-      </Modal>
+      </FormModal>
     </div>
   )
 }

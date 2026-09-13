@@ -315,6 +315,7 @@ const zhCN = {
         formSpec: '规格',
         formUnit: '单位',
         formUnitPlaceholder: '个/套/月',
+        priceCurrencyPlaceholder: '币种',
         formPrice: '标准售价（元）',
         formStatus: '状态',
         multiPriceTitle: '多币种价格（未配置币种按汇率自动折算）',

@@ -184,7 +184,21 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
       **✅ 完成（1 文件 +2/−2）**：根 fragment → `div.page-stack`。与 T032 一样是**零视觉差异**
       （根下只有 `ProTable` 一个 DOM 子元素，`Modal` 经 portal 挂到 `body`），纯约定性改动。
       门禁：typecheck / lint / `src/pages/products/` 7 用例全绿。
-- [ ] **T035** `products/ProductListPage.tsx` —— `FormModal` + `FormGrid`，覆盖 `editing &&` 条件子区块（`:302-340`）。
+- [x] **T035** `products/ProductListPage.tsx` —— `FormModal` + `FormGrid`，覆盖 `editing &&` 条件子区块（`:302-340`）。
+      **✅ 完成**：`Modal width={640}` → `FormModal size="md"`（**宽度无变化**，640 = md 档原值）、
+      6 个 `<Col xs={24} sm={12}>` → `FormGrid`、标签宽 `110px` → `useFormMetrics()` 的 96/112、
+      删 `saving` state、`onOk={() => void onSave()}` → `onSubmit={onSave}`（顺带修掉一处**改前就存在**
+      的裸 rejection）。`editing &&` 的多币种子区块**刻意留在 `Row`/`Col`**，理由三条见 research.md §13.5
+      （首要一条：它在 `</Form>` **之外**，不是表单的一部分，没有 `Form.Item` 可包）。
+      **§13.2 是本页的实质**：两种分列条件算出来比过——Col 按视口 `sm ≥576`，`FormGrid` 按容器
+      `≥512`（即视口 `≥592`）⇒ 只在 `576 ≤ vw < 592` 这 16px 带里不同，那一带 Col 版的控件仅
+      **144–152px**（低于 `MIN_FIELD_WIDTH=160`），auto-fit 拒绝分列是**设计语义不是回退**。已列为验收项。
+      **R6 白名单复核**：原理由"`Currency`/`Price (CNY)` 不是缺陷"**对了一半**——
+      `Currency` 已修（新增键 `priceCurrencyPlaceholder`，count 2 → 1）；`Price (CNY)` 是**语义问题**
+      （该行选的是非基准币种，提示"按 CNY 填"有误导），**留给你裁决**。见 §13.3。
+      新增 `ProductListPage.form.test.tsx`（**5 用例**）：`.perm.test.tsx` 的 7 个用例从不打开弹窗，
+      故本页的 `FormModal`/`FormGrid`/子区块是零执行的。**证伪力已实测**（把栅格提前闭合、让 5 个字段
+      落到栅格外 → 只有第 1 条红，其余 4 条仍绿）。
 - [ ] **T036 **[P] `customers/CustomerListPage.tsx` —— 外壳。**业务价值最高**（销售每天用）、
       `Form.Item` 最多（9 个）、唯一带自定义字段 + 第二个（纵向）转移弹窗的页面。测试耦合 **0/0/6**（中）。
       **三条约束已逐行坐实，不得违反**：① `:154` 与 `:245`（`not.toHaveClass`）的 `toHaveClass('ant-btn-primary')`

@@ -396,8 +396,16 @@ const R6_ALLOWED = [
   },
   {
     file: 'src/pages/products/ProductListPage.tsx',
-    count: 2,
-    reason: '**不是缺陷**：`Currency` / `Price (CNY)` 是**单位/币种示例**（该页是 P2 样板页，届时一并复核）',
+    count: 1,
+    reason:
+      '**已复核（2026-09-13，T035），条目由 2 处收成 1 处**：原理由把这处写成"**不是缺陷**：' +
+      '`Currency` / `Price (CNY)` 是单位/币种示例"——**对了一半**。' +
+      '① `Currency` 已修：它是**字段提示词**（一个英文单词），不是 `sales@corp.com` 那种"填什么格式"的' +
+      '示例，且同弹窗另 3 个 placeholder 早已走 `t()`。改用新键 `pages.product.list.priceCurrencyPlaceholder`。' +
+      '② `Price (CNY)` **留下待你裁决，它不是 i18n 问题而是语义问题**：该行选的是**非基准币种**' +
+      '（`fetchCurrencies` 过滤掉 `isBase`），而 `setProductPrice(productId, currencyCode, price)` 存的正是' +
+      '**所选币种**的价 ⇒ 在 USD 行里提示"按 CNY 填"是**误导性文案**。正解是改成"按所选币种填写"一类，' +
+      '但那是要拍板的业务文案，故本批次不改，见 research.md §13.3',
   },
   {
     file: 'src/pages/contacts/ContactListPage.tsx',

@@ -313,6 +313,7 @@ const en = {
         formSpec: 'Spec',
         formUnit: 'Unit',
         formUnitPlaceholder: 'pcs/set/month',
+        priceCurrencyPlaceholder: 'Currency',
         formPrice: 'Standard Price (CNY)',
         formStatus: 'Status',
         multiPriceTitle: 'Multi-currency prices (auto-converted for unconfigured currencies)',
