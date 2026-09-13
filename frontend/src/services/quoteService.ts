@@ -40,7 +40,8 @@ export async function rejectQuote(id: number, reason: string): Promise<Quote> {
 
 /** 导出报价单 PDF（blob 下载）。 */
 export async function exportQuotePdf(id: number): Promise<void> {
-  const resp = await apiClient.get(`/quotes/${id}/pdf`, { responseType: 'blob' })
+  // 服务端要现渲染 PDF ⇒ 退出全局 30s 超时（见 `apiClient.REQUEST_TIMEOUT_MS`）。
+  const resp = await apiClient.get(`/quotes/${id}/pdf`, { responseType: 'blob', timeout: 0 })
   const url = URL.createObjectURL(resp.data as Blob)
   const a = document.createElement('a')
   a.href = url

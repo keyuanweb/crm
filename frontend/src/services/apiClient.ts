@@ -22,7 +22,21 @@ export interface PageResult<T> {
   pageSize: number
 }
 
-export const apiClient = axios.create({ baseURL: API_BASE_URL })
+/**
+ * 全局请求超时（毫秒）。
+ *
+ * <p>为什么要有它：axios 的默认值是 `0`，意思是**永不超时**。2026-09-13 排查「渠道 ROI 页面
+ * 一直转圈、出不来数」时，后端进程楔住——TCP 连接建得起来、响应一个字节都不回（实测 6s/75s 皆然）。
+ * 此时页面的 loading 永远不结束：用户只看到转圈，既没有报错，也无从判断是"慢"还是"死"。
+ * 有了超时，同一种故障会变成一条明确的错误提示。
+ *
+ * <p>**纯文件传输不受它约束**：下载导出件/报表/附件/PDF、上传导入件的耗时由**文件大小**决定，
+ * 且服务端可能已经在干活——超时会把"其实成功了"报成失败（导入尤其危险：用户重试即重复导入）。
+ * 这些调用点各自显式传 `timeout: 0` 退出全局限制，见各处注释。
+ */
+export const REQUEST_TIMEOUT_MS = 30_000
+
+export const apiClient = axios.create({ baseURL: API_BASE_URL, timeout: REQUEST_TIMEOUT_MS })
 
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken')
@@ -54,11 +68,18 @@ export function isVersionConflict(error: unknown): boolean {
   return axios.isAxiosError(error) && error.response?.status === 409
 }
 
-/** 从 axios 错误中提取后端错误信息。 */
+/**
+ * 从 axios 错误中提取后端错误信息。
+ *
+ * <p>`error.response` 不存在时（超时、连不上、被 CORS 挡下）**一律回落到调用方文案**：
+ * 这些情况下 axios 自己的 message 是英文的（`timeout of 30000ms exceeded` / `Network Error`），
+ * 那是给开发者看的，不是给用户看的。后端的文案仍然优先——有响应体就说明拿到的是真结论。
+ */
 export function extractErrorMessage(error: unknown, fallback = '请求失败，请稍后重试'): string {
   if (axios.isAxiosError(error)) {
     const body = error.response?.data as { error?: ApiErrorBody } | undefined
     if (body?.error?.message) return body.error.message
+    if (!error.response) return fallback
     return error.message ?? fallback
   }
   return fallback

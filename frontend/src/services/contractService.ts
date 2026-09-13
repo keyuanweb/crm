@@ -70,6 +70,8 @@ export async function uploadContractAttachment(
   formData.append('file', file)
   const { data } = await apiClient.post(`/contracts/${contractId}/attachments`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    // 附件大小不可控 ⇒ 退出全局 30s 超时（见 `apiClient.REQUEST_TIMEOUT_MS`）。
+    timeout: 0,
   })
   return data.data as { id: number; fileName: string }
 }
@@ -77,6 +79,8 @@ export async function uploadContractAttachment(
 export async function downloadContractAttachment(contractId: number, attachmentId: number): Promise<void> {
   const resp = await apiClient.get(`/contracts/${contractId}/attachments/${attachmentId}/download`, {
     responseType: 'blob',
+    // 附件大小不可控 ⇒ 退出全局 30s 超时（见 `apiClient.REQUEST_TIMEOUT_MS`）。
+    timeout: 0,
   })
   const contentDisposition = resp.headers['content-disposition'] as string | undefined
   const match = contentDisposition?.match(/filename\*=UTF-8''(.+)/)

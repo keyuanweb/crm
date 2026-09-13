@@ -12,7 +12,8 @@ export async function fetchExportJobs(page = 1, pageSize = 20): Promise<PageResu
 }
 
 export async function downloadExportJob(id: number): Promise<void> {
-  const response = await apiClient.get(`/exports/${id}/download`, { responseType: 'blob' })
+  // 导出件的下载耗时由文件大小决定 ⇒ 退出全局 30s 超时（见 `apiClient.REQUEST_TIMEOUT_MS`）。
+  const response = await apiClient.get(`/exports/${id}/download`, { responseType: 'blob', timeout: 0 })
   const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]))
   const link = document.createElement('a')
   link.href = url

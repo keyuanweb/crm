@@ -99,6 +99,9 @@ export async function importCustomers(file: File): Promise<ImportResult> {
   formData.append('file', file)
   const { data } = await apiClient.post('/customers/import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    // 大文件的传输 + 服务端同步解析：超时会把"其实导入成功了"报成失败，而用户重试就是重复导入
+    // ⇒ 退出全局 30s 超时（见 `apiClient.REQUEST_TIMEOUT_MS`）。
+    timeout: 0,
   })
   return data.data as ImportResult
 }
@@ -118,6 +121,8 @@ export async function exportCustomers(params: { keyword?: string; status?: strin
   const resp = await apiClient.get('/customers/export', {
     params,
     responseType: 'blob',
+    // 服务端同步生成整份 xlsx，耗时由客户数量决定 ⇒ 退出全局 30s 超时。
+    timeout: 0,
   })
   downloadBlob(resp.data as Blob, `customers-${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
