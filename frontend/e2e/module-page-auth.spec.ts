@@ -13,6 +13,12 @@
  * DataInitializer 建出 admin/admin123），此时配额/数据保留/定时导出三张表都是空的 ——
  * 用例断言的是"请求已认证"（不得 401）与"页面不是白屏"，而不是"渲染出若干行"。
  * 定时导出详情页需要一条真实记录，故由 beforeAll 创建、afterAll 删除（净零副作用）。
+ *
+ * T073 补的那一层：改造前的断言只否定 401，于是列表接口回 **500 或 404 一样通过**——而
+ * "页面空表"在历史上正是由 500 或 401 同样产生的，即该用例测不出它要防的症状。现在四个
+ * 列表页额外断言两件事：① 列表接口**返回 2xx**；② 接口返回非空载荷时**页面必须渲染出行**。
+ * 载荷为空时不反过来断言空状态（CI 在空库上跑，且各页空态标记不统一，写死一种会制造假红）；
+ * 读不到响应体时**打印一行说明**而不是静默通过。
  */
 import { expect, test, type Page } from '@playwright/test';
 import { login } from './helpers/login';
@@ -22,17 +28,38 @@ interface Call {
   path: string;
   auth: string;
   status: number;
+  /** 响应体里的条目数；`null` = 没读到（非 JSON、或响应还没回来）。 */
+  items: number | null;
 }
 
 /**
- * 记录该页面发出的所有 /api/v1 请求及其凭据与响应码。
+ * 从列表响应里数出条目数，兼容本项目并存的两种形态：裸数组（数据保留模块）与
+ * `{records:[…]}`/`{data:[…]}` 信封（MyBatis-Plus 分页与全站信封）。数不出来返回 `null`,
+ * **不返回 0** —— 把"读不到"记成 0 会让下面的"接口非空、页面却空表"这条断言静默失效。
+ */
+function itemCount(json: unknown): number | null {
+  if (Array.isArray(json)) return json.length;
+  if (json && typeof json === 'object') {
+    const o = json as Record<string, unknown>;
+    for (const key of ['records', 'data', 'items', 'list']) {
+      if (Array.isArray(o[key])) return (o[key] as unknown[]).length;
+    }
+    if (typeof o['total'] === 'number') return o['total'] as number;
+  }
+  return null;
+}
+
+/**
+ * 记录该页面发出的所有 /api/v1 请求及其凭据、响应码与条目数。
  *
- * 同时**独立**记录响应码：只靠请求对象回填响应码时，同一 URL 被请求两次会让先前的记录
- * 永远停在 -1（未匹配），而 -1 既不等于 401 也不等于 200 —— 一个 401 就能借此漏网。
- * 故 401 的判定直接读响应事件，不受回填是否成功影响。
+ * 回填的两条通道都必须**按请求对象**配对，不能按 URL 配对：dev 下 React 会双挂载、同一
+ * URL 被请求两次，按 URL 建立 `Map<url, Call>` 会让先发的那条永远停在 -1（未匹配），而 -1
+ * 既不等于 401 也不等于 200——一个 401 就能借此漏网（本条注释原有的事实保留在此）。
+ * 故：① `statuses` 直接收响应的状态码，用于"不得出现 401"，不受回填影响；② 每条 `Call`
+ * 经 `Map<Request, Call>` 由**它自己那条请求**的响应回填，重复请求各自拿到各自的码。
  */
 function record(page: Page, calls: Call[], statuses: number[]) {
-  const byUrl = new Map<string, Call>();
+  const byRequest = new Map<Request, Call>();
   page.on('request', (req) => {
     if (!req.url().includes('/api/v1/')) return;
     const u = new URL(req.url());
@@ -41,15 +68,24 @@ function record(page: Page, calls: Call[], statuses: number[]) {
       path: u.pathname + u.search,
       auth: req.headers()['authorization'] ?? '(缺少 Authorization 头)',
       status: -1,
+      items: null,
     };
     calls.push(c);
-    byUrl.set(req.url(), c);
+    byRequest.set(req, c);
   });
   page.on('response', (resp) => {
     if (!resp.url().includes('/api/v1/')) return;
     statuses.push(resp.status());
-    const c = byUrl.get(resp.url());
-    if (c) c.status = resp.status();
+    const c = byRequest.get(resp.request());
+    if (!c) return;
+    c.status = resp.status();
+    // 只读列表类响应的体，用于"接口有数据、页面空表"的交叉核对；读不到就保持 null
+    void resp
+      .json()
+      .then((json) => {
+        c.items = itemCount(json);
+      })
+      .catch(() => {});
   });
 }
 
@@ -64,7 +100,19 @@ async function settle(page: Page) {
   };
 }
 
-async function probe(page: Page, path: string) {
+/**
+ * 列表页的额外口径。给了 `listApi` 就启用两条通用断言替代不了的检查：
+ * ① 该页的列表请求必须存在且**返回 2xx**；② 接口返回了非空载荷时，页面必须渲染出行。
+ *
+ * 为什么需要它：本用例改造前只否定 401，于是列表接口回 **500 或 404 一样通过**——而
+ * `/quotas` 的"空表"在历史上正是由 500 或 401 同样产生的，用例测不出它要防的症状。
+ */
+interface ProbeOptions {
+  /** 该列表页的数据接口路径（正则，匹配 `path`，含 query） */
+  listApi?: RegExp;
+}
+
+async function probe(page: Page, path: string, opts: ProbeOptions = {}) {
   const calls: Call[] = [];
   const statuses: number[] = [];
   record(page, calls, statuses);
@@ -98,6 +146,40 @@ async function probe(page: Page, path: string) {
 
   // 断言 3：页面不能是白屏。
   expect(render.bodyLen, `${path} 渲染为空`).toBeGreaterThan(0);
+
+  // 断言 4（仅列表页）：接口 2xx，且"接口有数据、页面空表"必须被抓出来。
+  if (opts.listApi) {
+    const listCalls = calls.filter((c) => opts.listApi!.test(c.path));
+    expect(
+      listCalls.map((c) => `${c.status} ${c.method} ${c.path}`),
+      `${path} 未发出列表请求（期望匹配 ${opts.listApi}），实际发出：${calls.map((c) => c.path).join(' | ') || '（无）'}`,
+    ).not.toEqual([]);
+
+    // 500/404 与"库里没数据"在页面上一模一样，只能在这一层区分；这正是本页症状的本质
+    const notOk = listCalls.filter((c) => c.status < 200 || c.status >= 300);
+    expect(
+      notOk.map((c) => `${c.status} ${c.method} ${c.path}`),
+      `${path} 的列表请求未返回 2xx（各自对应一个请求）`,
+    ).toEqual([]);
+
+    const readable = listCalls.filter((c) => c.items !== null);
+    if (readable.length === 0) {
+      console.log('  [列表页] 未读到列表响应体，本次不做"载荷-渲染"交叉核对');
+    } else {
+      const payloadItems = Math.max(...readable.map((c) => c.items as number));
+      if (payloadItems > 0) {
+        expect(
+          render.rows,
+          `${path} 的列表接口返回了 ${payloadItems} 条，页面却渲染出 0 行——请求成功而内容为空，正是"空表"症状`,
+        ).toBeGreaterThan(0);
+      } else {
+        // 不反过来断言"空载荷必须渲染空状态"：CI 的 e2e 在**空库**上跑，那时"空"是正确结果，
+        // 而本项目各页的空状态标记并不统一（有的用 antd 默认空态、有的自定义 emptyText），
+        // 写死一种会把空库上的正确渲染判成失败。
+        console.log('  [列表页] 列表接口载荷为空，本用例不断言渲染形态（空库上"空"是正确结果）');
+      }
+    }
+  }
 
   return render;
 }
@@ -154,18 +236,31 @@ test.describe('模块页面鉴权（FR-G17、SC-G04）', () => {
     await login(page);
   });
 
-  const STATIC_PAGES = [
-    '/quotas',
+  // 列表页：**接口成功**与**页面非空**一起断言（T073）。`/quotas/comparison` 不在原任务
+  // 点名的三个列表页里，但它是同一形态——`loadRanking()` 把失败 `catch` 成空表，与
+  // `/quotas` 的"空表"同源，故一并纳入。
+  const LIST_PAGES: Array<{ path: string; listApi: RegExp }> = [
+    { path: '/quotas', listApi: /^\/api\/v1\/sales-quota\?/ },
+    { path: '/data-retention', listApi: /^\/api\/v1\/data-retention\/policies$/ },
+    { path: '/exports/scheduled', listApi: /^\/api\/v1\/scheduled-exports\?/ },
+    { path: '/quotas/comparison', listApi: /^\/api\/v1\/sales-quota\/ranking\?/ },
+  ];
+
+  // 纯表单页：加载时不发模块请求，只走 probe 的通用断言（"没有 401"对它们是空真）
+  const FORM_PAGES = [
     '/quotas/create',
-    '/quotas/comparison',
-    '/data-retention',
     '/data-retention/create',
     '/data-retention/compliance-export',
-    '/exports/scheduled',
     '/exports/scheduled/create',
   ];
 
-  for (const path of STATIC_PAGES) {
+  for (const { path, listApi } of LIST_PAGES) {
+    test(`列表页鉴权与数据加载：${path}`, async ({ page }) => {
+      await probe(page, path, { listApi });
+    });
+  }
+
+  for (const path of FORM_PAGES) {
     test(`页面鉴权：${path}`, async ({ page }) => {
       await probe(page, path);
     });
