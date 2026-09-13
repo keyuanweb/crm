@@ -6,7 +6,12 @@
 # （nginx 正常起来、正常返回 404，看不出是"没构建"还是"配错了"）。
 
 # ==================== 构建阶段 ====================
-FROM node:20-alpine AS builder
+# 基础镜像版本必须满足 pnpm 的 engines 约束：下面的 corepack 会按 package.json 的
+# `packageManager: pnpm@11.7.0` 就地启用 pnpm，而 pnpm 11.7.0 要求 node >= 22.13。
+# 原为 node:20-alpine——同一约束 CI 早已实测记录（`.github/workflows/ci.yml`：node 18 上
+# pnpm 无法运行、前端作业整体不可达，故升至 22），却未同步到镜像，预期构建会停在
+# `pnpm install` 处，即 SC-G06「干净检出一键启动」不成立。此处对齐 CI 的 22。
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
