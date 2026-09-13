@@ -333,6 +333,19 @@ body {
   gap: 8px;
 }
 
+/* 页面内容的纵向节奏（088）：统一成一个 16px 的行距。
+   替代各页自己手搓的占位（此前实测 ≥7 处 `<div style={{ height: 16 }} />`）
+   与零散的 `marginBottom: 12/16/20`。只做布局——无背景、无边框、无内边距，
+   故不改任何类名或 DOM 结构，对既有渲染测试是中性的。
+   两点非显然之处：① 页面直接子元素里若有 antd Modal，它经 portal 挂到 body，
+   不是本容器的 DOM 子节点，因此不会白吃一个 row-gap；② 页面级的
+   `.page-container > div > .ant-card { margin-bottom: 16px }`（index.css 上文）会与本类
+   叠加，故页内不要再给卡片加 marginBottom。 */
+.page-stack {
+  display: grid;
+  row-gap: 16px;
+}
+
 /* 筛选栏样式 */
 .filter-bar {
   background: var(--color-bg-page);

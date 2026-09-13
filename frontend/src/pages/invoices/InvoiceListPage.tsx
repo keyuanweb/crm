@@ -164,8 +164,8 @@ export default function InvoiceListPage() {
   ]
 
   return (
-    <>
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+    <div className="page-stack">
+      <Row gutter={16}>
         <Col span={8}>
           <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
             <Statistic title={t('pages.invoiceList.statCards.invoiceRate')} value={stats.invoiceRate} suffix="%" valueStyle={{ color: '#1677ff' }} />
@@ -182,8 +182,6 @@ export default function InvoiceListPage() {
           </div>
         </Col>
       </Row>
-
-      <div style={{ height: 16 }} />
 
       <ProTable<Invoice>
         size="small"
@@ -260,6 +258,6 @@ export default function InvoiceListPage() {
           />
         </Space>
       </Modal>
-    </>
+    </div>
   )
 }
