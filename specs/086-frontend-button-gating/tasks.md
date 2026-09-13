@@ -369,10 +369,36 @@ description: "任务清单：前端按钮级权限收口（086）"
       `frontend/src/constants/permissions.ts`（`Files.readString`，`:44-45,115-118`），
       **不依赖后端编译产物**，故它的绿不受上面两条折让影响。
 
-      **四、遗留**：要拿到"干净的一次"（不跳 repackage、且有其他写入者时的对照），需待 `[07f653]` 空闲后重跑。
-      在此之前，**不得把本次结果表述为"后端源码可编译"**，也不得表述为"CI 会拦住"（见 T105）。
+      **四、干净复跑已补上（2026-09-13 17:29:25，2 分 00 秒，exit=0，BUILD SUCCESS）。**
+      触发窗口：对等会话 `[07f653]` 由 busy 转为 shell，且它把在飞工作**提交**了
+      （`c1e57a3` 补启动清扫、`d01b31e` 085 converge 追加 Phase 8），工作区里的未提交改动只剩 JDK 25 那三件套
+      （`ci.yml` / `Dockerfile` / `backend/pom.xml`），且无 maven 进程在跑。**本提交 `b90b79f` 夹在它两次提交之间，无纠缠。**
+
+      | 门禁 | 复跑结果 |
+      |---|---|
+      | `compiler:compile` / `testCompile` | `Nothing to compile - all classes are up to date`（**仍整个跳过**——对方在 17:19:57 重建过） |
+      | `surefire:test` | `Tests run: 555, Failures: 0, Errors: 0, Skipped: 0` |
+      | `failsafe:integration-test` | `Tests run: 284, Failures: 0, Errors: 0, Skipped: 0`（**74** 个 IT 类） |
+      | `spotless:check` | `Spotless.Java is keeping 732 files clean - 0 needs changes to be clean` |
+      | `jacoco:check` | `All coverage checks have been met.`（`Analyzed bundle 'crm-backend' with 232 classes`） |
+      | `FrontendPermissionCodeAlignmentTest` | `Tests run: 2, Failures: 0, Errors: 0` |
+      | **`NoClassDefFound`** | **0 处**（对照：被污染的那次是 30 处） |
+
+      合计 555 + 284 = **839 个用例全绿**，且 17:11 那次是 282/72 类、本次是 284/74 类——
+      差值正是对等会话在两次之间新增的 `WebhookSweepOnStartupIT` 与 `WebhookSweepScheduleIT`（各 1 例），
+      可从 17:16:41 → 17:19:57 的 `.class` mtime 变化对上。
+
+      **五、仍然做不到的一项，不藏着**：`repackage` 依旧只能跳过。占用 fat jar 的**两个** java 进程
+      （PID 3848、7680，`-jar target/crm-backend-0.1.0-SNAPSHOT.jar`）是对等会话起的、**它还在用**
+      （`[07f653]` 仅由 busy 转为 shell，未退出），故不能杀。**"不跳 repackage 的完全干净的一次"在本工区不可达**，
+      只有在对方退出后才可能。跳过的只是打胖 jar，不影响任何门禁判定。
+
+      **六、口径边界（沿用第三次的红与这里的绿都不改变它）**：
+      **不得把本次结果表述为"后端源码可编译"**——编译两次都被跳过，本次跑的仍是 17:19:57 那批 class，
+      连"源码能编译"这句话都没被检验过；也**不得表述为"CI 会拦住"**（见 T105，仓库无远端、无 `gh`，CI 一次都不触发）。
       另：本机 MySQL 与 Redis 均已确认可用（`crm_db` 可连、`redis-cli ping` → `PONG`），
-      它们**不再是**本项的障碍——先前"本工作区跑不起来"的顾虑仅在 JDK 25 那一项上成立。
+      它们**不再是**本项的障碍——先前"本工作区跑不起来"的顾虑仅在 JDK 25 那一项上成立，
+      而那项在"源码不动"的前提下不咬人（一旦真改后端源码就会咬，见记忆与 T002c）。
 - [x] **T102** 验证 FR-B11（零后端改动）：`git diff --stat -- backend/` 应为空
       （`backend/src/test/` 亦无改动——护栏测试是既有的，本规格只调用它）。
       **实测记录（2026-09-13）**：`git diff --stat -- backend/` 输出 **`backend/pom.xml | 4 +++-`**，
