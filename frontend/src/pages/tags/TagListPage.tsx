@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
-import { App, Button, Col, Form, Input, Modal, Popconfirm, Row, Tag } from 'antd'
+import { App, Button, Col, Form, Input, Popconfirm, Row, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { createTag, deleteTag, fetchTags, updateTag } from '../../services/tagService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
+import { FormModal, useFormMetrics } from '../../components/ui'
 import type { Tag as TagItem } from '../../types/tag'
 
 interface FormValues {
@@ -21,9 +22,11 @@ export default function TagListPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<TagItem | null>(null)
   const [form] = Form.useForm<FormValues>()
+  // 标签宽度与栅格下限的唯一来源（中文 96 / 英文 112），取代此前写死的 '80px'
+  // ——那是全库 5 种 labelCol 定宽里**最窄**的一个。
+  const metrics = useFormMetrics()
   // 删除标签走 DELETE /tags/{id}，TagController 上标的是 tag:manage（新建/编辑也是同一个码）。
   const can = usePerms([PERMS.tagManage])
 
@@ -42,8 +45,12 @@ export default function TagListPage() {
   }
 
   const onSave = async () => {
-    const values = await form.validateFields()
-    setSaving(true)
+    // 校验失败的 rejection 就地吃掉：antd 已把错误显示在字段下方，再弹一条 message
+    // 只会重复；而放它逃出去会让 FormModal 的 handleOk 产生一个无人接管的 promise
+    // rejection（FormModal **刻意不吞异常**，见其文件头）。
+    // 原先的 `onOk={() => void onSave()}` 同样是裸调用，只是那时没人注意到这个 rejection。
+    const values = await form.validateFields().catch(() => undefined)
+    if (!values) return
     try {
       if (editing) {
         await updateTag(editing.id, values)
@@ -56,8 +63,6 @@ export default function TagListPage() {
       reload()
     } catch (err) {
       message.error(extractErrorMessage(err, t('pages.tagList.msgSaveFailed')))
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -118,16 +123,15 @@ export default function TagListPage() {
         ]}
       />
 
-      <Modal
+      <FormModal
+        size="sm"
         title={editing ? t('pages.tagList.modalEditTitle') : t('pages.tagList.modalAddTitle')}
         open={modalOpen}
-        onOk={() => void onSave()}
-        confirmLoading={saving}
         onCancel={() => setModalOpen(false)}
         okText={t('pages.tagList.btnSave')}
-        destroyOnClose
+        onSubmit={onSave}
       >
-        <Form form={form} name="tagForm" layout="horizontal" labelCol={{ flex: '80px' }} wrapperCol={{ flex: 1 }}>
+        <Form form={form} name="tagForm" layout="horizontal" labelCol={{ flex: `${metrics.labelWidth}px` }} wrapperCol={{ flex: 1 }}>
           <Form.Item name="name" label={t('pages.tagList.formNameLabel')} rules={[{ required: true, message: t('pages.tagList.formNameRequired') }]}>
             <Input placeholder={t('pages.tagList.formNamePlaceholder')} />
           </Form.Item>
@@ -149,7 +153,7 @@ export default function TagListPage() {
             </Row>
           </Form.Item>
         </Form>
-      </Modal>
+      </FormModal>
     </div>
   )
 }

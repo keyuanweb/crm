@@ -162,7 +162,19 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
       单行 grid 上 `row-gap` 无处生效，且本页本来就没有可删的间距。故这一次是**纯约定性**改动——
       目的是让 P3 铺开时"页级外壳"有统一形态，不是为了改这页的样子。
       门禁：typecheck / lint / `src/pages/tags/` 6 用例（2 文件）全绿。
-- [ ] **T033** `tags/TagListPage.tsx` —— `FormModal`（先用它把 API 在最简单的情形上验证）。
+- [x] **T033** `tags/TagListPage.tsx` —— `FormModal`（先用它把 API 在最简单的情形上验证）。
+      **✅ 完成**：`Modal` → `FormModal size="sm"`（原为 antd 默认 **520**，见 §11.6 同一取档理由）、
+      删掉页面的 `saving` state（提交中状态由 `FormModal` 的 `confirmLoading` 接管）、
+      `onOk={() => void onSave()}` → `onSubmit={onSave}`、标签宽 `80px` → `useFormMetrics()` 的 **96/112**。
+      **刻意不做 `FormGrid`**（不是漏写）：`sm` 档可用宽 ≈432px，而 `minItemWidth` = 96+160 = 256
+      ⇒ **只有 1 列**，即本页是唯一一次纯粹的 `FormModal` API 验证，栅格留给后三页。见 research.md §12.2。
+      **一处改前就存在的裸 rejection 顺手修掉**：`onSave` 首行的 `form.validateFields()` 校验失败会抛错，
+      而原 `onOk={() => void onSave()}` 无 catch ⇒ 无人接管的 promise rejection；按 T031 同一处置
+      就地吃掉（`FormModal` **刻意不吞异常**）。见 §12.4。
+      新增 `TagListPage.form.test.tsx`（**5 用例**）：该页此前**从不打开弹窗**，故 `FormModal` 默认脚注、
+      `onSubmit` 接线、`labelCol` 的来源在本页是零执行的。**证伪力已实测**（标签宽探针 → 只有第 1 条红）。
+      读数：**R2 24 → 23 处**（本页无宽度弹窗销账）、R3 仍 96、总问题数 120 → 119。
+      **R3 的那处色块 `<Col span={2}>` 本提交不动**，理由见 §12.5（`FormGrid` 对它**是错的修法**），记给 T045。
 - [ ] **T034 **[P] `products/ProductListPage.tsx` —— 外壳。
       **本仓库自己的响应式参考实现**（`:260-289`，全库仅有的 6 个响应式表单 Col）
       ⇒ 改它等于验证 `FormGrid` **能复现既有最好行为**；若 `FormGrid` 让该页回退，**那是设计错了，不是页面错了**。
@@ -218,3 +230,4 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
 | 4 | `.ai-card` **不是死代码——该选择器根本不存在**（`index.css` 里只有 `.ai-suggestion-card` / `.ai-icon-pulse`） | 已订正（research.md §4.1）；plan 初稿的「非目标」清单已删去该条 |
 | 5 | `Descriptions layout="horizontal"` 的行号有两个口径：plan 引 `layout=` 所在行（317/357/217/299），脚本引**标签起始行**（313/353/213/295），差 4 行 | **统一用标签起始行**（唯一），已订正（research.md §4.3） |
 | 6 | **`InvoiceListPage` 首屏从不拉统计**：`loadStats()` 只被 `reload()` 调用，而 `reload()` 只被 `onCreate`/`onVoid` 调用 ⇒ 首次进入页面时三个统计卡片恒为 `0% / 0.00 / 0.00`，只有开过票或作废过一张才变真值。换 `StatCard` **之前**即如此（同一个 `stats` state），与 T031 无关，但验收时极易被误读成"`StatCard` 把数字改坏了" | **已修**（T031 之后的第三次提交）：加挂载期 `useEffect`（照本仓 `useCallback`+`useEffect([load])` 惯例，避免 `exhaustive-deps` 警告）；`form.test` 首条断言从 `0%`/两个 `0.00` **翻成真实值**，且**实测过它真会红**（临时禁用 effect → 该用例失败、其余 4 条仍绿）。见 research.md §11.4 |
+| 7 | **R3 的 96 处里至少有一处不能用 `FormGrid` 修**：`TagListPage.tsx:141` 的 `<Col key={c} span={2}>` 是颜色选择器的 **10 个色块**（全宽项），而 R3 的修复建议文本是"换成 `FormGrid` 或至少补断点"——对这一处**前半句是错的**（全宽项本来就该在栅格之外）。它确实有真实缺陷（320px 下每个色块约 20px），但正确修法是换成 `flex-wrap` 的色块行，属**结构变更** | **记给 T045**：R3 铺开时**不得机械替换**；本页在 T033 里保持原样，仍留在 R3 名单上（R3 计数 96 未变，是预期状态）。见 research.md §12.5 |

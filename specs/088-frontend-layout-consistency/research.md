@@ -620,3 +620,101 @@ plan 的非目标里写"本批次只在样板页里顺手收掉已经在那儿�
 
 该弹窗此前**没设宽度**，吃 antd 默认的 520；`FormModal` 要求四档之一，取最接近的 `sm`=480。
 它不是 R2 的违规点（内部没有 `<Form>`，故从未进过 R2 的候选集），这次是被"同页两个弹窗走同一契约"顺带收编的。
+
+---
+
+## 12. P2 样板页 2/4：`TagListPage`（T032/T033，2026-09-13）
+
+### 12.1 T032 是**零视觉差异**的（与 T030 不同，如实记下）
+
+T030 顺手删掉了 `Row` 的 `marginBottom:16` 与一个手搓的 `<div style={{height:16}} />`，
+所以那一次有**可归因的视觉变化**（统计行到表格 32px → 16px，见 §11.1）。本页没有：
+根节点下**只有 `ProTable` 一个 DOM 子元素**——`Modal` 经 portal 挂到 `body`，
+**不是本容器的 DOM 子节点**（同 §11.1 里 `.page-stack` 的两点非显然之处之①）。
+单行 grid 上 `row-gap` 无处生效，且本页本来就没有可删的间距。
+
+⇒ 这一次 T032 是**纯约定性**改动（1 文件 +2/−2），目的是让 P3 铺开时"页级外壳"有统一形态。
+
+**新增一条留给 T038 的验收观察项**（**未验证，不作为结论**）：`display: grid` 让子元素成为
+grid item，其行内轴的自动最小尺寸默认是 `auto`，而 block 布局下不是。理论上若某子元素的
+min-content 宽大于容器，grid 会整体撑破而不是内部滚动。本页与 `InvoiceListPage` 的 `ProTable`
+内部 `.ant-table-content` 带 `overflow-x: auto`，按规范滚动容器的自动最小尺寸为 `0`，
+故**预期**无影响——但 jsdom 的 `cssstyle` 根本不反映 `overflow`/`gridTemplateColumns` 的
+计算结果，**这条只能靠肉眼看**。它同时影响 P3 要铺开的 53 个含 `ProTable` 的文件，
+所以在 T038 一次看清比在 P3 逐页踩便宜。
+
+### 12.2 T033 只做 `FormModal`，**刻意不做 `FormGrid`**
+
+tasks.md 的 T033 文案里没有 `FormGrid`，这是对的，不是漏写。栅格算一遍就清楚：
+
+- 本页弹窗原先没设宽度 → antd 默认 520 → 四档里取最接近的 **`sm` = 480**；
+- 可用宽 ≈ 432px；`FormGrid` 的 `minItemWidth` = `labelWidth(96) + MIN_FIELD_WIDTH(160)` = **256**；
+- 432 / 256 = 1.68 ⇒ **只有 1 列**。
+
+一列的栅格是个空动作，所以本页不进 `FormGrid`。**T033 因此是 P2 里唯一一次纯粹验证
+`FormModal` API 的提交**（plan 的意图原文：「先用它把 API 在最简单的情形上验证」），
+后面三页才有栅格。
+
+### 12.3 标签宽度：`80px` → `96/112`（本页唯一肉眼可见的尺寸变化）
+
+`80px` 是全库 5 种 `labelCol` 定宽里**最窄**的一个（§2.2：`100px`×11、`90px`×6、`110px`×2、
+`80px`×2、`70px`×1）。改成 `useFormMetrics().labelWidth` 后中文 **96** / 英文 **112**，
+即标签栏比原先**宽 16px（中文）/ 32px（英文）**，输入区相应变窄。这是决策 2（统一标签宽度）
+在本页的落地，属**验收项**。
+
+测试侧的钉法值得记一笔：断言读的是 `.ant-form-item-label` 的 **style 属性字符串**，
+而不是 `getComputedStyle`。理由有二——① antd 把 `labelCol` 落到
+`<Col {...mergedLabelCol} className="ant-form-item-label">`（`node_modules/antd/lib/form/FormItemLabel.js`
+末尾确认），属性字符串是它**直接写上去**的，如实；② jsdom 的 `cssstyle` 不反映 `flex` 这类
+简写的计算结果。实测该属性值是 **`flex: 0 0 96px;`**——`parseFlex` 把 `'96px'` 展开成了
+`0 0 96px`，所以断言写 `toContain('96px')` 而不是等值比较。
+
+**证伪力已实测**：把 `metrics.labelWidth` 临时改回硬编码 `'80px'` 再跑，
+**只有第 1 条用例失败**、其余 4 条仍绿，失败信息为
+`expected 'flex: 0 0 80px;' to contain '96px'`；还原后 11/11 绿，无探针残留。
+
+### 12.4 顺带收掉 `saving` state，并修掉一个**此前就存在**的裸 rejection
+
+`confirmLoading={saving}` → `FormModal` 内部用 `submitting` 接管，页面的 `saving` state
+（1 个 `useState` + 2 处写入）整体删除。
+
+另有一处**改前就存在**、但值得记下来的问题：`onOk={() => void onSave()}` 里
+`onSave` 的第一行是 `await form.validateFields()`，校验失败时它会**抛错**，
+而这个 `void` 调用没有任何 catch ⇒ 一个无人接管的 promise rejection（控制台可见，功能无碍）。
+换成 `FormModal` 后这条路径变成 `await onSubmit()`，若照样抛出则由 `handleOk` 的
+`try/finally` 原样传出去——`FormModal` 是**刻意不吞异常**的（见其文件头）。
+所以按 T031 的同一条处置，把校验 rejection **就地吃掉**：
+
+```ts
+const values = await form.validateFields().catch(() => undefined)
+if (!values) return
+```
+
+### 12.5 决定**不**在本提交里动那个色块 `Col`（R3 命中点）
+
+R3（表单内 `<Col>` 不得只写 `span`）在本页命中 `:141` 的 `<Col key={c} span={2}>`——
+颜色选择器那 10 个色块。**它在 P2 里保持原样**，理由不是懒：
+
+- 它是**全宽项**，`FormGrid` 的正确处置是"留在栅格之外作兄弟节点"，所以它**本来就不该**
+  进 `FormGrid`；而 R3 给的修复建议（"换成 `FormGrid` 或至少补断点"）对这一处**是错的**。
+- 它确实有真实缺陷：`span={2}` = 1/12 宽，320px 弹窗里每个色块约 20px，`Tag` 会被压扁。
+  但正确修法是**换成一个 `flex-wrap` 的色块行**（10 个 Tag 自动换行、每个有最小宽度），
+  这是一次**结构变更**，不是补 `xs/sm/md/lg` 能解决的。
+- 它落在 T045（"R3 从 `--strict` 翻成 error，96 处销账完毕后"）的口径里，
+  把它们混进 P2 会让"样板页的视觉差异"与"R3 的 96 处销账"两个可归因的变化纠缠在一起。
+
+⇒ 记给 T045：**这 96 处里至少有一处（本页）不能用 `FormGrid` 修**，
+P3 铺开时不得机械替换。本页仍在 R3 名单上（R3 计数 96 未变），这是预期状态。
+
+### 12.6 `check-ui.mjs` 的三项读数变化
+
+| 规则 | 改前 | 改后 | 说明 |
+|---|---|---|---|
+| **R2**（`--strict`，承载表单的 Modal 必须定宽） | **24 处** | **23 处** | 本页那个无宽度弹窗销账。**与 §11.2 是同一条机制**：R2 扫的是 `<Modal` 这个字面量，而 `scanTagEvents` 有"标签名必须整体匹配"的守卫（`<FormModal` 里根本不含 `<Modal` 这个子串） |
+| R3（`--strict`，表单内 Col 只写 span） | 96 处 | **96 处**（未变） | 见 §12.5 |
+| 总问题数（`--strict`） | 120 处 | **119 处** | |
+
+⇒ **再次印证 §11.2 的结论**：P3/T040 的出口判据不能写成"R2 还剩多少处"，
+必须写成"**哪些文件还在 R2 名单上**"——否则每迁移一页，"待还债务"的分母自己就缩一格，
+读数会一直"看起来在还"。
+
