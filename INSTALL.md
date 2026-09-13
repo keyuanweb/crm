@@ -25,7 +25,7 @@
 
 | 层级 | 技术 |
 |------|------|
-| **后端** | Java 17 + Spring Boot 3.2 + MyBatis-Plus 3.5 + MySQL 8 + Redis 7 + Spring Security (JWT) + Flyway + OpenAPI (Swagger) |
+| **后端** | Java 21 + Spring Boot 3.2 + MyBatis-Plus 3.5 + MySQL 8 + Redis 7 + Spring Security (JWT) + Flyway + OpenAPI (Swagger) |
 | **前端** | React 18 + TypeScript + Vite 5 + React Router + React Query + Zustand + Ant Design v5 + @ant-design/pro-components |
 | **测试** | JUnit 5 / Spring Boot Test（后端）、Vitest + React Testing Library（前端）、Playwright（端到端） |
 | **包管理** | pnpm（前端）、Maven（后端） |

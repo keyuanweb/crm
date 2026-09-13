@@ -22,7 +22,7 @@
 
 | 层级 | 技术 |
 |---|---|
-| 后端 | Java 17、Spring Boot 3.2、MyBatis-Plus 3.5、MySQL 8、Redis 7、Spring Security + JWT、Flyway、springdoc-openapi |
+| 后端 | Java 21、Spring Boot 3.2、MyBatis-Plus 3.5、MySQL 8、Redis 7、Spring Security + JWT、Flyway、springdoc-openapi |
 | 前端 | React 18、TypeScript、Vite 5、React Router、React Query、Zustand、Ant Design v5 + Pro Components、ECharts、G6 |
 | 测试 | JUnit 5 / Spring Boot Test、Vitest + React Testing Library、Playwright |
 | 构建部署 | Maven、pnpm、Docker Compose（frontend + backend + MySQL + Redis + Nginx） |
