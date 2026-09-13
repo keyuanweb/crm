@@ -192,7 +192,16 @@ function DeliveryList({ channelId }: { channelId: number }) {
         records.map((r) => (
           <div key={r.id} style={{ border: '1px solid #f0f0f0', borderRadius: 6, padding: 8, marginBottom: 8 }}>
             <Tag color="blue">{r.eventType}</Tag>
-            {r.status === 'SUCCESS' ? <Tag color="green">{t('pages.integrationHub.success')}</Tag> : <Tag color="red">{t('pages.integrationHub.failed')}</Tag>}
+            {/* 085（FR-V13）：三态。原先是二元（非 SUCCESS 一律渲染为红色"失败"），于是后端新增的
+                PENDING 会被显示成"失败"——把"记录不反映真实"原样搬到界面上。取色沿用 ExportCenterPage
+                对非终态用 'processing' 的先例。 */}
+            {r.status === 'SUCCESS' ? (
+              <Tag color="green">{t('pages.integrationHub.success')}</Tag>
+            ) : r.status === 'PENDING' ? (
+              <Tag color="processing">{t('pages.integrationHub.pending')}</Tag>
+            ) : (
+              <Tag color="red">{t('pages.integrationHub.failed')}</Tag>
+            )}
             <span style={{ color: '#8c8c8c', marginLeft: 8 }}>{r.createdAt.replace('T', ' ').slice(0, 19)}</span>
             {r.error && <div style={{ color: '#cf1322', marginTop: 4 }}>{r.error}</div>}
           </div>

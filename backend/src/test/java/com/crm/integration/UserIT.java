@@ -128,6 +128,63 @@ class UserIT extends AbstractIntegrationTest {
   }
 
   @Test
+  @DisplayName("登录不改变对外版本标识，但确实更新最后登录时间（FR-V01）")
+  void loginDoesNotBumpVersion() throws Exception {
+    String adminToken = loginAndGetToken();
+    long userId = createUser(adminToken, "ver01", "SALES");
+
+    // 该用户登录**两次**（验收场景 3：多次登录不得累积影响其他操作）
+    loginAndGetToken("ver01", "pass1234");
+    loginAndGetToken("ver01", "pass1234");
+
+    // 仍以创建时的 version 0 提交编辑 → 必须成功。
+    // 若登录推进过该用户的 version，此处会得到 409 VERSION_CONFLICT。
+    mockMvc
+        .perform(
+            put("/api/v1/users/{id}", userId)
+                .header("Authorization", bearer(adminToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\": \"登录后编辑\", \"role\": \"SALES\", \"version\": 0}"))
+        .andExpect(status().isOk());
+
+    // 且"最后登录时间"**确实更新了** —— 本修复不得以"干脆不更新 lastLoginAt"来实现
+    mockMvc
+        .perform(
+            get("/api/v1/users")
+                .header("Authorization", bearer(adminToken))
+                .param("keyword", "ver01"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.items[0].lastLoginAt").isNotEmpty());
+  }
+
+  @Test
+  @DisplayName("真正的并发编辑仍被拒绝（FR-V02）：用已失效的版本标识提交 → 409")
+  void staleVersionStillRejected() throws Exception {
+    String adminToken = loginAndGetToken();
+    long userId = createUser(adminToken, "con01", "SALES");
+
+    // 第一次编辑成功：version 0 → 1
+    mockMvc
+        .perform(
+            put("/api/v1/users/{id}", userId)
+                .header("Authorization", bearer(adminToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\": \"改一次\", \"role\": \"SALES\", \"version\": 0}"))
+        .andExpect(status().isOk());
+
+    // 再用**已经用掉**的 version 0 提交 → 必须仍是 409。
+    // 本用例是 FR-V01 的反向守卫：它防止"让登录不推进 version"被实现成"把乐观锁一起关掉"。
+    mockMvc
+        .perform(
+            put("/api/v1/users/{id}", userId)
+                .header("Authorization", bearer(adminToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\": \"再改一次\", \"role\": \"SALES\", \"version\": 0}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("VERSION_CONFLICT"));
+  }
+
+  @Test
   @DisplayName("重复用户名返回 409 USER_DUPLICATE")
   void duplicateUsernameReturns409() throws Exception {
     String adminToken = loginAndGetToken();

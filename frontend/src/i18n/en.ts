@@ -2134,6 +2134,7 @@ const en = {
       noRecords: 'No delivery records',
       success: 'Success',
       failed: 'Failed',
+      pending: 'Delivering',
       formChannelTypeLabel: 'Channel Type',
       formChannelTypeRequired: 'Please select type',
       formNameLabel: 'Channel Name',

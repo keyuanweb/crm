@@ -270,12 +270,22 @@ class WebhookRedirectIT extends AbstractIntegrationTest {
     return node.isNull() || node.isMissingNode() ? null : node.asText();
   }
 
+  /** 投递的**在途**状态（085 FR-V05 起，派发即落库，故"记录已出现"不再等于"已有结果"）。 */
+  private static final String IN_FLIGHT = "PENDING";
+
   /**
-   * 轮询投递记录直到出现第一条（异步投递，不能只 sleep 一次就断言）。
+   * 轮询投递记录直到它被**判定为终态**（异步投递，不能只 sleep 一次就断言）。
    *
-   * <p>超时后抛出的错误里带上已观察到的次数，便于区分"根本没投递"与"投递了但记录慢"。
+   * <p><b>判据为什么从"记录已出现"改成"状态已是终态"</b>：085（FR-V05）之前投递记录要等重试循环结束才落库，于是"记录存在"
+   * 恰好等价于"已有结果"，判存在是对的。改造后记录在**派发那一刻**就以 PENDING 落库——这正是缺陷③的修复（在飞窗口可见、进程
+   * 中断也不丢）——于是"存在"不再蕴含"已判定"：继续判存在会当场读到 PENDING，把一次**成功**的投递读成失败。本方法随生产
+   * 语义同步收窄，不是放宽断言：它仍然要求等到一个明确的终态，只是不再把"在途"误当"终态"。
+   *
+   * <p>超时后抛出的错误里带上记录数、最后一次状态与两跳的命中次数，便于区分"根本没投递""仍在重试（退避最长 36 秒）""落到别的地址去了"这三种情形。
    */
   private JsonNodeHolder awaitDelivery(String token, long subscriptionId) throws Exception {
+    String lastStatus = "<无记录>";
+    int lastCount = 0;
     for (int i = 0; i < 40; i++) {
       byte[] raw =
           mockMvc
@@ -289,16 +299,24 @@ class WebhookRedirectIT extends AbstractIntegrationTest {
       var items = objectMapper.readTree(raw).path("data").path("items");
       if (items.size() > 0) {
         var item = items.path(0);
-        return new JsonNodeHolder(
-            item.path("status").asText(),
-            nullableInt(item, "httpStatus"),
-            nullableText(item, "error"),
-            item.path("retryCount").asInt());
+        lastCount = items.size();
+        lastStatus = item.path("status").asText();
+        if (!IN_FLIGHT.equals(lastStatus)) {
+          return new JsonNodeHolder(
+              lastStatus,
+              nullableInt(item, "httpStatus"),
+              nullableText(item, "error"),
+              item.path("retryCount").asInt());
+        }
       }
       Thread.sleep(250);
     }
     throw new AssertionError(
-        "等待投递记录超时（10 秒）——回环服务收到 /hook 请求 "
+        "等待投递终态超时（10 秒）——最后一次状态="
+            + lastStatus
+            + "，记录数="
+            + lastCount
+            + "，回环服务收到 /hook 请求 "
             + hookHits.get()
             + " 次，/final "
             + finalHits.get()

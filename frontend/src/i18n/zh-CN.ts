@@ -2132,6 +2132,7 @@ const zhCN = {
       noRecords: '暂无推送记录',
       success: '成功',
       failed: '失败',
+      pending: '投递中',
       formChannelTypeLabel: '通道类型',
       formChannelTypeRequired: '请选择类型',
       formNameLabel: '通道名称',

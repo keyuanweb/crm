@@ -1,13 +1,19 @@
 package com.crm.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crm.AbstractIntegrationTest;
+import com.crm.entity.WebhookDelivery;
+import com.crm.repository.WebhookDeliveryMapper;
+import com.crm.service.WebhookDeliverer;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 
@@ -24,6 +30,9 @@ import org.springframework.test.context.TestPropertySource;
  */
 @TestPropertySource(properties = "crm.outbound.allowed-hosts=localhost,qyapi.weixin.qq.com")
 class IntegrationHubIT extends AbstractIntegrationTest {
+
+  @Autowired private WebhookDeliveryMapper deliveryMapper;
+  @Autowired private WebhookDeliverer webhookDeliverer;
 
   @Test
   @DisplayName("集成中心流程：配置通道→触发事件→推送记录")
@@ -91,7 +100,14 @@ class IntegrationHubIT extends AbstractIntegrationTest {
                 .header("Authorization", bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.total").value(1))
-        .andExpect(jsonPath("$.data.items[0].eventType").value("TICKET_ASSIGNED"));
+        .andExpect(jsonPath("$.data.items[0].eventType").value("TICKET_ASSIGNED"))
+        // 085（FR-V05/V13）：派发后 1.5 秒内记录**已存在**，且状态是明确的"在途"，不是空白、更不是"成功"。
+        // 改造前这条记录要等重试循环跑完（退避 1s+5s+30s）才落库，此刻查无此记录（total = 0）——本用例
+        // 改前失败、改后通过，正是"用例对了、实现错了"的证据。
+        // 时序是确定的：第 0 次尝试立即失败 → 睡 1s → 第 1 次尝试失败 → 睡 5s，故 t=1.5s 仍在循环内，必为 PENDING。
+        .andExpect(jsonPath("$.data.items[0].status").value("PENDING"))
+        // FR-V08：一次投递**只**对应一条记录（终态是原地更新，不是再插一行）
+        .andExpect(jsonPath("$.data.items.length()").value(1));
   }
 
   @Test
@@ -130,5 +146,43 @@ class IntegrationHubIT extends AbstractIntegrationTest {
                 .header("Authorization", bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.enabled").value(false));
+  }
+
+  @Test
+  @DisplayName("FR-V07：**中断残留**的在途记录被清扫判定为终态，且刚派发的记录不被误伤（真实库行级验证）")
+  void stalePendingDeliveriesAreSweptToFailed() {
+    // ① 残留：模拟"进程在投递完成前终止"留下的记录 —— 早于 2 分钟阈值（远超 36 秒最长重试窗口）
+    WebhookDelivery orphan = pendingRecord(LocalDateTime.now().minusMinutes(10));
+    deliveryMapper.insert(orphan);
+    assertThat(orphan.getId()).isNotNull(); // id-type: auto → 插入后带回主键
+
+    // ② 对照：刚派发的在途记录。它**不得**被误伤 —— 只按状态清空会伤到它
+    WebhookDelivery inflight = pendingRecord(LocalDateTime.now());
+    deliveryMapper.insert(inflight);
+
+    int swept = webhookDeliverer.sweepStalePending();
+    assertThat(swept).isGreaterThanOrEqualTo(1);
+
+    // 残留被判定为**终态**，并带明确原因（不得停在"投递中"）
+    WebhookDelivery afterOrphan = deliveryMapper.selectById(orphan.getId());
+    assertThat(afterOrphan.getStatus()).isEqualTo("FAILED");
+    assertThat(afterOrphan.getError()).contains("中断");
+
+    // 反向断言：真实在途的**没有**被误判 —— 这一条把"阈值确实在起作用"与"只是把 PENDING 全清了"区分开
+    WebhookDelivery afterInflight = deliveryMapper.selectById(inflight.getId());
+    assertThat(afterInflight.getStatus()).isEqualTo("PENDING");
+  }
+
+  private static WebhookDelivery pendingRecord(LocalDateTime createdAt) {
+    WebhookDelivery d = new WebhookDelivery();
+    d.setSubscriptionId(9999L);
+    d.setEventType("TICKET_ASSIGNED");
+    d.setEntityType("TICKET");
+    d.setEntityId(1L);
+    d.setPayload("{}");
+    d.setStatus("PENDING");
+    d.setRetryCount(0);
+    d.setCreatedAt(createdAt);
+    return d;
   }
 }

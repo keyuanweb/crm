@@ -1,6 +1,7 @@
 package com.crm.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
 import com.crm.dto.auth.AuthResponse;
@@ -87,8 +88,23 @@ public class AuthService {
       throw new BusinessException(ErrorCode.FORBIDDEN, "账号已停用");
     }
     // FR-002：更新最后登录时间
-    user.setLastLoginAt(LocalDateTime.now());
-    userMapper.updateById(user);
+    // 085（FR-V01）：此处必须是**定向单列更新**，不得用实体级 updateById。
+    // 原因：User 继承 BaseEntity，带 @Version；实体非空且携带 @Version 时，MyBatis-Plus 的乐观锁
+    // 插件会生成 `SET version = version + 1 WHERE id = ? AND version = ?`。于是"登录"这个**读语义**
+    // 操作消费掉了该用户对外的并发编辑令牌 —— 管理端"读过某用户 → 该用户自己登录了一次 → 管理端
+    // 编辑该用户"必然收到 409 VERSION_CONFLICT，而错误信息指向一个根本不存在的原因（"他人修改"），
+    // 且随该用户的登录频率随机出现。乐观锁保护的是**编辑**冲突，多人同时登录之间并无冲突可言。
+    // 实体传 null 时插件不介入，故本条语句不会推进 version。
+    // 附带收益：不再是整行回写。原写法把 passwordHash/role/enabled 等一并写回，会静默覆盖
+    // "读后到写前"的他人改动（一类丢更新）。
+    // updated_at 不会因此陈旧 —— 它在 V1__init.sql:15 定义为 ON UPDATE CURRENT_TIMESTAMP，由数据库维护。
+    LocalDateTime loginAt = LocalDateTime.now();
+    user.setLastLoginAt(loginAt);
+    userMapper.update(
+        null,
+        new LambdaUpdateWrapper<User>()
+            .eq(User::getId, user.getId())
+            .set(User::getLastLoginAt, loginAt));
     // 预热用户状态缓存，减少登录后首次请求的 DB 查询
     int tv = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
     userStateCache.put(
