@@ -25,8 +25,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *
  * <p><b>为什么需要这个类</b>：{@code data_retention_policy} / {@code data_retention_execution}
  * 是"为支撑集成测试而镜像"的表（V74）， 但在此之前没有任何 IT 读过它们——镜像漏列、唯一索引没镜像、H2 方言不吃某段 SQL，都不会有用例变红。而这段代码的失败模式尤其隐蔽：
- * {@code executeArchival} 会在**归档动作本身失败**时照样写一条 {@code status = SUCCESS}、{@code processedCount = N}
- * 的执行记录（见下）， 所以"没有用例红过"与"归档真的做了事"是两回事。
+ * {@code executeArchival} 曾经在归档动作**静默不生效**时照样写一条 {@code status = SUCCESS}、{@code processedCount =
+ * N} 的执行记录——"没有用例红过"与"归档真的做了事"因此是两回事。该缺陷（T074 发现 3）已由 083 T078 修复，本类即其守卫。
  *
  * <p><b>本类打的是哪一层</b>：策略 CRUD 与归档全部走真实 HTTP 端点（Controller → Service → Mapper → H2）；只有夹具数据（客户两行）用
  * JDBC 直插，以便精确控制 {@code created_at}（到期与否全靠它判定）。
@@ -36,8 +36,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * <ul>
  *   <li>生产 {@code V74} 给 {@code data_retention_execution.policy_id} 建了 {@code fk_dre_policy ... ON
  *       DELETE CASCADE}， <b>镜像没有建这个外键</b>。因此"删策略会级联删执行记录"这条语义在镜像上复现不出来——本类删策略时只断言策略行消失，不碰级联。
- *   <li>归档动作本身是否真的改动了数据，见 {@link
- *       #executeArchivalReportsSuccessButDoesNotArchive()}：它当前**不改动**，本类把这一点钉住。
+ *   <li>归档只做逻辑删除（{@code deleted = 1}），策略上的 {@code actionType} 目前**不参与分支**：{@code processPolicy} 只按
+ *       {@code entityType} 分派，写成 {@code DELETE} 或 {@code ANONYMIZE} 与 {@code ARCHIVE} 行为完全相同。两条语义是
+ *       080 的下一步（plan.md 3.6），不在 T078 范围内，本类也不为它背书。
  * </ul>
  */
 class DataRetentionIT extends AbstractIntegrationTest {
@@ -89,8 +90,8 @@ class DataRetentionIT extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("T074 发现 3 · 缺陷留痕：归档报 SUCCESS 且 processedCount=1，但一行都没被归档")
-  void executeArchivalReportsSuccessButDoesNotArchive() throws Exception {
+  @DisplayName("归档真的改动了数据，且 processedCount 报的是真改动数而非命中数（T074 发现 3，由 T078 修复）")
+  void executeArchivalArchivesExpiredRowsAndReportsTheRealCount() throws Exception {
     String token = loginAndGetToken();
     long policyId = createPolicy(token, "CUSTOMER", 1, "ARCHIVE");
 
@@ -113,33 +114,42 @@ class DataRetentionIT extends AbstractIntegrationTest {
         .perform(post("/api/v1/data-retention/execute").header("Authorization", bearer(token)))
         .andExpect(status().isOk());
 
-    // 执行记录确实写出来了，写的数字也对——**失败不在这条路径上**
+    // ① 归档**真的改了数据**。这里此前是缺陷留痕（钉的是 deleted == 0 且 version == 1）：
+    //    `c.setDeleted(1); customerMapper.updateById(c)` 不生效——Customer 继承 BaseEntity（@TableLogic
+    // deleted），
+    //    而 MyBatis-Plus 的 updateById 会把逻辑删除字段排除出 SET 子句，于是 UPDATE 只动了 version/updated_at，
+    //    行还在原处，执行记录却写 SUCCESS。被归档的九张表（客户/线索/联系人/跟进/商机/合同/工单/任务/工作流日志）
+    //    走的是同一段生成的 SQL，生产 MySQL 行为一致。改用 deleteById（走 @TableLogic 的逻辑删除入口）后，
+    //    两处期望值同时翻面：deleted 0→1、version 1→0。
+    assertThat(deletedOf(expiredId)).as("到期的客户应被真的归档（deleted = 1）").isEqualTo(1);
+    assertThat(deletedOf(freshId)).as("未到期的客户无论如何都不该被动").isZero();
+    assertThat(intOf("SELECT version FROM customer WHERE id = ?", expiredId))
+        .as("逻辑删除不参与乐观锁，故 version 不动——缺陷期的特征恰是「UPDATE 跑了、version 被 +1、行却没被删掉」")
+        .isZero();
+
+    // ② 执行记录报的条数是**真改动数**：命中 1 条、改动 1 条，两者相等。
     JsonNode executions =
         readJson(token, "/api/v1/data-retention/policies/" + policyId + "/executions");
     assertThat(executions.size()).as("一次执行应留一条记录，实际：" + executions).isEqualTo(1);
-    assertThat(executions.get(0).path("status").asText()).as("执行记录报的是成功").isEqualTo("SUCCESS");
+    assertThat(executions.get(0).path("status").asText()).as("归档成功，执行记录报成功").isEqualTo("SUCCESS");
     assertThat(executions.get(0).path("processedCount").asInt())
-        .as("processedCount 就是它**以为**处理掉的条数")
+        .as("processedCount 应等于真正被归档的条数")
         .isEqualTo(1);
 
-    // 机制：UPDATE 确实跑了（乐观锁把 version 从 0 推到 1），只是 SET 子句里没有 deleted。
-    assertThat(intOf("SELECT version FROM customer WHERE id = ?", expiredId))
-        .as("归档的 UPDATE 并非没执行——version 被乐观锁 +1 了，这正是缺陷的机制所在")
-        .isEqualTo(1);
-
-    // 但真相是：归档要做的 deleted = 1 根本没写进去。
-    // `c.setDeleted(1); customerMapper.updateById(c)` 不生效——Customer 继承 BaseEntity（@TableLogic
-    // deleted），
-    // 而 MyBatis-Plus 的 updateById 会把逻辑删除字段排除出 SET 子句。被归档的九张表（客户/线索/联系人/跟进/商机/
-    // 合同/工单/任务/工作流日志）走的是同一段生成的 SQL，生产 MySQL 行为一致。
-    assertThat(deletedOf(expiredId))
-        .as(
-            "**缺陷留痕（T074 发现 3）**：本断言的期望值 0 是**当前事实，不是应当的行为**——"
-                + "「归档」跑完并报 SUCCESS/processedCount=1，却没有一行数据被归档，而调用方（含定时作业）无从分辨。\n"
-                + "它转红之时即缺陷被修好之日：届时请把期望改回 1、去掉用例标题里的「缺陷留痕」，"
-                + "并改写 specs/083-engineering-consolidation/tasks.md 的 T074 记录")
-        .isZero();
-    assertThat(deletedOf(freshId)).as("未到期的客户无论如何都不该被动").isZero();
+    // ③ 再跑一次：已归档的不再命中，processedCount 应**如实报 0**。
+    //    这正是 T078 附带要求的那一点——「无事可做」与「跑了但没生效」在修复后才可区分：缺陷期两次执行都会写
+    //    SUCCESS/1，而实际什么都没发生，两条记录彼此、以及与被归档的数据之间都对不上账。
+    mockMvc
+        .perform(post("/api/v1/data-retention/execute").header("Authorization", bearer(token)))
+        .andExpect(status().isOk());
+    JsonNode afterSecondRun =
+        readJson(token, "/api/v1/data-retention/policies/" + policyId + "/executions");
+    assertThat(afterSecondRun.size()).as("第二次执行应再留一条记录").isEqualTo(2);
+    // 按 executedAt 取值而不是按下标取值：两次执行可能落在同一时间精度内，顺序不该成为断言的一部分
+    assertThat(afterSecondRun.findValues("processedCount").stream().map(JsonNode::asInt).toList())
+        .as("两次执行应分别报「真的改了 1 条」与「无可归档 = 0」")
+        .containsExactlyInAnyOrder(1, 0);
+    assertThat(deletedOf(expiredId)).as("第二次执行不应动已被归档的行").isEqualTo(1);
   }
 
   @Test

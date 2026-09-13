@@ -2,6 +2,7 @@
 package com.crm.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.crm.dto.DataRetentionExecutionResponse;
 import com.crm.dto.DataRetentionPolicyRequest;
 import com.crm.dto.DataRetentionPolicyResponse;
@@ -225,130 +226,109 @@ public class DataRetentionPolicyServiceImpl implements DataRetentionPolicyServic
     return processedCount;
   }
 
+  /**
+   * 归档一批到期数据（逻辑删除），返回**真正被改动的行数**。
+   *
+   * <p>必须走 MyBatis-Plus 的逻辑删除入口 {@code deleteById}，不能写成 {@code x.setDeleted(1);
+   * mapper.updateById(x)}：{@code @TableLogic} 字段被 {@code updateById} 排除出 SET 子句，手写的 {@code deleted
+   * = 1} 会**静默不生效**——UPDATE 照样执行（乐观锁把 {@code version} 从 0 推到 1）、执行记录照样写 {@code
+   * SUCCESS}，而数据一行都没动。即"归档"从不归档任何数据，却每次都留下一份成功的凭证，调用方（含定时作业） 无从分辨。同类前车见 {@code
+   * OpportunityStageService#delete}。见 083 T078 与 {@code DataRetentionIT}。
+   *
+   * <p>返回"改动数"而不是"命中数"：两者在正常路径上相等，但逻辑删除的 UPDATE 带着 {@code AND deleted = 0}，
+   * 若某行已被并发归档，命中数会大于改动数——执行记录应如实反映后者，否则"跑了但没生效"与"无事可做"依旧不可区分。
+   */
+  private <T extends BaseEntity> int archiveExpired(
+      BaseMapper<T> mapper, LambdaQueryWrapper<T> qw, String label, LocalDateTime cutoffDate) {
+    List<T> expired = mapper.selectList(qw);
+    int archived = 0;
+    for (T entity : expired) {
+      archived += mapper.deleteById(entity.getId());
+    }
+    log.info("Archived {} of {} expired {} before {}", archived, expired.size(), label, cutoffDate);
+    return archived;
+  }
+
   /** 归档过期客户。 */
   private int archiveExpiredCustomers(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Customer> qw =
-        new LambdaQueryWrapper<Customer>().lt(Customer::getCreatedAt, cutoffDate);
-    List<Customer> expired = customerMapper.selectList(qw);
-    int count = expired.size();
-    for (Customer c : expired) {
-      c.setDeleted(1);
-      customerMapper.updateById(c);
-    }
-    log.info("Archived {} expired customers before {}", count, cutoffDate);
-    return count;
+    return archiveExpired(
+        customerMapper,
+        new LambdaQueryWrapper<Customer>().lt(Customer::getCreatedAt, cutoffDate),
+        "customers",
+        cutoffDate);
   }
 
   /** 归档过期线索。 */
   private int archiveExpiredLeads(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Lead> qw = new LambdaQueryWrapper<Lead>().lt(Lead::getCreatedAt, cutoffDate);
-    List<Lead> expired = leadMapper.selectList(qw);
-    int count = expired.size();
-    for (Lead l : expired) {
-      l.setDeleted(1);
-      leadMapper.updateById(l);
-    }
-    log.info("Archived {} expired leads before {}", count, cutoffDate);
-    return count;
+    return archiveExpired(
+        leadMapper,
+        new LambdaQueryWrapper<Lead>().lt(Lead::getCreatedAt, cutoffDate),
+        "leads",
+        cutoffDate);
   }
 
   /** 归档过期联系人。 */
   private int archiveExpiredContacts(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Contact> qw =
-        new LambdaQueryWrapper<Contact>().lt(Contact::getCreatedAt, cutoffDate);
-    List<Contact> expired = contactMapper.selectList(qw);
-    int count = expired.size();
-    for (Contact c : expired) {
-      c.setDeleted(1);
-      contactMapper.updateById(c);
-    }
-    log.info("Archived {} expired contacts before {}", count, cutoffDate);
-    return count;
+    return archiveExpired(
+        contactMapper,
+        new LambdaQueryWrapper<Contact>().lt(Contact::getCreatedAt, cutoffDate),
+        "contacts",
+        cutoffDate);
   }
 
   /** 归档过期跟进记录。 */
   private int archiveExpiredFollowUps(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<FollowUp> qw =
-        new LambdaQueryWrapper<FollowUp>().lt(FollowUp::getCreatedAt, cutoffDate);
-    List<FollowUp> expired = followUpMapper.selectList(qw);
-    int count = expired.size();
-    for (FollowUp f : expired) {
-      f.setDeleted(1);
-      followUpMapper.updateById(f);
-    }
-    log.info("Archived {} expired follow-ups before {}", count, cutoffDate);
-    return count;
+    return archiveExpired(
+        followUpMapper,
+        new LambdaQueryWrapper<FollowUp>().lt(FollowUp::getCreatedAt, cutoffDate),
+        "follow-ups",
+        cutoffDate);
   }
 
   /** 归档过期商机。 */
   private int archiveExpiredOpportunities(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Opportunity> qw =
-        new LambdaQueryWrapper<Opportunity>().lt(Opportunity::getCreatedAt, cutoffDate);
-    List<Opportunity> expired = opportunityMapper.selectList(qw);
-    int count = expired.size();
-    for (Opportunity o : expired) {
-      o.setDeleted(1);
-      opportunityMapper.updateById(o);
-    }
-    log.info("Archived {} expired opportunities before {}", count, cutoffDate);
-    return count;
+    return archiveExpired(
+        opportunityMapper,
+        new LambdaQueryWrapper<Opportunity>().lt(Opportunity::getCreatedAt, cutoffDate),
+        "opportunities",
+        cutoffDate);
   }
 
   /** 归档过期合同。 */
   private int archiveExpiredContracts(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Contract> qw =
-        new LambdaQueryWrapper<Contract>().lt(Contract::getCreatedAt, cutoffDate);
-    List<Contract> expired = contractMapper.selectList(qw);
-    int count = expired.size();
-    for (Contract c : expired) {
-      c.setDeleted(1);
-      contractMapper.updateById(c);
-    }
-    log.info("Archived {} expired contracts before {}", count, cutoffDate);
-    return count;
+    return archiveExpired(
+        contractMapper,
+        new LambdaQueryWrapper<Contract>().lt(Contract::getCreatedAt, cutoffDate),
+        "contracts",
+        cutoffDate);
   }
 
   /** 归档过期工单。 */
   private int archiveExpiredTickets(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<Ticket> qw =
-        new LambdaQueryWrapper<Ticket>().lt(Ticket::getCreatedAt, cutoffDate);
-    List<Ticket> expired = ticketMapper.selectList(qw);
-    int count = expired.size();
-    for (Ticket t : expired) {
-      t.setDeleted(1);
-      ticketMapper.updateById(t);
-    }
-    log.info("Archived {} expired tickets before {}", count, cutoffDate);
-    return count;
+    return archiveExpired(
+        ticketMapper,
+        new LambdaQueryWrapper<Ticket>().lt(Ticket::getCreatedAt, cutoffDate),
+        "tickets",
+        cutoffDate);
   }
 
   /** 归档过期任务。 */
   private int archiveExpiredTasks(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<TaskItem> qw =
-        new LambdaQueryWrapper<TaskItem>().lt(TaskItem::getCreatedAt, cutoffDate);
-    List<TaskItem> expired = taskItemMapper.selectList(qw);
-    int count = expired.size();
-    for (TaskItem t : expired) {
-      t.setDeleted(1);
-      taskItemMapper.updateById(t);
-    }
-    log.info("Archived {} expired tasks before {}", count, cutoffDate);
-    return count;
+    return archiveExpired(
+        taskItemMapper,
+        new LambdaQueryWrapper<TaskItem>().lt(TaskItem::getCreatedAt, cutoffDate),
+        "tasks",
+        cutoffDate);
   }
 
   /** 归档过期工作流执行日志。 */
   private int archiveExpiredWorkflowLogs(LocalDateTime cutoffDate) {
-    LambdaQueryWrapper<WorkflowExecutionLog> qw =
+    return archiveExpired(
+        workflowExecutionLogMapper,
         new LambdaQueryWrapper<WorkflowExecutionLog>()
-            .lt(WorkflowExecutionLog::getCreatedAt, cutoffDate);
-    List<WorkflowExecutionLog> expired = workflowExecutionLogMapper.selectList(qw);
-    int count = expired.size();
-    for (WorkflowExecutionLog w : expired) {
-      w.setDeleted(1);
-      workflowExecutionLogMapper.updateById(w);
-    }
-    log.info("Archived {} expired workflow logs before {}", count, cutoffDate);
-    return count;
+            .lt(WorkflowExecutionLog::getCreatedAt, cutoffDate),
+        "workflow logs",
+        cutoffDate);
   }
 
   private DataRetentionPolicyResponse toResponse(DataRetentionPolicy entity) {

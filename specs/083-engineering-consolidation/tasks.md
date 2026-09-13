@@ -909,6 +909,8 @@ Task: "新增 backend/src/test/java/com/crm/integration/PerformanceRegressionIT.
 
   6. **反向实验（两个缺陷留痕用例的来历）**：这两条用例最初按**应当**的行为写断言，首跑即红，红报文就是缺陷证据——归档用例 `expected: 1 but was: 0`（`deleted` 期望 1）；配额用例 `Column "deleted" not found`（`selectCount`）与 `Syntax error ... expected "identifier"`（`FROM user`）。随后把断言改为**钉住当前事实**（`deleted` 为 0、两个写端点 5xx、三张表各缺哪些列），并在 DisplayName 与断言描述里写明"**它转红之时即缺陷被修好之日**，届时请改回应当的断言并同步本记录"。即这两条用例本身就是发现 2／3 的可执行凭证，而不是把缺陷当成期望值接受下来；写法与 `PermissionMatrixIT.frG14CodesAreGrantedToNoPresetRole` 同源。
 
+  > 【后续，2026-09-13】第 6 条说的"届时请改回应当的断言"**两条都已发生**：配额那条随 **T077**、归档那条随 **T078**，各自的实施记录见本文件对应条目。两处用例均已按原定口令改写（期望值翻面、去掉标题里的"缺陷留痕"），归档用例还并了名——旧名 `executeArchivalReportsSuccessButDoesNotArchive` 已不存在，现存名为 `executeArchivalArchivesExpiredRowsAndReportsTheRealCount`。
+
   7. **未验证边界**：①`sales_quota_achievement` 全仓**没有任何写入方**（`SalesQuotaAchievementRepository` 被注入到 Service，但调用点 grep 为 **0**），本次只能验证"这张镜像表可建可查"，其业务用途仍无法判定；②T074 原文顺带提到的 `scheduled_export` 不在"两组表"范围内，**仍未新增用例**（只有 `SecurityHardeningIT` 顺带触碰）；③别名大小写与未镜像外键见第 5 条；④本记录成稿时只做了定向运行，随后补跑了**全量 failsafe**（见第 8 条）；**未跑全量 `mvn -B verify`**——该相位内的 spotless、surefire 与 jacoco 未一并判定。
 
   8. **实测**：`SalesQuotaIT` **5/5 绿**、`DataRetentionIT` **3/3 绿**（`Tests run: 8, Failures: 0, Errors: 0`）；`spotless:check` 绿（两个新文件经一次 `spotless:apply`）。**另补跑全量 failsafe：274 run / 4F / 0E**，失败集与 T068 批准的 4 例**逐项一致**（`IntegrationHubIT.integrationFlow:93`、`OpportunityIT.closeWithoutResultReturns422:175`、`UserIT.disableUserRevokesAccess:117`、`UserIT.userLifecycle:74`），**无第 5 例**（运行数较 `spec.md` 所记 259 增 15：本次 8 例 + 并行会话新增，与失败集无关）。这一步是必要的：`NON_KEYWORDS=YEAR,USER` 改的是**全类共享的 JDBC URL**，只跑两个新类不足以排除对既有用例的影响。
@@ -955,4 +957,34 @@ Task: "新增 backend/src/test/java/com/crm/integration/PerformanceRegressionIT.
 
   13. **开发库残留（已登记，未清理）**：探针在 `crm_db` 留下 year=2098 的一条配额（id=2）、两条子配额（id=4/5）、一条版本记录与两条分解关系，`changeReason` 含 `probe` 字样。按"不静默改动数据"留存登记；如需清理，删 `sales_quota_breakdown` → `sales_quota`（`parent_id=2`）→ `sales_quota_version` 三处即可。
 
-- [ ] T078（2026-09-12 由 T074 发现，追加）**CRITICAL**：消除数据保留归档的「假成功」——`DataRetentionPolicyServiceImpl` 的九个归档方法都写成 `x.setDeleted(1); mapper.updateById(x)`，而 MP 的 `updateById` 把逻辑删除字段排除出 SET 子句，故 UPDATE 只动了 `version`／`updated_at`。实测：一条到期客户跑完归档后 `version = 1`、`deleted = 0`，而 `data_retention_execution` 记的是 `status = SUCCESS`、`processedCount = 1`。改法：改用 MP 的逻辑删除入口（`mapper.deleteById(id)`，由 `@TableLogic` 生成 `UPDATE ... SET deleted = 1 WHERE id = ? AND deleted = 0`），或显式 `LambdaUpdateWrapper.set(...)`。**验收判据**：`DataRetentionIT.executeArchivalReportsSuccessButDoesNotArchive`（现为缺陷留痕，钉的是 `deleted == 0`）转红，随即将期望值改回 1、去掉标题里的「缺陷留痕」。**附带需一并决定的一点**：`processedCount` 现在的语义是"查到多少条"，改完之后应确认它反映"真的改动了多少条"——当前"无事可做"与"跑了但没生效"在执行记录里不可区分。另可顺带对齐 `plan.md` 3.6 已登记的后续方向（`actionType` 增"匿名化／硬删除"），但那属 080 的下一步，不是本任务的前提。per FR-G05 / plan.md 一期「诚信缺口」零容忍 (contradicts)
+- [X] T078（2026-09-12 由 T074 发现，追加）**CRITICAL**：消除数据保留归档的「假成功」——`DataRetentionPolicyServiceImpl` 的九个归档方法都写成 `x.setDeleted(1); mapper.updateById(x)`，而 MP 的 `updateById` 把逻辑删除字段排除出 SET 子句，故 UPDATE 只动了 `version`／`updated_at`。实测：一条到期客户跑完归档后 `version = 1`、`deleted = 0`，而 `data_retention_execution` 记的是 `status = SUCCESS`、`processedCount = 1`。改法：改用 MP 的逻辑删除入口（`mapper.deleteById(id)`，由 `@TableLogic` 生成 `UPDATE ... SET deleted = 1 WHERE id = ? AND deleted = 0`），或显式 `LambdaUpdateWrapper.set(...)`。**验收判据**：`DataRetentionIT.executeArchivalReportsSuccessButDoesNotArchive`（现为缺陷留痕，钉的是 `deleted == 0`）转红，随即将期望值改回 1、去掉标题里的「缺陷留痕」。**附带需一并决定的一点**：`processedCount` 现在的语义是"查到多少条"，改完之后应确认它反映"真的改动了多少条"——当前"无事可做"与"跑了但没生效"在执行记录里不可区分。另可顺带对齐 `plan.md` 3.6 已登记的后续方向（`actionType` 增"匿名化／硬删除"），但那属 080 的下一步，不是本任务的前提。per FR-G05 / plan.md 一期「诚信缺口」零容忍 (contradicts)
+
+  **实施记录（2026-09-13）**——取任务给出的第一种改法（`deleteById`，即 MP 的逻辑删除入口），并把它**收敛到一个地方**。下面按"改法、红-绿、真库实测、划界"记。
+
+  1. **改法：一处规则，九处一行**。九个 `archiveExpiredXxx` 原本各写一遍 `setDeleted(1) + updateById`，改成共用一个泛型私有方法 `archiveExpired(BaseMapper<T>, LambdaQueryWrapper<T>, String label, LocalDateTime cutoffDate)`——选它而不是逐处替换，理由不是"少几行"，而是**这条规则不能再有机会被逐个方法退回**：缺陷的本质是"九处复制粘贴同一段错写法"，逐处改成九段对写法，下次照样能一处一处地退回去，而共用方法只有一份可退。规则原文（为什么必须走逻辑删除入口）写在方法 javadoc 里，不再散落在九处注释。仓库内先例是 `OpportunityStageService#delete:271`，那里的注释已把这条 MP 语义写清楚过一遍——本次是同一个错误第二次出现，故这次把理由放在了**会被所有归档路径经过**的位置。备选的 `LambdaUpdateWrapper.set(...)` 未采用：它同样正确，但绕开了 `@TableLogic`，等于在每次调用点重新声明"deleted 字段参与 SET"，与共用方法的目的一致却不必要。
+
+  2. **`processedCount` 语义已改为「真改动数」**（任务点名的附带项）。方法是把 `deleteById` 的**返回值**累加，而不是取 `selectList` 的 `size()`——逻辑删除生成的 UPDATE 带 `AND deleted = 0`，并发下命中行可能多于改动行，改动数才是执行记录该报的数。日志同步改成 `Archived {} of {} expired {} before {}`（改动数/命中数同时可见，`label` 参数只为日志可读）。这样"无事可做"（改动数 0）与"跑了但没生效"（改动数为 0 且命中数 > 0）在**日志**里立刻可分；在执行记录里则表现为缺陷期的"永远 SUCCESS/1"被"如实报数"取代。
+
+  3. **红-绿（先红后绿，红由本次改动引起）**。改完主代码后**先**跑 `DataRetentionIT`，得到 `Tests run: 3, Failures: 1`，红在**未改动的那条**断言上：`[归档的 UPDATE 并非没执行——version 被乐观锁 +1 了，这正是缺陷的机制所在] expected: 1 but was: 0`（`DataRetentionIT.java:128`）。这条红报文本身就是证据：它之所以先于 `deleted == 0` 那条报红，是因为 `deleted` 已经翻面成 1 了，且缺陷期的"UPDATE 跑了、version 被 +1"特征同时消失。同批另 2 例保持绿，即红不是连带损伤。随后按原定口令改写：期望值翻面、去掉标题里的「缺陷留痕」、并名（`executeArchivalReportsSuccessButDoesNotArchive` → `executeArchivalArchivesExpiredRowsAndReportsTheRealCount`）。
+
+  4. **改写后的断言覆盖四件事**：①`deleted == 1`（归档真的发生）且未到期的那条 `== 0`；②`version == 0`——**不是**顺手对齐，它把"逻辑删除不参与乐观锁"钉住，与缺陷期特征（version 被 +1 而行没删掉）正好互为反例；③`processedCount == 1`（真改动数）；④**再跑一次**，第二次执行的 `processedCount == 0`。第 ④ 条是任务附带项的可执行凭证，取值用 `findValues("processedCount")` + `containsExactlyInAnyOrder(1, 0)` 而不是下标——两次执行可能落在同一时间精度内，先后顺序不该成为断言的一部分（理由写在注释里）。
+
+  5. **真库实测（把 T074 那句"生产 MySQL 行为一致"从推断变成实测）**。T074 发现 3 与 T078 原文都只声明"九个实体走同一段生成的 SQL，**生产 MySQL 行为一致**"，这是**推断**；H2 上的红-绿只证明了 H2（MODE=MySQL）。故按 T077 的做法在 dev 库（MySQL 8.0.46）上取一次 before/after。**先自证跑的是哪份字节码**：8081 上的 JVM 启动于 `08:31:06`，而 `target/classes/.../DataRetentionPolicyServiceImpl.class` 的 mtime 是 `08:34:44`——进程早于类文件，故 before 那一跑确实是修复前字节码；after 那一跑换成 verify 刚打出的 `crm-backend-0.1.0-SNAPSHOT.jar`（PID 7680，08:40:21 启动）。**探针设计**：建一条 `created_at = 2000-01-01` 的客户（id=40）+ 一条 `CUSTOMER / 9000 天 / ARCHIVE` 策略（id=1）——取 9000 天不是随手填的：dev 库最老的客户是 `2026-08-22`，窗口必须**只有探针够老**，否则一次归档会把 39 条种子客户全部扫成 `deleted = 1`，那是不可逆的破坏性操作。结果：
+
+     | 跑法 | 探针客户的 `deleted` | `version` | 仍存活于 cutoff 之前的行 | 执行记录 |
+     |---|---|---|---|---|
+     | 修复前 | **0** | **1** | 1 | `SUCCESS` / `processed_count = 1` |
+     | 修复后 | **1** | 1 | 0 | `SUCCESS` / `processed_count = 1` |
+     | 修复后（再跑一次） | 1 | 1 | 0 | `SUCCESS` / `processed_count = **0**` |
+
+     即：修复前那一跑**留下了一份 SUCCESS/1 的凭证而 `deleted` 纹丝不动**，缺陷在真库上复现；修复后同一探针 `deleted` 0→1、存活数 1→0，且"无事可做"那次如实报 0。`version` 修复后停在 1（而非回到 0）是因为 before 那一跑已经把它推到 1，逻辑删除本身不动它——与断言 ② 的取向一致。
+
+  6. **划界（本次刻意不动的东西）**：①`executeArchival` 仍**没有事务边界**——原文就没有，加上去会改变"一个策略失败不影响其它策略"的既有行为，属另一次决策，不在 T078 内；②`actionType` 仍**不参与分支**（`processPolicy` 只按 `entityType` 分派，写 `DELETE` 或 `ANONYMIZE` 与 `ARCHIVE` 行为完全相同）——任务原文说这条"不是本任务的前提"，本次处理方式是**把这条事实登记进 `DataRetentionIT` 的「未验证边界」**（替换掉原先那条已解决的边界），而不是留着让人以为策略的 actionType 生效；③T074 登记的两条镜像边界（`data_retention_execution` 未镜像 `ON DELETE CASCADE`、别名大小写）不变。
+
+  7. **单元测试侧的影响已核**：`DataRetentionPolicyServiceTest.executeArchival_shouldExecuteForActivePolicies` 只 `verify` 了 `executionRepository.insert` 一次，仓储/映射器均为 Mockito 替身（返回空集合），故 `updateById` → `deleteById` 的替换不动它。全量 surefire 551/551 绿即此项的实测覆盖。
+
+  8. **实测汇总**：`DataRetentionIT` **3/3 绿**；全量 `mvn -B verify`：spotless 绿、surefire **551/551 绿**、failsafe **274 例 4 失败**，失败集与 T068 批准的 4 例**逐项一致**（`IntegrationHubIT.integrationFlow:93`、`OpportunityIT.closeWithoutResultReturns422:175`、`UserIT.disableUserRevokesAccess:117`、`UserIT.userLifecycle:74`），**无第 5 例**。**jacoco check 未判定**：那 4 例失败使构建在 `failsafe:verify` 处中止，`jacoco:check` 相位未到达——与 T077 那次同因，不是本次引入，登记以免被读成"覆盖率门禁已过"。
+
+  9. **开发库残留（已登记，未清理）**：探针在 `crm_db` 留下一条 ACTIVE 的 `CUSTOMER / 9000 天 / ARCHIVE` 策略（id=1）、一条 `created_at = 2000-01-01` 且已被逻辑删除的客户（id=40）、以及三条执行记录（id=1 为修复前所写，2/3 为修复后）。按"不静默改动数据"留存登记。如需清理：删 `data_retention_execution` → `data_retention_policy`（id=1），客户 id=40 物理删或留着（`deleted = 1`，不影响任何查询）。
+
+  10. **与 T074 记录的衔接**：T074 的实施记录第 6 条写着"它转红之时即缺陷被修好之日，届时请改回应当的断言并同步本记录"——该条已在其原位追加后续说明（只追加、不改原文），本条目即那次改写的实施记录。
