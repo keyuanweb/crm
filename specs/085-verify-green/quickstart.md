@@ -151,6 +151,21 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8081/api/v1/sa
 
 **FR-V07（中断残留）的验证**：投递进行中 kill 掉后端，重启。**期望**：该条悬空记录被启动清扫判定为**终态**（带明确原因），**不会永远停在"投递中"**。
 
+> **【订正，2026-09-13，原文保留】** 上一段的**期望表述与实现不符**，由 `/speckit-converge` 的逐条复核发现（追加任务 T042）：
+>
+> - 实现**只有周期性清扫**：`WebhookDeliverySweepScheduler.java:33` 的 `@Scheduled(cron = "${crm.scheduler.webhook-sweep-cron:0 */5 * * * ?}")`；**全仓不存在** `ApplicationRunner` / `CommandLineRunner` / `@PostConstruct` 形式的启动清扫。故"重启后**立即**被清扫"不成立——悬空记录重启后仍为 `PENDING`，**最长约 5 分钟**（等下一个 cron 触发）才被判定为终态。
+> - 但这**不影响 FR-V07 成立**：已实测确认 `CrmApplication.java:13` 有 `@EnableScheduling`、`application.yml:63` 有 cron 默认值，故清扫在生产**确实运行**，FR-V07"不得永远停留在在途"**满足**（库级效果已由 `IntegrationHubIT#stalePendingDeliveriesAreSweptToFailed` 钉住）。**缺口在指南措辞，不在行为**——这一点必须先说清，否则会被误读成一个缺陷。
+> - **验收口径订正为**：重启后的悬空记录由**周期清扫**判定为终态；判据是"**最终必为终态**（最长约 5 分钟）"，**不是**"重启瞬间即终态"。
+> - **为什么是订正指南、而不是补一个启动清扫**：FR-V07 本身已满足；且本规格范围被 FR-V14 明确限定为"仅已裁决的 3 个缺陷，**不得就地扩围**"，而补启动清扫属**改变生产行为**的范围外变更。若日后确需更快的重启恢复（把 5 分钟压到秒级），应**另立条目**按 SDD 流程裁决，不在此就地扩围。
+> - 本节下方"周期性触发本身无测试"那处残留项，已由 **T043**（`WebhookSweepScheduleIT`）**关闭**，并附反向验证。
+
+> **【订正之二，2026-09-13，原文与上文【订正】一律保留】** 上面那条【订正】的**结论是错的，现予撤回**。它在**没有核对 `research.md` / `plan.md` / `data-model.md`** 的情况下，把"指南与实现不符"判成了"**指南措辞**有误"，并据此去改**指南**。进一步复核后，事实正好相反：
+>
+> - **指南原文是对的**：`research.md:60` 的**决策**写的是"**应用启动时**做一次清扫"；`plan.md:15` 的技术路线把"并加**启动清扫**处理中断残留"列为修③的一部分；`data-model.md:51`（INV-3）把"**启动清扫**按时间阈值判定残留为 `FAILED`"写成该不变量的**执行机制**，`:34`/`:43` 的状态图与状态表同样写"启动清扫"。故本节原期望"被**启动清扫**判定为终态"**忠实反映了既定决策**，**本不该被改**。
+> - **真正的偏差在实现**：全仓**只有**周期性清扫、**缺**启动清扫。上文那条【订正】实际做的是**让计划文档迁就实现**——这正是 FR-V12"本规格是让**实现**回到契约，不是让**契约**迁就实现"所禁止的**同一种错误**，只是对象从契约换成了计划。**撤回，且本节验收口径恢复为原期望。**
+> - **修复取向：让实现回到计划，而不是改计划。** 已为 `WebhookDeliverySweepScheduler` 补上**启动清扫**（`implements ApplicationRunner`），并**保留**周期清扫——两者**互补**：只做启动清扫会漏掉"崩溃后**很快**重启（早于 `STALE_PENDING_AFTER` 阈值）且此后再无重启"的残留（那将违背 INV-3 的"**不存在永远悬空**的 `PENDING`"）；只做周期清扫则会漏掉"重启后最长一个调度周期内仍悬空"（即上文那条【订正】唯一说对的部分）。**本节原期望因此重新成立**，且悬空期上限由"约 5 分钟"收紧为"**重启即判定**"。
+> - 实现侧的原注释把两者写成**二选一**（"为什么是周期性清扫，**而不是**只在启动时扫一次"），该框架本身是错的；已在代码处订正留痕，未删原论证（其论证"启动清扫单独不足以堵住快重启缺口"**成立**，故周期清扫必须保留——错的只是"因此就不要启动清扫"这一步）。
+
 **FR-V13（前端第三态）**：只改后端不改前端时，`PENDING` 会被 `IntegrationHubPage.tsx:195` 的**二元**渲染（`status === 'SUCCESS' ? 绿 : 红`）显示为红色**"失败"**——把"记录不反映真实"原样搬到界面上。**故三态分支与中英文 i18n 键必须同时交付**，否则 `pnpm run i18n:check` 转红。
 
 **【实测登记，2026-09-13：本节的**手工时序观察未执行**，如实声明】** 原因同 T031（8081 上的后端不含本次改动；起第二个会共抢开发库并重复触发调度器）。**逐项对账如下**：
@@ -159,7 +174,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8081/api/v1/sa
 |---|---|---|
 | 1.5 秒内记录已出现且为"投递中"（中性色，不是红） | `IntegrationHubIT#integrationFlow`：真 HTTP 建通道 → 真事件 → **`Thread.sleep(1500)`** → 查交付记录，断言 `data.items[0].status == "PENDING"` **且 `items.length == 1`** | **时序与状态完整覆盖**（三态中的"中"态已由接口层断言） |
 | 约 36 秒后**原地**变失败，且**仍然只有一条** | `WebhookDelivererTest#exhaustedRetriesMarkFailedWithRetryCount`（`insert` ×1、`updateById` ×1、**`isSameAs`** 证明更新的是**派发时那一行**，并断言 `error` 含 `connection refused`、`retryCount > 0`）+ `#rejectedUrlStillProducesExactlyOneRecord` | **"原地且只有一条"完整覆盖**；**"真等满 36 秒"未覆盖**（单元用例以中断标志让首次退避立即抛出，**这是有意的取舍**——否则每条用例要跑满 36 秒） |
-| 投递中 kill 后端 → 重启后悬空记录被清扫为终态 | `IntegrationHubIT#stalePendingDeliveriesAreSweptToFailed`：**真库**插入 1 条 10 分钟前的 `PENDING` + 1 条**刚派发**的 `PENDING` → 调 `sweepStalePending()` → 断言前者变 `FAILED` 且 `error` 含"中断"、后者**仍为 `PENDING`** | **清扫的库级效果与"阈值不被误伤"完整覆盖**；**"真 kill -9 再重启"未覆盖**（周期性触发本身无测试，只依赖 Spring `@Scheduled` 的既有契约——**残留项已登记**） |
+| 投递中 kill 后端 → 重启后悬空记录被清扫为终态 | `IntegrationHubIT#stalePendingDeliveriesAreSweptToFailed`：**真库**插入 1 条 10 分钟前的 `PENDING` + 1 条**刚派发**的 `PENDING` → 调 `sweepStalePending()` → 断言前者变 `FAILED` 且 `error` 含"中断"、后者**仍为 `PENDING`** | **清扫的库级效果与"阈值不被误伤"完整覆盖**；**"真 kill -9 再重启"未覆盖**（周期性触发本身无测试，只依赖 Spring `@Scheduled` 的既有契约——**残留项已登记**；**该残留项已由 T043 关闭**，见上方【订正】） |
 | FR-V13 前端第三态配色 + i18n 两侧同步 | 代码层：`IntegrationHubPage.tsx` 三态分支 + `zh-CN.ts`/`en.ts` 各加 `pending`（`投递中`/`Delivering`）；门禁层：`pnpm run i18n:check` **退出码 0**，实测 **zh-CN 2884 键 / en 2884 键**相等 | **键的同步与门禁完整覆盖**；**"中性色的视觉观感"未做人工目视**（如实声明） |
 
 **已实测的接口层证据**：`IntegrationHubIT` **3 例 / 0 失败 / 0 错误**（含上述库级清扫验证）；`WebhookDelivererTest` **4 例 / 0 失败 / 0 错误**。
@@ -183,6 +198,28 @@ echo "exit=$?"
 **【实测登记，2026-09-13】实测：退出码 **0**，`BUILD SUCCESS`（Total time **02:11**），surefire **555 例/0/0**，failsafe **282 例/0/0**。**
 
 > **【订正，2026-09-13，上文"期望"原文保留】上句"日志中 `jacoco:check` **有实际判定输出**（含 `INSTRUCTION covered ... / ...` 与阈值比较）"**在通过的那一轮里不可能出现**——实测发现 `jacoco:check` **通过时只打印一行** `Loading execution data file .../target/jacoco.exec`，**不打印任何比值与阈值比较**；那行只在**判定失败**时才出现。故这个"期望"若被当作判据，会把**门禁正常**误读成"门禁零命中"。**改判据为三条**（互不依赖）：① `target/jacoco.exec` **存在且非空**，实测 **7 830 477 字节**（零命中时该文件根本不生成）；② 相位正确——`jacoco:report (report)` 出现在 failsafe 汇总**之后**（FR-V09 的相位修复生效），故覆盖率**含集成测试**；③ **反向验证**（见下）给出了那行被引用的比较文本。
+
+> **【订正之二，2026-09-13，上文【订正】原文保留】** 上面那条【订正】的**前半句是错的**。它说 `jacoco:check` **通过时只打印一行** `Loading execution data file`、**不打印任何判定内容**——**不成立**。实测（`target/085-full-verify.log:3001-3004`）：
+>
+> ```
+> [INFO] --- spotless:2.43.0:check (spotless-check) @ crm-backend ---
+> [INFO] --- jacoco:0.8.11:check (coverage-check) @ crm-backend ---
+> [INFO] Loading execution data file E:\code\crm\backend\target\jacoco.exec
+> [INFO] All coverage checks have been met.
+> ```
+>
+> **`jacoco:check` 成功时会打印结论行 `All coverage checks have been met.`**，它**不是**静默的。我此前把"**没搜到** `INSTRUCTION covered` 这个字符串"错推成了"**没有任何判定内容**"。**订正后的结论反而更强**：SC-V02 要求"日志含**判定动作与结论**"，**现在两者都在**，可**直接**满足，**不必**靠三条替代证据去推断；那三条（`jacoco.exec` 非空、`report` 相位在 failsafe 之后、反向验证）仍作为**互不依赖的旁证**保留。T033 原字面要求的 `INSTRUCTION covered … / …` 字样确实是错的（那条仍成立），但"因此没有任何判定输出"这一步是我加的、且是错的。
+>
+> **成对证据（同一命令：`mvn -B -Djava.version=17 -Dspring-boot.repackage.skip=true verify`）**：
+>
+> | | 基线（改前，`target/verify-baseline2.log`） | 本次（改后，`target/085-full-verify.log`） |
+> |---|---|---|
+> | failsafe | `Tests run: 275, Failures: 4` | `Tests run: 284, Failures: 0` |
+> | 中止于 | `maven-failsafe-plugin:3.1.2:verify` → **BUILD FAILURE** | — → **BUILD SUCCESS** |
+> | `Loading execution data file` | **1 次**（仅 `jacoco:report`） | **2 次**（`report` + `check`） |
+> | jacoco 判定结论 | **完全没有**（`check` 没跑到） | **`All coverage checks have been met.`** |
+>
+> 这张表把 085 的核心判断钉死：改前**不是**"门槛判定为不达标"，而是"**门槛从未被判定**"——`failsafe:verify` 先失败即中止，`jacoco:check` 连载入数据的动作都没发生。改后两者都有。
 >
 > **本节"改造前表现"须加一句限定**：改造前的 `jacoco:check` 并非"执行了但零命中"，而是**根本没被执行**（`failsafe:verify` 先失败即中止）。二者都导致"门槛从未判定"，但成因不同。
 

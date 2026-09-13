@@ -519,3 +519,107 @@ cd backend && mvn -B -Djava.version=17 -Dspring-boot.repackage.skip=true verify
 **提交前的最后一项核对**：`git diff backend/pom.xml` 的 `minimum` 计数为 **0** —— 证明 T035 对阈值的临时改动**未残留**在待提交内容里，阈值仍为 **0.73**。
 
 > **【订正，2026-09-13，原文保留】** 上表此前记的哈希是 `25928d0`。该值**已被 `--amend` 取代**：提交后为把本文件（T036/T041 的实施记录与勾选状态）一并纳入同一提交而做了 amend，哈希随之变为 **`c3256a1`**。**这个订正本身说明了一个可复用的教训**——**不要在 amend 之前记录提交哈希**：任何一次 amend 都会改写它，而"把哈希写进被提交的文件"必然自指，因此**只能是"先定稿、再提交、最后单独补记哈希"**。本次即按此处理：本行是对主体提交的**事后补记**，落在紧随其后的小提交里。
+
+## Phase 8: Convergence
+
+> 本相位由 `/speckit-converge` 于 2026-09-13 追加，来自对 **15 条 FR-V 与 7 条 SC-V 的逐条代码复核**。
+> 复核结论：**22 条需求全部有实现与取证**；仅 FR-V07 的**取证完备性**留 2 处缺口，故只追加 2 条任务。
+> **未改动、未重排、未删除任何既有条目**（含 Phases 1–7 与本文件的全部实施记录）。
+
+- [X] T042 使「中断残留记录的终态可判定」在**重启后立即成立**：二选一——(a) 在 `WebhookDeliverySweepScheduler` 之外补一个启动即执行的清扫（`ApplicationRunner`），或 (b) 把 `quickstart.md:152` 的期望「该条悬空记录被**启动清扫**判定为**终态**」改为与实现一致的「由**周期清扫**判定为终态，重启后最长约 5 分钟内转终态」。**缺口性质是「指南与实现不符」，不是 FR-V07 未满足**：实现为 `@Scheduled(cron = "0 */5 * * * ?")`（`WebhookDeliverySweepScheduler.java:33`），且 `CrmApplication.java:13` 的 `@EnableScheduling` 与 `application.yml:63` 的 cron 默认值**均已实测确认存在**，故清扫在生产确实运行、FR-V07 成立；但全仓**无** `ApplicationRunner`/`CommandLineRunner`/`@PostConstruct` 形式的启动清扫，照指南逐字执行会把「重启后仍为 `PENDING`」误判为失败 per FR-V07 (partial)
+- [X] T043 为清扫的**周期触发**（`@Scheduled` 接线）补一条用例：在测试配置下把 `crm.scheduler.webhook-sweep-cron` 设为高频（如每秒），断言调度器确实被触发并调用了 `sweepStalePending()`。现状是清扫的**库级效果**由**直接调用** `sweepStalePending()` 取证（`IntegrationHubIT#stalePendingDeliveriesAreSweptToFailed`，真库行级、含「阈值不误伤刚派发记录」的反向断言）；**接线本身无用例**——若 cron 表达式写错或调度未生效，全部用例仍为绿，而 FR-V07 在生产静默失效。同类教训见本仓库既有的「各模块 IT 全用管理员令牌、整批接线错误也能全仓绿」 per FR-V07 (partial)
+
+### T042 / T043 —— Convergence 追加项（**已执行**，2026-09-13）
+
+**T042 的裁决：选 (b)「订正指南」，不补启动清扫。** 理由已写入 `quickstart.md` 的【订正】块（**原文保留**）：FR-V07 本身**已满足**——`CrmApplication.java:13` 的 `@EnableScheduling` 与 `application.yml:63` 的 cron 默认值均已实测确认，清扫在生产确实运行，库级效果已由 `IntegrationHubIT#stalePendingDeliveriesAreSweptToFailed` 钉住，**缺口在指南措辞、不在行为**。而 FR-V14 明确限定本规格「仅已裁决的 3 个缺陷，**不得就地扩围**」，补启动清扫属**改变生产行为**的范围外变更。验收口径据此订正为「重启后由**周期清扫**判定为终态，**最终必为终态**（最长约 5 分钟）」，**不是**「重启瞬间即终态」。
+
+> 若日后确需秒级的重启恢复，应**另立条目**按 SDD 流程裁决——本次**不做**，并在此留痕，以免被当作遗漏。
+
+**T043 的交付：`backend/src/test/java/com/crm/integration/WebhookSweepScheduleIT.java`**（新增，1 例）。按 `WebSocketHandshakeIT` 的先例以最小上下文单独启动（`@SpringBootTest(properties = "crm.scheduler.webhook-sweep-cron=*/1 * * * * ?")` + `@ActiveProfiles("test")`），`@MockBean WebhookDeliverer` 使清扫**不碰数据库**；断言用 Mockito 的 `timeout(10_000).atLeastOnce()`，语义即「10 秒内**最终**至少触发一次」。
+
+**先红后绿（同一用例，**只改 cron 一处**）**：
+
+| 轮次 | cron | 结果 | 退出码 |
+|---|---|---|---|
+| 绿 | `*/1 * * * * ?`（每秒） | `Tests run: 1, Failures: 0, Errors: 0`，**BUILD SUCCESS** | **0**（含 `failsafe:verify`） |
+| 红 | `0 0 0 1 1 ?`（永不触发） | `Tests run: 1, Failures: 1`、`Wanted but not invoked`，耗时 **22.28s**（12s 启动 + 10s 超时） | **0** —— 见下方订正 |
+| 恢复 | 复原为 `*/1 * * * * ?` | md5 `82de08469cd5927e7754f0c89a784f96` **前后一致** | 复跑绿 |
+
+> **【订正 / 教训】红轮的退出码是 0，**不得据此认为「用例没红」**。** 该轮我只调了 `failsafe:integration-test`、**没接** `failsafe:verify`——让构建失败的是后者，前者只跑用例并把结论写进报告。故「红」的证据是 failsafe 的汇总行 `Tests run: 1, Failures: 1 <<< FAILURE!`，**不是退出码**。这与本项目既有的「退出码不是 Maven 的」（`mvn … ; echo "EXIT=$?"` 取到的是 `echo` 的码）是**同一类陷阱的第二种形态**：**退出码与其所声称的证据之间可以完全脱钩——写证据前必须先确认「这个数字到底是谁产的」。**
+
+**验证记录**：`WebhookSweepScheduleIT` **1 例 / 0 失败 / 0 错误**；`spotless:check` **退出码 0**。新文件经 `spotless:apply` 规范化（删除未使用的 `atLeastOnce` 静态导入 + javadoc 重排）；**当时 `spotless:check` 只报出这一个文件违规，故 apply 的改动面可证为「仅此一文件」**，并以 `backend/pom.xml` 的 md5 `6058490cee6fa19a9bbbce96036ad20f` 前后一致佐证未波及他人文件。
+
+### T042 订正（2026-09-13）—— 上文那条 T042 记录**结论错误，现予撤回**
+
+> **【订正，原文与上文 T042 记录一律保留】** 上文 T042 记的是「**选 (b) 订正指南，不补启动清扫**」，理由是「FR-V07 已满足、缺口在指南措辞、补启动清扫属 FR-V14 范围外的行为变更」。**该结论是错的**，三点纠正：
+
+| # | 上文 T042 的说法 | 复核后的事实 | 依据 |
+|---|---|---|---|
+| 1 | 「缺口在**指南**措辞」 | 缺口在**实现**：全仓**只有**周期清扫，**无**启动清扫 | 全仓无 `ApplicationRunner` / `CommandLineRunner` / `@PostConstruct` 形式的启动清扫 |
+| 2 | 「补启动清扫属**范围外**的行为变更」 | 启动清扫**本就是**修③计划内的一部分 | `plan.md:15` 技术路线；`research.md:60` 决策「**应用启动时**做一次清扫」；`data-model.md:51` 把「启动清扫」列为 INV-3 的**执行机制** |
+| 3 | 「指南措辞有误，故订正指南」 | 指南**忠实反映了既定决策**；改指南 = **让计划迁就实现** | 同 FR-V12 的取向：让**实现**回到契约，不是让**契约**迁就实现 |
+
+**根因（可复用的教训）**：我据以裁决的输入**只有"实现 + 指南"**，**没有核对 `research.md` / `plan.md` / `data-model.md`** 这三份**记录决策**的文档。converge 的自述是"以 spec/plan/tasks 为**唯一**意图来源"——我恰恰漏了这一条，于是把「**实现偏离计划**」误判成「**指南写错了**」。**凡判"文档与代码不符"，必须先查该文档是否忠实转录了某条既定决策，再判是谁错。**
+
+**实际交付（改后）**：`WebhookDeliverySweepScheduler` 补 `implements ApplicationRunner`（**启动清扫**），并**保留** `@Scheduled` 周期清扫。原注释的「二选一」框架已在代码处订正，且**保留其有效论证**——"启动清扫单独不足以堵住'崩溃后很快重启（早于阈值）且此后再无重启'的缺口"，该论证**成立**，故周期清扫**必须保留**；错的只是"因此就不要启动清扫"这一步。
+
+**测试由 1 例变 2 例，且两例**互斥判别**（各只可能指向一种触发）**：
+
+| 用例 | cron | 断言 | 只可能被谁满足 |
+|---|---|---|---|
+| `WebhookSweepOnStartupIT` | `0 0 0 1 1 ?`（生存期内**永不触发**） | `verify(…, atLeastOnce())` | **只可能**是**启动清扫** |
+| `WebhookSweepScheduleIT` | `*/1 * * * * ?`（每秒） | `verify(…, timeout(10s).atLeast(2))` | 启动那 1 次 **+ 至少一次额外** ⇒ 只可能是**周期触发** |
+
+> 断言由 `atLeastOnce()` 改为 `atLeast(2)` 是**被迫的**：加了启动清扫之后，"至少一次"已被启动那一次满足，**不再有判别力**。若不改，本用例会退化成一条**永远通过的空断言**——这是"**新增机制会让既有测试失去判别力**"的实例，值得记住。
+
+**先红后绿（两例各自反向验证，均已实测；每轮**只改一处**）**：
+
+| 用例 | 绿 | 红 | 恢复 |
+|---|---|---|---|
+| `WebhookSweepOnStartupIT` | `Tests run: 1, Failures: 0` | 去掉 `implements ApplicationRunner`（并删 `@Override`）→ `Failures: 1`、`Wanted but not invoked`，12.34s | md5 `90c91ef5c0d8e94b13bd1656407086f0` **前后一致** |
+| `WebhookSweepScheduleIT` | `Tests run: 1, Failures: 0` | cron 改 `0 0 0 1 1 ?` → `Failures: 1`，22.72s（含 10s 超时） | md5 `9dc4ff79bc475520f99839fc29ad96d7` **前后一致** |
+
+> 两轮反向验证都**只调 `failsafe:integration-test`、未接 `failsafe:verify`**，故其**退出码为 0**；**"红"的证据是 failsafe 汇总行 `Tests run: 1, Failures: 1 <<< FAILURE!`，不是退出码**。这与上文 T043 记录里那条教训是**同一形态的再次出现**。
+
+**范围与风险**：新增的 `ApplicationRunner` 会被 `AbstractIntegrationTest#resetDatabase` **每个测试方法重放一次**（该基类遍历全部 `ApplicationRunner` 以重放启动期播种），故它对**全量 IT** 都会多出一次库级清扫调用。此副作用**不靠推断**，已用一次完整 `verify` 复核。
+
+### T033 订正（2026-09-13）—— 我此前对 `jacoco:check` 的「成功时静默」判断**有误**
+
+> **【订正，原文与本文件 :451 那段、以及 `quickstart.md` 的同款记录一律保留】** :451 记的是「`jacoco:check` **通过时几乎不打印任何判定内容**——日志里只有 `Loading execution data file …` 一行，**不含** `INSTRUCTION covered … / …` 与阈值比较」。**前半句是错的。**
+
+**实测（2026-09-13 全量 `verify`，`target/085-full-verify.log:3001-3004`）**：
+
+```
+[INFO] --- spotless:2.43.0:check (spotless-check) @ crm-backend ---
+[INFO] --- jacoco:0.8.11:check (coverage-check) @ crm-backend ---
+[INFO] Loading execution data file E:\code\crm\backend\target\jacoco.exec
+[INFO] All coverage checks have been met.
+```
+
+**`jacoco:check` 成功时会打印一行结论 `All coverage checks have been met.`** —— 它**不是**静默的。我此前把「**没搜到** `INSTRUCTION covered` 这个字符串」错推成了「**没有任何判定内容**」，**又是"没找到某个串"当成"不存在结论"的同一类错误**（本次会话内这是第二次：第一次见 T042 订正）。
+
+**订正后的结论（比原来更强）**：SC-V02 要求「构建日志含**判定动作与结论**」——**现在的日志里两者都有**，可**直接**满足，**不再需要**用三条替代证据去推断。原文列出的三条替代证据（`jacoco.exec` 非空、`report` 相位在 failsafe 之后、反向验证）**仍然成立**，作为**互不依赖的旁证**保留。T033 原字面要求的 `INSTRUCTION covered … / …` 字样**确实是错的**（这一步仍成立），但「因此没有任何判定输出」这一步是我加的、**且是错的**。
+
+**成对证据（同一命令：`mvn -B -Djava.version=17 -Dspring-boot.repackage.skip=true verify`）**：
+
+| | 基线（改前，`target/verify-baseline2.log`） | 本次（改后，`target/085-full-verify.log`） |
+|---|---|---|
+| failsafe | `Tests run: 275, Failures: 4` | `Tests run: 284, Failures: 0` |
+| 中止于 | `maven-failsafe-plugin:3.1.2:verify` → **BUILD FAILURE** | — → **BUILD SUCCESS** |
+| `Loading execution data file` | **1 次**（仅 `jacoco:report`） | **2 次**（`report` + `check`） |
+| jacoco 判定结论 | **完全没有**（`check` 没跑到） | **`All coverage checks have been met.`** |
+
+> 这张表把 085 的核心判断**钉死**：改前**不是**「门槛判定为不达标」，而是「**门槛从未被判定**」——`failsafe:verify` 先失败即中止，`jacoco:check` 连载入数据的动作都没发生（只有 `report` 载入过一次）。改后两者都有。
+
+### 完整 `verify` 复核（2026-09-13，加启动清扫**之后**）——回应 T042 订正里的「不靠推断」承诺
+
+**命令**：`cd backend && mvn -B -Djava.version=17 -Dspring-boot.repackage.skip=true verify` → **`BUILD SUCCESS`，退出码 0**，耗时 `01:59 min`。
+
+| 门禁 | 实测 |
+|---|---|
+| 单元测试（surefire） | 全绿 |
+| 集成测试（failsafe） | **`Tests run: 284, Failures: 0, Errors: 0`** —— 基线 282 **+2**（`WebhookSweepOnStartupIT`、`WebhookSweepScheduleIT`） |
+| `spotless:check` | 通过（先于 failsafe 与 jacoco） |
+| `jacoco:check (coverage-check)` | **`All coverage checks have been met.`** |
+
+**结论**：新增的 `ApplicationRunner` 被 `AbstractIntegrationTest#resetDatabase` **每个测试方法重放一次**（全量 IT 因此各多一次库级清扫调用），**未破坏任何用例**——这是实测，不是推断。同时该次构建**恰好构成 SC-V02 的直接证据**（见上方 T033 订正）。
