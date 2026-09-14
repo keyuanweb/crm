@@ -897,17 +897,17 @@ body {
 /* ========== 按钮样式优化（现代化风格） ========== */
 
 /* 主按钮 - Indigo 色系 */
+/* P4：底色/边框/字色/hover 色已由 `src/theme/index.ts` 提供
+   （`colorPrimary` + `components.Button.colorPrimaryHover`），原先那 4 条
+   `!important` 正是为此对抗 antd 的，现已冗余，删除。
+   此处保留的是主题里**没有**对应位置的自定观感（阴影、圆角、字重、位移）。 */
 .ant-btn-primary {
-  background: var(--color-primary) !important;
-  border-color: var(--color-primary) !important;
   box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
   border-radius: var(--radius-md);
   font-weight: var(--font-weight-medium);
   transition: all var(--transition-base);
 }
 .ant-btn-primary:hover {
-  background: var(--color-primary-hover) !important;
-  border-color: var(--color-primary-hover) !important;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
   transform: translateY(-1px);
 }
@@ -925,20 +925,12 @@ body {
 }
 
 /* 危险按钮 */
+/* P4：字色与 hover 字色改由主题提供（`colorError` + `components.Button.colorErrorHover`），
+   原先的 6 条 `!important` 已冗余，删除；圆角是主题里没有对应位置的自定观感，保留。
+   `.ant-btn-dangerous:hover` / `.ant-btn-dangerous.ant-btn-primary`（含 `:hover`）
+   三条规则的全部声明都是那 6 条，删后为空，故整条移除。 */
 .ant-btn-dangerous {
-  color: var(--color-danger) !important;
   border-radius: var(--radius-md);
-}
-.ant-btn-dangerous:hover {
-  color: #f87171 !important;
-}
-.ant-btn-dangerous.ant-btn-primary {
-  background: var(--color-danger) !important;
-  border-color: var(--color-danger) !important;
-}
-.ant-btn-dangerous.ant-btn-primary:hover {
-  background: #f87171 !important;
-  border-color: #f87171 !important;
 }
 
 /* 链接按钮 */

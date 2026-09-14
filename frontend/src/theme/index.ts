@@ -52,6 +52,9 @@ export const palette = {
   success: '#10b981',
   warning: '#f59e0b',
   error: '#ef4444',
+  // 危险按钮 hover 的字色。此前只以裸字面量 `#f87171` 活在 `index.css` 的三条规则里，
+  // `:root` 里没有对应变量（是 tailwind red-400，不是本项目 `--color-danger-*` 那一族）。
+  errorHover: '#f87171',
   info: '#3b82f6',
 } as const
 
@@ -85,6 +88,21 @@ export const antdTheme: ThemeConfig = {
   },
 
   components: {
+    // P4：按钮的**派生** hover 色。
+    //
+    // antd 由种子 `colorPrimary` 自行推导 `colorPrimaryHover`（此处会得到 `#9197ff`，
+    // 比 `--color-primary-hover` 的 `#4f46e5` **更浅**），因此 `index.css` 里那几条
+    // hover 规则原先只能靠 `!important` 硬压——删掉 `!important` 就会退回浅色。
+    // 把派生色按本项目的取值写进主题，那些 `!important` 才是真的冗余。
+    //
+    // 与 `Card.paddingLG` 同款做法：`components.X` 的入参类型是
+    // `Partial<ComponentToken> & Partial<AliasToken>`，别名 token 可以**按组件收窄**。
+    // 这里刻意不写全局 `token.colorPrimaryHover`——那会顺带改掉链接 hover、聚焦环、
+    // Select/Tabs 激活态等一大片，远超本批次意图（详见 plan 的风险表）。
+    Button: {
+      colorPrimaryHover: palette.primaryHover, // #4f46e5，与 `--color-primary-hover` 同值
+      colorErrorHover: palette.errorHover, // #f87171
+    },
     // 紧凑密度（已定决策 4）。取值都核对过确实存在，不是照文档猜的：
     // `Form.itemMarginBottom` 见 antd/es/form/style/index.d.ts。
     Form: {
