@@ -430,15 +430,10 @@ const R6_ALLOWED = [
 ]
 
 /** R7：孤儿组件。 */
-const R7_ALLOWED = [
-  {
-    file: 'src/components/ContactsCard.tsx',
-    count: 1,
-    reason:
-      '真孤儿（0 引用）。088 的 plan 把"删除 ContactsCard.tsx"放在 **P4 退役**阶段——' +
-      '本阶段只登记，不删：P1 的 diff 要能整体回退，删文件会让回退多一个不可合并的分叉',
-  },
-]
+// 088 P4（T054）已把唯一一条登记销掉：`src/components/ContactsCard.tsx` 是零引用真孤儿，
+// 已连同本条目一起删除。**空数组是当前的事实，不是占位**——R7 现有 0 处既存债。
+// 保留数组本身是因为 `ruleDefs` 里 `allowed: R7_ALLOWED` 直接引用它。
+const R7_ALLOWED = []
 
 // ---------------------------------------------------------------- 规则实现
 
