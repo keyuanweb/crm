@@ -254,7 +254,6 @@ export default function RoleListPage() {
         columns={columns}
         search={false}
         pagination={{ defaultPageSize: 20 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchRoles({ page: params.current ?? 1, pageSize: params.pageSize ?? 20 })
           return { data: res.items, success: true, total: res.total }

@@ -56,7 +56,7 @@ export default function LandingPageView() {
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 16px' }}>
       <Card
-        style={{ borderRadius: 12, borderTop: `4px solid ${themeColor}` }}
+        style={{ borderTop: `4px solid ${themeColor}` }}
         styles={{ body: { padding: 32 } }}
       >
         <Typography.Title level={2} style={{ textAlign: 'center', color: themeColor }}>

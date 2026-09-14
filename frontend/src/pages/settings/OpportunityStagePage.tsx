@@ -240,7 +240,6 @@ export default function OpportunityStagePage() {
         search={false}
         pagination={false}
         options={false}
-        cardProps={{ style: { borderRadius: 10 } }}
         toolBarRender={() => [
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             {t('pages.opportunityStageSettings.btnCreate')}

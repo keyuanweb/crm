@@ -65,7 +65,7 @@ export default function SuggestionCenterPage() {
         </Paragraph>
       </div>
 
-      <Card style={{ borderRadius: 10 }} styles={{ body: { padding: 0 } }}>
+      <Card styles={{ body: { padding: 0 } }}>
         <List<SmartSuggestion>
           loading={isLoading}
           dataSource={items}

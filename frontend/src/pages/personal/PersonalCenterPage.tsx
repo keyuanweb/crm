@@ -131,7 +131,7 @@ export default function PersonalCenterPage() {
       {/* 基本信息 */}
       <Card
         title={t('pages.personalCenter.cardBasicInfo')}
-        style={{ marginBottom: 24, borderRadius: 10 }}
+        style={{ marginBottom: 24 }}
         data-testid="basic-info-card"
         loading={loading}
         extra={
@@ -195,7 +195,7 @@ export default function PersonalCenterPage() {
       {/* 安全设置 */}
       <Card
         title={t('pages.personalCenter.cardSecurity')}
-        style={{ marginBottom: 24, borderRadius: 10 }}
+        style={{ marginBottom: 24 }}
         data-testid="security-card"
         extra={
           <Button type="primary" icon={<KeyOutlined />} onClick={() => setPasswordModalOpen(true)}>

@@ -150,7 +150,6 @@ export default function EmailTemplatePage() {
         columns={columns}
         search={false}
         pagination={false}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async () => {
           const items = await fetchEmailTemplates()
           return { data: items, success: true, total: items.length }

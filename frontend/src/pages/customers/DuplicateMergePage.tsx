@@ -76,7 +76,7 @@ export default function DuplicateMergePage() {
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
-      <Card style={{ borderRadius: 10 }}>
+      <Card>
         <Space direction="vertical" style={{ width: '100%' }}>
           <Space>
             {can[PERMS.customerMerge] ? (
@@ -97,7 +97,7 @@ export default function DuplicateMergePage() {
       </Card>
 
       {scanned && !scanning && groups.length === 0 ? (
-        <Card style={{ borderRadius: 10 }}>
+        <Card>
           <Empty description={t('pages.duplicateMerge.noDuplicates')} />
         </Card>
       ) : null}
@@ -106,7 +106,7 @@ export default function DuplicateMergePage() {
         {groups.map((g) => (
           <Card
             key={g.id}
-            style={{ borderRadius: 10, marginBottom: 12 }}
+            style={{ marginBottom: 12 }}
             title={
               <Space>
                 <Typography.Text strong>{g.primaryName}</Typography.Text>

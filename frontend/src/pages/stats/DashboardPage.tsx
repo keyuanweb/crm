@@ -753,7 +753,7 @@ export default function DashboardPage() {
             loading={isLoading}
             title={t('pages.dashboard.funnel.title')}
             styles={{ body: { padding: 20 } }}
-            style={{ borderRadius: 12, height: '100%' }}
+            style={{ height: '100%' }}
           >
             {funnelStages.length ? (
               <FunnelChart
@@ -773,7 +773,7 @@ export default function DashboardPage() {
             loading={isLoading}
             title={t('pages.dashboard.performance.title')}
             styles={{ body: { padding: 20 } }}
-            style={{ borderRadius: 12, height: '100%' }}
+            style={{ height: '100%' }}
           >
             {isLoading ? (
               <>
@@ -802,7 +802,7 @@ export default function DashboardPage() {
             loading={isLoading}
             title={t('pages.dashboard.todo.title')}
             styles={{ body: { padding: 20 } }}
-            style={{ borderRadius: 12, height: '100%' }}
+            style={{ height: '100%' }}
           >
             {isLoading ? (
               <div style={{ padding: 20 }}>
@@ -832,7 +832,7 @@ export default function DashboardPage() {
             loading={isLoading}
             title={t('pages.dashboard.activity.title')}
             styles={{ body: { padding: 20 } }}
-            style={{ borderRadius: 12, height: '100%' }}
+            style={{ height: '100%' }}
           >
             {isLoading ? (
               <div style={{ padding: 20 }}>
@@ -859,7 +859,7 @@ export default function DashboardPage() {
             loading={isLoading}
             title={t('pages.dashboard.stalledOpportunities.title')}
             styles={{ body: { padding: 0 } }}
-            style={{ borderRadius: 12, height: '100%' }}
+            style={{ height: '100%' }}
           >
             {isLoading ? (
               <div style={{ padding: 20 }}>

@@ -218,7 +218,6 @@ export default function WorkflowRuleListPage() {
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchWorkflowRules({
             keyword: params.keyword,

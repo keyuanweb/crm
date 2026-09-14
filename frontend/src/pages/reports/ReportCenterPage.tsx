@@ -106,7 +106,7 @@ export default function ReportCenterPage() {
         </Paragraph>
       </div>
 
-      <Card style={{ borderRadius: 10, marginBottom: 16 }}>
+      <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>{t('pages.reportCenter.dimLabel')}</div>
@@ -164,7 +164,7 @@ export default function ReportCenterPage() {
         </div>
       </Card>
 
-      <Card style={{ borderRadius: 10 }} styles={{ body: { padding: 0 } }}>
+      <Card styles={{ body: { padding: 0 } }}>
         <Table<ReportRow>
           rowKey="dimensionValue"
           size="small"

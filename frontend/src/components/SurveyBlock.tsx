@@ -59,7 +59,7 @@ export default function SurveyBlock({ ticketId, isClosed, onSubmitted }: Props) 
           {t('pages.surveyBlock.title')}
         </span>
       }
-      style={{ marginBottom: 16, borderRadius: 10 }}
+      style={{ marginBottom: 16 }}
     >
       {record ? (
         <Descriptions column={2} size="small">

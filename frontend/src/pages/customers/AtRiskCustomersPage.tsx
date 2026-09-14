@@ -113,7 +113,6 @@ export default function AtRiskCustomersPage() {
         columns={columns}
         search={false}
         pagination={{ defaultPageSize: 20 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchAtRiskCustomers({
             daysInactive: 45,

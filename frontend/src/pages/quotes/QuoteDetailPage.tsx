@@ -167,7 +167,7 @@ export default function QuoteDetailPage() {
         </Space>
       </div>
 
-      <Card title={t('pages.quote.detail.basicInfo')} style={{ marginBottom: 16, borderRadius: 10 }}>
+      <Card title={t('pages.quote.detail.basicInfo')} style={{ marginBottom: 16 }}>
         <Descriptions column={2} bordered size="small">
           <Descriptions.Item label={t('pages.quote.detail.labelStatus')}>
             <Tag color={QUOTE_STATUS_COLORS[status]}>{labelOf(t, ENUM_KEYS.quoteStatus, status)}</Tag>
@@ -206,7 +206,6 @@ export default function QuoteDetailPage() {
 
       <Card
         title={t('pages.quote.detail.items')}
-        style={{ borderRadius: 10 }}
         styles={{ body: { padding: 0 } }}
       >
         <Table<QuoteItem>

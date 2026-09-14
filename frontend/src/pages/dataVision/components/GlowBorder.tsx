@@ -27,7 +27,7 @@ export default function GlowBorder({
       style={{
         position: 'relative',
         background: 'rgba(13, 32, 66, 0.85)',
-        borderRadius: 12,
+        borderRadius: 'var(--radius-lg)',
         padding: 2,
         ...style,
       }}
@@ -40,7 +40,7 @@ export default function GlowBorder({
           left: 0,
           right: 0,
           bottom: 0,
-          borderRadius: 12,
+          borderRadius: 'var(--radius-lg)',
           background: `linear-gradient(90deg, ${color}, ${color}80, ${color})`,
           backgroundSize: '200% 100%',
           animation: 'glowBorder 3s linear infinite',
@@ -55,7 +55,7 @@ export default function GlowBorder({
           left: 0,
           right: 0,
           bottom: 0,
-          borderRadius: 12,
+          borderRadius: 'var(--radius-lg)',
           boxShadow: `0 0 ${intensity * 20}px ${intensity * 10}px ${color}40`,
           zIndex: -1,
         }}
@@ -65,7 +65,7 @@ export default function GlowBorder({
         style={{
           height: '100%',
           width: '100%',
-          borderRadius: 10,
+          borderRadius: 'var(--radius-lg)',
           background: 'rgba(13, 32, 66, 0.95)',
           padding: '16px 18px',
           overflow: 'hidden',

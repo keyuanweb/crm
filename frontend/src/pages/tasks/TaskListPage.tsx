@@ -263,7 +263,6 @@ export default function TaskListPage() {
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchTasks({
             keyword: params.keyword,

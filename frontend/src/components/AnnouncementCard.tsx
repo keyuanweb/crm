@@ -58,7 +58,7 @@ export default function AnnouncementCard() {
           {t('pages.announcement.dashboard.viewAll')}
         </Button>
       }
-      style={{ borderRadius: 12, height: '100%', display: 'flex', flexDirection: 'column' }}
+      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
       styles={{ body: { paddingTop: 8, flex: 1, minHeight: 0, overflow: 'auto' } }}
     >
       <List

@@ -83,7 +83,6 @@ export default function RecycleBinPage() {
         columns={columns}
         search={false}
         pagination={{ defaultPageSize: 20 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         rowSelection={{ selectedRowKeys: selected.map((s) => `${s.type}-${s.id}`), onChange: (_keys, rows) => setSelected(rows) }}
         toolBarRender={() => [
           <Select

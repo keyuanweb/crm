@@ -48,7 +48,7 @@ export default function HealthChart({ data, style }: HealthChartProps) {
           center: ['60%', '50%'],
           avoidLabelOverlap: false,
           itemStyle: {
-            borderRadius: 10,
+            borderRadius: 8,
             borderColor: '#0a1830',
             borderWidth: 2,
           },

@@ -275,7 +275,7 @@ export default function UsageMapPage() {
         ]}
       />
 
-      <Card style={{ borderRadius: 12, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }} styles={{ body: { padding: 12 } }}>
+      <Card style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }} styles={{ body: { padding: 12 } }}>
         <div ref={containerRef} style={{ height: 200, width: '100%' }} />
         {renderFailed && (
           <Paragraph type="secondary" style={{ textAlign: 'center', marginTop: 8, marginBottom: 0 }}>
@@ -294,7 +294,7 @@ export default function UsageMapPage() {
             </Typography.Text>
           </Space>
         }
-        style={{ borderRadius: 12, marginTop: 16, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+        style={{ marginTop: 16, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
       >
         <div style={{
           display: 'grid',
@@ -307,7 +307,7 @@ export default function UsageMapPage() {
               icon={a.icon}
               style={{
                 height: isMobile ? 44 : 48,
-                borderRadius: 10,
+                borderRadius: 'var(--radius-md)',
                 background: '#f5f5f5',
                 borderColor: '#f5f5f5',
               }}

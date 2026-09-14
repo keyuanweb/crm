@@ -155,7 +155,6 @@ export default function TicketListPage() {
         columns={[...columns, ...customFieldFilterColumns]}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchTickets({
             keyword: params.keyword,

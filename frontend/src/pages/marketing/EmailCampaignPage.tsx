@@ -214,7 +214,6 @@ export default function EmailCampaignPage() {
         columns={columns}
         search={false}
         pagination={false}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async () => {
           const items = await fetchEmailCampaigns()
           setHasSkippedBatch(items.some((c) => c.status === 'SKIPPED'))

@@ -170,7 +170,6 @@ export default function AnnouncementPage() {
         columns={columns}
         search={false}
         pagination={{ pageSize: 10 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchAnnouncements({ page: params.current ?? 1, pageSize: params.pageSize ?? 10 })
           return { data: res.items, success: true, total: res.total }

@@ -223,7 +223,6 @@ export default function DepartmentListPage() {
     <Card
       title={t('pages.departmentList.title')}
       loading={loading}
-      style={{ borderRadius: 10 }}
       extra={
         <Space>
           <Button icon={<ReloadOutlined />} onClick={() => void load()}>

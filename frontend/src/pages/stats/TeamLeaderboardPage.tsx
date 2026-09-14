@@ -108,7 +108,7 @@ export default function TeamLeaderboardPage() {
         </Radio.Group>
       </div>
 
-      <Card style={{ borderRadius: 10 }} styles={{ body: { padding: 0 } }}>
+      <Card styles={{ body: { padding: 0 } }}>
         <Table<LeaderboardItem>
           rowKey="userId"
           size="small"

@@ -74,7 +74,7 @@ export default function SlaCalendarPage() {
   ]
 
   return (
-    <Card title={t('pages.slaCalendar.title')} style={{ borderRadius: 10 }} loading={loading}>
+    <Card title={t('pages.slaCalendar.title')} loading={loading}>
       <Form form={form} layout="vertical" style={{ maxWidth: 560 }}>
         <Form.Item name="enabled" label={t('pages.slaCalendar.formEnabled')} valuePropName="checked" initialValue={false}>
           <Switch />

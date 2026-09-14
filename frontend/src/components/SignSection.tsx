@@ -74,7 +74,6 @@ export default function SignSection({
           {t('pages.signSection.title')}
         </span>
       }
-      style={{ borderRadius: 10 }}
     >
       {record ? (
         <Descriptions column={2} size="small">

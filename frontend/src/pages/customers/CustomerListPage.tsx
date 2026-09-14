@@ -338,7 +338,6 @@ export default function CustomerListPage() {
         columns={[...viewColumns, ...customFieldFilterColumns]}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         rowSelection={
           // 行选择只服务于「批量转移」，而 POST /customers/batch-transfer 挂的是 customer:pool_manage
           // （1.5 批 3 起，此前是 hasRole('ADMIN')）——按码判断，不再按角色名。

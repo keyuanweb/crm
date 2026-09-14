@@ -33,7 +33,6 @@ export default function SatisfactionStatsPage() {
     <div>
       <Card
         title={t('pages.survey.title')}
-        style={{ borderRadius: 10 }}
         extra={
           <DatePicker.RangePicker
             allowClear

@@ -174,7 +174,6 @@ export default function CustomFieldListPage() {
         columns={columns}
         search={{ labelWidth: 'auto' }}
         pagination={{ defaultPageSize: 20 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchCustomFields(params.entityType, params.current ?? 1, params.pageSize ?? 20)
           return { data: res.items, success: true, total: res.total }

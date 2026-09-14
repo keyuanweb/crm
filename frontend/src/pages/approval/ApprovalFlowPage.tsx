@@ -308,7 +308,6 @@ export default function ApprovalFlowPage() {
         columns={columns}
         search={false}
         pagination={false}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async () => {
           const items = await fetchApprovalFlows()
           return { data: items, success: true, total: items.length }

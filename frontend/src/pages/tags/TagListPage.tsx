@@ -111,7 +111,6 @@ export default function TagListPage() {
         columns={columns}
         search={false}
         pagination={false}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async () => {
           const items = await fetchTags('CUSTOMER')
           return { data: items, success: true, total: items.length }

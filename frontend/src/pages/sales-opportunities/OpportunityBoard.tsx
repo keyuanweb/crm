@@ -224,7 +224,7 @@ export default function OpportunityBoard() {
   }
 
   if (rowsLoading || stagesLoading) {
-    return <Card loading bordered={false} style={{ borderRadius: 10 }} />
+    return <Card loading bordered={false} />
   }
 
   return (

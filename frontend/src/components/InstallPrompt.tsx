@@ -61,7 +61,7 @@ export default function InstallPrompt() {
         gap: 12,
         padding: '10px 16px',
         background: '#fff',
-        borderRadius: 12,
+        borderRadius: 'var(--radius-lg)',
         boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
         border: '1px solid #e8e8e8',
         maxWidth: 'calc(100vw - 32px)',

@@ -167,7 +167,7 @@ export default function TicketDetailPage() {
 
       <Card
         title={t('pages.ticket.detail.ticketInfo')}
-        style={{ marginBottom: 16, borderRadius: 10 }}
+        style={{ marginBottom: 16 }}
         styles={{ header: { borderBottom: '1px solid #f0f0f0' } }}
         extra={
           <Space>
@@ -247,7 +247,7 @@ export default function TicketDetailPage() {
 
       <Card
         title={t('pages.ticket.detail.timeline')}
-        style={{ marginBottom: 16, borderRadius: 10 }}
+        style={{ marginBottom: 16 }}
         styles={{ header: { borderBottom: '1px solid #f0f0f0' }, body: { padding: 0 } }}
       >
         <List

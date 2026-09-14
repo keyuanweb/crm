@@ -48,7 +48,7 @@ export default function ChangePasswordPage() {
           {t('pages.changePassword.subtitle')}
         </Typography.Text>
       </div>
-      <Card style={{ borderRadius: 10 }} styles={{ body: { padding: '24px 28px' } }}>
+      <Card styles={{ body: { padding: '24px 28px' } }}>
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 20 }} role="alert" />}
         <Form<FormValues> name="change-password" onFinish={onFinish} layout="vertical" requiredMark={false}>
           <Form.Item

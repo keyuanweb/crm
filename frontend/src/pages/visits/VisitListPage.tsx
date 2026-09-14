@@ -225,17 +225,17 @@ export default function VisitListPage() {
     <>
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
-          <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div style={{ background: '#fff', borderRadius: 'var(--radius-lg)', padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
             <Statistic title={t('pages.visit.statPlanned')} value={stats.totalPlanned} valueStyle={{ color: '#1677ff' }} />
           </div>
         </Col>
         <Col span={6}>
-          <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div style={{ background: '#fff', borderRadius: 'var(--radius-lg)', padding: '16px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
             <Statistic title={t('pages.visit.statDone')} value={stats.totalDone} valueStyle={{ color: '#3f8600' }} />
           </div>
         </Col>
         <Col span={12}>
-          <div style={{ background: '#fff', borderRadius: 10, padding: '12px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', height: '100%' }}>
+          <div style={{ background: '#fff', borderRadius: 'var(--radius-lg)', padding: '12px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', height: '100%' }}>
             <Typography.Text type="secondary" style={{ fontSize: 13 }}>
               {t('pages.visit.hint')}
             </Typography.Text>
@@ -253,7 +253,6 @@ export default function VisitListPage() {
         columns={columns}
         search={false}
         pagination={{ pageSize: 10 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchVisits({ page: params.current ?? 1, pageSize: params.pageSize ?? 10 })
           return { data: res.items, success: true, total: res.total }

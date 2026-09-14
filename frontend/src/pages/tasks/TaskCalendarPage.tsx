@@ -59,7 +59,7 @@ export default function TaskCalendarPage() {
         </Button>
       </Link>
 
-      <Card title={t('pages.taskCalendar.title')} style={{ borderRadius: 10 }}>
+      <Card title={t('pages.taskCalendar.title')}>
         <Calendar
           cellRender={(date, info) => (info.type === 'date' ? dateCellRender(date) : null)}
           onPanelChange={(date) => setMonth(date.format('YYYY-MM'))}

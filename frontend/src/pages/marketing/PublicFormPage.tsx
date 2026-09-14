@@ -54,7 +54,7 @@ export default function PublicFormPage() {
   if (done) {
     return (
       <div style={{ maxWidth: 480, margin: '60px auto', padding: '0 16px' }}>
-        <Card style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+        <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
           <Result status="success" title={t('pages.marketing.publicForm.resultSuccess')} subTitle={done} />
         </Card>
       </div>
@@ -66,7 +66,7 @@ export default function PublicFormPage() {
       <Card
         loading={loading}
         title={meta?.name ?? t('pages.marketing.publicForm.defaultFormName')}
-        style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+        style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
       >
         {meta && (
           <Form form={form} name="publicForm" layout="vertical" onFinish={() => void onSubmit()}>

@@ -101,7 +101,6 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
     <Card
       title={t('pages.followUpTimeline.title')}
       loading={loading}
-      style={{ borderRadius: 10 }}
       headStyle={{ borderBottom: '1px solid #f0f0f0' }}
       extra={
         <Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}>

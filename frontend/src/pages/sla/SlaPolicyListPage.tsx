@@ -173,7 +173,6 @@ export default function SlaPolicyListPage() {
         columns={columns}
         search={false}
         pagination={{ defaultPageSize: 10 }}
-        cardProps={{ style: { borderRadius: 10 } }}
         request={async (params) => {
           const res = await fetchSlaPolicies(params.current ?? 1, params.pageSize ?? 10)
           return { data: res.items, success: true, total: res.total }

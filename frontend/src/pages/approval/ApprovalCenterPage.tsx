@@ -178,7 +178,6 @@ export default function ApprovalCenterPage() {
         columns={columns}
         search={false}
         pagination={false}
-        cardProps={{ style: { borderRadius: 10 } }}
         headerTitle={
           <Space>
             <Button
