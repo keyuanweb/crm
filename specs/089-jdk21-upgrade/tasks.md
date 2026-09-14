@@ -191,8 +191,9 @@ description: "Task list for 089-jdk21-upgrade"
   **`README.md:74` 最要紧**——它直接决定后来者装什么。**边界**：`specs/` 下的既有规格与 `Spring-Boot-React-CRM/01-项目背景与技术选型.md` 是**历史记录，一律不追改**
   → **✅ 已改 4 行**：`README.md:11` 与 `INSTALL.md:28` 的技术栈行 → `Java 21 + Spring Boot 3.2 …`；`README.md:74` 前置条件行 → `- JDK 21、Maven 3.8+、MySQL 8.0、Redis 7.0、Node.js 18+`；`PROJECT_FEATURES.md:25` → `Java 21、Spring Boot 3.2、…`
 
-- [ ] T014 [US3] 逐处反查 + 镜像构建（quickstart 第 4、5 组）：
+- [x] T014 [US3] 逐处反查 + 镜像构建（quickstart 第 4、5 组）：
   **〔部分完成：反查已完成，容器构建部分本机不可执行，未主张已验〕**
+  **〔2026-09-14 补齐：容器构建已执行并通过；原文那条验证命令有误，见文末订正〕**
   ```bash
   grep -n 'java.version' backend/pom.xml
   grep -n 'FROM' Dockerfile
@@ -202,11 +203,31 @@ description: "Task list for 089-jdk21-upgrade"
     | grep -v '^specs/' | grep -v 'Spring-Boot-React-CRM/'
   ```
   **期望**：前四条**零命中旧值**；最后一条反查结果**为空**。再执行 `docker build -t crm-backend:jdk21-check . && docker run --rm crm-backend:jdk21-check java -version`，期望容器内为 21
-  → **✅ 反查部分通过；⛔ 容器构建部分本机不可执行**
+  → **✅ 反查部分通过；⛔ 容器构建部分本机不可执行**（当时）
+  → **✅ 2026-09-14 补做：反查通过 + 镜像构建成功 + 容器内为 21，两项皆已实测**
   - 前四条反查实测：`java.version` = **21**；`Dockerfile` 两个 `FROM` = **temurin-21 / 21-jre-alpine**；`ci.yml` 四个位置 = **21 / Set up JDK 21**；三份文档检索 `JDK 17\|Java 17` = **零命中**
   - 全仓反查：共 **67** 行残留，**全部**落在 `specs/`（66 行）与 `Spring-Boot-React-CRM/01-项目背景与技术选型.md`（1 行）之内 —— **边界成立**，`specs/` 与历史文档之外**零残留**。残留性质经抽样确认：**61/67 是各 spec `plan.md` 的 `Language/Version` 声明行**，其余为 017 的 research、3 份 quickstart、1 份历史文档，均为历史记录。**`specs/089-jdk21-upgrade/` 自身零残留**
-  - ⛔ **容器构建未执行，且本项不主张已验**：本机无 Docker（`docker: command not found`），且 `registry-1.docker.io` / `hub.docker.com` 直连超时。**`docker build` 与容器内 `java -version` 必须在有 Docker 的机器或 CI 上补做**
+  - ~~⛔ **容器构建未执行，且本项不主张已验**：本机无 Docker（`docker: command not found`），且 `registry-1.docker.io` / `hub.docker.com` 直连超时。**`docker build` 与容器内 `java -version` 必须在有 Docker 的机器或 CI 上补做**~~
+    **〔此条已不成立，原文划线保留〕** 判词里的「本机无 Docker」当时只在 **Windows 侧**为真：`docker: command not found` 是 Windows shell 的结论，而**同一台机的 WSL 里 Docker 是装着的**（`docker --version` → **29.1.3, build 29.1.3-0ubuntu3~22.04.2**）。当时没有跨过这一层去查，故把「本 shell 不可执行」写成了「本机不可执行」。**这是一处口径扩大**，与 089 自己反复强调的「量具要先自证」同源——已订正并补做实测，见下
   - ⚠️ **一次被我自己的量具骗到的假通过（留痕）**：首次反查时我写的过滤器是 `grep -v '^Spring-Boot-React-CRM/'`，它**没滤掉**该文件——因为 `git grep` 对非 ASCII 路径会输出**带前导双引号**的路径（`"Spring-Boot-React-CRM/01-…"`），锚点 `^Spring-…` 因此失配。当时屏幕上打出的「反查为空 ✅」是**量具坏了**，不是真的空（真值 67 行）。已先自证引号存在、再重做反查
+
+  **【2026-09-14 补做：容器两个阶段皆已实测为 21】**
+
+  **执行环境**：WSL `Ubuntu-22.04`（Running）内的 Docker **29.1.3**。动手前核过共享环境未被扰：`mysqld` / `redis-server` 已跑 1 天 6 小时、后端 `:8081/actuator/health` 返回 **HTTP 200**。本次构建**在镜像内**编译 `backend/src` 的副本，**不碰宿主的 `backend/target/`**（与并行会话抢 target/ 的教训无关）。
+
+  | 被测对象 | 命令 | 实测 |
+  |---|---|---|
+  | 构建阶段镜像的 java（**jar 就是在这一层编译的**） | `docker run --rm maven:3.9-eclipse-temurin-21 java -version` | `openjdk version "21.0.12" 2026-07-21 LTS` / `Temurin-21.0.12+8` |
+  | 运行阶段镜像的 java | `docker run --rm --entrypoint java crm-backend:jdk21-check -version` | **同上 21.0.12 LTS** |
+  | 镜像内 jar 的**字节码主版本** | `unzip -p /app/app.jar <class> \| od -An -tu1 -j6 -N2` | 抽样 3 份（`ContactController` / `ExportController` / `CallRecordController`）**均 `0 65`** |
+  | **应用进程自己报的运行时**（旁证） | `docker run --rm crm-backend:jdk21-check`（即以「原文那条命令」起容器） | `Starting CrmApplication v0.1.0-SNAPSHOT using Java 21.0.12 with PID 1 (/app/app.jar started by crm in /app)` |
+
+  - 镜像构建：`Successfully tagged crm-backend:jdk21-check`，**exit 0**，**370MB**。两个 `FROM` 标签是**真的拉下来了**——这比先前那次「第三方 registry 标签列表」的证据**强一个量级**（那次只证明标签在该镜像站的列表里存在）。
+  - **字节码主版本的取法经过两点校准**（否则 `65` 只是我认得的一个常数）：同一个 `od` 取法读同一台机 `javac` 编出的样本 → `--release 17` ⇒ **`0 61`**、`--release 21` ⇒ **`0 65`**。故 jar 内的 `65` 是**自证的**，不是推断的。
+  - **这两条是两件事**：运行时是 21 **不蕴含**字节码目标是 21（若只换运行阶段镜像而编译目标停在 17，容器照样跑得起来）。第 3 行才是「编译目标」那一侧的证据。
+  - **⚠️ 订正：原文那条验证命令测不到它声称的东西。** `docker run` 的写法 `docker run --rm crm-backend:jdk21-check java -version` **不会**打印 java 版本，而是**把应用启起来**。原因：`Dockerfile:40` 的 `ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]` 是 **exec 形式**，其后附加的参数被 `sh -c` 当成 `$0` / `$1`，**不会被执行**。已实测该机制：`docker run --rm --entrypoint sh <image> -c 'echo argv0=$0 argv1=$1' java -version` → **`argv0=java argv1=-version`**；照原文执行则进入完整的 Spring Boot 启动（日志如上表第 4 行），50 秒后被 `timeout` 截断、**退出码 141**，全程**没有一个字**是 java 版本号。
+  - **正确的写法**：`docker run --rm --entrypoint java crm-backend:jdk21-check -version`（需 `--entrypoint` 覆盖）。**原文那条命令保留在 quickstart 与上文，不静默改写**；quickstart 第 5 组已就地加订正块。
+  - **一个反讽的收获**：照原文那条「错命令」跑出来的启动日志，反而是本次**最强**的一条证据——`using Java 21.0.12` 是**应用进程自己**在 `main` 里报出的运行时，比在容器外问 `java -version` 更贴近「这个产品真的跑在 21 上」。
 
 **Checkpoint**：US3 独立可验证 —— 5 处执行性 + 2 处步骤名 + 3 份文档全部一致
 

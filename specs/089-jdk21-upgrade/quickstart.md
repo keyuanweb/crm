@@ -191,7 +191,7 @@ git grep -nI 'temurin-17\|java-version.*17\|java\.version>17' -- . \
 
 ---
 
-## 第 5 组：镜像两个阶段一致且标签真实存在 ⚠️部分实测（标签存在性已验；容器构建 ⛔ 本机不可执行）
+## 第 5 组：镜像两个阶段一致且标签真实存在 ✅实测（2026-09-14 补做容器构建；原文的 ⛔ 判词已不成立）
 
 ```bash
 # ① 先验证目标标签存在（改文件之前！）
@@ -200,16 +200,29 @@ docker manifest inspect eclipse-temurin:21-jre-alpine     >/dev/null && echo OK-
 
 # ② 再构建
 docker build -t crm-backend:jdk21-check .
-docker run --rm crm-backend:jdk21-check java -version     # 期望 21
+docker run --rm crm-backend:jdk21-check java -version     # 期望 21  ← ⚠️ 这行是错的，见文末订正
 ```
 
 **期望**：两个标签都存在；镜像构建成功；容器内 `java -version` 为 21。
 
+> **⚠️ 订正（2026-09-14，原文保留在上不静默改写）**：上面第 ② 步的最后一行
+> **测不到它声称的东西**。`Dockerfile:40` 的 ENTRYPOINT 是 **exec 形式**的
+> `["sh","-c","java $JAVA_OPTS -jar app.jar"]`，镜像名之后附加的参数会被 `sh -c`
+> 当成 `$0`/`$1`，**不会被执行** —— 于是这行命令**不是打印版本，而是把应用整个启起来**。
+> 正确的写法要覆盖 entrypoint：
+> ```bash
+> docker run --rm --entrypoint java crm-backend:jdk21-check -version
+> ```
+
 **改造前表现**：`Dockerfile:2` 与 `:15` 分别为 `...temurin-17` 与 `eclipse-temurin:17-jre-alpine`，容器内 `java -version` 为 17。**注意**：运行阶段的 `FROM` 是**唯一**决定容器里跑什么的那一处——只改构建阶段会让本地/CI 与容器分叉。
 
 > ⚠️ 标签存在性**本轮未验证**（research.md R6 已如实标注）。若本地无 Docker，这一步必须在流水线之前完成，不要留给流水线发现。
+>
+> **〔2026-09-14 补记：本条已不成立，原文保留〕** 标签存在性当日即用另一条通路验过（见下），
+> 2026-09-14 更由 `docker build` **真的拉取**证实；「本地无 Docker」也只对 Windows 侧 shell 成立——
+> WSL 里 Docker 是装着的。**该注意点的来源是「本 shell 不可执行」被写成了「本机不可执行」。**
 
-**实测结果（2026-09-13）**：
+**实测结果（2026-09-13，第一轮；容器构建部分见其后 2026-09-14 补做一节）**：
 
 - **① 标签存在性 —— 已验，但换了通路**。本机**无 Docker**（`docker: command not found`），且 `registry-1.docker.io` / `hub.docker.com` **直连超时**（HTTP 000；同机 `repo.maven.apache.org` 与 `registry.npmjs.org` 均 200，故是这两个域被挡，非整体断网）。`docker manifest inspect` 在本机走不通。改用可达的镜像 registry v2 接口 `GET https://docker.1panel.live/v2/library/{maven,eclipse-temurin}/tags/list`：
   - `maven:3.9-eclipse-temurin-21` → **命中**
@@ -218,6 +231,36 @@ docker run --rm crm-backend:jdk21-check java -version     # 期望 21
   - **列表真伪**：不是缓存残片 —— `maven` 返回 **1892** 个标签、`eclipse-temurin` 返回 **3373** 个，且 `3.9-eclipse-temurin-` 系列呈完整递进（`-8 -11 -17 -19 -20 -21 -22 -23 -24 -25 -26`）
   - **口径限制**：这是**第三方镜像**的标签列表，与上游同步存在时延可能。它足以否掉"标签不存在"这一风险，**不构成对上游字节级同一性**的证明
 - **② 容器构建 —— ⛔ 未执行，本指南不主张已验**：`docker build` 与容器内 `java -version` 必须在有 Docker 的机器或 CI 上补做。
+
+**实测结果（2026-09-14 补做）✅ 已验**：
+
+> 上面那条 ⛔ 的判词**已不成立**，原文保留。它把「**本 shell** 不可执行」写成了「**本机**不可执行」——
+> `docker: command not found` 是 **Windows 侧** shell 的结论，而**同一台机的 WSL 里 Docker 是装着的**
+> （`docker --version` → **29.1.3**，Ubuntu-22.04）。这是一处**口径扩大**，与 089 自己反复强调的
+> 「量具要先自证」同源。动手前核过共享环境未被扰：`mysqld`/`redis-server` 已跑 1 天 6 小时、
+> 后端 `:8081` 返回 **HTTP 200**；构建**在镜像内**编译 `backend/src` 的副本，**不碰宿主的 `backend/target/`**。
+
+- **① 标签存在性 —— 由「列表里存在」升级为「真的拉下来了」**：`docker build` 成功（**exit 0**，镜像 **370MB**），
+  两个 `FROM` 均实拉。**证据强度比 2026-09-13 那次高一个量级**——那次只证明标签在第三方镜像站的**列表**里，
+  这次是构建器真的解析并下载了它们。
+- **② 容器内为 21 —— 已验，且分四条独立证据**：
+
+  | 被测对象 | 命令 | 实测 |
+  |---|---|---|
+  | 构建阶段镜像的 java（**jar 就是在这一层编译的**） | `docker run --rm maven:3.9-eclipse-temurin-21 java -version` | `openjdk version "21.0.12" 2026-07-21 LTS` / `Temurin-21.0.12+8` |
+  | 运行阶段镜像的 java | `docker run --rm --entrypoint java crm-backend:jdk21-check -version` | **同上 21.0.12 LTS** |
+  | 镜像内 jar 的**字节码主版本** | `unzip -p /app/app.jar <class> \| od -An -tu1 -j6 -N2` | 抽样 3 份**均 `0 65`** |
+  | **应用进程自己报的运行时** | `docker run --rm crm-backend:jdk21-check` | `using Java 21.0.12 with PID 1 (/app/app.jar started by crm in /app)` |
+
+  - **主版本的取法经过两点校准**（否则 `65` 只是我认得的一个常数）：同一个 `od` 取法读同机 `javac` 编出的样本
+    → `--release 17` ⇒ **`0 61`**、`--release 21` ⇒ **`0 65`**。故 jar 内的 `65` 是**自证的**。
+  - **「运行时是 21」与「字节码目标是 21」是两件事**：只换运行阶段镜像而编译目标停在 17，容器照样跑得起来。
+    上表第 3 行才是「编译目标」那一侧的证据。
+  - **原文那条错命令的行为已实测**：`docker run --rm crm-backend:jdk21-check java -version` →
+    机制上 `sh -c 'echo argv0=$0 argv1=$1' java -version` 给出 **`argv0=java argv1=-version`**；
+    照原文执行则进入完整 Spring Boot 启动，50 秒后被 `timeout` 截断（**退出码 141**），**没有一个字**是版本号。
+  - **一个反讽的收获**：照那条**错**命令跑出的启动日志，反而是本次**最强**的一条证据——
+    `using Java 21.0.12` 是**应用进程自己**在 `main` 里报出的运行时。
 
 ---
 
