@@ -175,10 +175,18 @@ cd frontend && pnpm run typecheck && npx eslint . && pnpm run test && pnpm run b
 
 ## 8. 收尾
 
-- [ ] 删除全部临时探针（`frontend/__probe-*.mjs`）——它们都是 **untracked，不进仓库**
-- [ ] `ListAgents` 确认无并行会话在写同一批文件
-- [ ] **逐路径 `git add`，禁用 `git add -A`**（本仓库多会话共用工作区）
-- [ ] 提交信息遵循 Conventional Commits，并写明三次破坏的留痕位置
+- [X] 删除全部临时探针（`frontend/__probe-*.mjs`）——它们都是 **untracked，不进仓库**
+      → 本项**从未在 `e2e/` 下写过探针**（几何验证全走正式用例，破坏也只改生产代码且已逐字节还原）；
+      收尾核 `frontend/e2e/` 只剩 5 个既有 spec + 本项 2 个 spec + `helpers/`，无残留
+- [X] `ListAgents` 确认无并行会话在写同一批文件
+      → 提交前查到 1 个并行会话 `crm-gap-remediation`（idle），其未提交的改动
+      （`frontend/vite.config.ts`、`specs/083-engineering-consolidation/data-model.md`，
+      另有 `CRM_FEATURE_COMPARISON.md`）**全程未被触碰**，提交后仍原样留在工作区
+- [X] **逐路径 `git add`，禁用 `git add -A`**（本仓库多会话共用工作区）
+      → 提交 `baae4b5` 只含 **9 个本项文件**，`git show --name-only` 复核无一处属于他人
+- [X] 提交信息遵循 Conventional Commits，并写明三次破坏的留痕位置
+      → `test(092): 列表页与窄屏外壳几何的端到端护栏`，正文列明三次破坏各自的
+      `failed / passed` 与失败页面集合，并指向 `falsification-evidence.md`
 
 ---
 
