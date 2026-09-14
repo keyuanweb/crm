@@ -373,8 +373,8 @@ body {
    一律保持块布局。这不只是保守 —— **flex 列里嵌套的 margin 不再合并**，会给
    这些页面带来 12~24px 的位移（实测 /account/password 内容高了 24px），
    而它们本来也不需要撑满。判据与下面几条入口规则一一对应。 */
-.page-fade:has(> .ant-pro-table, > div > .ant-pro-table, > .ant-card .ant-table, > .ant-card .ant-tree, > .ant-card .ant-list),
-.page-container:has(> .page-fade > .ant-pro-table, > .page-fade > div > .ant-pro-table, > .page-fade > .ant-card .ant-table, > .page-fade > .ant-card .ant-tree, > .page-fade > .ant-card .ant-list) {
+.page-fade:has(> .ant-pro-table, > div > .ant-pro-table, > .ant-card .ant-table, > .ant-card .ant-tree, > .ant-card .ant-list, > .ant-tabs .ant-pro-table),
+.page-container:has(> .page-fade > .ant-pro-table, > .page-fade > div > .ant-pro-table, > .page-fade > .ant-card .ant-table, > .page-fade > .ant-card .ant-tree, > .page-fade > .ant-card .ant-list, > .page-fade > .ant-tabs .ant-pro-table) {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -468,6 +468,65 @@ body {
 .page-fade > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container > .ant-table,
 .page-fade > div > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container > .ant-table,
 .page-fade > .ant-card:has(.ant-table, .ant-tree, .ant-list) > .ant-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container > .ant-table {
+  flex: 1 1 auto;
+}
+
+/* 入口 C：列表卡片嵌在 antd Tabs 里（/tags、/marketing/email、/open-platform）。
+   这三页的表格挂在 `.ant-tabs-tabpane` 之下，上面那套以 `.page-fade` 为根的链条够不着
+   —— 空白与别处一样大（实测 792 / 724 / 682px）。
+   ⚠️ 高度要传到表格，`Tabs` 这三层必须一起补：
+        .ant-tabs → .ant-tabs-content-holder → .ant-tabs-content → .ant-tabs-tabpane
+   实测它们今天都是 `display: block`（`.ant-tabs` 本身就是 `flex` 且已是 column 方向，
+   `.ant-tabs-content-holder` 带着 antd 的 `flex: auto` 却拿不到高度）。
+   判据写成 `:has()` 里的「相对选择器列表」（`:has()` 不能嵌套），
+   **只有直接装着列表卡片的 tabpane 才吃余量** —— 将来给这几页加非列表页签不会被动到。
+   波及面已实测：全库含「根级 Tabs」的页面只有这 3 个（/roles、/map/usage、/search、
+   /customers/:id、/portal 都没有 `.page-fade > .ant-tabs`），其余页不受影响。 */
+.page-fade:has(> .ant-tabs .ant-pro-table) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.page-fade:has(> .ant-tabs .ant-pro-table) > .ant-tabs,
+.page-fade:has(> .ant-tabs .ant-pro-table) > .ant-tabs > .ant-tabs-content-holder,
+.page-fade:has(> .ant-tabs .ant-pro-table) > .ant-tabs > .ant-tabs-content-holder > .ant-tabs-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+/* ⚠️ 必须排除 `.ant-tabs-tabpane-hidden`：antd 用它把未选中的页签设为 `display: none`，
+   而这条规则的 `display: flex` 特异性更高，会把**隐藏页签重新显示出来**
+   —— 实测两个页签同时铺在页面上、各占一半高度（441px）。 */
+.ant-tabs-tabpane:not(.ant-tabs-tabpane-hidden):has(> .ant-pro-table, > .page-stack > .ant-pro-table),
+.ant-tabs-tabpane > .page-stack:has(> .ant-pro-table) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+/* 从 tabpane 往下：与上面完全同构的一条链，只是根换成 tabpane 的两支
+   （直挂 / 多包一层 `.page-stack`，如 /tags）。同样别收进 `:is()`。 */
+.ant-tabs-tabpane > .ant-pro-table,
+.ant-tabs-tabpane > .page-stack > .ant-pro-table,
+.ant-tabs-tabpane > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search),
+.ant-tabs-tabpane > .page-stack > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.ant-tabs-tabpane > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body,
+.ant-tabs-tabpane > .page-stack > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body,
+.ant-tabs-tabpane > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper,
+.ant-tabs-tabpane > .page-stack > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper,
+.ant-tabs-tabpane > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading,
+.ant-tabs-tabpane > .page-stack > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading,
+.ant-tabs-tabpane > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container,
+.ant-tabs-tabpane > .page-stack > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.ant-tabs-tabpane > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container > .ant-table,
+.ant-tabs-tabpane > .page-stack > .ant-pro-table > .ant-pro-card:not(.ant-pro-table-search) > .ant-pro-card-body > .ant-table-wrapper > .ant-spin-nested-loading > .ant-spin-container > .ant-table {
   flex: 1 1 auto;
 }
 
