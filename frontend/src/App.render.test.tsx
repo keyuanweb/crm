@@ -102,6 +102,35 @@ async function nav() {
   return within(sider() as HTMLElement)
 }
 
+/**
+ * 外壳里唯一的那处 `<Menu>`（顶部下拉与全局搜索都不渲染 Menu）。
+ *
+ * <p>可见性断言同样必须**限定在菜单内部**：菜单文案与页面正文会重名（「客户管理」既是分组名，
+ * 也可能是列表页标题），在全文档范围查询会撞上正文里的同名文字。
+ *
+ * <p><b>091 起窄屏不再渲染 `.ant-layout-sider`</b>（改用普通容器承载同一份菜单，见 App.tsx
+ * 的 isMobile 分支），因此**窄屏形态不能用 `nav()`** —— 它等的是侧边栏，窄屏下永远等不到；
+ * 即便先按宽屏拿到引用再 resize，那个引用也会指向一棵已被卸载的子树。菜单本身的定位
+ * 对宽窄两种形态都成立，故窄屏形态一律用下面这个。
+ */
+const shellMenu = () => document.querySelector('.ant-menu') as HTMLElement | null
+
+/** 等菜单挂载完成，返回限定在它内部的查询器（宽窄两种形态通用）。 */
+async function navMenu() {
+  await waitFor(() => expect(shellMenu()).not.toBeNull(), { timeout: SHELL_TIMEOUT })
+  return within(shellMenu() as HTMLElement)
+}
+
+/**
+ * 每次调用都**重新定位**当前菜单节点，返回限定在它内部的查询器。
+ *
+ * <p><b>为什么不能复用 `navMenu()` 的返回值做跨形态断言</b>：`within()` 绑定的是**节点快照**。
+ * 宽↔窄切换会把整个菜单容器换掉（侧边栏卸载、横条挂载），旧引用此后指向一棵已被卸载的
+ * 子树 —— 它的内容永远停在切换前那一刻，断言会以「文案还在」的形式假红。
+ * 凡是要跨越形态切换的断言，一律用这个。
+ */
+const menuNow = () => within(shellMenu() as HTMLElement)
+
 describe('App 全量渲染冒烟（/leads 白屏/错误页回归）', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -194,19 +223,23 @@ describe('084：Shell 交互路径与窄屏形态', () => {
     async () => {
       const width = window.innerWidth
       renderWithProviders(<App />, { route: '/leads' })
-      const menu = await nav()
+      // 091 订正：这里原先用 nav()（把范围限定在侧边栏内）。窄屏自 091 起**不再渲染侧边栏**
+      // （改用普通容器承载同一份菜单），于是那个引用在 resize 之后指向一棵已被卸载的子树，
+      // 断言落空、用例假红。范围改锚在菜单本身 —— 对宽窄两种形态都成立，
+      // 且仍然避开了正文里的同名文字（页面正文也会出现「客户管理」）。
+      const menu = await navMenu()
       // 宽屏：分组以可折叠 submenu 呈现（分组标题可见）
       expect(menu.getByText('客户管理')).toBeTruthy()
 
       try {
         window.innerWidth = 375
         fireEvent(window, new Event('resize'))
-        // 窄屏不支持分组：分组标题整体消失……
-        await waitFor(() => expect(menu.queryByText('客户管理')).toBeNull(), {
+        // 窄屏不支持分组：分组标题整体消失……（跨形态断言必须重新定位，见 menuNow 的注释）
+        await waitFor(() => expect(menuNow().queryByText('客户管理')).toBeNull(), {
           timeout: SHELL_TIMEOUT,
         })
         // ……组内的项升为一级项，仍然可见（「拍平」而不是「隐藏」）
-        expect(await menu.findByText('线索', {}, { timeout: SHELL_TIMEOUT })).toBeTruthy()
+        expect(await menuNow().findByText('线索', {}, { timeout: SHELL_TIMEOUT })).toBeTruthy()
       } finally {
         window.innerWidth = width
       }
@@ -277,4 +310,94 @@ describe('084：Shell 交互路径与窄屏形态', () => {
     fireEvent.click(screen.getByLabelText('折叠/展开菜单'))
     await waitFor(() => expect(sider()?.className).not.toContain('ant-layout-sider-collapsed'))
   })
+})
+
+/**
+ * 被组件库识别为「含侧边栏的布局」的那个容器。
+ *
+ * <p><b>这个类名不是实现细节，是缺陷的命中前提</b>（091，research.md §5）：组件库里有一条
+ * 「含侧边栏的布局 → 其内部的布局容器宽度为 0」的补偿规则（`antd/es/layout/style/index.js`
+ * 的 hasSider 分支），它同时把该布局设成**横向**，靠横向可伸缩把被置 0 的宽度长回来。
+ * 类名在 ⇒ 规则命中；类名不在 ⇒ 规则根本不触发。
+ *
+ * <p>而外壳在窄屏把主轴改成了**纵向**（`App.tsx` 的内联 flexDirection），可伸缩于是作用在
+ * 高度上，宽度就停在 0 —— 实测内容区可见宽恒为 **24**、内容容器恒为 **0**，
+ * 而同一时刻内容本身宽 141~633（渲染完整，只是宽度为 0 所以看不见）。
+ * **内联样式能改方向，改不了那条作用在子节点上的 `width: 0`。**
+ *
+ * <p>⇒「窄屏下该类名不存在」与「内容区宽度不再为 0」是确定的因果关系，
+ * 故下面断言它是**因果断言**而非实现耦合。**这也正是它能被证伪的原因**：
+ * 把窄屏外壳改回旧写法，该类名重新出现，用例立刻变红。
+ */
+const hasSiderLayout = () => document.querySelector('.ant-layout-has-sider')
+
+/**
+ * 091：窄屏外壳的两条结构判据。
+ *
+ * <p><b>为什么必须靠结构而不是几何</b>：jsdom **没有布局引擎**，
+ * `clientWidth` / `getBoundingClientRect()` 全是假值 ⇒ 缺陷本身（宽度塌陷）在单测里
+ * **量不出来**。既有窄屏用例断言的是**文案**（分组被拍平），而文案在缺陷下完全正常，
+ * 于是「全仓绿」与「窄屏全站空白」可以同时成立。几何判据走浏览器实测脚本
+ * （`specs/091-narrow-shell-collapse/measure-narrow-shell.mjs`），本文件只守结构。
+ *
+ * <p><b>判据口径上的两条硬约束</b>（实测，research.md §3）：
+ * ① `window.innerWidth` 可写、`resize` 可派发、可还原 ⇒ 窄屏分支**能被真的走到**；
+ * ② 但 `matchMedia` 被 `src/test/setup.ts` 桩成恒 `matches: false`，
+ *    **任何 matchMedia 判据在单测里都会静默失真**——外壳用的是 `innerWidth < 768`，
+ *    不是 matchMedia，这是它能被测的前提。
+ */
+describe('091：窄屏外壳的结构前提', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    localStorage.setItem('accessToken', 'test-token')
+    me.role = 'ADMIN'
+    me.menus = undefined
+  })
+
+  it(
+    '窄屏下不被识别为「含侧边栏的布局」，宽屏下被识别',
+    async () => {
+      const width = window.innerWidth
+      try {
+        renderWithProviders(<App />, { route: '/leads' })
+        await waitFor(() => expect(shellMenu()).not.toBeNull(), { timeout: SHELL_TIMEOUT })
+
+        // 宽屏：菜单与内容区左右并排，布局确实含侧边栏 —— 补偿规则生效，宽度正常。
+        expect(hasSiderLayout()).not.toBeNull()
+
+        // 窄屏：主轴转为纵向，此时若仍被识别为「含侧边栏」，那条 width:0 就会永久生效。
+        window.innerWidth = 375
+        fireEvent(window, new Event('resize'))
+        await waitFor(() => expect(hasSiderLayout()).toBeNull(), { timeout: SHELL_TIMEOUT })
+      } finally {
+        window.innerWidth = width
+      }
+    },
+    SHELL_TIMEOUT * 2,
+  )
+
+  it(
+    '挂载时窗口就已经是窄屏：同样走窄屏形态（不是「先宽屏再 resize」那条路）',
+    async () => {
+      const width = window.innerWidth
+      // 必须在 render **之前**改：本用例要覆盖的是窄屏判定的**初值**路径，
+      // 而既有的那条窄屏用例走的是「先按宽屏渲染、再 resize」，初值从未被覆盖。
+      window.innerWidth = 375
+      try {
+        renderWithProviders(<App />, { route: '/leads' })
+        await waitFor(() => expect(shellMenu()).not.toBeNull(), { timeout: SHELL_TIMEOUT })
+
+        // 窄屏形态：不渲染侧边栏组件，布局也不被识别为含侧边栏。
+        expect(document.querySelector('.ant-layout-sider')).toBeNull()
+        expect(hasSiderLayout()).toBeNull()
+
+        // 菜单仍然在，且是拍平后的一级项 —— 是「换了形态」，不是「菜单消失了」。
+        expect(await menuNow().findByText('线索', {}, { timeout: SHELL_TIMEOUT })).toBeTruthy()
+        expect(menuNow().queryByText('客户管理')).toBeNull()
+      } finally {
+        window.innerWidth = width
+      }
+    },
+    SHELL_TIMEOUT * 2,
+  )
 })

@@ -589,6 +589,28 @@ function Shell() {
   // 判断是否为数据大屏页面（使用更精确的路径匹配）
   const shouldHideMenu = isDataVision || location.pathname.startsWith('/data-vision')
 
+  // 菜单本体在宽窄两种形态下是**同一个**：同一份 menuItems、同一份选中态、同一份拍平逻辑与跳转，
+  // 差别只在外面那层容器（宽屏是可折叠侧边栏，窄屏是整宽横条，见下方 isMobile 分支）。
+  const navMenu = (
+    <Menu
+      mode={isMobile ? 'horizontal' : 'inline'}
+      style={{
+        height: '100%',
+        borderInlineEnd: 'none',
+        overflow: 'auto',
+        background: 'transparent',
+        scrollbarWidth: 'none', /* Firefox */
+        msOverflowStyle: 'none', /* IE 10+ */
+      }}
+      items={menuItems}
+      openKeys={isMobile ? undefined : openKeys}
+      onOpenChange={(keys) => setOpenKeys(keys as string[])}
+      selectedKeys={[selectedKey]}
+      onClick={({ key }) => startTransition(() => navigate(key))}
+      theme="light"
+    />
+  )
+
   return (
     shouldHideMenu ? (
       <div style={{ width: '100vw', height: '100vh', overflow: 'auto' }}>
@@ -656,37 +678,55 @@ function Shell() {
           </div>
         </Header>
 
-        {/* header 下方：左侧菜单栏 + 右侧内容区（窄屏折叠菜单为顶部横向滚动） */}
+        {/* header 下方：左侧菜单栏 + 右侧内容区 */}
         <Layout style={{ flex: 1, minHeight: 0, flexDirection: isMobile ? 'column' : 'row' }}>
-          <Sider
-            width={isMobile ? undefined : 200}
-            theme="light"
-            collapsed={isMobile ? false : siderCollapsed}
-            collapsedWidth={isMobile ? undefined : 64}
-            style={{
-              background: '#fafbfc',
-              borderRight: '1px solid #e8e8e8',
-              ...(isMobile ? { height: 48 } : {}),
-            }}
-          >
-            <Menu
-              mode={isMobile ? 'horizontal' : 'inline'}
-              style={{ 
-                height: '100%', 
-                borderInlineEnd: 'none', 
+          {/*
+            窄屏（<768px）：**不渲染 Sider**，改用普通容器承载同一份菜单。一处改动同时消掉两处缺陷：
+
+            ① 布局一旦含侧边栏组件，组件库就给这层加上 `ant-layout-has-sider`，并对它内部的布局
+               容器施加 `width: 0`，靠**横向**可伸缩把宽度补回来（antd/es/layout/style/index.js
+               的 hasSider 分支）。而这一层在窄屏把主轴改成了纵向，可伸缩于是作用在**高度**上，
+               那个 0 再也补不回来 —— 实测内容区可见宽恒为 24、内容容器恒为 0，而内容本身宽
+               141~633（渲染完整，只是宽度为 0 所以看不见），并且**没有横向滚动条这条退路**。
+               **内联样式能改主轴方向，改不了那条作用在子节点上的 `width: 0`。**
+            ② 侧边栏的 `flex: 0 0 200px` 在纵向主轴下作用于**高度**，实测成一个 200×200 的方块，
+               右侧内容整片空白。
+
+            因此窄屏用普通容器：不定宽（靠 align-items:stretch 撑满）、`flex: 0 0 auto` 让主轴
+            （此时是纵向）上的 flex-basis 不再压掉声明的 48px 高。宽屏一支**原样不动**。
+
+            实测形态（375 视口）：一条 375×48 的整宽横条，一级项横向排列，
+            放不下的项由组件库收进右端的 `...` 溢出菜单（**不是**横向滚动 ——
+            实测菜单的 scrollWidth 与 clientWidth 相等，没有可滚动的余量；
+            溢出项由 `...` 承接，故所有菜单项仍然可达）。
+          */}
+          {isMobile ? (
+            <div
+              style={{
+                height: 48,
+                flex: '0 0 auto',
+                background: '#fafbfc',
+                borderBottom: '1px solid #e8e8e8',
                 overflow: 'auto',
-                background: 'transparent',
                 scrollbarWidth: 'none', /* Firefox */
-                msOverflowStyle: 'none', /* IE 10+ */
               }}
-              items={menuItems}
-              openKeys={isMobile ? undefined : openKeys}
-              onOpenChange={(keys) => setOpenKeys(keys as string[])}
-              selectedKeys={[selectedKey]}
-              onClick={({ key }) => startTransition(() => navigate(key))}
+            >
+              {navMenu}
+            </div>
+          ) : (
+            <Sider
+              width={200}
               theme="light"
-            />
-          </Sider>
+              collapsed={siderCollapsed}
+              collapsedWidth={64}
+              style={{
+                background: '#fafbfc',
+                borderRight: '1px solid #e8e8e8',
+              }}
+            >
+              {navMenu}
+            </Sider>
+          )}
           <Layout style={{ flexDirection: 'column' }}>
             <Content
               ref={contentRef}

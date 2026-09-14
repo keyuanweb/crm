@@ -1,0 +1,50 @@
+
+=== 窄屏段（内容区可见宽期望 = 视口 − 24；菜单容器期望 整宽×48）===
+   缺陷态读数：hasSider=True innerW=0 contW=0 scroll=24/141~633 menu=200x200
+320 /stats          hasSider=true  innerW=    0 contW=    0 scroll=   24/394 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+320 /customers      hasSider=true  innerW=    0 contW=    0 scroll=   24/633 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+320 /orders         hasSider=true  innerW=    0 contW=    0 scroll=   24/216 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+320 /roles          hasSider=true  innerW=    0 contW=    0 scroll=   24/141 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+375 /stats          hasSider=true  innerW=    0 contW=    0 scroll=   24/394 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+375 /customers      hasSider=true  innerW=    0 contW=    0 scroll=   24/633 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+375 /orders         hasSider=true  innerW=    0 contW=    0 scroll=   24/216 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+375 /roles          hasSider=true  innerW=    0 contW=    0 scroll=   24/141 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+414 /stats          hasSider=true  innerW=    0 contW=    0 scroll=   24/394 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+414 /customers      hasSider=true  innerW=    0 contW=    0 scroll=   24/633 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+414 /orders         hasSider=true  innerW=    0 contW=    0 scroll=   24/216 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+414 /roles          hasSider=true  innerW=    0 contW=    0 scroll=   24/141 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+767 /stats          hasSider=true  innerW=    0 contW=    0 scroll=   24/394 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+767 /customers      hasSider=true  innerW=    0 contW=    0 scroll=   24/633 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+767 /orders         hasSider=true  innerW=    0 contW=    0 scroll=   24/216 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+767 /roles          hasSider=true  innerW=    0 contW=    0 scroll=   24/141 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+
+=== 窄屏边界（FR-W-005：767 走窄屏、768 走宽屏）===
+767 /customers      hasSider=true  innerW=    0 contW=    0 scroll=   24/633 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+768 /customers      hasSider=true  innerW=  568 contW=  520 scroll=  568/645 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+
+=== 宽屏段（与改动前逐项相同；侧边栏期望 200 / 折叠 64）===
+768 /customers      hasSider=true  innerW=  568 contW=  520 scroll=  568/645 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+768 /stats          hasSider=true  innerW=  568 contW=  520 scroll=  568/568 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+1024 /customers     hasSider=true  innerW=  824 contW=  776 scroll=  824/824 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+1024 /stats         hasSider=true  innerW=  824 contW=  776 scroll=  824/824 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+1280 /customers     hasSider=true  innerW= 1080 contW= 1032 scroll=1080/1080 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+1280 /stats         hasSider=true  innerW= 1080 contW= 1032 scroll=1080/1080 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+1440 /customers     hasSider=true  innerW= 1240 contW= 1192 scroll=1240/1240 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+1440 /stats         hasSider=true  innerW= 1240 contW= 1192 scroll=1240/1240 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+1920 /customers     hasSider=true  innerW= 1720 contW= 1672 scroll=1720/1720 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+1920 /stats         hasSider=true  innerW= 1720 contW= 1672 scroll=1720/1720 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+
+=== parity：不嵌套外壳的独立路由（宽屏，不该被本项动到）===
+1440 /data-vision   hasSider=null  innerW= null contW= null scroll=     null menu=null  menuScroll=     null sider=null  docOverflow=0
+
+=== 跨断点切换（宽→窄→宽，research.md §7 第 1 条）===
+1024 初始             hasSider=true  innerW=  824 contW=  776 scroll=  824/824 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+切到 375              hasSider=true  innerW=    0 contW=    0 scroll=   24/633 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+切到 1024             hasSider=true  innerW=  824 contW=  776 scroll=  824/824 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+切到 375              hasSider=true  innerW=    0 contW=    0 scroll=   24/633 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+切到 1024             hasSider=true  innerW=  824 contW=  776 scroll=  824/824 menu=200x764 menuScroll=  207/199 sider=200x764 docOverflow=0
+  回宽屏与初始逐项相同：是（不残留窄屏的内联样式）
+
+=== 挂载即窄屏（FR-W-010：新开上下文，渲染前窗口就已经是窄屏）===
+375 /customers      hasSider=true  innerW=    0 contW=    0 scroll=   24/633 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
+375 /orders         hasSider=true  innerW=    0 contW=    0 scroll=   24/216 menu=200x200 menuScroll=  199/199 sider=200x200 docOverflow=0
