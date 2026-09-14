@@ -72,6 +72,14 @@
 | **P3 铺开** | **按表单形态分批，不按业务模块分批**：3.1 四个无宽度弹窗 → 3.2 其余 `layout="vertical"` 表单（**43 个，密度收益最大**）→ 3.3 横向表单（22 个）→ 3.4 13 个页面级表单 → 3.5 详情页 | 每批把自己那条规则从 warn 翻成 error，并删掉对应白名单条目 |
 | **P4 退役** | 删 `index.css` 里因接入 token 而多余的三处 `!important`（`.ant-btn-primary`/`.ant-menu-item-selected`/`.ant-pagination-item-active`），**各一次提交**；清扫 66 处 `borderRadius:10`；删 `ContactsCard.tsx` | 每步都能单独回退 |
 
+> ⚠️ **本行原判词已被实测推翻两处，保留原文并在此订正**（完整记录见 `tasks.md` 的 P4 订正 A/B/C）：
+> ① 「多余的三处 `!important`」**不成立**——`.ant-btn-primary` 的 hover 四处是**必需**的
+> （antd 的 hover 选择器特异性 (0,4,0)，压过 `index.css` 的 (0,2,0)），须**先补主题 token 再删**；
+> `.ant-pagination-item-active` 所在整段的 `!important` **一处都没有**。
+> ② 「清扫 66 处 `borderRadius:10`」的判词（「10 是主题派生值的重复」）**不成立**，
+> 该清扫**未执行**：自然对照组实测 10 与 12 并存，删掉字面量是**可见变更**而非去重，属另一决定。
+> ③ 实际退役的 `!important` 是**按钮家族 10 处 + 菜单 2 处**（实体 22 → 10），并删掉分页段 4 条已死规则。
+
 ### 原语设计（四条关键取舍）
 
 **① 列数由容器宽度推导，不用视口断点。** `auto-fit` 看的是**容器**宽度，而弹窗改变的是容器、不是视口——
@@ -110,6 +118,9 @@ R2/R3 躲在 `--strict` 后面（它们是**正在被 P3 逐页还掉的债**）
 | R5 | `required: true` 必须带 `label` | **6 处 / 2 文件** | error |
 | R6 | 禁裸字符串 `placeholder`/`aria-label` | **11 处 / 8 文件**（其中 9 处**不该翻译**） | error |
 | R7 | 组件零非测试引用（孤儿） | **1**（`components/ContactsCard.tsx`） | error |
+
+> R7 的这 1 处已由 P4 的 T054 销账（`11f04d2`），`R7_ALLOWED` 现为**空数组**；
+> 白名单合计随之 `54 → 53`。删前先「只做一半」自证过护栏会红（见 `tasks.md` T054）。
 
 白名单合计 **56 处**。
 

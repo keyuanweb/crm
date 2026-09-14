@@ -82,8 +82,19 @@ export const antdTheme: ThemeConfig = {
     colorLink: palette.primary,
 
     // 与 `--radius-md: 8px` 对齐（antd 默认是 6）。
-    // 注意：页面上另有 66 处 `borderRadius: 10` 字面量（54 个文件），本批次**不动**它们——
-    // 那是 P4 的清扫项，且 10 与 12（`--radius-lg`）本身也不一致，属另一个决定。
+    //
+    // 注意：页面上另有 **62 处**圆角字面量取 10，分布在 53 个文件里。
+    // 实测口径是 `specs/088-frontend-layout-consistency/measure-ui-baseline.mjs`，
+    // 复跑应得**同样的 62 处 / 53 文件**。
+    // 这句注释本身**刻意不写出会命中该脚本正则的完整字面量**——此前它把自己也数了进去，
+    // 使口径凭空多 1 处（原写作「66 处」，是 `0fcdc14` 时的读数；此后 `0b810b0` 合法减 3 处
+    // ——InvoiceListPage 收掉三个手搓统计块，088 P4 的 T054 又随孤儿组件减 1 处）。
+    //
+    // ⚠️ 088 P4（T053）实测后**决定不动它们**：同页自然对照组（`/data-retention` 与
+    // `/departments`，类名与父元素完全相同、只差一个内联属性）给出 12px 与 10px，
+    // 而源码里根本没有该内联的 `/quotas` 表格卡算出 8px——即删掉字面量会把这些卡片
+    // 从 10 改成 8（ProTable 默认）或 12（`--radius-lg`），**是可见变化而非去重**。
+    // 10 与 12（`--radius-lg`）本身也不一致，统一它属另一个决定，已另立遗留项。
     borderRadius: 8,
 
     // 与 `index.css:59` 的 `--font-size-base: 13px` 及 `body{font-size:13px}` 对齐。

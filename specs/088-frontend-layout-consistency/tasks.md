@@ -265,11 +265,90 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
 
 ## P4：退役（与本批次相关的对抗性 CSS）
 
-- [ ] **T050** 删 `index.css` 的 `.ant-btn-primary` `!important`（**单独一次提交**，让视觉差异可归因）。
-- [ ] **T051** 删 `.ant-menu-item-selected` `!important`（同上）。
-- [ ] **T052** 删 `.ant-pagination-item-active` `!important`（同上）。
+> **执行记录：2026-09-14**，四次提交 `3e5f054`（T050）/ `042de33`（T051）/ `db71923`（T052）/ `11f04d2`（T054）。
+> 原三条退役任务里，**两条的判词经实测不成立**，订正见下方 A / B / C——原判词一律保留不删。
+> `src/index.css` 的 `!important`：**实体声明 22 → 10**（T050 −10、T051 −2、T052 ±0）；
+> 若按 `measure-ui-baseline.mjs` 的口径（**不剥注释**，本次新增 3 处注释提及）则为 **23 → 14**。
+> 探针一律 untracked、用完即删；每个步骤各自的改前/改后读数都写进了对应提交信息。
+
+- [X] **T050** 删 `index.css` 的 `.ant-btn-primary` `!important`（**单独一次提交**，让视觉差异可归因）。
+      → **已做**（`3e5f054`）。判词「`.ant-btn-primary`」范围偏窄：实际退役的是**按钮家族 10 处**
+      `!important`（`.ant-btn-primary` 4 处 / `.ant-btn-dangerous` 2 处 / `.ant-btn-dangerous.ant-btn-primary` 4 处），
+      并**先补主题 token 再删**，理由见订正 A。
+- [X] **T051** 删 `.ant-menu-item-selected` `!important`（同上）。
+      → **已做**（`042de33`）。删 2 处 `!important` + 同族一条**空转**的 `::after { right: 0 }`。
+      读数：选中项底色 `rgb(238,242,255)` → `rgb(240,243,255)`（通道差 ≤2，属预期内极低可见性差异），
+      字色与字重**逐字未变**。
+- [X] **T052** 删 `.ant-pagination-item-active` `!important`（同上）。
+      → **订正 B：该段一处 `!important` 都没有**，判词前提不成立；经实测改为「只删其中 4 条已死的规则」（`db71923`）。
 - [ ] **T053** 清扫 **66 处** `borderRadius: 10` 字面量（改用 token）。
-- [ ] **T054** 删 `src/components/ContactsCard.tsx`（真孤儿，0 引用）并删掉 R7 白名单条目。
+      → **跳过，另立一项**（见订正 C）。**本项未执行，故不勾选。**
+- [X] **T054** 删 `src/components/ContactsCard.tsx`（真孤儿，0 引用）并删掉 R7 白名单条目。
+      → **已做**（`11f04d2`）。白名单 `54 → 53`（R7 由 1 → 0），符合 SC-006 的单调收缩。
+
+### 订正 A：T050 的 hover 四处**不是**纯冗余，是**必需**的——故先补 token 再删
+
+原判词基于「`index.css` 文档序在后，同特异性时稳赢 antd」这一条实测事实。该事实**对基态成立、
+对 hover 不成立**：antd 的 hover 选择器是 `&:not(:disabled):not(.ant-btn-disabled):hover`，
+特异性 **(0,4,0)**，压过 `index.css` 的 `.ant-btn-primary:hover` **(0,2,0)**。故那四条 `!important`
+今天是真的在起作用，裸删会让 hover 由 `#4f46e5` 变成 antd 派生的 `#9197ff`（**更浅**）。
+
+做法：在 `theme/index.ts` 补 `palette.errorHover` 与 `components.Button.{colorPrimaryHover,colorErrorHover}`
+（按组件收窄，不写全局别名 token——后者会顺带改掉链接 hover、聚焦环等一大片），**再**删那 10 处。
+判据：删后 hover 仍为 `rgb(79,70,229)` ⇒ 剩下的唯一来源已是 antd ⇒ 组件级 token **确实被采纳**
+（plan 的三级降级阶梯第 1 级成立，无需降级）。
+
+唯一一条计算值变化是 `.ant-btn-primary` 的 `border-color`：`rgb(99,102,241)` → `transparent`
+（antd 的主按钮自带 `border: 1px solid transparent`，被删的那条写的是与底色同值）。
+**没有靠推断收尾**，做了同页同元素的像素 A/B：两态差异像素 **174 个、通道差 >16 的 0 个**，
+边框环采样逐点相同 ⇒ 圆角抗锯齿噪声，可感知差异为零。
+
+### 订正 B：T052 的判词两次都不成立，最终按实测裁到 1 条
+
+判词第一版「删 `.ant-pagination-item-active` `!important`」——该段**一处 `!important` 都没有**。
+第二版据此改判「整段死代码，可整段删」——**实测也不成立**：段内五条规则里 `.ant-pagination`
+的字号是**活的且可见**（12px → 13px；antd 经 `resetComponent` 给根节点写 `token.fontSize` = 13px，
+此处同特异性而文档序在后）。故该条**保留**，它是自定的视觉选择而非对抗性覆盖。
+
+其余 4 条规则的**全部 7 条声明**实测计算值无变化，**已删**。它们的目标选择器一律被 antd 更高
+特异性的规则压住（`.ant-pagination .ant-pagination-item` 为 (0,2,0)，非选中项 `:hover` 为 (0,4,0)），
+**从未生效过**——是被覆盖的一方，不是覆盖者。其中 `-item:hover { color }` 确有计算值变化
+（Indigo → `rgba(0,0,0,0.88)`），但页码数字在 `<a>` 里、`<a>` 自带 `color: colorText`，
+像素比对**零差异**，故一并删除。
+
+**连带订正 `theme/index.ts` 的错误记载**：该文件第 15 行的表格把 `.ant-pagination-item-active`
+列进「跟着 Indigo（**被 CSS 覆盖到了**）」。实测其边框与字色一直是 antd 自己的 `colorPrimary`
+派生的（P1 接入主题后才成 Indigo，此前是 antd 蓝），它本属表格**右**栏。已移正并留痕。
+
+### 订正 C：T053 的前提**不成立**，本项跳过、另立遗留项
+
+原判词：那 10 是主题派生的 `borderRadiusLG` 的重复，删掉由主题接管。**实测否证**——同页自然
+对照组（`/data-retention` 与 `/departments`，类名 `ant-card ant-card-bordered` 与父元素
+`page-fade` **完全相同**，只差一个内联属性）给出 **12px 与 10px**；而源码里**根本没有**该内联的
+`/quotas` 表格卡算出 **8px**，其余各页（有内联）算出 10px。即那些字面量是**唯一取值来源**，
+删掉会把 ProTable 卡片 10 → 8、antd Card 10 → 12，**是可见变更而非去重**。
+
+现状是页面上有三种卡片圆角并存：**8**（ProTable/ProCard 默认 = P1 的主题种子）、
+**10**（被字面量钉死的绝大多数）、**12**（`.ant-card` 全局规则、`.stat-card`、`.ant-table`）。
+**统一它是另一个决定，属遗留项**，本规格不做。证据（对照组读数）已写进 `theme/index.ts` 的
+`borderRadius` 注释，防止下一个人再提一次。
+
+计数订正：本文 T053 原文写的「66 处」是 `0fcdc14` 时的读数。`measure-ui-baseline.mjs` 现报
+**62 处 / 53 文件**，即**代码字面量本身**。
+
+差额来源逐条可对：`0b810b0` 合法 −3（InvoiceListPage 收掉三个手搓统计块）；`11f04d2` 随孤儿组件 −1
+（`ContactsCard.tsx:151` 带有一处）；再把 `theme/index.ts` 那条**自指注释**排除掉，又 −1。
+最后这一条值得单说：该脚本的口径是 `/borderRadius:\s*10\b/` 的**裸匹配、不剥注释**，而那条注释里
+原样写着 `borderRadius: 10`——于是注释把自己也数了进去，**口径长期虚高 1 处**。现已把该注释改成
+不会命中正则的写法（写作「圆角字面量取 10」），口径与代码实况对齐：**62 处 / 53 文件可复跑复算**。
+
+### 附带发现（P4）
+
+| # | 发现 | 处置 |
+|---|---|---|
+| 8 | 删 `ContactsCard.tsx` 使 `ui:check` 的 **R2 候选点由 56 → 55**（该文件含一处候选点）。不是新违规，`--strict` 口径下待还数 22 未变 | 已在 T054 的提交信息中记录 |
+| 9 | 探针自身出过两次错、均被其**自证断言**拦下：① `transition: all` 未走完就读计算值+截图，读到过渡起点；② hover 组拿基态的 `#6366f1` 当模拟旧值，而那条规则原本写的是 `#4f46e5` | 两次都已在探针注释里留痕；方法论教训：**A/B 的参考值必须逐态取，且带过渡的属性必须先等它走完** |
+
 
 ---
 
