@@ -847,13 +847,13 @@ body {
 }
 
 /* 当前激活项高亮 - Indigo 色系 */
+/* P4：底色/字色已由 `src/theme/index.ts` 的 `colorPrimary` 派生
+   （antd 的选中项底色是 `controlItemBgActive` = `colorPrimaryBg`），原先那两条
+   `!important` 已冗余，删除；字重是主题里没有对应位置的自定观感，保留。
+   顺带删掉下方那条 `::after { right: 0 }`：它作用于一个**零绘制范围**的伪元素，
+   实测 `width: 0px` 且 `border-right-width: 0px`，`right` 取任何值都不产生像素，属空转。 */
 .ant-menu-inline .ant-menu-item-selected {
-  background: var(--color-primary-light) !important;
-  color: var(--color-primary) !important;
   font-weight: var(--font-weight-medium);
-}
-.ant-menu-inline .ant-menu-item-selected::after {
-  right: 0;
 }
 
 /* 悬停效果 */
