@@ -146,6 +146,10 @@
 1. **修改 `pages/map/UsageMapPage.tsx`**:
     - 快捷按钮改为 `Button` 组件，`icon` + `children`（文字）
     - 按钮样式：`height: 48px`, `borderRadius: 10px`, `background: #f5f5f5`
+      > ⚠️ **订正（2026-09-14，088/T053）**：`borderRadius: 10px` 这个值**已不成立**。088 的 T053
+      > 把全站圆角收敛到单一真源后，按钮族取 `var(--radius-md)`（= 8）。该按钮**已按此改**，
+      > 本行原文保留作决策留痕。**订正的是取值，不是「这是按钮不是卡片」这个族属判断**——
+      > 它正是该按钮**没有**跟着卡片一起变成 `var(--radius-lg)` 的理由。
     - 悬停效果：`background: #e6f4ff`, `color: #1677ff`（使用 CSS `:hover` 或 Ant Design `styles={{ body: {} }}`）
     - 按钮间距调整为 `gap: 12px`
 
