@@ -12,7 +12,14 @@
  *
  * | 跟着 Indigo（被 CSS 覆盖到了） | 还是 antd 蓝（没被覆盖到） |
  * |---|---|
- * | `.ant-btn-primary`、`.ant-menu-item-selected`、`.ant-pagination-item-active` | 链接色、聚焦环、Checkbox/Radio/Switch 选中态、Select/DatePicker 激活边框、Tabs 墨条、Steps、Progress、Slider、Spin |
+ * | `.ant-btn-primary`、`.ant-menu-item-selected` | 链接色、聚焦环、Checkbox/Radio/Switch 选中态、Select/DatePicker 激活边框、Tabs 墨条、Steps、Progress、Slider、Spin、`.ant-pagination-item-active` |
+ *
+ * ⚠️ 订正（088 P4 实测）：上表原先把 `.ant-pagination-item-active` 列在**左**栏，
+ * 说它的 Indigo 是"被 CSS 覆盖到了"。这是**错的**。P4 摘除 `index.css` 那整段分页样式后
+ * 逐量复测，其边框与字色**没有任何变化**——它们一直是 antd 自己的 `colorPrimary` 派生的，
+ * 只是 P1 把主色接进主题后它才变成 Indigo；在那之前它是 antd 蓝。
+ * 也就是说它本属**右**栏，P1 之后整栏一起转了色。
+ * （同段里唯一真正生效的是 `.ant-pagination { font-size }`，与主色无关，已留在 `index.css`。）
  *
  * 实测证据（`specs/088-frontend-layout-consistency/research.md` §2.7）：
  * `#1677ff` 33 处 / 12 个文件（全在 `.ts`/`.tsx`），`#6366f1` 等四个 Indigo 值各 1 处

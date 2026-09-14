@@ -735,23 +735,26 @@ body {
 }
 
 /* 表格分页器样式 */
+/* T052 订正：本段原先被记为「整段死代码，可整段删」，**实测不成立**——
+   五点里只有一点点是活的：
+     · `.ant-pagination { font-size }` —— **活的，且可见**。antd 经 `resetComponent` 给
+       根节点写 `font-size: token.fontSize`（本主题 = 13px），此处同特异性 (0,1,0) 而文档序
+       在后，故 12px 生效；整段摘除后实测变 13px。属自定的视觉选择，**保留**。
+   其余四条规则的**全部 7 条声明**实测计算值与像素均无变化，已删。它们的目标选择器一律被
+   antd 更高特异性的规则压住（`.ant-pagination .ant-pagination-item` 是 (0,2,0)，非选中项的
+   `:hover` 更是 (0,4,0)），**从未生效过**，是被覆盖的一方而不是覆盖者：
+     · `.ant-pagination-item` 圆角/边框 —— 实测恒为 antd 的 8px / transparent
+     · `.ant-pagination-item:hover` 边框 —— 实测恒 transparent；字色虽确有变化
+       （Indigo → `rgba(0,0,0,0.88)`），但页码数字在 `<a>` 里、`<a>` 自带 `color: colorText`，
+       像素比对为**零差异**，故一并删除
+     · `.ant-pagination-item-active` 底色/边框 —— 底色恒为 antd 的 `itemActiveBg`(白)
+     · `.ant-pagination-item-active a` 字色 `#fff` —— 恒被 antd 的 `colorPrimary` 压住
+   ⚠️ 结论性订正：`.ant-pagination-item-active` 的 Indigo 边框与字色**不是**被这段 CSS
+   覆盖出来的，而是 antd 自己的 `colorPrimary` 派生的——P1 把主色接进主题后它才是 Indigo，
+   在那之前它是 antd 蓝。`theme/index.ts` 把这个选择器列进「跟着 Indigo（被 CSS 覆盖到了）」
+   一栏是**错的**，已在该文件一并订正。 */
 .ant-pagination {
   font-size: var(--font-size-sm);
-}
-.ant-pagination-item {
-  border-radius: var(--radius-sm);
-  border-color: var(--color-border);
-}
-.ant-pagination-item:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-.ant-pagination-item-active {
-  background-color: var(--color-primary);
-  border-color: var(--color-primary);
-}
-.ant-pagination-item-active a {
-  color: #fff;
 }
 
 /* 表格选择框样式 */
