@@ -1,9 +1,11 @@
 # CRM 功能对比分析报告
 
-> **版本**: v2.0（2026-09-12 重写）
-> **项目侧依据**: 工作区代码实测（`backend/`、`frontend/`、`specs/`、`db/migration/`），非文档转述
-> **对标侧依据**: 公开资料（Salesforce / HubSpot / Zoho / Dynamics 365、纷享销客 / 销售易 / 神州云动、SuiteCRM / EspoCRM / Odoo），见文末来源
-> **v1.0 的问题**: 原版为「全 ✅ 清单式」描述，把"有页面/有表"等同于"能力达成"，且遗漏了多项代码层可验证的缺口。本版改为**逐项给出证据与判定**，并新增失实更正章节（第六节）。
+> **版本**: v3.0（2026-09-14 刷新）
+> **项目侧依据**: 2026-09-14 工作区代码实测（`backend/`、`frontend/`、`specs/`、`db/migration/`），非文档转述
+> **对标侧依据**: 公开资料（Salesforce / HubSpot / Zoho / Dynamics 365、纷享销客 / 销售易 / 神州云动、SuiteCRM / EspoCRM / Odoo），**沿用 2026-09-12 的调研，本次未重做**，见第九节
+> **v2.0 原文** 冻结在提交 `a12f956`（2026-09-12 13:45）：`git show a12f956:CRM_FEATURE_COMPARISON.md`。本版**不静默改写**它，所有「已闭合 / 判定修正 / 新发现」都在第六节显式列出。
+> **本次口径**: 逐条重核 v2.0 的每个判定；**判据必须落在 `file:line`**，规格与文档里的「已完成」不作为证据；零命中的全仓 grep 作为「不存在」的证据。
+> **本版新增两节**: 第六节（v2.0 → v3.0 的三段差异）、第七节（对外文档与代码的偏差）。
 
 ---
 
@@ -15,18 +17,25 @@
 
 客户主数据 · 销售过程管理 · CPQ 与成交回款 · 营销获客 · 客户服务 · 效率协作 · 分析与洞察 · 平台与扩展 · 安全与合规 · AI 能力
 
-### 1.2 本项目实测规模
+### 1.2 本项目实测规模（2026-09-14）
 
-| 维度 | 实测值 | 依据 |
-|---|---|---|
-| 后端 Controller | 66 | `backend/src/main/java/com/crm/controller/**` |
-| 实体类 | 82（81 业务实体 + `BaseEntity`） | `.../com/crm/entity/` |
-| 数据库表 | 84 | `db/migration/*.sql` 的 `CREATE TABLE` 去重 |
-| Flyway 迁移 | 76（V1–V77，缺 V72） | `backend/src/main/resources/db/migration/` |
-| 后端测试类 | 148 | `backend/src/test/**` |
-| 前端路由 / 页面 | 88 条 `<Route>` / 83 个懒加载页面 | `frontend/src/App.tsx`、`frontend/src/pages` |
-| 前端 service | 55 | `frontend/src/services/` |
-| 业务能力点（`@Scheduled`） | **仅 2 个** | 全仓 grep（保留策略 + 定时导出） |
+| 维度 | v2.0（09-12） | **v3.0（09-14 实测）** | 口径与增量 |
+|---|---|---|---|
+| 后端 Controller | 66 | **66** | `controller/**/*Controller.java`，不变 |
+| 实体类 | 82 | **82** | `com/crm/entity/*.java`，不变 |
+| 数据库表 | 84 | **85** | `db/migration/*.sql` 的 `CREATE TABLE` 去重；+1 = **V79 `opportunity_stage`**（V78–V88 中唯一建表的迁移） |
+| Flyway 迁移 | 76（V1–V77，缺 V72） | **87（V1–V88，缺 V72）** | +11 |
+| 后端测试源文件 | 148 | **167** | 其中 163 个 `*Test`/`*IT` 用例类 + **4 个 `support/*TestSupport` 护栏支撑类**（086 的权限/菜单/阶段字典护栏） |
+| 前端路由 | 88 | **88** | `App.tsx` 中 `<Route` 字符串 89 个 − `<Routes>` 1 个；有 2 条是 `<Route` 换行写法 |
+| 前端页面 | 83 个懒加载页面 | **101 个 tsx（非测试）/ 84 个 `lazy(() => import` 引用** | 两个口径都列出：101 含 `pages/` 下的子组件 |
+| 前端 service | 55 | **56** | `services/*.ts` 去 1 个 `apiClient.test.ts`（口径 v2.0 未注） |
+| 后台作业（`@Scheduled`） | **仅 2 个** | **4 个** | +2：`SlaEscalationScheduler`（一期 1.3）、`WebhookDeliverySweepScheduler`（投递补偿扫描，v2.0 未记） |
+| i18n 资源 | 约 2400 行 | **各 3348 行** | `zh-CN.ts` / `en.ts` 等长，+约 40% |
+| Spec 模块 | 81 | **91** | `specs/[0-9]*`；= 001–092 缺 069 |
+| 权限注解点 / 被校验权限码 / 字典条目 | 63 处 / 17 码 | **268 处 / 115 码 / 137 条** | 锚定行首计数（未锚定会数进 Javadoc，得 276）；字典条目在 `RoleConstants.PERMISSION_DEFS` |
+| **按钮级权限接入率** | **2 / 86 页（2.3%）** | **48 / 101 页（47.5%）** | 分子 = 出现权限判据的页面文件数，且**全部 48 个走集中登记的 `PERMS.*` 常量**（零硬编码码残留）；`permissions.ts` 登记 63 个码 |
+| 前端机器护栏 | 0 | **4** | `i18n:check` / `menu:check` / `perms:check` / `ui:check`（`frontend/scripts/*.mjs`） |
+| 有真实闸门的 Controller | — | **58 / 66** | 其余 8 个为公开端点（门户/追踪/退订/认证）或本人作用域（个人中心/通知/搜索/建议） |
 
 ### 1.3 对标对象与定位
 
@@ -38,20 +47,21 @@
 | 国产第一梯队 | 纷享销客、销售易 | 连接型 CRM / B2B CPQ + 企微钉钉生态 |
 | 自建开源参照 | SuiteCRM、EspoCRM、Odoo | 同为本项目最接近的对标物（自部署、可二开） |
 
-**本项目的实际定位**：一套**单租户、自部署、业务广度优先**的企业内部 CRM，能力特征最接近"国产中端 CRM + 开源 CRM 深度二开版"，与 Salesforce / 纷享销客这类平台型产品仍在**深度与生态**上有代际差。
+**本项目的实际定位**：一套**单租户、自部署、业务广度优先**的企业内部 CRM，能力特征最接近"国产中端 CRM + 开源 CRM 深度二开版"。与 v2.0 相比，**"深度落后约一个代际"这一定性未变**，但代际差在三个域上收窄了半档到一档（见第三节）。
 
 ---
 
 ## 二、逐域能力对比
 
 图例：✅ 完整（达到业界主流可用水准） · ⚠️ 部分（可用但存在明确缺口） · ❌ 缺失
+判定列中的箭头表示**相对 v2.0 的变化**；无箭头即判定未变（已重核）。行文中 v2.0 未变。
 
 ### 2.1 客户主数据管理
 
 | 能力项 | 业界标准 | 本项目 | 判定 | 证据 / 缺口 |
 |---|---|---|---|---|
 | 客户 / 联系人 CRUD | 全部产品 | Customer + Contact + 分页搜索筛选 + 逻辑删除 | ✅ | `CustomerController`、`ContactController` |
-| 360° 客户视图 | 全部产品 | 详情页 7 Tab（基本/标签/概览/订单/回款/合同/工单）+ 跟进时间线 | ✅ | `frontend/src/pages/customers/CustomerDetailPage.tsx`(754 行) |
+| 360° 客户视图 | 全部产品 | 详情页 7 Tab（基本/标签/概览/订单/回款/合同/工单）+ 跟进时间线 | ✅ | `frontend/src/pages/customers/CustomerDetailPage.tsx` |
 | 线索→转化 | Salesforce/HubSpot/纷享 | 线索池、分配、认领、评分、**一键转客户+联系人+商机** | ✅ | `LeadController` `/{id}/convert`、`LeadConvertModal.tsx` |
 | 查重与合并 | Salesforce/HubSpot | `/customers/duplicates` 识别 + `/customers/merge` 合并 | ✅ | `CustomerMergeController` |
 | 公海池 | 国产 CRM 标配 | 公海池 + 领取 + 滞留扫描（默认 30 天）+ 批量转移 | ✅ | `CustomerPoolController`、`crm.pool.stale-days` |
@@ -61,23 +71,23 @@
 | 账户层级（Account Hierarchy） | Salesforce/HubSpot/Dynamics | — | ❌ | 无父子客户/集团-子公司关系模型 |
 | 自动数据补全 / 第三方数据增强 | HubSpot Breeze Intelligence、Salesforce Data Cloud | — | ❌ | 无第三方数据源接入 |
 
-**小结**：客户域是本项目最扎实的一块，除"账户层级"和"数据增强"外基本对齐业界。
+**小结**：客户域仍然是本项目最扎实的一块，本版**无任何判定变化**。
 
 ### 2.2 销售过程管理
 
 | 能力项 | 业界标准 | 本项目 | 判定 | 证据 / 缺口 |
 |---|---|---|---|---|
-| 商机与阶段管道 | 全部产品 | `sales_opportunity` 阶段 + 赢单/输单关闭 + 金额 | ✅ | `SalesOpportunityController` |
+| 商机与阶段管道 | 全部产品 | `sales_opportunity` + **阶段可配置化**（`opportunity_stage` 字典表：code/name/sort_order/probability/stage_type/enabled）+ 赢单/输单关闭 + 金额 | ✅ **↑增强** | `OpportunityStageService`；V79 种子 4 个 ACTIVE（初步接触/需求确认/方案报价/谈判中）+ 已赢单/已输单。原先硬编码的 `ACTIVE_STAGES`/`DEFAULT_PROBABILITY`/`STAGE_ORDER` 已消除，漏斗/预测/统计同源读表 |
 | 销售 Playbook | Salesforce、销售易 | `stage_action_template`（必做项 + 完成打钩） | ✅ | `PlaybookController`、`sales_opportunity_action` |
 | 销售配额与分解 | Salesforce Quota、纷享 | `sales_quota` **parentId 层级分解** + 版本快照 + 达成率 + 排行 | ✅ | `SalesQuotaController`、`sales_quota_version/breakdown/achievement` |
-| 管道加权预测 | Salesforce Forecasting | `computeForecast`：管道金额 × 阶段概率，**概率由历史转化率校准**（样本不足回退默认） | ⚠️ | `DashboardStatsService:193`、`StageConversionService` |
+| **看板拖拽（Kanban Pipeline）** | HubSpot/Zoho/销售易 | `OpportunityBoard.tsx`：列表/看板切换、列头带阶段名+商机数+金额合计、`@dnd-kit/core`+`sortable` 拖拽、**复用后端乐观锁**（409 回滚提示） | **❌ → ✅ 已闭合** | `frontend/src/pages/sales-opportunities/OpportunityBoard.tsx`；`package.json` 的 `@dnd-kit/core` `^6.3.1` |
+| 管道加权预测 | Salesforce Forecasting | `computeForecast`：管道金额 × 阶段概率，**概率由历史转化率校准**（样本不足回退字典表） | ⚠️ | `DashboardStatsService`、`StageConversionService`（`MIN_SAMPLE=10` 保留） |
 | 预测的按人/团队提交与调整（rollup） | Salesforce 核心能力 | — | ❌ | 仅有系统单向计算，无"销售提交→经理调整→锁定"链路 |
 | 多场景预测（承诺/最佳/最差） | Salesforce | — | ❌ | 无 |
-| 区域管理（Territory） | Salesforce/SAP/Dynamics | — | ❌ | 全仓无 territory 概念；配额、客户分配、数据权限均无法按区域建模 |
-| 看板拖拽（Kanban Pipeline） | HubSpot/Zoho/销售易 | — | ❌ | 前端无拖拽库；商机以 ProTable 呈现，漏斗仅为统计图表 |
+| 区域管理（Territory） | Salesforce/SAP/Dynamics | — | ❌ | 全仓无 territory 概念 |
 | 赢单/输单原因分析 | 全部产品 | 有 `closeResult` 字段 | ⚠️ | 无结构化输单原因字典与归因分析报表 |
 
-**小结**：过程管理"骨架齐全、神经末梢缺"。最突出的两处——**无区域管理**（导致配额/权限/分配无法按地理或行业维度组织）与**无预测 rollup**（管理者看不到"人报的数"与"系统算的数"的差异）——恰是 Salesforce 与国产第一梯队销售管理的核心卖点。
+**小结**：**从"骨架齐全、神经末梢缺"进到"最高频动作可用"**。销售日常最痛的一项（拖拽推进商机）与它的地基（阶段模型可配置）同时闭合。仍缺的两处——**区域管理**与**预测 rollup**——依然是 Salesforce 与国产第一梯队的核心卖点，但它们服务的是中大型销售组织，对当前定位的紧迫性低于看板。
 
 ### 2.3 CPQ 与成交回款
 
@@ -85,156 +95,177 @@
 |---|---|---|---|---|
 | 产品目录 | 全部产品 | `product` + 标准售价 + 多币种价表 | ✅ | `ProductController`、`ProductPriceController` |
 | 报价单（CPQ） | Salesforce CPQ、销售易 | `quote` + `quote_item`（行小计/折扣）+ 状态机 DRAFT→待审→已批→已签/驳回 | ✅ | `QuoteController` |
-| 报价 PDF | 全部产品 | OpenPDF + 内置中文字体（`wqy-microhei.ttc`） | ✅ | `QuotePdfService` |
+| 报价 PDF | 全部产品 | OpenPDF + 内置中文字体 | ✅ | `QuotePdfService` |
 | 电子签署 | DocuSign / 法大大 | 自建 Canvas 签名 + 签署记录 | ⚠️ | `SignatureController`；**非第三方 CA，无法律效力存证/时间戳** |
-| 价格手册 / 折扣矩阵 | Salesforce CPQ | — | ❌ | 只有单一"标准售价"，无按客户/数量/区间的价格表与折扣审批矩阵 |
-| 产品捆绑与配置器 | Salesforce CPQ | — | ❌ | 无 bundle / configurator / 规则约束 |
-| 合同全生命周期 | 全部产品 | 6 态状态机（提交/审批/驳回/生效/完成/终止）+ 附件 + 模板 | ✅ | `ContractController`、`ContractAttachmentController` |
+| 价格手册 / 折扣矩阵 | Salesforce CPQ | — | ❌ | 只有单一"标准售价" |
+| 产品捆绑与配置器 | Salesforce CPQ | — | ❌ | 无 bundle / configurator |
+| 合同全生命周期 | 全部产品 | 6 态状态机 + 附件 + 模板 | ✅ | `ContractController`、`ContractAttachmentController` |
 | 合同续约 | Salesforce、纷享 | `renewedFromId` 续约链 + `/renewal-overview` 漏斗 | ✅ | `ContractRenewalController` |
-| 订单 | 全部产品 | `sales_order` + `payment_plan` 分期回款 + `payment_record` + 应收账款提醒 | ⚠️ | **订单无行项目表**（金额仅在订单头）；无发货/履约、无退货 RMA |
+| 订单 | 全部产品 | `sales_order` + `payment_plan` 分期回款 + `payment_record` + 应收账款提醒 | ⚠️ | **订单无行项目表**（金额仅在订单头） |
 | 发票 | 全部产品 | 开票 + 作废 + 统计 | ✅ | `InvoiceController` |
-| 订阅计费 | Salesforce Revenue Cloud、Chargebee | — | ❌ | 无周期性计费/用量计费模型 |
+| 订阅计费 | Salesforce Revenue Cloud、Chargebee | — | ❌ | 无周期性/用量计费模型 |
 
-**小结**：CPQ 的"标准路径"完整（产品→报价→审批→签署→合同→订单→回款），且电子签与续约链是超出同规模产品的加分项。缺口在**复杂定价**（价格手册/折扣矩阵/配置器）和**订单行项目**——后者是 B2B 多产品订单的硬伤。
+**小结**：判定**全部未变**。`sales_order` 无行项目仍是 B2B 多产品订单的硬伤，也是订阅计费的前置。
 
 ### 2.4 营销获客
 
 | 能力项 | 业界标准 | 本项目 | 判定 | 证据 / 缺口 |
 |---|---|---|---|---|
 | 营销活动与 ROI 归因 | HubSpot、纷享 | `marketing_campaign`（预算/成本）+ `/channel-roi` + 客户 `campaignId` 归因 | ✅ | `MarketingController`、`MarketingRoiService` |
-| 邮件营销 | 全部产品 | 模板 + 群发 + A/B 主题测试 + 发送日志 + 打开/点击追踪 + 退订 | ✅ | `EmailController`、`EmailTrackController` |
+| 邮件营销 | 全部产品 | 模板 + 群发 + A/B 主题测试 + 发送日志 + 打开/点击追踪 + 退订 | ✅ **↑已诚实化** | `EmailController`、`EmailTrackController`。**未配置 SMTP 时状态为 `SKIPPED` 而非 `SENT`**，且"发送前即标记已发送"的缺陷已删除（见 2.5 之下的"诚信修复"） |
 | 表单获客 | HubSpot | 自定义表单 + 公开提交页 `/f/:id`，**提交自动建线索 + 邮箱/手机防重** | ✅ | `FormController` |
 | 落地页 + UTM 归因 | HubSpot | 托管页 `/lp/:id` + `/landing-pages/{id}/stats` | ✅ | `LandingPageController` |
-| 线索评分 | HubSpot、销售易 | `lead_score_config` 可配权重（来源/完整度/跟进/新鲜度） | ✅ | `LeadScoreService` |
+| 线索评分 | HubSpot、销售易 | `lead_score_config` 可配权重 | ✅ | `LeadScoreService` |
 | 退订合规 | CAN-SPAM / GDPR | 公开退订端点 + 退订名单 | ✅ | `EmailUnsubscribeController` |
-| 客户旅程编排（Journey / Drip） | HubSpot Workflows、Marketo | — | ❌ | 无多步骤 nurturing 流程、无延迟节点、无分支编排 |
-| 短信 / 多渠道触达 | 纷享、销售易、HubSpot | — | ❌ | **全仓 grep 无任何 SMS 代码** |
-| ESP 连接器（SES/SendGrid/Mailchimp） | HubSpot、EspoCRM | — | ❌ | 仅用 Spring Mail 直发，无投递率/退信/webhook 回执管理 |
-| 硬退信与投诉处理 | 业界标配 | — | ❌ | 无 bounce/complaint 处理，发信域名 SPF/DKIM 无管理 |
+| 客户旅程编排（Journey / Drip） | HubSpot Workflows、Marketo | — | ❌ | 无多步骤 nurturing、无延迟节点、无分支编排 |
+| 短信 / 多渠道触达 | 纷享、销售易、HubSpot | — | ❌ | 全仓无任何 SMS 代码 |
+| ESP 连接器（SES/SendGrid/Mailchimp） | HubSpot、EspoCRM | — | ❌ | 仅用 Spring Mail 直发，无投递率/退信/webhook 回执 |
+| 硬退信与投诉处理 | 业界标配 | — | ❌ | 无 bounce/complaint 处理 |
 | 营销日历 | HubSpot | — | ❌ | 无 |
 
-**小结**：**"获客-追踪-归因"链条完整，但"持续培育"缺失**。当前定位是"能发起一次群发并看到打开率"，而非 HubSpot 式的"把线索养到成熟再交给销售"。无短信是国内场景的明显短板（企微/短信触达是国内营销主渠道）。
+**小结**：**"诚实化"不等于"能力增量"**——邮件营销这一行的判定仍是 ✅，但 v2.0 时它背后的"已发送 N 封/打开率/点击率"是**基于从未发出的邮件**；现在这些数字在未配置 SMTP 时如实显示为 SKIPPED。域分值不动（缺的是旅程/短信/ESP 这类能力）。无短信仍是国内场景的明显短板。
 
 ### 2.5 客户服务
 
 | 能力项 | 业界标准 | 本项目 | 判定 | 证据 / 缺口 |
 |---|---|---|---|---|
 | 工单管理 | 全部产品 | 4 状态流转 + 优先级 + 指派 + 回复 | ✅ | `TicketController` |
-| SLA 策略与日历 | Zendesk、Salesforce | `sla_policy`（按优先级的响应/解决时限）+ `sla_calendar_config`（工作时间/节假日/工作日） | ⚠️ | 策略与日历模型完整，但见下行 |
-| **SLA 到期扫描与自动升级** | 业界标配 | — | ❌ | **全库仅 2 个 `@Scheduled`（数据保留、定时导出），无任何 SLA 扫描作业；`slaStatus` 字段无人定时更新** |
+| SLA 策略与日历 | Zendesk、Salesforce | `sla_policy`（按优先级的响应/解决时限）+ `sla_calendar_config`（工作时间/节假日/工作日） | **⚠️ → ✅ 已闭合** | 策略与日历模型本就完整，v2.0 的 ⚠️ 完全来自"引擎不转"；现在有作业在跑（见下行） |
+| **SLA 到期扫描与自动升级** | 业界标配 | `SlaEscalationScheduler`（`crm.scheduler.sla-cron`，默认每 10 分钟）+ 分级升级（WARNING→通知处理人；OVERDUE→处理人+主管；再超时→ADMIN）+ `escalate_level` 幂等递增 + 手动端点 `POST /sla-policies/escalate-now` | **❌ → ✅ 已闭合** | `config/SlaEscalationScheduler.java`、`service/SlaEscalationService.java`、`SlaPolicyController.java:97`、迁移 `V78__sla_escalation.sql`（`escalate_level` / `last_escalated_at` + deadline 索引） |
+| **响应超时（数据上可判定）** | 业界标配 | `ticket` 新增 `sla_responded_at` / `resolved_at`；`computeSlaStatus` 改为**同时看响应与解决两个 deadline**；`update()` 改 priority 后重算 deadline | **❌ → ✅ 新增** | `TicketService`（读 `getSlaRespondDeadline()` 参与 OVERDUE 判定）；SLA 达成率统计含 `respondComplianceRate` / `resolveComplianceRate` |
 | 知识库 | 全部产品 | 文章分类/关键词/发布下架 | ⚠️ | 无版本、无附件、无多语言、无有用性投票；检索为 LIKE 而非全文索引 |
 | 客户自助门户 | Salesforce Community | 免登录门户：知识库浏览 + 在线提单 + 进度查询 | ✅ | `CustomerPortalController`（`/public/portal`） |
-| 满意度调查 | 全部产品 | `ticket_survey` 评分 + `/surveys/stats` | ⚠️ | 实体仅有 `rating` + `comment`，**无 NPS 字段**（前端页面名与实体不符） |
-| 全渠道建单（邮件/电话/聊天/IM） | Zendesk、Service Cloud | — | ❌ | 仅手动建单 + 门户提单；无邮箱转工单、无在线聊天、无企微/钉钉建单 |
+| 满意度调查 | 全部产品 | `ticket_survey` 评分 + `/surveys/stats` | ⚠️ | 实体仅有 `rating` + `comment`，**无 NPS 字段** |
+| 全渠道建单（邮件/电话/聊天/IM） | Zendesk、Service Cloud | — | ❌ | 仅手动建单 + 门户提单 |
 | 工单队列 / 团队 / 宏与快捷回复 | Zendesk 核心 | — | ❌ | 无分类队列、无宏、无快捷回复模板 |
-| 现场服务派工（FSM） | Salesforce Field Service | — | ❌ | 有"外勤拜访"记录，但无派工调度/路线优化 |
+| 现场服务派工（FSM） | Salesforce Field Service | — | ❌ | 有"外勤拜访"记录，无派工调度/路线优化 |
 
-**小结**：这是**"字段都有了，但引擎没转起来"的典型域**。SLA 策略与日历已建模，却因为没有调度作业而形同虚设——工单不会因超时而升级，SLA 合规率也无从统计。这是一处**对外承诺与实现不符**的风险点。
+**小结**：**本版单域最大的一次移动**。"字段都有了，但引擎没转起来"这一定性判断（v2.0 的原话）现在失效了：SLA 扫描、分级升级、以及原本**在数据上根本无法判定**的"响应超时"都补齐了。但该域仍缺"全渠道建单"——那是 Zendesk 类产品的准入项，权重高，所以它没有到 4 分。
 
 ### 2.6 效率与协作
 
 | 能力项 | 业界标准 | 本项目 | 判定 | 证据 / 缺口 |
 |---|---|---|---|---|
-| 任务与待办 | 全部产品 | `task_item`（多态关联 linkedType/linkedId）+ 完成切换 + 到期提醒摘要 | ✅ | `TaskController` |
-| 日历视图 | 全部产品 | `/tasks/calendar` | ⚠️ | 仅任务日历；无统一 Event/会议实体、无参会人邀请、无重复规则 |
+| 任务与待办 | 全部产品 | `task_item`（多态关联）+ 完成切换 + 到期提醒摘要 | ✅ | `TaskController` |
+| 日历视图 | 全部产品 | `/tasks/calendar` | ⚠️ | 仅任务日历；无统一 Event/会议实体、无参会人、无重复规则 |
 | 日历双向同步 | Google/Outlook | — | ❌ | 无 |
-| 站内通知 | 全部产品 | 通知 + 未读数 + WebSocket 实时推送（含指数退避重连 + 5 秒降级轮询） | ✅ | `NotificationController`、`useNotificationSocket.ts` |
+| 站内通知 | 全部产品 | 通知 + 未读数 + WebSocket 实时推送（指数退避重连 + 5 秒降级轮询） | ✅ | `NotificationController`、`useNotificationSocket.ts` |
 | 公告与 @提及 | 国产 CRM | 公告发布 + 已读 + 评论 @提及 | ✅ | `AnnouncementController`、`CommentSection.tsx` |
 | 审批中心 | 全部产品 | 待我审批/我发起 + 同意/驳回/转交/重新发起 | ✅ | `ApprovalController` |
 | 外勤拜访与签到 | 纷享、销售易 | 拜访计划 + 签到（经纬度）+ 统计 | ✅ | `FieldVisitController` |
 | 通话记录（CTI） | Salesforce CTI、销售易 | 通话记录数据模型 + 统计 | ⚠️ | **无任何 CTI/软电话对接**，纯手工数据模型 |
-| 邮件同步 | Gmail/Outlook 插件 | `mail_account` + 同步记录 | ❌ | **`MailSyncRecordService.simulateSync` 为模拟实现**，代码注释明示真实 IMAP 待接——**不可对客户宣称已具备邮件同步** |
-| 企微 / 钉钉深度集成 | 国产 CRM 标配 | `integration_channel`（WECHAT_WORK/DINGTALK/CUSTOM）**仅作为通知投递通道** | ⚠️ | 无企微会话存档、无助企微客户运营、无审批流嵌入企微/钉钉工作台 |
-| 原生移动 App | 全部产品 | PWA（可安装 + 离线缓存） | ⚠️ | 无 iOS/Android 原生 App；PWA 无离线编辑与写回 |
-| 全局搜索 | 全部产品 | 跨 6 实体 LIKE 搜索 + 数据权限过滤 | ⚠️ | LIKE 非全文索引，规模上来后性能与相关性受限 |
+| 邮件同步 | Gmail/Outlook 插件 | `mail_account` + 同步记录 | ❌ **（收信侧）** | **`MailSyncRecordService.simulateSync` 为模拟实现**，不连任何服务器。⚠️ 一期只修了**发信侧**的假成功，收信侧仍是模拟——**不可对客户宣称已具备邮件同步** |
+| 企微 / 钉钉深度集成 | 国产 CRM 标配 | `integration_channel`（WECHAT_WORK/DINGTALK/CUSTOM）**仅作为通知投递通道** | ⚠️ | 无会话存档、无企微客户运营、无审批流嵌入企微工作台 |
+| 原生移动 App | 全部产品 | PWA（可安装 + 离线缓存） | ⚠️ | 无 iOS/Android 原生 App |
+| 全局搜索 | 全部产品 | 跨 6 实体 LIKE 搜索 + 数据权限过滤 | ⚠️ | LIKE 非全文索引 |
+
+**小结**：判定**全部未变**。这一域的最大缺口与 v2.0 相同——**邮件同步的收信侧仍是 `simulateSync`**，它是"诚信缺口"里唯一没被一期关掉的一条（因为一期明确只做诚实化与配置化，不接 IMAP）。
 
 ### 2.7 分析与洞察
 
 | 能力项 | 业界标准 | 本项目 | 判定 | 证据 / 缺口 |
 |---|---|---|---|---|
-| 仪表盘 | 全部产品 | KPI 卡 + 销售漏斗 + 成交预测 + 客户分析 + 业绩趋势 + 停滞商机 | ✅ | `DashboardPage.tsx`(942 行)、`DashboardStatsService` |
-| 数据大屏 | 国产 CRM | 全屏暗色大屏（漏斗/排行/健康分布/趋势/粒子背景） | ✅ | `pages/dataVision/`（ECharts） |
-| 自定义报表 | Salesforce Report Builder | 维度 + 指标 + 粒度 + 阶段筛选 + 日期区间 + 模板保存 + 导出 | ⚠️ | **维度/指标为固定枚举**，无自定义公式字段、无交叉表/透视 |
+| 仪表盘 | 全部产品 | KPI 卡 + 销售漏斗 + 业绩趋势 + 停滞商机 | **✅ → ⚠️ 判据修正（v2.0 高估）** | `frontend/src/pages/stats/DashboardPage.tsx`(952 行)。**三处名实不符**：①**「成交预测」从未在前端渲染**——后端确实算（`DashboardStatsService` 用 `StageConversionService` 校准）、前端类型也声明了，但全前端无任何渲染，`t('pages.dashboard.forecast.*')` 是孤儿键；②**「客户分析」同样只有孤儿键**，实际只剩 KPI 卡里的客户总数/本月新增；③**4 个 KPI 卡的同比是写死的**（`value: 5/8/12/3`），待办与活动动态是代码里注明「模拟…实际应从 API 获取」的 mock |
+| 数据大屏 | 国产 CRM | 全屏暗色大屏（漏斗/排行/健康分布/趋势/粒子背景） | ✅ | `pages/dataVision/`（ECharts 6.1） |
+| 自定义报表 | Salesforce Report Builder | 维度 + 指标 + 粒度 + 阶段筛选 + 日期区间 + 模板保存 + 导出 | ⚠️ | **维度/指标为固定枚举**（5 维度 × 2 指标），无自定义公式字段、无交叉表/透视（全仓 `pivot`/`crosstab`/`透视` 零命中） |
 | 团队排行 | 全部产品 | `/stats/leaderboard` | ✅ | `TeamLeaderboardService` |
 | KPI 看板缓存 | — | Redis 5 分钟缓存 | ✅ | `KpiBoardService` |
-| 智能建议 | HubSpot Breeze | 4 类**规则型**建议（停滞商机/流失预警等）+ 忽略 | ⚠️ | 规则触发，非模型预测；`SuggestionService`(254 行) |
-| 报表订阅推送 | Salesforce/HubSpot | 定时导出（cron）可作部分替代 | ⚠️ | 无"按报表定时发邮件给我"的订阅语义 |
-| 收入智能（对话/通话分析） | Gong、Chorus、Salesforce | — | ❌ | 无 |
+| 智能建议 | HubSpot Breeze | 4 类**规则型**建议（AT_RISK/STALLED/FOLLOWUP/HIGH_SCORE）+ 忽略（Redis TTL 90 天） | ⚠️ | 规则逐条 if 硬编码，非模型预测；`SuggestionService`(254 行，自 v2.0 未改动) |
+| 报表订阅推送 | Salesforce/HubSpot | 定时导出（cron） | ⚠️ | **仍无"按报表定时发邮件给我"的订阅语义**：发的是"导出完成"纯通知，**不带附件**，收件人只有任务创建者；订阅对象是 `entityType` 而非报表模板（`ScheduledExport` 无 `reportTemplateId`） |
+| 收入智能（对话/通话分析） | Gong、Chorus、Salesforce | — | ❌ | `call_record` 只有 direction/duration/result/remark；全仓 `transcri`/`sentiment` 零命中 |
+
+**小结**：域分值不变，但**内含一处判定下调**——v2.0 把仪表盘记作 ✅ 并列举了它的五项能力，其中两项（成交预测、客户分析）**在前端并不存在**，另有一项（同比）是硬编码数字。这是 v2.0 的**高估**，不是此后发生了回退（代码在 09-12 就是这样）。
 
 ### 2.8 平台与扩展
 
 | 能力项 | 业界标准 | 本项目 | 判定 | 证据 / 缺口 |
 |---|---|---|---|---|
-| 自定义字段 | 全部产品 | `custom_field` + 动态表单/筛选列（前端三件套复用） | ✅ | `CustomFieldController`、`useCustomFieldFilters.ts` |
+| 自定义字段 | 全部产品 | `custom_field` + 动态表单/筛选列 | ✅ | `CustomFieldController`、`useCustomFieldFilters.ts` |
 | 自定义对象（低代码） | Salesforce / 纷享 PaaS | `custom_object` + `custom_object_record` CRUD + 启停 | ✅ | `CustomObjectController` |
-| 工作流自动化 | Salesforce Flow | `workflow_rule`：**6 事件 × 5 动作** + 条件 JSON + 执行日志 | ⚠️ | `WorkflowEngine`(254 行)；**单条规则单动作、无条件分支/多步编排、无可视化设计器、无版本管理** |
-| 审批流引擎 | 全部产品 | `approval_flow` 多节点 + 按角色/指定人 + **按金额条件分支** + 转交 + 独立事务启动 | ⚠️ | `ApprovalEngineService`(387 行)；**实测仅 `ContractService` 一处接入**（报价走自建单级状态机）；无会签/并行网关/图形化设计器 |
+| 工作流自动化 | Salesforce Flow | `workflow_rule`：**6 事件 × 5 动作** + 条件 JSON + 执行日志 | ⚠️ | `WorkflowEngine`(254 行，自 v2.0 未改动)；**单条规则单动作、无条件分支/多步编排、无可视化设计器**；`WorkflowRule.version` 是 `@Version` 乐观锁，**不是规则版本管理** |
+| 审批流引擎 | 全部产品 | `approval_flow` 多节点 + 按角色/指定人 + **按金额条件分支** + 转交 + 独立事务启动 | ⚠️ | `ApprovalEngineService`(387 行，自 v2.0 未改动)；**实测仍仅 `ContractService` 一处接入**（报价走自建单级状态机）；无会签/并行网关/图形化设计器 |
 | 开放平台 | 全部产品 | API Key（scopes/有效期/用量/吊销）+ `/open/customers`、`/open/leads` | ✅ | `OpenPlatformController` |
-| Webhook | 全部产品 | 订阅 + **HMAC 签名 + ≤3 次退避重试** + 投递记录 + SSRF 防护 | ✅ | `WebhookDeliverer`、`OutboundUrlValidator` |
+| Webhook | 全部产品 | 订阅 + **HMAC-SHA256 签名 + ≤3 次退避重试** + 投递记录 + **SSRF 防护**（逐跳校验、拒内网段） | ✅ **↑增强** | `WebhookDeliverer`、`common/OutboundUrlValidator`（类已移到 `common` 包）；另新增 `WebhookDeliverySweepScheduler` 投递补偿扫描 |
 | 多币种 | Salesforce/Dynamics | `currency_rate`（基准 CNY）+ 折算 + 产品多币种价 | ✅ | `CurrencyRateController` |
-| 国际化 | 全部产品 | zh-CN / en 双语，各约 2400 行资源 | ⚠️ | **83 个页面仅 53 个接入 i18n，约 46 个页面硬编码中文**（配额、数据保留、营销、工作流、大屏等整模块） |
-| 应用市场 / 生态 | AppExchange 7000+ | — | ❌ | 无应用市场、无 iPaaS（Zapier/集成云）、无官方连接器库 |
-| OAuth 2.0 第三方授权 | 全部产品 | — | ❌ | 仅 API Key（服务端到服务端），无授权码模式/无第三方应用授权 |
-| 多租户 | SaaS CRM 前提 | — | ❌ | **迁移脚本 grep `tenant` 零命中**；单租户模型 |
+| 国际化 | 全部产品 | zh-CN / en 双语，各 3348 行 | **⚠️ → ✅ 已闭合** | **101 个页面中 96 个 import `useTranslation`；未接入的 5 个全是 `dataVision/components/` 下无文案的纯展示组件（中文只在注释里）**。两道机器护栏：`check-i18n.mjs`（双向键对齐 + 空值检出）+ 测试侧缺键即抛。残留：剥注释后仍有中文字面量的 **11 个文件**（最重 `LoginPage.tsx` 13 处），属串级残留而非页级缺口 |
+| 应用市场 / 生态 | AppExchange 7000+ | — | ❌ | 无应用市场、无 iPaaS、无官方连接器库（`marketplace`/`ipaas` 零命中） |
+| OAuth 2.0 第三方授权 | 全部产品 | — | ❌ | 仅 API Key；`pom.xml` 无任何 oauth/oidc 依赖 |
+| 多租户 | SaaS CRM 前提 | — | ❌ | 迁移脚本与 `main/java` 均 grep `tenant` **零命中**；单租户模型 |
 | 沙箱 / 环境版本管理 | Salesforce Sandbox | — | ❌ | 无 |
+
+**小结**：i18n 行从 ⚠️ 翻 ✅（v2.0 的「83 页仅 53 页接入、约 46 页硬编码」已彻底过时），但**域分值不动**——i18n 是本域三个 ⚠️ 之一，域内四个 ❌ 全是生态类（应用市场/OAuth2/多租户/沙箱），另两个 ⚠️（工作流/审批引擎）本次实测一字未动（两者行数与 v2.0 记录完全一致，说明自报告以来未改过）。
 
 ### 2.9 安全与合规
 
 | 能力项 | 业界标准 | 本项目 | 判定 | 证据 / 缺口 |
 |---|---|---|---|---|
-| 认证 | 全部产品 | JWT + refresh token + `tokenVersion` 强制失效 + 图形验证码（可开关） | ✅ | `AuthService`、`JwtUtil` |
-| RBAC 角色权限 | 全部产品 | 角色-菜单-权限点 + `@RequirePermission`（**63 处，17 个权限点**） | ✅ | `PermissionAspect`、`RoleController` |
-| 数据权限（行级） | Salesforce Sharing | 4 档 SELF/DEPT/DEPT_AND_CHILD/ALL + 客户共享 + 可见归属人缓存 | ⚠️ | 生效于 Customer/Contact/Lead/Export/Ticket；**非全局拦截器，靠各 Service 手动调用，新增模块易漏** |
-| 字段级权限（FLS） | Salesforce/SAP 硬指标 | `field_permission`（HIDDEN/READ_ONLY/EDITABLE，按 roleCode+entityType） | ❌ | **仅被 `CustomFieldService` 调用，只作用于自定义字段；内置字段与 API 出参完全未过滤** |
-| 按钮级权限 | 全部产品 | `usePermission` hook + `PermissionGuard` 组件已具备 | ❌ | **`PermissionGuard` 与 3 个 hook 零引用（死代码）；86 个页面仅 2 个（客户列表、角色列表）真正接入，约 2.3%** |
+| 认证 | 全部产品 | JWT + refresh token + `tokenVersion` 强制失效 + 图形验证码（**可开关，但 yml 默认关闭**） | ✅ | `AuthService`、`JwtUtil`；`application.yml` 的 `crm.captcha.enabled` 默认 `${CAPTCHA_ENABLED:false}` |
+| RBAC 角色权限 | 全部产品 | 角色-菜单-权限点 + `@RequirePermission`（**268 个注解点、115 个被校验的码**，字典 137 条） | ✅ **↑大幅增强** | `PermissionAspect`、`RoleController`。v2.0 记「63 处、17 个权限点」 |
+| **按钮级权限** | 全部产品 | 集中登记的 `PERMS.*` 常量（**63 个码**）+ `usePerms` / `PermissionGuard`；**48/101 页接入（47.5%）** | **❌ → ✅ 已闭合** | `frontend/src/constants/permissions.ts`、`hooks/usePerms.ts`、`components/PermissionGuard.tsx`；两道机器护栏：`check-perms.mjs` + 后端 `FrontendPermissionCodeAlignmentTest`。**注意不是 100%**：086 有一份「不可收口清单」（见第六节），那些端点后端尚无码可挂 |
+| 数据权限（行级） | Salesforce Sharing | 4 档 SELF/DEPT/DEPT_AND_CHILD/ALL + 客户共享 + 可见归属人缓存 | ⚠️ **判据修正** | 调用点从 v2.0 的 9 处增至**13 处/9 个文件**（新增 `OrderController`/`LeadController`/`ContactController`/`KnowledgeArticleController`），`EntityAccessService` 成为共享判定类。**但 v2.0「生效于 Ticket」是错的**：`TicketService`/`TicketController` 对 `resolveVisibleOwnerIds`/`DataPermissionService`/`EntityAccessService` **零引用**，工单列表不受数据权限约束。仍非全局拦截器 |
+| 字段级权限（FLS） | Salesforce/SAP 硬指标 | `field_permission`（HIDDEN/READ_ONLY/EDITABLE） | ❌ **仍缺（且确认有值泄漏）** | 仅被 `CustomFieldService` 调用，只作用于自定义字段；内置字段与 API 出参未过滤。**读路径 `readValuesBatch` 绕过权限计算**，HIDDEN 字段的**值**随 `CustomerResponse` 外泄 |
 | SSO（SAML/OIDC） | 企业采购硬指标 | — | ❌ | 无 |
-| 双因素认证（2FA/MFA） | 企业采购硬指标 | — | ❌ | `specs/082-two-factor-auth/` 已写规格（TOTP），但 **tasks.md 0/29 完成，后端无任何实现代码** |
-| OAuth 2.0 | 全部产品 | — | ❌ | 无 |
-| IP 白名单 / 登录风控 | Salesforce/Dynamics | 仅图形验证码 | ❌ | 无 IP 白名单、无失败锁定、无异地登录检测 |
-| 速率限制 | 全部产品 | **仅 `EmailTrackController` 有内存桶限流** | ❌ | 登录、开放 API、导出等**均无限流**，存在暴力破解与资源耗尽风险 |
-| 审计日志 | 全部产品 | `audit_log`，25+ Service 主动写入 + 查询页 | ⚠️ | 无登录/认证事件审计、无日志导出、无哈希链防篡改、无日志自身保留策略 |
-| 数据保留策略 | GDPR/个保法 | `data_retention_policy` 覆盖 9 类实体 + 每日 2 点调度 + 执行历史 | ⚠️ | **实现为"置 `deleted=1` 软删除"，非归档库/冷存储；无匿名化、无硬删除、无策略优先级** |
-| 合规导出（GDPR 被遗忘权/可携带权） | GDPR | 按 userId 导出 6 类实体 CSV/XLSX | ⚠️ | **仅"可携带权"；无"被遗忘权"删除工作流、无同意管理（consent）、无 DSR 请求跟踪、导出文件无加密** |
+| 双因素认证（2FA/MFA） | 企业采购硬指标 | — | ❌ | `specs/082-two-factor-auth/` 有完整冻结规格（TOTP），**`main/java` 里 `totp`/`mfa` 零命中——仍是 0 实施** |
+| IP 白名单 / 登录风控 | Salesforce/Dynamics | 失败计数（per-username 5 次 / per-IP 10 次，15 分钟窗口）+ 登录风控；**无 IP 白名单** | **❌ → ⚠️ 判据修正** | `AuthService` 的 Redis 版 `auth:fail:*` / `auth:ip-fail:*` 与 `isIpBlocked` 链路真实存在，v2.0 记作 ❌ 是**看漏**（详见第六节） |
+| 速率限制 | 全部产品 | **仅 `EmailTrackController` 有内存桶限流**（60 次/分钟/IP，非 Filter） | ❌ | 登录、开放 API、导出等**均无限流** |
+| 审计日志 | 全部产品 | `audit_log` + 多 Service 主动写入 + 查询页 | ⚠️ | **本次实测确认三项仍缺**：无登录/认证事件审计（`AuthService` 不调 `AuditService`）、无哈希链（`prev_hash` 零命中）、无日志导出 |
+| 数据保留策略 | GDPR/个保法 | `data_retention_policy` 覆盖 9 类实体 + 每日调度 + 执行历史 | ⚠️ | **实现为"置 `deleted=1` 软删除"**，非归档/冷存储；无匿名化、无硬删除 |
+| 合规导出（GDPR 可携带权） | GDPR | 按 userId 导出 6 类实体 CSV/XLSX | ⚠️ | **仅"可携带权"**；无"被遗忘权"删除流、无同意管理、无 DSR 跟踪、导出文件无加密 |
 | 数据加密 | AES-256 / TDE | JWT 签名；`MaskingUtil` 脱敏 | ❌ | **数据库字段明文存储**，无列级加密/TDE；无密钥管理 |
-| 合规认证 | SOC 2 / ISO 27001 / 等保 | — | ❌ | 无第三方审计；国内投标常需"等保三级"，未见支撑材料 |
-| 其他工程安全 | — | 乐观锁 + 逻辑删除统一基类、SSRF 防护、生产默认值防护（`SecurityDefaultsGuard`）、CORS | ✅ | 实现质量良好，优于多数同规模自建系统 |
+| 合规认证 | SOC 2 / ISO 27001 / 等保 | — | ❌ | 无第三方审计；无等保三级支撑材料 |
+| 其他工程安全 | — | 乐观锁 + 逻辑删除统一基类、SSRF 防护、生产默认值防护、CORS | ✅ | 质量良好，优于多数同规模自建系统 |
+
+**小结**：**v2.0 点名的三项 P0 里，按钮级权限这一项闭合了**（2.3% → 47.5%，且从此有机器护栏防止回退），加上合规导出/审计查询改为真实权限码、数据权限调用点扩展，本域上浮半档。但**它仍是非 AI 域中最低的一块**：FLS 内置字段、SSO、2FA、字段加密、限流、IP 白名单六项一个都没动，而这几项恰是政企与中大型企业采购的一票否决项。
 
 ### 2.10 AI 能力（2025 起为 Gartner 强制评估项）
 
+**总闸门实测**：`openai` / `llm` / `anthropic` / `dashscope` / `qwen` / `deepseek` / `embedding` / `langchain` / `ollama` 在 `backend/src/main/java`、`backend/pom.xml`、`frontend/src`、`frontend/package.json` **全部零命中**；`/ai/` 端点零命中。**八项判定无一项变化**——本域是唯一完全静止的能力域。
+
 | 能力项 | 业界标准 | 本项目 | 判定 | 证据 / 缺口 |
 |---|---|---|---|---|
-| 线索/商机评分 | Salesforce Einstein、Zoho Zia | `LeadScoreService` / `HealthScoreService`，**权重可配置** | ⚠️ | 加权规则打分，非机器学习模型 |
-| 预测性分析 | Einstein、Breeze Intelligence | `StageConversionService` 用历史阶段转化率校准预测概率 | ⚠️ | 统计校准，是项目中"最接近 ML"的一处 |
-| 下一步最佳行动 | HubSpot Breeze | 规则型智能建议 | ⚠️ | 无个性化推荐模型 |
-| 生成式 AI（邮件/文案/摘要） | Salesforce Einstein GPT、HubSpot Breeze Copilot | — | ❌ | 无任何 LLM 接入 |
-| 对话式 AI / 聊天机器人 | Salesforce Agentforce | — | ❌ | 无 |
+| 线索/商机评分 | Salesforce Einstein、Zoho Zia | `LeadScoreService` / `HealthScoreService`，**权重可配置** | ⚠️ | 加权规则打分（线性相加 / `100 − Σ扣分`），阈值写死；非机器学习 |
+| 预测性分析 | Einstein、Breeze Intelligence | `StageConversionService`：`won/(active+won)` 历史转化率，样本 <10 回退字典表 `probability` | ⚠️ | 仍是最接近 ML 的一处，也仅止于统计**校准**，无模型训练/推理 |
+| 下一步最佳行动 | HubSpot Breeze | 阶段动作模板驱动 | ⚠️ | 规则/清单，无个性化推荐 |
+| 生成式 AI（邮件/文案/摘要） | Einstein GPT、Breeze Copilot | — | ❌ | 邮件模板与签名均为模板+变量替换，无 LLM |
+| 对话式 AI / 聊天机器人 | Salesforce Agentforce | — | ❌ | `ws/` 的 WebSocket 仅为站内消息推送 |
 | 智能体（Agentic AI） | Agentforce、Breeze Agents | — | ❌ | 无 |
-| 自然语言查询（NL2SQL） | Einstein、Zoho | — | ❌ | 无 |
-| 语音识别 / 通话转录 | Gong、Chorus | — | ❌ | 通话记录仅存文本字段 |
+| 自然语言查询（NL2SQL） | Einstein、Zoho | — | ❌ | `SearchService` 为关键词索引检索 |
+| 语音识别 / 通话转录 | Gong、Chorus | — | ❌ | `CallRecord` 无 audio/transcript 字段 |
 
-**小结**：本项目 AI 能力实质为**"规则引擎 + 统计"**，与 2025 年业界定义的"AI 原生 CRM"（Einstein/Agentforce/Breeze Agent 可自主执行多步任务）存在**代际差**。考虑到 Gartner 2025 已将"原生 AI/ML 覆盖至少 3 项核心功能"列为评估门槛、国内信通院亦发布智能化成熟度团体标准，这是**未来 12 个月最需要补的能力域**。
+**小结**：与 v2.0 完全一致——本项目 AI 能力实质为**"规则引擎 + 统计"**，与业界"AI 原生 CRM"存在**代际差**。Gartner 2025 已将"原生 AI/ML 覆盖至少 3 项核心功能"列为评估门槛，这仍是未来 12 个月最需要补的能力域。
 
 ---
 
 ## 三、能力域评分对比
 
-**打分说明**：5 分制，**由本次调研依据代码证据与公开资料作出的主观判定**，非厂商基准测试。评分标准：5 = 达到国际标杆水准；4 = 主流可用且有亮点；3 = 骨架完整但深度不足；2 = 有明显功能或运维缺口；1 = 基本空白。
+**打分说明**：5 分制，**依据代码证据与公开资料作出的主观判定**，非厂商基准测试。标度：5 = 达到国际标杆水准；4 = 主流可用且有亮点；3 = 骨架完整但深度不足；2 = 有明显功能或运维缺口；1 = 基本空白。
 
-| 能力域 | 本项目 | Salesforce | HubSpot | 纷享销客 | Zoho | EspoCRM | 差距诊断（本项目 vs 业界主流） |
-|---|---|---|---|---|---|---|---|
-| 客户主数据 | **4.5** | 5 | 4.5 | 4.5 | 4 | 4 | 基本对齐，缺账户层级与数据增强 |
-| 销售过程管理 | **3.5** | 5 | 4 | 4.5 | 4 | 3.5 | 缺区域管理、预测 rollup、看板拖拽 |
-| CPQ 与成交回款 | **3.5** | 5 | 4 | 4.5 | 4 | 3 | 缺价格手册/配置器、订单行项目、订阅计费 |
-| 营销获客 | **3.0** | 5 | 5 | 4.5 | 4 | 3.5 | 缺旅程编排、短信、ESP 连接器、退信处理 |
-| 客户服务 | **2.5** | 5 | 4.5 | 4.5 | 4 | 3.5 | SLA 无调度升级、无全渠道建单、无队列/宏 |
-| 效率协作 | **3.0** | 5 | 4.5 | 4.5 | 4 | 3.5 | 邮件同步为模拟、无日历同步、无原生 App |
-| 分析与洞察 | **3.5** | 5 | 4 | 4.5 | 4 | 3 | 报表维度固定、无透视/自定义公式 |
-| 平台与扩展 | **3.5** | 5 | 4 | 4.5 | 4 | 3.5 | 引擎偏轻、无应用市场、无 OAuth2、无多租户 |
-| 安全与合规 | **2.5** | 5 | 4.5 | 4.5 | 4 | 4.5 | **FLS 只覆盖自定义字段、按钮级权限 2.3%、无 SSO/2FA/加密/限流** |
-| AI 能力 | **1.5** | 5 | 4.5 | 4 | 3.5 | 3 | 仅规则与统计，无 LLM/Agent |
-| **加权均值** | **3.1** | **5.0** | **4.4** | **4.4** | **3.9** | **3.6** | — |
+**本版对聚合口径的订正**（v2.0 的一处内部缺陷）：v2.0 的均值行标注为「加权均值」，但**既未声明权重，也不能从它自己的各行复现**——按其表内各行取等权算术平均，得到本项目 3.10 ✓、Salesforce 5.00 ✓、HubSpot 4.35、纷享销客 4.45、Zoho 3.95、EspoCRM 3.50，其中 4 列与 v2.0 填写的值（4.4 / 4.4 / 3.9 / 3.6）不符且不一致（HubSpot 像是四舍五入进位、纷享像是截断）。本版改为**声明清楚的等权算术平均**，并**同时给出精确两位值**，避免舍入规则本身成为争议。
 
-**读法**：本项目**广度接近国产中端产品，深度落后约一个代际**。与自建开源标杆（EspoCRM 3.6）相比，本项目在**业务广度上明显超越**（配额、CPQ、续约、开放平台、数据保留等 EspoCRM 都没有），但在**安全合规深度上（2.5 vs 4.5）反而落后**——这是自建系统最典型的失衡。
+| 能力域 | v2.0 | **v3.0** | Salesforce | HubSpot | 纷享销客 | Zoho | EspoCRM | 差距诊断（本项目 vs 业界主流） |
+|---|---|---|---|---|---|---|---|---|
+| 客户主数据 | 4.5 | **4.5** | 5 | 4.5 | 4.5 | 4 | 4 | 不变：缺账户层级与数据增强 |
+| 销售过程管理 | 3.5 | **4.0 ▲** | 5 | 4 | 4.5 | 4 | 3.5 | **看板拖拽 + 阶段可配置已闭合**；仍缺区域管理、预测 rollup、多场景 |
+| CPQ 与成交回款 | 3.5 | **3.5** | 5 | 4 | 4.5 | 4 | 3 | 不变：缺价格手册/配置器、订单行项目、订阅计费 |
+| 营销获客 | 3.0 | **3.0** | 5 | 5 | 4.5 | 4 | 3.5 | 邮件链路已诚实化（非能力增量）；仍缺旅程/短信/ESP/退信 |
+| 客户服务 | 2.5 | **3.5 ▲▲** | 5 | 4.5 | 4.5 | 4 | 3.5 | **SLA 扫描升级 + 响应超时判定已闭合**；仍缺全渠道建单、队列/宏、FSM |
+| 效率协作 | 3.0 | **3.0** | 5 | 4.5 | 4.5 | 4 | 3.5 | 不变：邮件同步收信侧仍为模拟、无日历同步、无原生 App |
+| 分析与洞察 | 3.5 | **3.5** | 5 | 4 | 4.5 | 4 | 3 | 不变（含一处判定下调）：仪表盘三处名实不符；报表维度固定、无透视 |
+| 平台与扩展 | 3.5 | **3.5** | 5 | 4 | 4.5 | 4 | 3.5 | i18n 已闭合（行级 ✅）但分值不动：域内 4 个 ❌ 是生态类，且工作流/审批引擎未动 |
+| 安全与合规 | 2.5 | **3.0 ▲** | 5 | 4.5 | 4.5 | 4 | 4.5 | **按钮级权限已收口（2.3%→47.5%）**；仍缺 FLS 内置字段、SSO、2FA、加密、限流、IP 白名单 |
+| AI 能力 | 1.5 | **1.5** | 5 | 4.5 | 4 | 3.5 | 3 | 不变：零命中，无任何 LLM/ML 依赖 |
+| **等权算术平均（精确）** | **3.10** | **3.30** | 5.00 | 4.35 | 4.45 | 3.95 | 3.50 | — |
+| **（显示值，一位小数）** | 3.1 | **3.3** | 5.0 | 4.4 | 4.5 | 4.0 | 3.5 | — |
+
+**分值只随"能力增量"动，不随"判定修正"动**（本版的取舍规则，两个方向都遵守）：
+
+- **销售过程 +0.5**：拖拽推进商机是销售最高频的操作，且阶段字典是漏斗/预测/统计的共同地基——一项结构性交付。
+- **客户服务 +1.0**：该域"定义性失败"（SLA 引擎不转）闭合，且响应侧超时从**数据上不可判定**变为可判定 + 有达成率统计——两项，且权重高。
+- **安全与合规 +0.5**：v2.0 三项 P0 之一闭合；但六项硬指标未动，故只上浮半档。
+- **平台与扩展 不动**：i18n 行 ⚠️→✅ 是真实增量，但它只是本域三个 ⚠️ 之一，域内四个 ❌ 全是生态类，不因 i18n 而改变。
+- **分析与洞察 不动**：仪表盘 ✅→⚠️ 源于 **v2.0 当初看高**（09-12 的代码就是今天这样），属判定修正而非能力回退，故只改行级判定，不扣分。
+
+**读法**：本项目 **3.10 → 3.30**。与最接近的对标物 EspoCRM 的差距从 **0.50 缩到 0.20**——但要说清这 0.30 的来源：**其中 0.20 是本项目的真实上移，另 0.10 是 v2.0 对标侧均值算错**（EspoCRM 3.60 应为 3.50）。**"追平开源标杆"这个结论按实测还不成立**，只是差距明显收窄。同时，**安全合规深度（3.0 vs 4.5）依然是落后幅度最大的一处**，这是自建系统最典型的失衡。
 
 ---
 
@@ -242,15 +273,15 @@
 
 ### 4.1 三句话结论
 
-1. **广度优秀**：84 表 / 66 Controller 覆盖业界 CRM 全部 10 大能力域，标准功能项覆盖率高；配额分解、定时导出、数据保留/GDPR 合规导出、开放平台、使用地图、数据大屏等能力**超出同规模自建系统与开源 CRM**。
-2. **深度不足**：差距集中在三处——**引擎偏轻**（工作流/审批/报表/预测均为"够用即可"的轻量实现）、**运维缺环**（SLA 无调度、邮件同步为模拟、数据保留仅软删）、**AI 空白**（无任何 LLM/Agent 能力）。
-3. **合规短板最紧迫**：字段级权限只覆盖自定义字段、按钮级权限落地率 2.3%、无 SSO/2FA/OAuth2/字段加密/限流——**这几项恰是政企与中大型企业采购的一票否决项**，也是本项目当前最难通过正式招投标的部分。
+1. **广度优秀且深度开始追上**：85 表 / 66 Controller 覆盖全部 10 大能力域；本版实测 **4 项 v2.0 点名的缺口闭合**（按钮级权限、SLA 扫描与升级、看板拖拽、i18n 页级覆盖），另有 **3 项 v2.0 未列出的问题一并修复**（响应超时在数据上不可判定、邮件发信侧假成功、前端几何缺陷）；十域均值 3.10 → 3.30。
+2. **深度不足的形态变了，但没消失**：v2.0 说的三处里——**"运维缺环"部分闭合**（SLA 有调度了，但邮件同步收信侧仍是模拟、数据保留仍是软删）、**"引擎偏轻"一字未动**（工作流/审批/报表三处引擎行数与 v2.0 完全一致）、**"AI 空白"完全未动**（八项判定零变化）。
+3. **合规短板依然最紧迫，但已不是"全线空白"**：按钮级权限闭合后，剩下的**字段级权限（含确认存在的值泄漏路径）/ SSO / 2FA / 字段加密 / 限流 / IP 白名单**六项**一个都没动**，仍是政企与中大型企业采购的一票否决项。
 
 ### 4.2 与三类对标物的差异化定位
 
 | 对标 | 本项目胜出 | 本项目落后 |
 |---|---|---|
-| vs 开源 CRM（EspoCRM/SuiteCRM） | 业务广度（CPQ/配额/续约/开放平台）、工程规范（乐观锁/SSRF/Webhook 签名）、国产化（中文 PDF、企微钉钉通知通道、i18n） | 安全合规深度（FLS 覆盖、SSO、2FA）、社区生态（无插件市场） |
+| vs 开源 CRM（EspoCRM/SuiteCRM） | 业务广度（CPQ/配额/续约/开放平台）、工程规范（乐观锁/SSRF/Webhook 签名）、国产化（中文 PDF、企微钉钉通知通道、i18n 页级 100%）、**看板与 SLA 引擎现已对齐** | 安全合规深度（FLS 覆盖、SSO、2FA）、社区生态（无插件市场） |
 | vs 国产第一梯队（纷享/销售易） | 数据保留/GDPR、使用地图等特色模块；自部署可控 | 多租户、企微钉钉深度集成、旅程编排、短信、移动端体验、PaaS 成熟度 |
 | vs 国际标杆（Salesforce/HubSpot） | 私有化部署、成本可控、数据主权 | 区域管理、预测 rollup、可配置定价、报表引擎、AI/Agent、生态与沙箱 |
 
@@ -258,62 +289,125 @@
 
 ## 五、差距清单与建议优先级
 
-### P0 — 阻断企业级采购 / 合规红线（建议 3 个月内）
+### P0 — 阻断企业级采购 / 合规红线 / 诚信缺口（建议 3 个月内）
 
-| # | 差距 | 影响 | 建议动作 |
-|---|---|---|---|
-| 1 | **字段级权限只作用于自定义字段** | 安全承诺与实现不符；核心字段（客户金额、合同价）无法对角色隐藏 | 在序列化层（DTO 出参）做统一过滤 + 写前校验，覆盖内置字段 |
-| 2 | **按钮级权限落地率 2.3%** | 有权限码定义却未接线，越权操作风险 | 接 `PermissionGuard` 到各列表/详情页操作按钮；接入率纳入验收标准 |
-| 3 | **无 SSO（SAML/OIDC）与 2FA** | 中大型企业安全基线，招投标硬指标 | 082（TOTP）已规格化，先落地 2FA（0/29 任务）；SSO 单独立项 |
-| 4 | **SLA 无扫描与自动升级** | 工单 SLA 字段形同虚设，客服模块对外承诺不实 | 新增 `@Scheduled` 扫描作业：到期提醒 + 超时升级 + `slaStatus` 更新 + 合规率统计 |
-| 5 | **全局限流缺失（仅 1 处）** | 登录暴力破解、开放 API 资源耗尽 | 网关/过滤器层统一限流：登录、开放 API、导出、邮件追踪 |
-| 6 | **邮件同步为模拟实现** | 对客户宣称与实际不符的诚信风险 | 要么接真实 IMAP（Gmail/Outlook/Exchange），要么从功能清单与宣传中移除 |
+| # | 差距 | v2.0 状态 | **v3.0 状态** | 建议动作 |
+|---|---|---|---|---|
+| 1 | **字段级权限只作用于自定义字段** | P0 | **仍缺**（且确认有值泄漏） | 出参统一过滤 + `readValuesBatch` 读路径修补（**泄漏路径见 2.9**） |
+| 2 | ~~按钮级权限落地率 2.3%~~ | P0 | **✅ 已闭合**（086/087） | 48/101 页（47.5%）+ 63 码集中登记 + 4 道护栏；**剩余的是 086「不可收口清单」里 5 类后端无码的端点**，需先补后端权限建模 |
+| 3 | **无 SSO（SAML/OIDC）与 2FA** | P0 | **仍缺** | 082 规格完整但仍是 **0 实施**（`main/java` 里 `totp`/`mfa` 零命中）；建议先落 2FA |
+| 4 | ~~SLA 无扫描与自动升级~~ | P0 | **✅ 已闭合**（一期 1.3） | `SlaEscalationScheduler` + 分级升级 + `/escalate-now` + 响应超时判定 |
+| 5 | **全局限流缺失（仅 1 处）** | P0 | **仍缺** | 仍需过滤器层统一限流：登录、开放 API、导出 |
+| 6 | **邮件同步为模拟实现** | P0 | **部分闭合** | **发信侧**假成功已修（`MailStatus`/`SKIPPED`/`MailNotConfiguredException`）；**收信侧 `simulateSync` 仍在** → 仍属对外承诺不实，接 IMAP 或从功能清单移除 |
+| 7 | ★ **仪表盘三处名实不符** | — | **新发现** | 前端补渲染「成交预测」或删掉孤儿键；「客户分析」同上；KPI 同比改真算；待办/活动流去掉注释标明的 mock |
 
 ### P1 — 竞争力核心（建议 6 个月内）
 
-| # | 差距 | 影响 |
-|---|---|---|
-| 7 | **AI 能力空白** | Gartner 2025 已将原生 AI 列为评估门槛；建议先做"AI 邮件内容生成 + 商机摘要 + NL2SQL 查询"三个高价值低风险场景 |
-| 8 | **无区域管理（Territory）** | 配额、客户分配、数据权限均无法按区域/行业建模，中大型销售组织无法落地 |
-| 9 | **无预测 rollup 与提交** | 管理者看不到"人报的数"vs"系统算的数"，预测无法用于决策 |
-| 10 | **数据权限靠手动调用而非全局拦截** | 新增模块易漏，是长期安全债 |
-| 11 | **无看板拖拽（Kanban）** | 销售日常体验刚需，国产 CRM 标配 |
-| 12 | **订单无行项目** | B2B 多产品订单无法表达 |
-| 13 | **无旅程编排 / 短信 / ESP 连接器** | 营销只能"群发一次"，无法持续培育；国内触达主渠道缺失 |
-| 14 | **审计日志无防篡改、无认证事件审计** | 合规审计不完整 |
+| # | 差距 | v2.0 状态 | v3.0 状态 |
+|---|---|---|---|
+| 8 | **AI 能力空白** | P1 | 仍缺（八项零变化） |
+| 9 | **无区域管理（Territory）** | P1 | 仍缺 |
+| 10 | **无预测 rollup 与提交** | P1 | 仍缺 |
+| 11 | **数据权限靠手动调用而非全局拦截** | P1 | 部分改善：调用点 9 → 13 处/9 文件，`EntityAccessService` 成共享判定类；**但新发现工单不在其内**，且仍无全局拦截 |
+| 12 | ~~无看板拖拽（Kanban）~~ | P1 | **✅ 已闭合** |
+| 13 | **订单无行项目** | P1 | 仍缺（也是订阅计费的前置） |
+| 14 | **无旅程编排 / 短信 / ESP 连接器** | P1 | 仍缺 |
+| 15 | **审计日志无防篡改、无认证事件审计** | P1 | 仍缺（本次实测：无 `prev_hash` 列、`AuthService` 不写审计） |
+| 16 | ★ **前端 i18n 的串级残留** | — | 页级已闭合，**11 个文件仍有中文字面量**（最重 `LoginPage.tsx` 13 处），建议作日常清扫 |
+| 17 | ★ **机器门禁在 CI 里从不触发** | — | 仓库无 remote、无 `gh`，CI 永不运行——**4 道前端护栏与后端护栏目前只在本地有意义**；建议补 remote 或明确记录该边界 |
 
 ### P2 — 中长期 / 战略选项
 
-15. 多租户化（若计划做 SaaS 或集团版，须提前重构，代价大）
-16. 应用市场 / iPaaS 集成平台 / OAuth2 授权码模式
-17. 原生移动 App（当前 PWA 已可覆盖多数场景，优先级可后置）
-18. 订阅计费、价格手册与配置器（视是否切入订阅制商业模式）
-19. i18n 补齐（46 个硬编码页面）——工作量确定、风险低，可作为穿插任务持续推进
-20. 合规认证（等保三级 / SOC 2）——国内投标的实际门槛
+18. 多租户化（若做 SaaS 或集团版，须提前重构，代价大）
+19. 应用市场 / iPaaS 集成平台 / OAuth2 授权码模式
+20. 原生移动 App（PWA 已可覆盖多数场景）
+21. 订阅计费、价格手册与配置器（视是否切入订阅制商业模式）
+22. 合规认证（等保三级 / SOC 2）——国内投标的实际门槛
+23. ~~i18n 补齐（46 个硬编码页面）~~ —— **已闭合**，仅剩第 16 项串级残留
 
 ---
 
-## 六、对 v1.0 报告的失实更正
+## 六、v2.0 → v3.0 的变更清单（本节为刷新产物）
 
-原 `CRM_FEATURE_COMPARISON.md`（v1.0）为"全 ✅ 清单"，本次代码核对发现以下判定需要更正：
+### 6.1 已闭合（7 项，其中 4 项是 v2.0 点名的缺口）
+
+| 项 | v2.0 判定 | v3.0 判据 | 交付批次 |
+|---|---|---|---|
+| 按钮级权限 | ❌ 2/86 页（2.3%），`PermissionGuard` 为死代码 | **48/101 页（47.5%）**，全部走集中登记的 `PERMS.*`（63 码）；`usePerms`/`PermissionGuard` 均已投入实际使用 | 086 / 087 |
+| SLA 到期扫描与自动升级 | ❌ 全库仅 2 个 `@Scheduled`，无任何 SLA 扫描 | **`SlaEscalationScheduler` 在跑**（每 10 分钟）+ 分级升级 + `escalate_level` 幂等 + `/escalate-now` | 一期 1.3 |
+| 响应超时判定 | （未单列）数据上不可判定 | `sla_responded_at`/`resolved_at` + `computeSlaStatus` 双 deadline + 达成率统计 | 一期 1.3 |
+| 邮件"假成功" | （v2.0 未列，一期排查中发现） | `MailStatus` + `STATUS_SKIPPED` + `MailNotConfiguredException`；"发送前即标 SENT"已删除 | 一期 1.1 |
+| 阶段可配置 + 看板拖拽 | ❌ 前端无拖拽库，商机以 ProTable 呈现 | `opportunity_stage` 字典表（V79）+ `OpportunityBoard.tsx`（`@dnd-kit`）+ 乐观锁 409 回滚 | 一期 1.2 |
+| i18n 页级覆盖 | ⚠️ 83 页仅 53 页接入，约 46 页硬编码 | **96/101 页接入**；未接入的 5 个是无文案的纯展示组件；两道护栏 | 一期 1.4 |
+| 前端几何缺陷 | （v2.0 未记） | **090**：列表页内容区未撑满（空白 197–754px → 56px，顺带修掉幽灵滚动与查询表单末行死白）；**091**：≤767px 下外壳内容区宽度**恒为 0**、内容挤在 24px 缝里（内容区可见宽 24 → 375）。⚠️ **几何的端到端护栏不在这两项内**——由 **092 在补，尚未提交** | 090 / 091 |
+
+### 6.2 判定修正（v2.0 说错的、或已过时的）
+
+| # | v2.0 的判定 | 实测 | 性质 |
+|---|---|---|---|
+| 1 | 数据权限"生效于 Customer/Contact/Lead/Export/**Ticket**" | **工单不在数据权限内**：`TicketService`/`TicketController` 对 `resolveVisibleOwnerIds`/`DataPermissionService`/`EntityAccessService` 零引用 | **v2.0 判错**（当时即错） |
+| 2 | 无 IP 白名单 / **登录风控 ❌** | `AuthService` 有完整的 Redis 失败计数（per-username 5 / per-IP 10，15 分钟窗口）+ `isIpBlocked` 链路 → 应为 ⚠️ | **v2.0 看漏**（当时即错） |
+| 3 | 国际化 ⚠️（83 页仅 53 接入） | 96/101 接入，页级已闭合 | **已成文后同日过时**（i18n 提交 `acc5355` 落在报告落盘之后、同日晚间） |
+| 4 | 仪表盘 ✅（含成交预测、客户分析） | 前端**从未渲染**成交预测；客户分析只剩两个 KPI 数；同比是写死的 | **v2.0 高估**（当时即错） |
+| 5 | 数据权限"全库仅 9 处手动调用" | 13 处 / 9 个文件（新增 4 个 Controller 也在调用） | 数量过时（方向未变） |
+| 6 | §3 的「加权均值」 | 无权重声明、且从其自身各行不可复现（4 列不符） | **v2.0 内部缺陷**，本版订正为等权算术平均并给精确值 |
+| 7 | 2.10「最接近 ML 的一处」等行 | 八项判定与行数全部未变（`SuggestionService`/`WorkflowEngine`/`ApprovalEngineService` 行数与 v2.0 记录字面一致） | 确认无需修正 |
+
+**关于时间线**：v2.0 的提交是 `a12f956`（09-12 13:45），而一期三项修复落在**同日晚间 18:52–18:53**（`25c9bf1` 邮件 / `a97798b` 阶段+看板 / `72a74e0` SLA）。所以第 3 项与 SLA/看板这几条属于**"已成文后同日过时"**，不是 v2.0 判断失误——**这个区别对追责与流程改进有意义，故单列**。
+
+### 6.3 新发现（v2.0 未提及的）
+
+1. **仪表盘三处名实不符**（见 2.7）——成交预测的 i18n 键是孤儿、客户分析名不副实、KPI 同比硬编码、待办与活动流是注释标明的 mock。**这是本版发现的最像"诚信缺口"的一处**。
+2. **图形验证码默认关闭**：`application.yml` 的 `crm.captcha.enabled` = `${CAPTCHA_ENABLED:false}`（代码兜底为 `true`，被 yml 覆盖）→ 生产需显式开启。
+3. **Webhook 投递补偿扫描**：`WebhookDeliverySweepScheduler` 是第 4 个 `@Scheduled`，v2.0 只记了 2 个，未记这一处。
+4. **086 的「不可收口清单」是一份真实的后端待办**：审批中心通过/驳回/转交、导出下载、自定义对象记录删除、评论删除、仪表盘设目标五类端点**后端尚无权限码可挂**，硬挂会真切断功能。
+5. **仓库无 remote、无 `gh`**，CI（8 个步骤 + 独立 E2E 作业）**从未触发**；4 道前端护栏 + 后端 `FrontendPermissionCodeAlignmentTest` 目前只在本地生效。
+6. **对外文档有三处独立于本报告的陈旧数字**（详见第七节）。
+
+---
+
+## 七、对外文档与代码的偏差（本版新增）
+
+以下均为本次实测，**建议作为独立的小改动一并修正**（本报告只记录，不改动这些文件）：
+
+| 文件:行 | 现描述 | 实测 |
+|---|---|---|
+| `README.md:39` | 「邮件同步：邮件记录自动同步」 | **仍是 `simulateSync` 模拟**，不连任何服务器 → 属对外承诺不实，应删除或注明 |
+| `README.md:43` | 「仪表盘：…预测成交」 | 前端**从未渲染**成交预测（长在 2.7） |
+| `README.md:84` | 「Flyway 会自动创建全部 **84** 张表」 | **85 张**（V1–V88 缺 V72） |
+| `README.md:155` | 「db/migration（**V1~V77**）」 | **V1–V88**（缺 V72） |
+| `README.md:162` | 「specs/（**81** 个功能模块，001~081）」 | **91 个**（001–092 缺 069） |
+| `README.md:186` | 「与 Salesforce、HubSpot、**Creatio** 等…对比」 | Creatio **不在本报告的对标集内**（对标集见 1.3）；此处应改指向本报告实际对标的产品 |
+| `PROJECT_FEATURES.md:10-19` | 第二套规模数字：Controller 65 / 表 84 / 迁移 76 / 测试类 141 / 页面 110 / 路由 86 / service 54 / specs 81 | 与实测（66 / 85 / 87 / 167 / 101 / 88 / 56 / 91）**逐项不符**，且与该文件自身的 §九 相矛盾 |
+| `PROJECT_FEATURES.md:19` | 「**81** 个（001–081，缺 069）」 | 001–081 缺 069 = **80** 个（off-by-one） |
+
+> 两个数字陷阱，供后续修订时避开：① `CRM_FEATURE_COMPARISON` 的 v2.0 曾记后端「63 处注解点」，而 086 记前端「63 个登记码」——**两个 63 含义不同，不可混用**；② `target/classes/db/migration` 会让迁移计数翻倍（87 → 174），指向 `src/main/resources` 才不会。
+
+---
+
+## 八、对 v1.0 报告的失实更正（原第六节，留痕）
+
+原 `CRM_FEATURE_COMPARISON.md`（v1.0）为"全 ✅ 清单"，v2.0 的代码核对发现以下判定需要更正。**本节结论至 v3.0 仍然有效**，唯一例外是「按钮级权限仅 2/86 页面接入」一项已在 086/087 闭合（见第六节）。
 
 | v1.0 描述 | 代码实测 | 性质 |
 |---|---|---|
-| "核心 CRM 功能覆盖率 **100%**" | 广度覆盖成立，但**深度普遍不足**（见第二、三节）；且存在多项"字段已建模、引擎未实现"的情况 | **误导性表述** |
-| "AI/预测功能覆盖率 **20%**" | 实为**规则 + 统计**，无任何 ML/LLM/Agent，**偏高估** | 高估 |
+| "核心 CRM 功能覆盖率 **100%**" | 广度覆盖成立，但**深度普遍不足**；且存在多项"字段已建模、引擎未实现" | **误导性表述** |
+| "AI/预测功能覆盖率 **20%**" | 实为**规则 + 统计**，无任何 ML/LLM/Agent | 高估 |
 | "审计日志 ✅ 已实现" | 表与查询页存在，但无认证事件审计、无防篡改、无导出 | 高估（应为 ⚠️） |
-| "数据保留策略 ✅ 已实现" | 实现为**软删除**，非归档/匿名化，无硬删除 | 高估（应为 ⚠️） |
-| "GDPR 合规 ✅ 已实现" | 仅"数据可携带权"，**无被遗忘权删除流、无同意管理、导出无加密** | 高估（应为 ⚠️） |
+| "数据保留策略 ✅ 已实现" | 实现为**软删除**，非归档/匿名化 | 高估（应为 ⚠️） |
+| "GDPR 合规 ✅ 已实现" | 仅"数据可携带权" | 高估（应为 ⚠️） |
 | "字段权限 ✅ 已实现" | **仅作用于自定义字段**，内置字段与 API 出参未过滤 | 严重高估（应为 ❌） |
-| "双因素认证 ❌ 未实现" | 判断正确，但**未提及 `specs/082` 已有完整 TOTP 规格（0/29 任务）** | 信息不全 |
-| 未提及 | **SLA 无定时扫描与自动升级**（全库仅 2 个 `@Scheduled`） | 遗漏关键缺口 |
-| 未提及 | **邮件同步为 `simulateSync` 模拟实现** | 遗漏关键缺口 |
-| 未提及 | **多租户缺失**、**无区域管理**、**无限流**、**字段明文存储** | 遗漏关键缺口 |
-| 未提及 | 按钮级权限仅 2/86 页面接入，`PermissionGuard` 为死代码 | 遗漏关键缺口 |
+| "双因素认证 ❌ 未实现" | 判断正确，但未提及 `specs/082` 已有完整 TOTP 规格 | 信息不全 |
+| 未提及 | **SLA 无定时扫描与自动升级** | 遗漏（**v3.0 已闭合**） |
+| 未提及 | **邮件同步为 `simulateSync` 模拟实现** | 遗漏（**v3.0 收信侧仍缺**） |
+| 未提及 | **多租户缺失**、**无区域管理**、**无限流**、**字段明文存储** | 遗漏 |
+| 未提及 | 按钮级权限仅 2/86 页面接入，`PermissionGuard` 为死代码 | 遗漏（**v3.0 已闭合**） |
 
 ---
 
-## 七、调研来源
+## 九、调研来源
+
+**对标侧沿用 2026-09-12 的调研，本次未重做**（间隔仅 2 天，业界侧无实质变化）；下列链接为当时采集，日期为 **2026-09-12**。
 
 **国际产品与分析师框架**
 - [Gartner Magic Quadrant for Sales Force Automation Platforms 2025: The Rundown — CX Today](https://www.cxtoday.com/marketing-sales-technology/gartner-magic-quadrant-for-sales-force-automation-platforms-sfa-2025-the-rundown/)
@@ -328,18 +422,48 @@
 **国内厂商与标准**
 - [CRM系统有哪些常见功能模块？— Zoho CRM](https://zdblogs.zoho.com.cn/crm/articles/functional-module1204.html)
 - [CRM系统功能详解：助力企业客户全生命周期管理 — Zoho CRM](https://zdblogs.zoho.com.cn/crm/articles/life0618.html)
-- [国内主流CRM厂商对比：SaaS通用、纯本地部署与ERP生态，三条路线怎么选？— 搜狐](https://www.sohu.com/a/1065212617_122909730)
-- [深度解析：销售易CRM、神州云动CRM与纷享销客CRM的品牌特色与核心优势 — CSDN](https://adg.csdn.net/6970862c437a6b40336a88d3.html)
+- [国内主流CRM厂商对比：SaaS通用、纯本地部署与ERP生态 — 搜狐](https://www.sohu.com/a/1065212617_122909730)
+- [深度解析：销售易CRM、神州云动CRM与纷享销客CRM — CSDN](https://adg.csdn.net/6970862c437a6b40336a88d3.html)
 - [国产 CRM 系统推荐指南：三大梯队、10款产品深度对比 — 掘金](https://juejin.cn/post/7583615094362751030)
 - [十大CRM厂商生态能力对比：API开放度与集成难度 — Worktile](https://worktile.com/kb/p/3962236)
 - [迈富时联合中国信通院发布国内首份CRM智能化能力成熟度模型](https://www.marketingforce.com/about/newsshow/1845.html?lang=cn)
 
 **开源与自托管参照**
 - [Self-Hosted CRM in 2026: SuiteCRM vs EspoCRM vs Odoo Community vs Twenty — DEV](https://dev.to/enfernandes/self-hosted-crm-in-2026-suitecrm-vs-espocrm-vs-odoo-community-vs-twenty-3p3b)
-- [2026 开源 CRM 系统盘点：6 款主流方案功能与二开能力横评 — CSDN](https://blog.csdn.net/zhouzhongyan/article/details/161706990)
+- [2026 开源 CRM 系统盘点 — CSDN](https://blog.csdn.net/zhouzhongyan/article/details/161706990)
 - [顶级开源CRM软件，适用于团队和初创公司 — Lark](https://www.larksuite.com/zh_cn/blog/open-source-crm)
 - [企业级自托管 CRM 推荐（支持 RBAC、AI 和 API）— NocoBase](https://www.cnblogs.com/nocobase/p/19926168)
 
 ---
 
-*本报告由工作区代码实测 + 公开资料调研生成，评分部分为主观判定，供选型与规划参考。*
+## 附录 A · 评分口径
+
+- **标度**：5 分制，5 = 国际标杆；4 = 主流可用且有亮点；3 = 骨架完整但深度不足；2 = 有明显功能或运维缺口；1 = 基本空白。允许 0.5 档。
+- **粒度**：**行级判定（✅/⚠️/❌）与域级评分是两个粒度**。一个域的行级判定可以变化而分值不动（本版有两处：平台与扩展、分析与洞察），理由逐条写在第 3 节。
+- **聚合**：**等权算术平均**，十个域权重相同。给出**精确两位值**（3.30），显示值四舍五入到一位（3.3）。
+- **为什么不用加权**：v2.0 写了"加权"却未定义权重。任何自定权重都会让数字随立场移动——若按"销售日常使用"加权，本项目分数会显著上升（客户主数据/销售过程本就最高）；若按"企业采购硬指标"加权则会下降。**等权是可复现的默认**，偏好问题留在正文与差距清单里讨论，不藏进权重。
+- **对标侧分值未重估**：各竞品的**逐域分值沿用 2026-09-12 的判定**（间隔 2 天，业界无实质变化），本版只**重算其均值**并订正 v2.0 的算术不符。
+
+## 附录 B · 复核方法与已知边界
+
+**方法**（与 v2.0 相同，但本版更严）：
+- 6 路**只读**代码复核分别重核 v2.0 的十域逐项判定；**承重数字（表数、迁移数、测试类数、路由数、页面数、权限注解/码数、接入率、`@Scheduled` 数）由我直接实测**，不采用复核结论的转述。
+- 复核过程中出现的三处分歧（`@RequirePermission` 计数、Controller 闸门覆盖率、阶段数）均以实测裁决，**未取任何 agent 的数字**。
+- **验收纪律**：判据必须落在 `file:line`；规格/文档里的"已完成"不作为证据；零命中全仓 grep 作为"不存在"的证据。
+
+**四种口径陷阱（本次实际踩到的）**：
+1. Javadoc 里的 `{@code @RequirePermission(...)}` 会虚增注解计数（未锚定 276 vs 锚定 268）；`@PreAuthorize` 更严重（44 vs 真实 6）。
+2. `<Route` 字符串会被 `<Routes>` 污染（89 vs 真实 88），换行写法又会让正则漏计（`[ />]` 得 86）。
+3. `target/classes/db/migration` 会让迁移计数翻倍（87 → 174）。
+4. **注释里的符号引用会被当成真实调用**：`RoleConstants` 里 2 处 `resolveVisibleOwnerIds` 是注释，若计入会把"13 处调用点"报成 15 处；Controller "带闸门"的宽松计数得 60，实测只有 58。
+
+**边界（必须说明的）**：
+- 本次**未运行** `mvn verify` 与前端测试套件，故后端的 148/167 测试类通过情况、前端覆盖率与阈值均**引自规格记录而非本次实测**（`specs/089`/`090`/`091` 记录：前端 68.55/73.68/36.58 @ 83 文件，阈值 statements 33.6 / branches 47.2 / functions 21.4 / lines 33.6；后端 0.8009 ≥ 0.73）。**"已闭合"的判定全部基于源码与配置证据，不含运行期证据。**
+- 复核是**采样式**的：v2.0 的行级判定逐项过了，但并未逐行读完每个域涉及的全部源码（例如 2.1 客户域的 10 行只做了定向确认）。
+- 前端页面数以 `pages/**/*.tsx` 计（101），与 v2.0 的"83 个懒加载页面"**不是同一口径**，两个数都列在 1.2；跨版本比较按钮级权限接入率时用的是同一口径（页面文件数）。
+- **工作区是共享的**：本报告的读数取自 2026-09-14 的工作区（HEAD `0c07e5a`），当时工作区**另有属于 092 批次的未提交改动**（`frontend/e2e/geometry-*.spec.ts`、`specs/092-geometry-e2e-guard/` 等）。凡与 092 范围重叠的量（`App.tsx` 的路由数、列表页与外壳的几何）按**当日状态**计；若 092 后续改动这些文件，相关数字需重测。
+- 行号会随代码变动腐坏：本报告的所有坐标均在上述快照上有效，**锚字符串比锚行号稳**。
+
+---
+
+*本报告由工作区代码实测 + 公开资料调研生成；评分部分为主观判定，供选型与规划参考。v2.0 原文见提交 `a12f956`。*
