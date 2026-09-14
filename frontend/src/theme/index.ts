@@ -97,6 +97,15 @@ export const antdTheme: ThemeConfig = {
     // 10 与 12（`--radius-lg`）本身也不一致，统一它属另一个决定，已另立遗留项。
     borderRadius: 8,
 
+    // T053：圆角的**第二个源**。antd 由种子派生 `borderRadiusLG = borderRadius + 2`（此处得 10），
+    // 而页面上所有「大圆角」面（antd Card / Table 表头 / Modal / Descriptions）都取这一档，
+    // 于是卡片比控件圆，还与 `index.css` 里 `.ant-card { var(--radius-lg) }` 的 12 打架
+    // ——同一张列表页上能同时看到 8 / 10 / 12 三种卡片圆角（实测见 tasks.md 的 T053 段）。
+    // T053 裁决：**统一到种子值**（卡片与控件同圆角），故把 LG 也压到 8。
+    // 这里刻意用**全局**而不是逐组件收窄（`Card.paddingLG` 那种做法）：本项要的就是
+    // 「所有大圆角面一起走」。波及面（Card / Table / Modal / Descriptions）已实测并记录。
+    borderRadiusLG: 8,
+
     // 与 `index.css:59` 的 `--font-size-base: 13px` 及 `body{font-size:13px}` 对齐。
     // 注意这是**统一**而不是**改小**：CSS 早就把 body 设成 13px 了，只有 antd 组件还在 14，
     // 所以今天页面上两种字号是混着的。这是可见度最高的一项，已列为验收项。

@@ -40,7 +40,13 @@ body {
   /* 圆角系统 */
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 12px;
+  /* T053 裁决：卡片圆角统一到**种子值**，故 lg 由 12 改为 8。
+     本变量是 `src/theme/index.ts` 里 `borderRadius`/`borderRadiusLG` 的**镜像**，
+     供非 antd 的自有类引用（`.stat-card`/`.kpi-card`/`.dashboard-card`/`.ai-suggestion-card`
+     与手写内联 style）。
+     代价照实记：lg 与 md 同值 ⇒ 圆角尺度在「卡片」这一档退化成与基础同值。
+     这不是笔误，正是「卡片与控件同圆角」这个裁决的直接结果。 */
+  --radius-lg: 8px;
   --radius-xl: 16px;
   --radius-full: 9999px;
 
@@ -147,8 +153,12 @@ body {
 /* ========== 全局卡片样式优化（现代化风格） ========== */
 
 /* Ant Design 卡片统一样式 */
+/* T053：圆角**移交主题**（`theme/index.ts` 的 `borderRadiusLG: 8`）。
+   此处原写 `var(--radius-lg)`，靠「同特异性 (0,1,0) + 文档序在后」压过 antd 自己的
+   `:where(.css-x).ant-card`（`prepend:'queue'` 使它在前）——是**第二处真源**。
+   既然主题已成为圆角的真源，这条声明就是重复，删掉以免两份值再次分叉。
+   （`border:none` 与阴影是主题里没有对应位置的自定观感，仍留在这里。） */
 .ant-card {
-  border-radius: var(--radius-lg);
   border: none;
   box-shadow: var(--shadow-md);
   transition: all var(--transition-slow);
@@ -202,7 +212,10 @@ body {
 
 /* Dashboard 卡片悬停效果（保留兼容性） */
 .dashboard-card {
-  border-radius: 12px;
+  /* T053：硬编码 12 → 镜像变量（= 8）。原先它的圆角**从来不是这条 CSS 说了算**——
+     `DashboardPage` 的 5 张卡各自内联了 `borderRadius: 12`，内联恒赢；
+     本条只是「内联写的值恰好与它相同」的巧合。本轮连内联一起归零到 token。 */
+  border-radius: var(--radius-lg);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 1px solid #f0f0f0;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -214,7 +227,7 @@ body {
 
 /* KPI 指标卡样式 */
 .kpi-card {
-  border-radius: 12px;
+  border-radius: var(--radius-lg); /* T053：硬编码 12 → 镜像变量（= 8） */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 1px solid #f0f0f0;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -241,7 +254,7 @@ body {
 
 /* AI 建议卡片样式 */
 .ai-suggestion-card {
-  border-radius: 12px;
+  border-radius: var(--radius-lg); /* T053：硬编码 12 → 镜像变量（= 8） */
   border: 1px solid #ffe7ba;
   background: linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -726,8 +739,12 @@ body {
 }
 
 /* ProTable 样式优化 */
+/* T053：删掉这里的 `border-radius: var(--radius-lg)` —— 它**从来没有生效过**。
+   CDP 的 getMatchedStylesForNode 全量竞争：本文件的选择器 `.ant-table` 是 (0,1,0)，
+   而 antd 那条 `:where(.css-x).ant-table-wrapper .ant-table` 是 (0,2,0)，恒压过它，
+   实测计算值一直是 antd 由 `borderRadiusLG` 派生的 `10px 10px 0px 0px`（此后为 8px 8px 0 0）。
+   故这是一条**死声明**，属本轮订正；下方 `overflow: hidden` 无竞争者，是活的（它负责裁掉表头圆角），保留。 */
 .ant-table {
-  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 .ant-table-wrapper .ant-table-thead > tr > th {
