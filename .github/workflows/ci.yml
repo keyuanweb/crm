@@ -75,6 +75,14 @@ jobs:
       - name: Permission gating is wired correctly
         working-directory: frontend
         run: pnpm run perms:check
+      # 界面规范（088）。这些规则守的都是**不会让任何测试变红**的漂移：新写一个品牌色字面量、
+      # 裸的中文 placeholder、无引用的孤儿组件——都能编译、都能通过用例，只在界面上显形。
+      # 白名单是**债务台账**（双向校验：新增违规会红，条目陈旧也会红），随迁移单调收缩。
+      # 此处只跑默认档（R1/R4/R5/R6/R7 为 error）；R2/R3 是正在被逐页还掉的债，
+      # 仍躲在 --strict 后面，故**不能**在这里改成 ui:check:strict。
+      - name: UI conventions (ui:check)
+        working-directory: frontend
+        run: pnpm run ui:check
       # 必须走 test:coverage 而不是 test：覆盖率阈值（vite.config.ts 的 coverage.thresholds，
       # FR-G09）只在该命令下生效。跑 test 的话门禁「配了但不管」——正是本规格要消除的形态。
       - name: Unit tests (with coverage threshold)

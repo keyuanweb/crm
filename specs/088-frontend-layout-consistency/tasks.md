@@ -101,9 +101,15 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
       规则分档：**R1/R4/R5/R6/R7 = error**；**R2/R3 躲在 `--strict` 后面**。
       R6 **从第一天起就带白名单**——11 处里 9 处是格式/单位示例，**不该翻译**（初稿估的是 8 处且未区分性质）。
 - [x] **T021** `frontend/package.json` 加 `ui:check` / `ui:check:strict` 两个 script。
-- [ ] **T022** `.github/workflows/ci.yml` 加一步 `ui:check`。**⚠️ 受阻，未完成。**
+- [x] **T022** `.github/workflows/ci.yml` 加一步 `ui:check`。~~**⚠️ 受阻，未完成。**~~
       该文件当前被**并行会话 `engineering-consolidation-ci-gates` 持有未提交**（连同 `Dockerfile`、`backend/pom.xml`），
       改动它会踩进对方的在飞工作。**需用户裁决**：等对方提交后由我补，或转告对方一并加上。
+      **【2026-09-14 完成：阻塞已自然解除】** 复核后确认可以落地：① `git log -- .github/workflows/ci.yml`
+      显示 **`ui:check` 从未被提交过**，该文件在工区里干净、**无人持有**；② 那个会话已从 `ListAgents` 消失；
+      ③ 它当时在做的其实是 **JDK-25 同步**那批改动，而 089 已实测否决升 25（改立 21）⇒ **那批改动已被放弃**，
+      不会再有冲突。已在 `perms:check` 之后插入 `ui:check` 步骤并**实跑退出码 0**：白名单仍冻结 **54** 处，
+      未新增违规；口径**只跑默认档**（R1/R4/R5/R6/R7 为 error）——R2/R3 是正在逐页还的债、仍躲在
+      `--strict` 后面，故注释里明文写了**不能**在这里改成 `ui:check:strict`，否则会整片红。
 
 ### 验证
 
