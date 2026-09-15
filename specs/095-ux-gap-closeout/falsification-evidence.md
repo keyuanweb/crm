@@ -248,7 +248,67 @@ $ npx vitest run src/pages/departments/DepartmentListPage.test.tsx -t "清空关
 
 ---
 
-## §H 本批**没有**验证的事（与 `quickstart.md` §4 同源，重复在此以免只读本文件的人误解）
+## §I 067 T009（状态流转红色警示）的两处定向破坏
+
+**被破坏的文件**：`frontend/src/pages/map/UsageMapPage.tsx`（生产侧；测试文件不动）。基准值：
+
+```
+$ sha1sum src/pages/map/UsageMapPage.tsx
+f470e5c9c5dea89d7752ac0b8d3ff2099453eafa *src/pages/map/UsageMapPage.tsx
+```
+
+两次破坏均**未提交**，还原后 sha1 复现基准值、`git diff` 为空。
+
+### §I.1 去掉 `stroke` 的 warning 分支
+
+**破坏**：`d.data.warning ? '#cf1322' : (d.data.color ?? '#1677ff')` → `(d.data.color ?? '#1677ff')`。
+
+```
+$ npx vitest run src/pages/map/UsageMapPage.test.tsx -t "红色警示"
+
+ → expected '#8c8c8c' to be '#cf1322' // Object.is equality
+ AssertionError: expected '#8c8c8c' to be '#cf1322'
+ FAIL  src/pages/map/UsageMapPage.test.tsx > UsageMapPage（029 员工使用地图渲染） > 状态流转的异常节点带红色警示（067 T009）
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 skipped (8)
+```
+
+**读法**：红的是 `cs7` 那一路 —— 它**自带**的 `color` 就是 `#8c8c8c`，所以「灰变红」这一步
+只能由 warning 分支产生，蒙不对。这正是选 `cs7` 而不是 `cs6`（自带 `#cf1322`）当断言输入的原因：
+拿 `cs6` 去测，即使删掉 warning 分支也仍是红的，**用例会假绿**。
+
+### §I.2 悬停移出对 warning 视而不见（恢复成一律 2）
+
+**破坏**：`lineWidth: node.warning ? 3 : 2` → `lineWidth: 2`。
+
+```
+$ npx vitest run src/pages/map/UsageMapPage.test.tsx -t "红色警示"
+
+ → expected last "spy" call to have been called with [ [ { id: 'cs6', style: { …(2) } } ] ]
+ AssertionError: expected last "spy" call to have been called with [ [ { id: 'cs6', style: { …(2) } } ] ]
+ FAIL  src/pages/map/UsageMapPage.test.tsx > UsageMapPage（029 员工使用地图渲染） > 状态流转的异常节点带红色警示（067 T009）
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 skipped (8)
+```
+
+**同时跑的对照**（同一次破坏下）：
+
+```
+$ npx vitest run src/pages/map/UsageMapPage.test.tsx -t "节点悬停效果"
+ Test Files  1 passed (1)
+      Tests  1 passed | 7 skipped (8)
+```
+
+**读法（这是 §I 最该记的一条）**：既有的「节点悬停效果」用例**在同一个缺陷下照旧绿** ——
+因为它只喂 `a1`（非 warning 节点），`? 3 : 2` 走哪支它都读不到。新用例的 ④ 用 `cs6` 才把这条守住。
+即：**新增的这条不是重复覆盖，而是补上了既有用例在结构上够不到的那一半**。
+
+---
+
+## §Z 本批**没有**验证的事（原编号 §H，因插入 §I 而改到文末，**内容未改**；与 `quickstart.md` §4 同源，重复在此以免只读本文件的人误解）
+
+> 章节号与 `tasks.md` T018 里写的「§B–§F」**不完全一致**：实际是 §B–§G（§G 是实施中新发现的
+> 展开键缺陷，计划外新增）**加 §I**（067 T009 的破坏）。此处如实标出，免得被读成「五条之外还有没做的」。
 
 - 抽屉在**真实窄屏下的几何/排版**、树的**方向键行为**：jsdom **没有布局引擎、没有真实焦点模型** ⇒
   **未量过**，只断言了「结构前提」（`role`/`aria-label`/分支存在）。
