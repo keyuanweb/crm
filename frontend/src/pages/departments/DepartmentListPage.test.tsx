@@ -35,6 +35,22 @@ vi.mock('../../services/departmentService', () => ({
  *    并对**移动、桌面各写一条独立断言**——只写一条的话，「用例全绿而桌面分支从未执行」
  *    会被读成两者都验过。
  */
+/**
+ * 5. ⚠️ **本文件显式放宽单项超时**（`itPage`），理由与边界如下 —— 免得被读成「为了让红变绿」。
+ *
+ *    本文件是全仓最重的渲染面：每例都挂一整棵 antd Tree + Modal/Drawer + Popconfirm。
+ *    `vite.config.ts` 的全局 `testTimeout` 是 **20000ms**，而全量并发（默认池 ≈16 worker，
+ *    本仓既有记录 `vitest-default-pool-oversubscribes-this-box`）下 collect 阶段本身就要
+ *    近 5 分钟，本文件的用例会**以 `Test timed out in 20000ms` 假红**。
+ *
+ *    **实测**（同一份代码，只换并发度）：单文件定向跑 11/11 绿；`--maxWorkers=4` 全量下
+ *    曾出现 2 条超时；默认池全量下曾出现 4 条超时。读数跨运行不稳定 ⇒ 是**负载**，不是断言。
+ *
+ *    **放宽的只是耐心**：下面每一条断言逐字未动，实现一旦被破坏仍会以**断言失败**转红。
+ *    六处定向破坏在有此改动之后逐条复跑确认仍红，读数见 `falsification-evidence.md` §J。
+ */
+const itPage = (name: string, fn: () => Promise<void>) => it(name, fn, 60_000)
+
 const adminUser: UserInfo = { id: 1, username: 'admin', displayName: '系统管理员', role: 'ADMIN' }
 
 /** 两棵子树：一棵带子节点（能验展开态），一棵叶子（能验过滤）。 */
@@ -115,7 +131,7 @@ describe('DepartmentListPage 搜索（095 T018/T014/T015/T016）', () => {
     stubMobile()
   })
 
-  it('输入关键词后过滤生效，且命中的片段被 <mark> 标出', async () => {
+  itPage('输入关键词后过滤生效，且命中的片段被 <mark> 标出', async () => {
     await renderPage()
 
     fireEvent.change(searchBox(), { target: { value: '华东' } })
@@ -126,7 +142,7 @@ describe('DepartmentListPage 搜索（095 T018/T014/T015/T016）', () => {
     expect(markFor('华东')).toBeInTheDocument()
   })
 
-  it('300ms 防抖：刚输入时尚未过滤，窗口过后才生效（两段都要断言）', async () => {
+  itPage('300ms 防抖：刚输入时尚未过滤，窗口过后才生效（两段都要断言）', async () => {
     await renderPage()
 
     fireEvent.change(searchBox(), { target: { value: '研发' } })
@@ -142,7 +158,7 @@ describe('DepartmentListPage 搜索（095 T018/T014/T015/T016）', () => {
     expect(has('研发部')).toBe(true)
   })
 
-  it('搜不到任何部门时给出空状态（而非一片空白）', async () => {
+  itPage('搜不到任何部门时给出空状态（而非一片空白）', async () => {
     await renderPage()
 
     fireEvent.change(searchBox(), { target: { value: '不存在的部门' } })
@@ -152,7 +168,7 @@ describe('DepartmentListPage 搜索（095 T018/T014/T015/T016）', () => {
     expect(has('研发部')).toBe(false)
   })
 
-  it('清空关键词后恢复「全部展开」（095 T008 的可见行为变化）', async () => {
+  itPage('清空关键词后恢复「全部展开」（095 T008 的可见行为变化）', async () => {
     await renderPage()
 
     // 首次加载即展开全部：华东销售部有子节点，其子节点直接在场
@@ -175,7 +191,7 @@ describe('DepartmentListPage 创建与编辑（095 T024）', () => {
     stubMobile()
   })
 
-  it('新建：填表保存后调用 createDepartment 并刷新', async () => {
+  itPage('新建：填表保存后调用 createDepartment 并刷新', async () => {
     const { createDepartment, fetchDepartmentTree } = await import('../../services/departmentService')
     vi.mocked(createDepartment).mockResolvedValue(undefined as never)
     await renderPage()
@@ -198,15 +214,24 @@ describe('DepartmentListPage 创建与编辑（095 T024）', () => {
     })
   })
 
-  it('编辑：弹窗预填该部门的值，保存时带 id 与 version 调用 updateDepartment', async () => {
+  itPage('编辑：弹窗预填该部门的值，保存时带 id 与 version 调用 updateDepartment', async () => {
     const { updateDepartment } = await import('../../services/departmentService')
     vi.mocked(updateDepartment).mockResolvedValue(undefined as never)
     await renderPage()
 
     fireEvent.click(rowButton(/pages\.departmentList\.btnEdit/))
     expect(await screen.findByText('pages.departmentList.modalEditTitle')).toBeInTheDocument()
-    // 预填：表单里的名称输入框应带出该节点的名称（`version` 一并带上，否则后端会判并发冲突）
-    expect(screen.getByPlaceholderText(/pages\.departmentList\.formNamePlaceholder/)).toHaveValue('华东销售部')
+    // 预填：表单里的名称输入框应带出该节点的名称（`version` 一并带上，否则后端会判并发冲突）。
+    // 用 `waitFor` 而非同步断言：`destroyOnClose` 让字段是**开弹窗时才挂载**的，高负载下
+    // 「弹窗标题已在场」与「字段已从 form store 取到初值」不保证同帧完成。
+    // ⚠️ 判据未放宽：值仍必须**恰好**是 '华东销售部'，预填一旦坏掉照样红（只是晚 5s 红）。
+    await waitFor(
+      () =>
+        expect(screen.getByPlaceholderText(/pages\.departmentList\.formNamePlaceholder/)).toHaveValue(
+          '华东销售部',
+        ),
+      { timeout: 5000 },
+    )
 
     fireEvent.click(screen.getByRole('button', { name: /pages\.departmentList\.btnSave/ }))
 
@@ -226,7 +251,7 @@ describe('DepartmentListPage 删除（095 T029）', () => {
     stubMobile()
   })
 
-  it('删除确认框同时给出标题与风险说明', async () => {
+  itPage('删除确认框同时给出标题与风险说明', async () => {
     await renderPage()
 
     fireEvent.click(rowButton(/pages\.departmentList\.btnDelete/))
@@ -238,15 +263,16 @@ describe('DepartmentListPage 删除（095 T029）', () => {
     expect(has('pages.departmentList.confirmDeleteRisk')).toBe(true)
   })
 
-  it('确认后调用 deleteDepartment 并刷新', async () => {
+  itPage('确认后调用 deleteDepartment 并刷新', async () => {
     const { deleteDepartment, fetchDepartmentTree } = await import('../../services/departmentService')
     vi.mocked(deleteDepartment).mockResolvedValue(undefined as never)
     await renderPage()
     const callsAfterLoad = vi.mocked(fetchDepartmentTree).mock.calls.length
 
     fireEvent.click(rowButton(/pages\.departmentList\.btnDelete/))
-    // 本页未覆写 okText，故确认键是 antd zh-CN 的默认「确定」（两字按钮会被插空格）
-    const ok = await screen.findByRole('button', { name: /确\s*定/ })
+    // 本页未覆写 okText，故确认键是 antd zh-CN 的默认「确定」（两字按钮会被插空格）。
+    // `findBy*` 默认只等 1000ms，而 Popconfirm 的内容是**点开后才挂载**的 ⇒ 高负载下显式给 5s。
+    const ok = await screen.findByRole('button', { name: /确\s*定/ }, { timeout: 5000 })
     fireEvent.click(ok)
 
     await waitFor(() => {
@@ -264,7 +290,7 @@ describe('DepartmentListPage 详情与无障碍（095 T030/T032/T037）', () => 
     localStorage.clear()
   })
 
-  it('无障碍：搜索框与树容器都有可朗读名称（经 t()，非字面量）', async () => {
+  itPage('无障碍：搜索框与树容器都有可朗读名称（经 t()，非字面量）', async () => {
     stubMobile()
     await renderPage()
 
@@ -277,7 +303,7 @@ describe('DepartmentListPage 详情与无障碍（095 T030/T032/T037）', () => 
     expect(within(tree).getByLabelText('pages.departmentList.ariaTree')).toBeInTheDocument()
   })
 
-  it('移动端（全局桩：matches 恒假）：详情走底部抽屉', async () => {
+  itPage('移动端（全局桩：matches 恒假）：详情走底部抽屉', async () => {
     stubMobile()
     await renderPage()
 
@@ -290,7 +316,7 @@ describe('DepartmentListPage 详情与无障碍（095 T030/T032/T037）', () => 
     expect(document.querySelector('.ant-modal')).toBeNull()
   })
 
-  it('桌面端（本文件内覆盖 matchMedia）：详情走对话框', async () => {
+  itPage('桌面端（本文件内覆盖 matchMedia）：详情走对话框', async () => {
     stubDesktop()
     await renderPage()
 

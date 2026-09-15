@@ -305,6 +305,55 @@ $ npx vitest run src/pages/map/UsageMapPage.test.tsx -t "节点悬停效果"
 
 ---
 
+## §J 全量并发下的稳健性改动，与六处破坏的**复核**（2026-09-16）
+
+### J.1 起因：同一份代码，只换并发度，读数不稳定（这是读数，不是推断）
+
+| 跑法 | 读数 |
+|---|---|
+| 单文件定向（`npx vitest run src/pages/departments/DepartmentListPage.test.tsx`） | **11/11 绿** |
+| 全量 `--maxWorkers=4 --minWorkers=1` | 曾 `Test Files 1 failed \| 85 passed (86)` / `Tests 2 failed \| 427 passed (429)`，两条**都在本文件** |
+| 全量默认池（`pnpm test:coverage`） | 曾 5 条红：`ChangePasswordPage.test.tsx` **1 条（不是本文件）** + 本文件 4 条 |
+
+**归因是负载**：**红的条数与具体哪几条每次都在变**，且其中一条属于**别的文件**；
+单文件跑恒绿；而本仓既有记录（`vitest-default-pool-oversubscribes-this-box`）已确定默认池在这台机器上超订、
+重文件会撞全局 `testTimeout: 20000` 假红。默认池的 `collect` 阶段本身实测接近 5 分钟。
+
+### J.2 改动（**只在本文件内，逐字未动任何断言**）
+
+1. 新增 `itPage` 包装：本文件 11 条用例的单项上限由全局 `testTimeout: 20000` 放宽到 **60000**；
+2. 「编辑：弹窗预填」那条的**同步** `toHaveValue` 改为 `waitFor(…, { timeout: 5000 })` ——
+   `destroyOnClose` 让字段是**开弹窗时才挂载**的，「标题已在场」与「字段已取到初值」不保证同帧；
+3. 「确认后调用 deleteDepartment」那条的 `findByRole('button', { name: /确\s*定/ })` 由默认 1s 改为显式 5s ——
+   Popconfirm 的内容是**点开后才挂载**的。
+
+**判据未放宽**：预填的值仍必须**恰好**是 `华东销售部`；两处 `waitFor` 只是耐心，
+实现一旦坏掉仍以**断言失败**（而非超时）转红 —— 下表即为执行证据。
+
+### J.3 六处破坏的**复核**（§B–§G 的读数取自改动**之前**的文件，故必须重做，不得沿用）
+
+| 节 | 破坏 | 本次读数 | 还原后 |
+|---|---|---|---|
+| §B | `<Highlight …/>` → 裸 `{node.name}` | `1 failed \| 10 skipped`；`expect(received).toBeInTheDocument()` | sha1 **= 基准值** |
+| §C | `q = useDebouncedValue(searchValue, 300)` → `q = searchValue` | `1 failed \| 10 skipped`；`expected false to be true` | sha1 **= 基准值** |
+| §D | 三目条件写死 `false`（`PageState` 不再出现在任何分支） | `1 failed \| 10 skipped`；`Unable to find an element by: [data-testid="page-state-empty"]` | sha1 **= 基准值** |
+| §E | `isMobile = !screens.lg` → `isMobile = true` | `1 failed \| 10 skipped`；`expected null to be truthy` | sha1 **= 基准值** |
+| §F | 删掉搜索框的 `aria-label` | `1 failed \| 2 passed \| 8 skipped`；`Unable to find a label with the text of: /pages\.departmentList\.ariaSearch/` | sha1 **= 基准值** |
+| §G | 两处 `String()` 撤回为数字 | `1 failed \| 10 skipped`；`expected false to be true` | sha1 **= 基准值** |
+
+六次均**未提交**；每次还原后 sha1 逐次再现
+`e4169587b948246124df8178c0625aa61ca34457`、`git diff` 为空（破坏期间 `git log --oneline -1` 停在 `d45c304`）。
+§F 的「2 passed」来历同 §F 原文（`-t "无障碍"` 按用例全名子串匹配，同时带上同 `describe` 的两条兄弟用例）。
+
+> **§I（使用地图）未受影响、故未重做**：本次改动只碰 `DepartmentListPage.test.tsx`，
+> `UsageMapPage.test.tsx` 与 `UsageMapPage.tsx` 一字未动 ⇒ §I.1/§I.2 的读数继续有效。
+
+### J.4 改后的门禁读数
+
+见文末「§Y 门禁读数」。
+
+---
+
 ## §Z 本批**没有**验证的事（原编号 §H，因插入 §I 而改到文末，**内容未改**；与 `quickstart.md` §4 同源，重复在此以免只读本文件的人误解）
 
 > 章节号与 `tasks.md` T018 里写的「§B–§F」**不完全一致**：实际是 §B–§G（§G 是实施中新发现的
@@ -317,3 +366,47 @@ $ npx vitest run src/pages/map/UsageMapPage.test.tsx -t "节点悬停效果"
 - 树的 `aria-label` **不在** `role="tree"` 那个元素上（实测落在树内部的 `.ant-tree-list`）⇒
   **不声称** `role="tree"` 已被命名。落点由 antd 5.22 / rc-tree 5.10 的 prop 透传位置决定。
 - 目录里**没有**新的 e2e、没有视觉背书；本批所有读数都来自 jsdom 单测。
+
+---
+
+## §Y 门禁读数（2026-09-16 追加；置于 §Z 之后是为了**不改 §Z 既有内容**）
+
+跑的是**改后**的工区（含 §J 的稳健性改动），命令即 `package.json` 的 `test:coverage`（**默认 worker 池**）：
+
+```
+$ cd frontend && pnpm test:coverage
+ Test Files  86 passed (86)
+      Tests  429 passed (429)
+   Duration  173.91s (transform 34.03s, setup 36.34s, collect 472.26s, tests 1455.36s, environment 57.85s, prepare 13.89s)
+All files          |   69.82 |    74.76 |   38.54 |   69.82 |
+EXIT=0
+```
+
+| 项 | 读数 | 与阈值比（`vite.config.ts`：statements/lines 33.6、branches 47.2、functions 21.4） |
+|---|---|---|
+| statements | 69.82 | 高于 33.6 |
+| branches | 74.76 | 高于 47.2 |
+| functions | 38.54 | 高于 21.4 |
+| lines | 69.82 | 高于 33.6 |
+
+**不引用单次小数位当论据**（`vite.config.ts` 的明文要求），**未改阈值**（故未动 `083` 的 `data-model.md` §4）。
+
+**另六条门禁**（同一次跑，改后工区）：
+
+```
+$ pnpm typecheck   → 无输出（tsc 静默通过）
+$ pnpm lint        → 无输出（eslint 静默通过）
+$ pnpm i18n:check  → ✓ zh-CN 2879 键 / en 2879 键；路由 58 条 / 清单 56 项 / 粗粒度别名 3 条
+$ pnpm menu:check  → ✓ 56 个菜单项
+$ pnpm perms:check → ✓ 63 个权限码；8 个文件含已登记 ADMIN 判断，共 9 处
+$ pnpm ui:check    → ✓ 271 个产品文件（126 个 tsx）/ 297 个 Form.Item；冻结台账 54 处，未新增违规
+```
+
+其中 **`ui:check` 的 54 处既存债与改动前一致（未增长）** —— 这是本批「R6 台账不许增长」那条约束的可核读数。
+
+**测试文件数**：**84 → 86**。基线以 `git ls-tree -r --name-only 8168c68` 计得 **84**
+（`plan.md` 写的「83 → 85」**少算 1**，以实测的 84 → 86 为准；差 1 的那笔是 `src/App.render.test.tsx`，
+`git ls-files 'src/**/*.test.ts*'` 因 pathspec 的 `**` 行为漏掉了它，而它是 **tracked** 的）。
+
+**分母可信度**：本次读数取自**无第二写入者**的工区（`git status` 无他人未跟踪的 `*.test.tsx`）——
+本仓有过「他人未跟踪的测试文件被 vitest 静默计入总数、制造假绿」的先例（见记忆 `coverage-readings-need-a-quiescent-tree-to-be-attributable`）。
