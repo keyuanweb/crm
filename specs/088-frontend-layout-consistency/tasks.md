@@ -896,7 +896,76 @@ plan 推荐「先 `none`，P1 只引入变量、零视觉变化」。实测该�
          （弹窗窄容器里默认封顶会误伤）。窄容器页面（`/login` 360、`/account/password` 404、
          `SlaCalendarPage` 560）今天靠"容器本来就不够宽"天然单/双列，**不是**靠上限——
          若日后这些页面的容器被放宽，须重新裁决是否补 `maxCols`。
-- [ ] **T044** 3.5 详情页（077 系 4 页 vs 传统系 `Descriptions` 11 个文件两套版式）。
+- [x] **T044** ✅ **已完成**（2026-09-15）3.5 详情页（077 系 4 页 vs 传统系 `Descriptions` 11 个文件两套版式）。
+
+      **本项被用户裁决缩到一件可实证的事**，原状与裁决过程如实记下：
+
+      **开工前实测到的三项事实（推翻了本项原有的前提）**：
+      1. **它没有 FR、没有 SC、也没有门禁规则**——`check-ui.mjs` 的七条规则没有一条管 `Descriptions` 的 `column`；
+         `spec.md` 的 FR-001~FR-014 里也没有一条要求详情页列数按断点响应。
+      2. **它的另一半是明确的非目标**：本项标题里的「077 系 4 页 vs 传统系」若要"统一"，就得改版式、
+         并统一 `StatCard` / `StatusTag` / `AmountDisplay` 三个组件——而 `spec.md` 的**非目标**已把
+         组件采用明文排除。⇒ 本项**不能**按标题字面执行。
+      3. **两套版式的真实差异轴只有 `column` 一个**：`bordered size="small"` 两边都有
+         （我一度以为差在边框，读完整开标签后**当场订正**过，属本仓"读数对不上就怀疑探针"的同型）。
+
+      **用户裁决（2026-09-15）**：**「缩到 column 统一 + 回填需求」**——只做 4 处 `column` 统一，
+      并向 `spec.md` **回填一条 FR**（新增 **FR-015**），让本项的判据从此有据可依，
+      而不是继续挂在一条并不存在的判据上。**不碰** `StatCard` / `StatusTag` / `AmountDisplay`。
+
+      **改动（4 文件 / 4 处 `column` + 4 处 `span`）**：
+
+      | 文件 | `column={2}` → | 全宽项 `span={2}` → |
+      |---|---|---|
+      | `quotes/QuoteDetailPage.tsx`（171） | `{ xs: 1, sm: 2, md: 3 }` | `span={3}`×2（188 驳回原因、192 备注） |
+      | `tickets/TicketDetailPage.tsx`（195） | 同上 | `span={3}`×1（230 描述） |
+      | `data-retention/DataRetentionExecutionHistoryPage.tsx`（107） | 同上 | （无全宽项） |
+      | `exports/ScheduledExportExecutionHistoryPage.tsx`（112） | 同上 | `span={3}`×1（121 Cron） |
+
+      于是 Track B 与 Track A（`ContractDetailPage` / `CustomerDetailPage` / `LeadDetailPage` / `OrderDetailPage`）
+      **逐字同形**：`column={{ xs: 1, sm: 2, md: 3 }}` + 全宽项 `span={3}`。
+
+      **⚠️ 一处实测出来的副作用，如实记下、不藏（它**不**改变本次的结论，但必须让后人知道）**：
+      `span={3}` 会触发 antd 的**开发期警告**
+      `[antd: Descriptions] Sum of column span in a line not match column of Descriptions.`。
+      **A/B 对拍（同文件、同用例、同计数方法）**：`column={2}` + `span={2}` ⇒ **0** 条；
+      `column={{…}}` + `span={3}` ⇒ **8** 条。**再隔离**：只把 `span` 改 3、`column` 保持 `2` ⇒ 仍是 **8** 条
+      ⇒ **成因是 `span={3}`，与响应式 `column` 无关**。
+      机制（读 antd `descriptions/hooks/useRow.js` 的 `getCalcRows`）：行是按 `count += span` **贪心**装的，
+      `count > mergedColumn` 即记 `exceed`；于是**只要全宽项前面的单格项数不是 `column` 的整数倍**，
+      `span={3}` 就会溢出，antd 把它**截到"剩余列数"**（`span: restSpan`）并告警。也就是说
+      `span={3}` 表达的是"**填满本行剩余**"而不是"独占整行"，**这两种写法在像素上完全一致**
+      （antd 的 `span="filled"` 也是同一语义，区别只是它**不告警**）。
+      **这不是本项引入的新形态**：实测 Track A 的两个页面用例今天就已经在报这个警告
+      （`ContractDetailPage` + `OrderDetailPage` 合计 **16** 条，**在我改动之前**，committed 状态）。
+      ⇒ 本项让 Track B 与 Track A 一致，**包括这一条副作用**；告警仅在 `NODE_ENV !== 'production'` 下出现，
+      不影响产物、不影响任何用例（4 个受影响文件的用例 22/22 全绿）。
+      **收口办法（覆盖两条 Track，不在本项范围）**：把全宽项由 `span={3}` 改为 `span="filled"` ——
+      像素不变、告警消失、且语义正确（"填满本行"）。这属**判据/写法变更**，须单独一项做并重新验证。
+
+      **判据④/SC-005 终判（欠账，如实记）**：本项**必然改变这 4 个页面在 md 档（≥768px）的观感**——
+      列数由写死 2 变 3，且全宽项不再是"自己独占一整行"，而是**与上一格共享末行**（上表那 4 处）。
+      须由用户在 **SC-005** 的 1920/1440/1024/768/375 × 中英文 里一并终判；
+      **在验收通过前不得读成"已获视觉背书"**（沿用 T041/T042/T043 的同一条口径）。
+
+      **判据③的读数**：`typecheck` / `lint` / `i18n:check` / `menu:check` / `perms:check` / `ui:check`
+      六道全过（`ui:check` 收尾「白名单内冻结的既存债 **53** 处，未新增违规」——本项**不涉及**任何门禁规则）；
+      受影响的 4 个文件先单跑 ⇒ **22/22 绿**；随后 `pnpm run test:coverage` ⇒
+      **83 文件 / 398 用例全通过、退出码 0**（与 T045 完工时逐数相同，用例数与文件数均未减少）。
+
+      **顺带订正（同一批，T045 的尾巴）**：`spec.md` 里两处因 T045 退役而失效的描述已就地加 ⚠️ 订正、
+      **原文一律保留不删**：FR-009 的「六条规则 + 先宽后紧（`--strict`）」（今为**七条**、且该档已退役）；
+      「关键实体」里 `package.json` 的 `ui:check` / **`ui:check:strict`**（后者已删除）。
+
+      **遗漏（本项未做，供后续排期，不静默）**：
+      1. **`span="filled"` 收口**（见上）：改两条 Track 的全宽项写法，消掉 `exceed` 告警。
+      2. **Track B 之外的同类写死仍有 5 处，本项按裁决**未动**：`components/SignSection.tsx`（`column={2}`）、
+         `components/SurveyBlock.tsx`（`column={2}`）、`Personal/PersonalCenterPage.tsx`（`{ xs: 1, sm: 2 }` ×2）、
+         `portal/CustomerPortalPage.tsx`（`column={1}` 与 `column={3}`）。
+         它们**不在** T044 标题的"详情页"范围内，逐处是否该统一**未裁决**——本项不替它们下结论。
+      3. **`Descriptions` 的 `column` 今天没有任何门禁**：本项完全靠人工逐处核实 + SC-005 兜底。
+         若要常态化，同 T043 遗留 2 的思路，应另立一条规则或并入几何护栏。
+
 - [x] **T045** ✅ **已完成**（2026-09-15）**R3 从 `--strict` 翻成 error**（原文记 96 处，**当前实测 89 处 / 89 候选点**——以实测为准；
       原写「90 处 / 92 候选点」，那是 `readSource` 剥注释缺陷未修时的读数，订正见 **T046**），
       并删除 P2/P3 期间已还清的全部白名单条目。

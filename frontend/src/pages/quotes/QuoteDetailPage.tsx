@@ -168,7 +168,7 @@ export default function QuoteDetailPage() {
       </div>
 
       <Card title={t('pages.quote.detail.basicInfo')} style={{ marginBottom: 16 }}>
-        <Descriptions column={2} bordered size="small">
+        <Descriptions column={{ xs: 1, sm: 2, md: 3 }} bordered size="small">
           <Descriptions.Item label={t('pages.quote.detail.labelStatus')}>
             <Tag color={QUOTE_STATUS_COLORS[status]}>{labelOf(t, ENUM_KEYS.quoteStatus, status)}</Tag>
           </Descriptions.Item>
@@ -185,11 +185,11 @@ export default function QuoteDetailPage() {
             </Descriptions.Item>
           )}
           {data.rejectReason && (
-            <Descriptions.Item label={t('pages.quote.detail.labelRejectReason')} span={2}>
+            <Descriptions.Item label={t('pages.quote.detail.labelRejectReason')} span={3}>
               <Typography.Text type="danger">{data.rejectReason}</Typography.Text>
             </Descriptions.Item>
           )}
-          <Descriptions.Item label={t('pages.quote.detail.labelRemark')} span={2}>
+          <Descriptions.Item label={t('pages.quote.detail.labelRemark')} span={3}>
             {data.remark ?? '-'}
           </Descriptions.Item>
         </Descriptions>

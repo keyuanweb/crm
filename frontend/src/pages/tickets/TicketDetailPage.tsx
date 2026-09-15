@@ -192,7 +192,7 @@ export default function TicketDetailPage() {
           </Space>
         }
       >
-        <Descriptions bordered size="small" column={2}>
+        <Descriptions bordered size="small" column={{ xs: 1, sm: 2, md: 3 }}>
           <Descriptions.Item label={t('pages.ticket.detail.labelCustomer')}>
             {ticket.customerName ?? `#${ticket.customerId}`}
           </Descriptions.Item>
@@ -227,7 +227,7 @@ export default function TicketDetailPage() {
         </Descriptions.Item>
         <Descriptions.Item label={t('pages.ticket.detail.labelReplies')}>{ticket.replyCount ?? replies.length}</Descriptions.Item>
         {ticket.description && (
-          <Descriptions.Item label={t('pages.ticket.detail.labelDescription')} span={2}>
+          <Descriptions.Item label={t('pages.ticket.detail.labelDescription')} span={3}>
             {ticket.description}
           </Descriptions.Item>
         )}

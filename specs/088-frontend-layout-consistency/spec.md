@@ -131,6 +131,24 @@
 - **FR-013 一页一提交**：P2 每页转换**一页一提交**，页内"外壳"与"表单原语"**再分成两次提交**，让视觉差异可归因。
 - **FR-014 并行工作区纪律**：本仓库常有多个会话共用同一工作区——**不得 `git add -A`**，只按显式路径暂存；
   跑全仓门禁前确认无其它 writer（`ListAgents` + `git status`）。
+- **FR-015 详情页列数按断点响应**（**2026-09-15 回填**，本条的由来见下）：详情页的 `Descriptions`
+  列数**不得写死**，一律按视口分档——`column={{ xs: 1, sm: 2, md: 3 }}`；**全宽项**
+  （备注、驳回原因、长描述这类整行字段）用 **`span={3}`**，与该 `column` 的**上限一致**。
+  **不得**写死 `column={2}`。这就是"同一件事在每个页面上长一样"（用户故事 2）在详情页上的落点。
+  验收**落在 SC-005**（1920/1440/1024/768/375 × 中英文，**由用户执行**）——
+  明确记下：本条**既没有门禁规则、也没有独立的自动化用例**。
+
+  **本条的由来（如实告知，不含糊）**：T044 是 088 的 P3 里**唯一既无 FR 支撑、也无门禁规则**的一项；
+  它原本的另一半（详情页改用 077 系版式、并统一 `StatCard` / `StatusTag` / `AmountDisplay` 三个组件）
+  已被本规格的**非目标**明文排除。按用户 **2026-09-15** 的裁决，本项**缩到"列数统一"这一件可实证的事**，
+  并**回填本条需求**，让它的判据有据可依——而不是继续挂在一条并不存在的判据上。
+  ⇒ 读本条须知：它是**代码先于规格**的那一类（与 090 的"事后立项回填"同性质），
+  **不得**据此声称 T044 走过 spec-first 流程。落点 4 处（`QuoteDetailPage` / `TicketDetailPage` /
+  `DataRetentionExecutionHistoryPage` / `ScheduledExportExecutionHistoryPage`），逐处见 `tasks.md` 的 T044 记录。
+- ⚠️ **FR-009 的机制描述已过时（订正，2026-09-15，T045）**：FR-009 原文写「六条规则 + **先宽后紧**（`--strict`）」，
+  今天两条都不成立——规则已是 **七条**，且 `--strict` 两档机制**已整条退役**（R2 于 T040、R3 于 T045 逐条毕业后，
+  七条全在默认档，那个开关不再改变任何行为，已删除）。**原文保留在上、不删**；机制现状见
+  `scripts/check-ui.mjs` 文件头的「两档机制——已于 2026-09-15 退役」一节与 `tasks.md` 的 T045 记录。
 
 ### 关键实体
 
@@ -138,6 +156,7 @@
   `src/components/ui/{formGridStyle,formModalSize}.ts`（纯函数，不入 barrel）。
 - **新增测试（4 个文件 / 35 用例）**：同目录 `*.test.tsx`。
 - **护栏**：`frontend/scripts/check-ui.mjs`（约 600 行）+ `package.json` 的 `ui:check` / `ui:check:strict`。
+  ⚠️ **订正（2026-09-15，T045）**：`ui:check:strict` **已删除**，`ui:check` 是**唯一的档**——原文保留在上、不删。
 - **规格产物**：`specs/088-frontend-layout-consistency/{spec,plan,tasks,research}.md`
   + `measure-ui-baseline.mjs` + `baseline-output.txt`。
 - **P2 样板页（4 个）**：`invoices/InvoiceListPage`、`tags/TagListPage`、`products/ProductListPage`、`customers/CustomerListPage`。

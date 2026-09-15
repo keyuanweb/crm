@@ -109,7 +109,7 @@ const ScheduledExportExecutionHistoryPage: React.FC = () => {
       </Space>
 
       <Card title={t('pages.scheduledExport.history.taskInfo')} style={{ marginBottom: 16 }}>
-        <Descriptions bordered column={2} size="small">
+        <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }} size="small">
           <Descriptions.Item label={t('pages.scheduledExport.common.entity')}>{entityTypeLabels[task.entityType] ?? task.entityType}</Descriptions.Item>
           <Descriptions.Item label={t('pages.scheduledExport.common.format')}>{exportFormatLabels[task.exportFormat] ?? task.exportFormat}</Descriptions.Item>
           <Descriptions.Item label={t('pages.scheduledExport.common.status')}>
@@ -118,7 +118,7 @@ const ScheduledExportExecutionHistoryPage: React.FC = () => {
             </Tag>
           </Descriptions.Item>
           <Descriptions.Item label={t('pages.scheduledExport.common.nextExecution')}>{task.nextExecutionTime ? new Date(task.nextExecutionTime).toLocaleString('zh-CN') : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Cron" span={2}>{task.cronExpression}</Descriptions.Item>
+          <Descriptions.Item label="Cron" span={3}>{task.cronExpression}</Descriptions.Item>
         </Descriptions>
       </Card>
 

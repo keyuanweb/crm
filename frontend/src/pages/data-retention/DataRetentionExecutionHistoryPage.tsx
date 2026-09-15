@@ -104,7 +104,7 @@ const DataRetentionExecutionHistoryPage: React.FC = () => {
       </Space>
 
       <Card title={t('pages.dataRetention.history.policyInfo')} style={{ marginBottom: 16 }}>
-        <Descriptions bordered column={2} size="small">
+        <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }} size="small">
           <Descriptions.Item label={t('pages.dataRetention.common.entity')}>{entityTypeLabels[policy.entityType] ?? policy.entityType}</Descriptions.Item>
           <Descriptions.Item label={t('pages.dataRetention.common.retentionPeriod')}>{t('pages.dataRetention.common.days', { count: policy.retentionDays })}</Descriptions.Item>
           <Descriptions.Item label={t('pages.dataRetention.common.actionType')}>{actionTypeLabels[policy.actionType] ?? policy.actionType}</Descriptions.Item>
