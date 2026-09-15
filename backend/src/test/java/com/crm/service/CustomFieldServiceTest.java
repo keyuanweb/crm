@@ -36,6 +36,7 @@ class CustomFieldServiceTest {
   private CustomFieldMapper fieldMapper;
   private CustomFieldValueMapper valueMapper;
   private AuditService auditService;
+  private FieldPermissionService fieldPermissionService;
   private CustomFieldService service;
   private MockedStatic<SecurityUtil> securityUtilMock;
 
@@ -52,9 +53,9 @@ class CustomFieldServiceTest {
     fieldMapper = mock(CustomFieldMapper.class);
     valueMapper = mock(CustomFieldValueMapper.class);
     auditService = mock(AuditService.class);
+    fieldPermissionService = mock(FieldPermissionService.class);
     service =
-        new CustomFieldService(
-            fieldMapper, valueMapper, auditService, mock(FieldPermissionService.class));
+        new CustomFieldService(fieldMapper, valueMapper, auditService, fieldPermissionService);
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     securityUtilMock
@@ -173,5 +174,81 @@ class CustomFieldServiceTest {
 
     verify(valueMapper).delete(any());
     verify(fieldMapper).deleteById(org.mockito.ArgumentMatchers.<Long>any());
+  }
+
+  // ===== 056 读路径：HIDDEN 字段的值不下发 =====
+
+  private CustomFieldValue stored(Long fieldId, String value) {
+    CustomFieldValue v = new CustomFieldValue();
+    v.setFieldId(fieldId);
+    v.setEntityType("LEAD");
+    v.setEntityId(10L);
+    v.setFieldValue(value);
+    return v;
+  }
+
+  /** 当前用户切换为非 ADMIN 角色，并登记该角色在本实体上的字段权限。 */
+  private void asRole(String roleCode, java.util.Map<Long, String> perms) {
+    securityUtilMock
+        .when(SecurityUtil::currentPrincipal)
+        .thenReturn(new CrmPrincipal(2L, "sales", roleCode));
+    when(fieldPermissionService.permissionsForRole(roleCode, "LEAD")).thenReturn(perms);
+  }
+
+  @Test
+  @DisplayName("读值：HIDDEN 字段的值不下发（原先读路径不做权限计算，值随 Response 外泄）")
+  void readValuesDropsHiddenField() {
+    asRole("SALES", java.util.Map.of(1L, FieldPermissionService.PERM_HIDDEN));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "机密"), stored(2L, "可见")));
+
+    var values = service.readValues("LEAD", 10L);
+
+    assertThat(values).extracting(CustomFieldValueDTO::getFieldId).containsExactly(2L);
+    assertThat(values).extracting(CustomFieldValueDTO::getValue).containsExactly("可见");
+  }
+
+  @Test
+  @DisplayName("读值（批量）：HIDDEN 字段的值同样不下发")
+  void readValuesBatchDropsHiddenField() {
+    asRole("SALES", java.util.Map.of(1L, FieldPermissionService.PERM_HIDDEN));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "机密"), stored(2L, "可见")));
+
+    var values = service.readValuesBatch("LEAD", List.of(10L));
+
+    assertThat(values.get(10L)).extracting(CustomFieldValueDTO::getFieldId).containsExactly(2L);
+  }
+
+  @Test
+  @DisplayName("读值：无 HIDDEN 配置时直通，不裁剪")
+  void readValuesKeepsEverythingWhenNothingHidden() {
+    asRole("SALES", java.util.Map.of(1L, FieldPermissionService.PERM_READ_ONLY));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "机密"), stored(2L, "可见")));
+
+    var values = service.readValues("LEAD", 10L);
+
+    assertThat(values).extracting(CustomFieldValueDTO::getFieldId).containsExactly(1L, 2L);
+  }
+
+  @Test
+  @DisplayName("保存值：HIDDEN 字段不在入参里 → 先删后插必须按原值补回，不得静默删除")
+  void saveValuesKeepsHiddenFieldValue() {
+    asRole("SALES", java.util.Map.of(1L, FieldPermissionService.PERM_HIDDEN));
+    when(fieldMapper.selectList(any())).thenReturn(List.of(field(2L)));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "机密"), stored(2L, "旧")));
+
+    CustomFieldValueDTO submitted = new CustomFieldValueDTO();
+    submitted.setFieldId(2L);
+    submitted.setValue("新");
+    service.saveValues("LEAD", 10L, List.of(submitted));
+
+    org.mockito.ArgumentCaptor<CustomFieldValue> captor =
+        org.mockito.ArgumentCaptor.forClass(CustomFieldValue.class);
+    verify(valueMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
+    assertThat(captor.getAllValues())
+        .anySatisfy(
+            v -> {
+              assertThat(v.getFieldId()).isEqualTo(1L);
+              assertThat(v.getFieldValue()).isEqualTo("机密");
+            });
   }
 }

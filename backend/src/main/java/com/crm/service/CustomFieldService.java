@@ -15,6 +15,7 @@ import com.crm.repository.CustomFieldValueMapper;
 import com.crm.security.SecurityUtil;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +67,23 @@ public class CustomFieldService {
   private String currentRoleCode() {
     var principal = SecurityUtil.currentPrincipal();
     return principal == null ? "ADMIN" : principal.role();
+  }
+
+  /** 该角色在本实体上被隐藏的字段 id（ADMIN 与未配置一律为空集）。 */
+  private Set<Long> hiddenFieldIds(String roleCode, String entityType) {
+    return fieldPermissionService.permissionsForRole(roleCode, entityType).entrySet().stream()
+        .filter(e -> FieldPermissionService.PERM_HIDDEN.equals(e.getValue()))
+        .map(Map.Entry::getKey)
+        .collect(Collectors.toSet());
+  }
+
+  private List<CustomFieldValueDTO> dropHidden(
+      String roleCode, String entityType, List<CustomFieldValueDTO> values) {
+    Set<Long> hidden = hiddenFieldIds(roleCode, entityType);
+    if (hidden.isEmpty()) {
+      return values;
+    }
+    return values.stream().filter(v -> !hidden.contains(v.getFieldId())).toList();
   }
 
   public PageResult<CustomFieldResponse> page(String entityType, long page, long pageSize) {
@@ -206,7 +224,7 @@ public class CustomFieldService {
     // 056：字段权限校验（HIDDEN 拒绝写入 / READ_ONLY 拒绝修改；ADMIN 豁免）
     String roleCode = currentRoleCode();
     java.util.Map<Long, String> existing =
-        readValues(entityType, entityId).stream()
+        readValuesRaw(entityType, entityId).stream()
             .collect(
                 java.util.stream.Collectors.toMap(
                     com.crm.dto.customfield.CustomFieldValueDTO::getFieldId,
@@ -231,10 +249,30 @@ public class CustomFieldService {
         valueMapper.insert(value);
       }
     }
+    // 056：HIDDEN 字段的值不下发 ⇒ 调用方提交里必然没有它们（有则 validateWrite 已抛 422）。
+    // 上面的"先删后插"会连它们一起删掉，故按库中原值补回：**看不见不等于该被删除**。
+    Set<Long> hidden = hiddenFieldIds(roleCode, entityType);
+    for (Map.Entry<Long, String> e : existing.entrySet()) {
+      if (!hidden.contains(e.getKey()) || !StringUtils.hasText(e.getValue())) {
+        continue;
+      }
+      CustomFieldValue kept = new CustomFieldValue();
+      kept.setFieldId(e.getKey());
+      kept.setEntityType(entityType);
+      kept.setEntityId(entityId);
+      kept.setFieldValue(e.getValue());
+      valueMapper.insert(kept);
+    }
   }
 
-  /** 读取实体自定义字段值（含字段名）。 */
+  /** 读取实体自定义字段值（含字段名）。**HIDDEN 字段不下发**——读路径原先不做权限计算， HIDDEN 字段的**值**会随各实体的 Response 外泄（056）。 */
   public List<CustomFieldValueDTO> readValues(String entityType, Long entityId) {
+    String roleCode = currentRoleCode();
+    return dropHidden(roleCode, entityType, readValuesRaw(entityType, entityId));
+  }
+
+  /** 库中原值、不做权限过滤：**仅供保存路径比对既有值**，不得直接对外返回。 */
+  private List<CustomFieldValueDTO> readValuesRaw(String entityType, Long entityId) {
     List<CustomFieldValue> values =
         valueMapper.selectList(
             new LambdaQueryWrapper<CustomFieldValue>()
@@ -261,8 +299,26 @@ public class CustomFieldService {
         .toList();
   }
 
-  /** 批量读取（避免 N+1）：entityId → 值列表。 */
+  /** 批量读取（避免 N+1）：entityId → 值列表。**HIDDEN 字段不下发**（056）。 */
   public Map<Long, List<CustomFieldValueDTO>> readValuesBatch(
+      String entityType, List<Long> entityIds) {
+    Map<Long, List<CustomFieldValueDTO>> raw = readValuesBatchRaw(entityType, entityIds);
+    if (raw.isEmpty()) {
+      return raw;
+    }
+    Set<Long> hidden = hiddenFieldIds(currentRoleCode(), entityType);
+    if (hidden.isEmpty()) {
+      return raw;
+    }
+    return raw.entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                e -> e.getValue().stream().filter(v -> !hidden.contains(v.getFieldId())).toList()));
+  }
+
+  /** 库中原值、不做权限过滤（批量）。 */
+  private Map<Long, List<CustomFieldValueDTO>> readValuesBatchRaw(
       String entityType, List<Long> entityIds) {
     if (entityIds.isEmpty()) {
       return Map.of();
