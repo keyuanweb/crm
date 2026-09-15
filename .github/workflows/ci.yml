@@ -82,6 +82,13 @@ jobs:
       # 仍躲在 --strict 后面，故**不能**在这里改成 ui:check:strict（那会把 R3 的 89 处一起变红）。
       # ⚠️ R2 于 2026-09-15（088 T040）由 `--strict` 档**逐条毕业**成默认档 error：22 处清零、
       # `strict` 改 `false`、`allowed` 仍 `null` ⇒ 零容忍。它**不再**是"躲在 --strict 后面"的那一半。
+      # ⚠️ **上面那两句已作废——原文保留在上、不删**（2026-09-15，088 T045）：R3 于同日**逐条毕业**
+      # （89 → 2 → 0，`allowed` 始终为 `null`），于是七条规则**全部**是默认档 ⇒ `--strict` 这个开关
+      # **不再改变任何行为**，故连同 `package.json` 的 `ui:check:strict` 一并删除。
+      # 上面那句"不能在这里改成 ui:check:strict"今天**两头都不成立**：脚本已无此选项（跑了会报错），
+      # 而两档并成一档后也没有"改成更严的那一档"这回事了。
+      # 本步骤仍写 `pnpm run ui:check`——它**就是**唯一的档；而 **R3 从今天起第一次进 CI 强制**
+      # （它此前那 89 处债从来不在 CI 的视野里）。锚字符串：`run: pnpm run ui:check`。
       - name: UI conventions (ui:check)
         working-directory: frontend
         run: pnpm run ui:check

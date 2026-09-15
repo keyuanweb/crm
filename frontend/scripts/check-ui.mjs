@@ -17,25 +17,27 @@
  * 后者管的是"挂错权限码导致按钮静默消失"，与 UI 规范**受众不同、白名单生命周期不同**。
  * 耦合会让一次 UI 白名单改动因无关原因搞红权限门禁，而**会因无关原因转红的门禁会被绕过**。
  *
- * <h3>先宽后紧（`--strict`）</h3>
- * 规则分两档：
- * <ul>
- *   <li><b>error</b>（R1/R4/R5/R6/R7 + **R2**，默认就红）：违规点少、修起来都不大，
- *       白名单里冻结既存债（R2 例外：它无白名单，见下一条）。
- *   <li><b>warn → error</b>（R3，躲在 `--strict` 后面）：违规点是**正在被 P3 逐页还掉的债**
- *       （当前 **89 处**写死 span 的表单 Col / **89 个候选点**；原文记 96，2026-09-15 去注释前是 90/92
- *       ——以实测为准）。给它写一份 ~40 个文件的长白名单
- *       没人会维护，而不被维护的白名单**等价于没有门禁**。所以它在 `--strict` 下**零容忍**：
- *       计数归零的那一天，`pnpm ui:check --strict` 就是新的门禁，中间不需要任何过渡清单。
+ * <h3>两档机制（`--strict`）——**已于 2026-09-15 退役**（088 T045）</h3>
+ * 这里原本有「先宽后紧」两档：**error**（R1/R4/R5/R6/R7，默认就红，白名单冻结既存债）与
+ * **warn → error**（R2 / R3，躲在 `--strict` 后面，等 P3 逐页把债还到零再毕业）。
+ * 现在**七条规则全在默认档**，`--strict` 这个开关**已删除**（连同 `package.json` 的
+ * `ui:check:strict`）——留着一个什么也不改变的开关，会让"它看起来更严"变成一个假象。
  *
- * <p><b>R2 已于 2026-09-15 从 warn 档毕业</b>（088 T040）：22 处无宽度表单弹窗清零，
- * 故 `strict` 由 `true` 改 `false`，`allowed` 仍为 `null` ⇒ **它在默认档就零容忍**。
- * 刻意**没有**走「把门禁整档换成 `--strict`」那条路——那一档会连带把 R3 的 90 处（同日的 T046
- * 修掉 `readSource` 不剥注释的缺陷后订正为 **89**）也变成失败，
- * 而 R3 是下一批（3.2 / 3.3）的活。**逐条毕业而不是整档切换**，是为了让每一批只翻自己要翻的那条，
- * 否则先还完的那条会被后还的那条拖着一直不生效。
- * （上一条里那句「计数归零的那一天，`--strict` 就是新的门禁」对 **R3 自己**仍然成立：
- * 等 R3 归零时 R2 也已是 0，整档切换不会被别的规则拖住。）
+ * <p>两条毕业记录：
+ * <ul>
+ *   <li><b>R2</b>（承载表单的 Modal 必须显式定宽）2026-09-15 毕业（**T040**）：22 处清零。
+ *   <li><b>R3</b>（表单内 `<Col>` 不得只写 `span`）2026-09-15 毕业（**T045**）：计数由
+ *       **89 → 2 → 0**（T042 还 87 处、T041 还 2 处），`allowed` 始终为 `null` ⇒ 零容忍。
+ *       两条都**没有**走过「整档切换」，而是**逐条毕业**——那一档在 R3 还有 89 处债时会把它们
+ *       也变成失败，于是先还完的 R2 会被后还的 R3 一直拖着不生效。
+ * </ul>
+ * <p>一个**今天没有白名单**的规则（`allowed === null`）意味着"计数必须归零"，
+ * 而不是"登记下来慢慢还"——写死一份 ~40 个文件的长白名单没人会维护，
+ * 而不被维护的白名单**等价于没有门禁**。这正是 R2/R3 宁可要零容忍的理由。
+ *
+ * <p>⚠️ **CI 跑的一直是默认档**（`.github/workflows/ci.yml` 的 `pnpm run ui:check`）。
+ * 所以 R3 毕业的意义不只是"门禁更严"，而是 **R3 从今天起第一次进 CI 强制**——
+ * 它此前的 89 处债是在 CI 视野之外的。
  *
  * <h3>白名单必须是**债务台账**，不是批准清单</h3>
  * R1 的 32 处品牌色字面量**不代表它们是对的**——它们是本批次明确留给 P3/P4 的既存债
@@ -45,7 +47,7 @@
  * 之所以现在就把它们登记下来，是因为**登记下来的债才会单调收缩**：
  * `{file, count, reason}` 按文件+命中数**双向**校验，多了说明新增违规、少了说明有人还了债却没销账。
  *
- * <p>用法：`pnpm ui:check`（默认档） / `node scripts/check-ui.mjs --strict`（含布局类规则）。
+ * <p>用法：`pnpm ui:check`（唯一的档，2026-09-15 起不再有 `--strict`）。
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
@@ -53,7 +55,6 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = join(ROOT, 'src')
-const STRICT = process.argv.includes('--strict')
 
 // 归一化路径分隔符，让白名单在 Windows / Linux 上都能匹配（与 check-perms.mjs 同）。
 const rel = (p) => relative(ROOT, p).split(sep).join('/')
@@ -615,7 +616,7 @@ function rule2() {
 }
 
 /**
- * R3（`--strict`）：表单内的 `<Col>` 不得只写 `span`。
+ * R3（**默认档**，2026-09-15 由 `--strict` 毕业——见文件头的两档机制一节）：表单内的 `<Col>` 不得只写 `span`。
  *
  * <p>判据：有 `span` 属性，且 `xs/sm/md/lg/xl/flex` 一个都没有。
  * 这正是"94% 的写死 span"那条实测（96/102）——320px 屏上它与视口断点无关，
@@ -648,13 +649,13 @@ function rule3() {
 const formItems = formItemTags()
 
 const ruleDefs = [
-  { id: 'R1', title: '品牌色字面量（应走主题 token / var(--color-primary)）', run: rule1, allowed: R1_ALLOWED, strict: false },
-  { id: 'R4', title: '`required: true` 必须带 `message`', run: () => rule4(formItems), allowed: R4_ALLOWED, strict: false },
-  { id: 'R5', title: '`required: true` 必须带 `label`（或 `aria-label`）', run: () => rule5(formItems), allowed: R5_ALLOWED, strict: false },
-  { id: 'R6', title: '禁裸字符串 `placeholder` / `aria-label`（必须走 `t()`）', run: rule6, allowed: R6_ALLOWED, strict: false },
-  { id: 'R7', title: '组件零非测试引用（孤儿组件）', run: rule7, allowed: R7_ALLOWED, strict: false },
-  { id: 'R2', title: '承载表单的 Modal 必须显式定宽', run: rule2, allowed: null, strict: false },
-  { id: 'R3', title: '表单内 `<Col>` 不得只写 `span`（--strict）', run: rule3, allowed: null, strict: true },
+  { id: 'R1', title: '品牌色字面量（应走主题 token / var(--color-primary)）', run: rule1, allowed: R1_ALLOWED },
+  { id: 'R4', title: '`required: true` 必须带 `message`', run: () => rule4(formItems), allowed: R4_ALLOWED },
+  { id: 'R5', title: '`required: true` 必须带 `label`（或 `aria-label`）', run: () => rule5(formItems), allowed: R5_ALLOWED },
+  { id: 'R6', title: '禁裸字符串 `placeholder` / `aria-label`（必须走 `t()`）', run: rule6, allowed: R6_ALLOWED },
+  { id: 'R7', title: '组件零非测试引用（孤儿组件）', run: rule7, allowed: R7_ALLOWED },
+  { id: 'R2', title: '承载表单的 Modal 必须显式定宽', run: rule2, allowed: null },
+  { id: 'R3', title: '表单内 `<Col>` 不得只写 `span`', run: rule3, allowed: null },
 ]
 
 /**
@@ -675,7 +676,6 @@ const MIN_CANDIDATES = {
 }
 
 const problems = []
-const warnings = []
 
 for (const rule of ruleDefs) {
   const { hits, candidates } = rule.run()
@@ -695,15 +695,10 @@ for (const rule of ruleDefs) {
     continue
   }
 
-  if (rule.strict && !STRICT) {
-    warnings.push(`${rule.id}（${rule.title}）：${hits.length} 处待还（${candidates} 个候选点）。` +
-      `加 --strict 会把它当失败。`)
-    continue
-  }
-
-  // `allowed === null` 的规则：**零容忍、无白名单**。今天有两条走这里：
-  // 默认档的 R2（已毕业）与 `--strict` 档的 R3。写死一份长白名单没人维护，
-  // 而不被维护的白名单等价于没有门禁——所以这两条宁可要"计数必须归零"，不要"登记下来慢慢还"。
+  // `allowed === null` 的规则：**零容忍、无白名单**。今天有两条走这里：R2 与 R3
+  // （两条都于 2026-09-15 从 `--strict` 毕业，见文件头的两档机制一节）。
+  // 写死一份长白名单没人维护，而不被维护的白名单等价于没有门禁
+  // ——所以这两条宁可要"计数必须归零"，不要"登记下来慢慢还"。
   if (rule.allowed === null) {
     for (const h of hits) {
       problems.push({
@@ -768,14 +763,8 @@ for (const rule of ruleDefs) {
 
 console.log(
   `扫描 ${allFiles.length} 个产品文件（其中 ${tsxFiles.length} 个 tsx）、` +
-    `${formItems.length} 个 Form.Item${STRICT ? '；**--strict** 档' : ''}`,
+    `${formItems.length} 个 Form.Item`,
 )
-
-if (warnings.length > 0) {
-  console.log('\n提示（非失败）：')
-  for (const w of warnings) console.log(`  · ${w}`)
-  console.log('  以上是"先宽后紧"里尚未收紧的那些，随 P3 逐批销账（R2 已于 088 T040 毕业，不再出现在这里）。')
-}
 
 if (problems.length > 0) {
   console.error(`\n✗ UI 规范校验失败：${problems.length} 处问题\n`)
