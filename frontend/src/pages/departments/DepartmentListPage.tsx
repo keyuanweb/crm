@@ -13,7 +13,8 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { Department } from '../../types/department'
-import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
+import { FormGrid, Highlight, PageState, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 
 interface FormValues {
   name: string
@@ -35,6 +36,10 @@ export default function DepartmentListPage() {
   const [form] = Form.useForm<FormValues>()
   const [flatOptions, setFlatOptions] = useState<{ value: number; label: string }[]>([])
   const [searchValue, setSearchValue] = useState('')
+  // 095 T015：输入框仍逐字符受控（受控值必须是实时的，否则打字会卡），
+  // 但**真正参与过滤与高亮的是防抖后的 `q`**。两处必须同源——
+  // 若过滤用 `q` 而高亮用 `searchValue`，会出现「节点被留下、却没标出命中在哪」。
+  const q = useDebouncedValue(searchValue, 300)
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([])
   // 086：删除部门挂 `department:manage`（DepartmentController.java:71-73）。
   //
@@ -85,39 +90,60 @@ export default function DepartmentListPage() {
   }, [])
 
   const filteredTreeData = useMemo(() => {
-    if (!searchValue.trim()) {
+    if (!q.trim()) {
       return treeData
     }
-    
+
     const filterTree = (nodes: Department[]): Department[] => {
       return nodes.reduce<Department[]>((acc, node) => {
-        const matchesSearch = node.name.toLowerCase().includes(searchValue.toLowerCase())
+        const matchesSearch = node.name.toLowerCase().includes(q.toLowerCase())
         const filteredChildren = filterTree(node.children)
-        
+
         if (matchesSearch || filteredChildren.length > 0) {
           acc.push({
             ...node,
             children: filteredChildren.length > 0 ? filteredChildren : node.children,
           })
         }
-        
+
         return acc
       }, [])
     }
-    
+
     return filterTree(treeData)
-  }, [treeData, searchValue])
+  }, [treeData, q])
 
   // 使用过滤后的树数据
   const displayTreeData = filteredTreeData
 
+  // 095 T008：清空关键词时要恢复的「全部展开」键。与 `load()` 里收集 `allKeys` 是**同一判据**
+  // （有子节点 ⇒ 可展开），此处由 `treeData` 派生，故保存/删除触发 `load()` 后自动跟随。
+  const expandAllKeys = useMemo(() => {
+    const keys: React.Key[] = []
+    const collect = (nodes: Department[]) => {
+      for (const node of nodes) {
+        if (node.children && node.children.length > 0) {
+          keys.push(node.id)
+        }
+        collect(node.children)
+      }
+    }
+    collect(treeData)
+    return keys
+  }, [treeData])
+
   // 自动展开匹配搜索的节点
+  //
+  // 095 T008 订正（**有意的可见行为变化**）：`else` 分支原为 `setExpandedKeys([])`，
+  // 与 `load()` 里「收集 allKeys 并 setExpandedKeys」的意图**相反**——`load()` 完成后
+  // `treeData` 变化即触发本 effect，于是每次加载后展开态都被无条件抹掉、`allKeys` 白算。
+  // 现改为恢复「全部展开」。首次加载与每次保存/删除刷新后，树由「恒收起」变「展开全部」。
   useEffect(() => {
-    if (searchValue.trim()) {
+    if (q.trim()) {
       const keys: React.Key[] = []
       const findKeys = (nodes: Department[], parentKey?: React.Key) => {
         for (const node of nodes) {
-          if (node.name.toLowerCase().includes(searchValue.toLowerCase())) {
+          if (node.name.toLowerCase().includes(q.toLowerCase())) {
             if (parentKey) keys.push(parentKey)
           }
           findKeys(node.children, node.id)
@@ -126,9 +152,9 @@ export default function DepartmentListPage() {
       findKeys(treeData)
       setExpandedKeys(keys)
     } else {
-      setExpandedKeys([])
+      setExpandedKeys(expandAllKeys)
     }
-  }, [searchValue, treeData])
+  }, [q, treeData, expandAllKeys])
 
   const openCreate = () => {
     setEditing(null)
@@ -194,7 +220,7 @@ export default function DepartmentListPage() {
       title={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span>
-            {(node.childCount ?? 0) > 0 ? '📁' : '📄'} {node.name}
+            {(node.childCount ?? 0) > 0 ? '📁' : '📄'} <Highlight text={node.name} keyword={q} />
             <Tag style={{ marginLeft: 8 }}>{node.id}</Tag>
             {(node.memberCount ?? 0) > 0 && <Tag color="blue" style={{ marginLeft: 4 }}>{node.memberCount} {t('pages.departmentList.colMembers')}</Tag>}
           </span>
@@ -246,14 +272,23 @@ export default function DepartmentListPage() {
         />
       </div>
 
-      <Tree
-        expandedKeys={expandedKeys}
-        onExpand={setExpandedKeys}
-        showLine
-        style={{ minHeight: 200, width: '100%' }}
-      >
-        {displayTreeData.map(node => renderTreeNode(node))}
-      </Tree>
+      {/* 095 T016：树无数据时给明确空态。
+          **不**用 `<PageState state="loading" />` 顶替上面的 `<Card loading>`——
+          PageState 的文件头明文禁止：列表类页面已有自己的 Card 骨架，两层占位会打架。
+          已知的语义边界（如实记，不在本项消解）：默认文案「暂无数据」与同屏搜索框并置时，
+          「库里没有部门」与「搜不到」两种含义会含混。 */}
+      {displayTreeData.length === 0 ? (
+        <PageState state="empty" />
+      ) : (
+        <Tree
+          expandedKeys={expandedKeys}
+          onExpand={setExpandedKeys}
+          showLine
+          style={{ minHeight: 200, width: '100%' }}
+        >
+          {displayTreeData.map(node => renderTreeNode(node))}
+        </Tree>
+      )}
 
       <Modal
         title={editing ? t('pages.departmentList.modalEditTitle') : t('pages.departmentList.modalAddTitle')}
