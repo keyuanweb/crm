@@ -100,7 +100,6 @@ const en = {
     today: "Today's Sales Overview",
     kpiTitle: 'Key Sales Metrics',
     dateFormat: 'dddd, MMMM D, YYYY',
-    trendVsLastMonth: 'vs last month',
     currency: '$',
   },
   breadcrumb: {
@@ -842,8 +841,6 @@ const en = {
         amountTotal: 'Total Amount',
         winRate: 'Win Rate',
         newCustomersThisMonth: 'New Customers This Month',
-        totalCustomers: 'Total Customers',
-        activeOpportunities: 'Active Opportunities',
       },
       error: {
         loadFailed: 'Failed to load statistics',
@@ -882,6 +879,12 @@ const en = {
         weightedTotal: 'Weighted Forecast Total (CNY)',
         historicalCalibration: 'Historical Calibration',
         defaultProbability: 'Default Probability',
+        fixedProbability: 'Fixed Probability',
+        probability: 'Probability',
+        weighted: 'Weighted Amount',
+        source: 'Probability Source',
+        scopeNote: 'Scope: all open opportunities, excluding monthly targets',
+        empty: 'No forecast data',
       },
       performance: {
         title: 'Performance',
@@ -903,6 +906,7 @@ const en = {
       followUpActivity: {
         title: 'Follow-Up Activity',
         totalFollowUps: 'Total Follow-Ups',
+        byMethod: 'By Method',
         empty: 'No follow-up records',
       },
       recentFollowUp: {
@@ -926,26 +930,6 @@ const en = {
         lastUpdated: 'Last Updated',
       },
       generatedAt: 'Generated At',
-      todo: {
-        title: 'To-Do List',
-        empty: 'No to-do items',
-        deadline: 'Deadline',
-        mockApproval: 'Pending approval for "ABC Contract"',
-        mockFollowup: 'Follow up with "XYZ Group"',
-        mockTask: 'Prepare product demo for "ABC Project"',
-      },
-      activity: {
-        title: 'Recent Activity',
-        empty: 'No activity records',
-        mockCustomer: 'Created new customer "XYZ Group"',
-        mockOpportunity: 'Updated opportunity "ABC Project" amount',
-        mockContract: 'Signed contract "DEF Annual Agreement"',
-        mockTask: 'Completed task "Prepare product demo"',
-        userZhangSan: 'Zhang San',
-        userLiSi: 'Li Si',
-        userWangWu: 'Wang Wu',
-        userZhaoLiu: 'Zhao Liu',
-      },
       modal: {
         title: 'Set Sales Target',
         targetAmount: 'Target Amount (CNY, Month: {{month}})',

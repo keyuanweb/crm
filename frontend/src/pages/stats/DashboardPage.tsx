@@ -18,7 +18,6 @@ import {
   Table,
   Tag,
   Typography,
-  Timeline,
   type TableProps,
 } from 'antd'
 import {
@@ -26,7 +25,7 @@ import {
   CompassOutlined,
   FundOutlined,
   ReloadOutlined,
-  TeamOutlined,
+  TrophyOutlined,
   UserAddOutlined,
   DollarOutlined,
 } from '@ant-design/icons'
@@ -40,16 +39,41 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
 import AnnouncementCard from '../../components/AnnouncementCard'
 import { formatAmount } from '../../types/opportunity'
+import { ENUM_KEYS } from '../../constants/enumLabels'
 import { useOpportunityStages } from '../../hooks/useOpportunityStages'
-import type { StalledOpportunity } from '../../types/stats'
+import type {
+  DashboardFollowUps,
+  DashboardForecast,
+  DashboardSummary,
+  ForecastItem,
+  RecentFollowUp,
+  StalledOpportunity,
+} from '../../types/stats'
 
-const { Title, Paragraph, Text } = Typography
+const { Title, Paragraph } = Typography
 
 const stageColor: Record<string, string> = {
   INITIAL_CONTACT: 'blue',
   NEGOTIATING: 'gold',
   CLOSED_WON: 'green',
   CLOSED_LOST: 'red',
+}
+
+/**
+ * 跟进方式码 → 文案。服务端下发的是**大写**码，走 `ENUM_KEYS.followUpMethod`（全库枚举文案的
+ * 单一来源，与阶段名走字典同一形态）。
+ *
+ * <p>未知码**回退原值**而不是并进「其他」：把两种不同的方式渲染成同一种，比显示一个没人见过的
+ * 编码更难排查。判据锚在**登记表缺条目**上，而不是「`t()` 返回了键名」——后者与「键存在」时的
+ * 返回值完全相同（测试里的 `t` 对存在的键同样返回键名），那样的兜底永远不会被观察到，
+ * 也就等于没有兜底。
+ */
+const followUpMethodLabel = (
+  method: string,
+  t: (key: string, params?: Record<string, unknown>) => string,
+) => {
+  const key = ENUM_KEYS.followUpMethod[method.toUpperCase() as keyof typeof ENUM_KEYS.followUpMethod]
+  return key ? t(key) : method
 }
 
 // ========== 子组件 ==========
@@ -62,7 +86,6 @@ const KpiCard = memo(function KpiCard({
   icon,
   iconBg,
   onClick,
-  trend,
 }: {
   title: string
   value: string | number
@@ -70,7 +93,6 @@ const KpiCard = memo(function KpiCard({
   icon: React.ReactNode
   iconBg: string
   onClick?: () => void
-  trend?: { value: number; label: string }
 }) {
   return (
     <Card
@@ -90,11 +112,6 @@ const KpiCard = memo(function KpiCard({
               className="stat-number"
             />
           </div>
-          {trend && (
-            <div style={{ marginTop: 8, fontSize: 12, color: trend.value >= 0 ? '#52c41a' : '#ff4d4f' }}>
-              {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}% {trend.label}
-            </div>
-          )}
         </div>
         <div
           className="kpi-icon-wrapper"
@@ -385,69 +402,249 @@ const PerformanceCard = memo(function PerformanceCard({
   )
 })
 
-/** 待办事项子组件 */
-const TodoList = memo(function TodoList({
-  todos,
+/** 成交预测子组件（006 US2 / FR-D06）——消费后端已下发的 forecast，不另算 */
+const ForecastCard = memo(function ForecastCard({
+  fc,
   t,
-  onTodoClick,
 }: {
-  todos: Array<{ id: number; type: string; title: string; deadline?: string; priority: 'high' | 'medium' | 'low' }>
+  fc: DashboardForecast | undefined
   t: (key: string, params?: Record<string, unknown>) => string
-  onTodoClick: (todo: typeof todos[0]) => void
 }) {
-  const priorityColor = { high: 'red', medium: 'orange', low: 'blue' }
-  
-  if (todos.length === 0) {
-    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.dashboard.todo.empty')} />
+  // 阶段名走字典，与漏斗、看板同源
+  const { stageLabel } = useOpportunityStages()
+  // 概率来源三值分支（DashboardStatsService.probabilitySourceOf）：未知值原样显示，
+  // 不并进「默认概率」——两种不同的来源渲染成同一种，比显示编码更难排查
+  const sourceLabel = (src?: string) => {
+    const keys: Record<string, string> = {
+      HISTORICAL: 'pages.dashboard.forecast.historicalCalibration',
+      DEFAULT: 'pages.dashboard.forecast.defaultProbability',
+      FIXED: 'pages.dashboard.forecast.fixedProbability',
+    }
+    if (!src) return '-'
+    return keys[src] ? t(keys[src]) : src
   }
+
+  const breakdown = fc?.breakdown ?? []
+  const columns: TableProps<ForecastItem>['columns'] = [
+    {
+      title: t('pages.dashboard.stalledOpportunities.stage'),
+      dataIndex: 'stage',
+      render: (stage: string) => stageLabel(stage),
+    },
+    {
+      title: t('pages.dashboard.funnel.amount'),
+      dataIndex: 'amount',
+      align: 'right',
+      render: (v: number) => formatAmount(v),
+    },
+    {
+      title: t('pages.dashboard.forecast.probability'),
+      dataIndex: 'probability',
+      align: 'right',
+      render: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+    {
+      title: t('pages.dashboard.forecast.weighted'),
+      dataIndex: 'weighted',
+      align: 'right',
+      render: (v: number) => formatAmount(v),
+    },
+    {
+      title: t('pages.dashboard.forecast.source'),
+      dataIndex: 'probabilitySource',
+      render: (src?: string) => (
+        <Tag className="dashboard-tag" color="default">
+          {sourceLabel(src)}
+        </Tag>
+      ),
+    },
+  ]
 
   return (
     <div>
-      <Timeline
-        items={todos.map((todo) => ({
-          color: priorityColor[todo.priority],
-          children: (
-            <div onClick={() => onTodoClick(todo)} style={{ cursor: 'pointer' }}>
-              <div style={{ fontWeight: 500, marginBottom: 4 }}>{todo.title}</div>
-              <div style={{ fontSize: 12, color: '#8c8c8c' }}>
-                {todo.deadline && `${t('pages.dashboard.todo.deadline')}：${todo.deadline}`}
-              </div>
-            </div>
-          ),
-        }))}
+      <Statistic
+        value={formatAmount(fc?.weightedAmount)}
+        valueStyle={{ fontSize: 26, fontWeight: 700, lineHeight: 1.2 }}
+        className="stat-number"
       />
+      <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2, marginBottom: 8 }}>
+        {t('pages.dashboard.forecast.weightedTotal')}
+      </div>
+      {/* 口径标注：本卡最重要的一行。加权总额聚合的是**全部在途商机**，分母不是本月目标 ——
+          不写它，读卡人会理所当然地拿它跟旁边的「业绩达成」比，而那正是一次跨口径相除 */}
+      <div
+        style={{
+          fontSize: 11,
+          color: '#8c8c8c',
+          padding: '4px 8px',
+          background: '#fafafa',
+          borderRadius: 4,
+          marginBottom: 10,
+        }}
+      >
+        {t('pages.dashboard.forecast.scopeNote')}
+      </div>
+      {breakdown.length ? (
+        <Table<ForecastItem>
+          className="dashboard-table"
+          rowKey="stage"
+          size="small"
+          dataSource={breakdown}
+          pagination={false}
+          columns={columns}
+        />
+      ) : (
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.dashboard.forecast.empty')} />
+      )}
     </div>
   )
 })
 
-/** 活动动态子组件 */
-const ActivityFeed = memo(function ActivityFeed({
-  activities,
+/** 客户分析子组件（006 FR-D07）——三个数全部取自已加载的 summary，零额外请求 */
+const CustomerAnalysisCard = memo(function CustomerAnalysisCard({
+  s,
   t,
 }: {
-  activities: Array<{ id: number; type: string; content: string; user: string; createdAt: string }>
+  s: DashboardSummary | undefined
   t: (key: string, params?: Record<string, unknown>) => string
 }) {
-  if (activities.length === 0) {
-    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.dashboard.activity.empty')} />
+  const items = [
+    {
+      label: t('pages.dashboard.customerAnalysis.totalCustomers'),
+      value: s?.customerCount ?? 0,
+      color: '#1677ff',
+    },
+    {
+      label: t('pages.dashboard.customerAnalysis.activeCustomers'),
+      value: s?.activeCustomerCount ?? 0,
+      color: '#52c41a',
+    },
+    {
+      label: t('pages.dashboard.customerAnalysis.newThisMonth'),
+      value: s?.newCustomersThisMonth ?? 0,
+      color: '#722ed1',
+    },
+  ]
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      {items.map((item) => (
+        <div key={item.label} style={{ textAlign: 'center', padding: '10px 4px' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: item.color, lineHeight: 1.2 }}>
+            {item.value}
+          </div>
+          <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 4 }}>{item.label}</div>
+        </div>
+      ))}
+    </div>
+  )
+})
+
+/** 跟进活动报表子组件（006 FR-D08） */
+const FollowUpActivityCard = memo(function FollowUpActivityCard({
+  fu,
+  t,
+}: {
+  fu: DashboardFollowUps | undefined
+  t: (key: string, params?: Record<string, unknown>) => string
+}) {
+  const byMethod = fu?.byMethod ?? []
+
+  return (
+    <div>
+      <div style={{ textAlign: 'center', marginBottom: 12 }}>
+        <div style={{ fontSize: 28, fontWeight: 700, color: '#1677ff', lineHeight: 1.2 }}>
+          {fu?.total ?? 0}
+        </div>
+        <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>
+          {t('pages.dashboard.followUpActivity.totalFollowUps')}
+        </div>
+      </div>
+      {byMethod.length ? (
+        <div>
+          <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 6 }}>
+            {t('pages.dashboard.followUpActivity.byMethod')}
+          </div>
+          {byMethod.map((item) => (
+            <div
+              key={item.method}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: 12,
+                padding: '3px 0',
+              }}
+            >
+              <span>{followUpMethodLabel(item.method, t)}</span>
+              <span style={{ fontWeight: 600 }}>{item.count}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.dashboard.followUpActivity.empty')} />
+      )}
+    </div>
+  )
+})
+
+/** 最近跟进表子组件（006 FR-D08）——它就是真实的「活动流」，取代了原先伪造的「最近活动」 */
+const RecentFollowUpTable = memo(function RecentFollowUpTable({
+  fu,
+  t,
+}: {
+  fu: DashboardFollowUps | undefined
+  t: (key: string, params?: Record<string, unknown>) => string
+}) {
+  const recent = fu?.recent ?? []
+  const columns: TableProps<RecentFollowUp>['columns'] = [
+    {
+      title: t('pages.dashboard.recentFollowUp.method'),
+      dataIndex: 'method',
+      width: 80,
+      render: (method: string) => followUpMethodLabel(method, t),
+    },
+    {
+      title: t('pages.dashboard.recentFollowUp.customer'),
+      dataIndex: 'customerName',
+      width: 130,
+      render: (v?: string) => v ?? '-',
+    },
+    {
+      title: t('pages.dashboard.recentFollowUp.content'),
+      dataIndex: 'content',
+      ellipsis: true,
+      render: (v?: string) => v ?? '-',
+    },
+    {
+      title: t('pages.dashboard.recentFollowUp.followUpBy'),
+      dataIndex: 'followUpBy',
+      width: 100,
+      render: (v?: string) => v ?? '-',
+    },
+    {
+      title: t('pages.dashboard.recentFollowUp.time'),
+      dataIndex: 'createdAt',
+      width: 150,
+      render: (v?: string) => (v ? v.replace('T', ' ').slice(0, 19) : '-'),
+    },
+  ]
+
+  if (recent.length === 0) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.dashboard.recentFollowUp.empty')} />
+      </div>
+    )
   }
 
   return (
-    <Timeline
-      items={activities.slice(0, 10).map((activity) => ({
-        color: '#1677ff',
-        children: (
-          <div>
-            <div>
-              <Text strong>{activity.user}</Text>
-              <Text> {activity.content}</Text>
-            </div>
-            <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>
-              {dayjs(activity.createdAt).format('YYYY-MM-DD HH:mm')}
-            </div>
-          </div>
-        ),
-      }))}
+    <Table<RecentFollowUp>
+      className="dashboard-table"
+      rowKey="id"
+      size="small"
+      dataSource={recent}
+      pagination={false}
+      columns={columns}
     />
   )
 })
@@ -486,6 +683,8 @@ export default function DashboardPage() {
   const funnel = data?.funnel
   const stalled = data?.stalledOpportunities ?? []
   const generatedAt = data?.generatedAt
+  const fc = data?.forecast
+  const fu = data?.followUps
 
   const targetMutation = useMutation({
     mutationFn: (amount: number) => saveSalesTarget({ month: currentMonth, targetAmount: amount }),
@@ -525,21 +724,6 @@ export default function DashboardPage() {
       bg: '#f6ffed',
     },
   ], [suggestionSummary, t])
-
-  // 模拟待办数据（实际应从 API 获取）
-  const todos = useMemo(() => [
-    { id: 1, type: 'approval', title: t('pages.dashboard.todo.mockApproval'), deadline: '2026-08-30', priority: 'high' as const },
-    { id: 2, type: 'followup', title: t('pages.dashboard.todo.mockFollowup'), deadline: '2026-08-31', priority: 'medium' as const },
-    { id: 3, type: 'task', title: t('pages.dashboard.todo.mockTask'), deadline: '2026-09-01', priority: 'medium' as const },
-  ], [t])
-
-  // 模拟活动动态（实际应从 API 获取）
-  const activities = useMemo(() => [
-    { id: 1, type: 'customer', content: t('pages.dashboard.activity.mockCustomer'), user: t('pages.dashboard.activity.userZhangSan'), createdAt: dayjs().subtract(10, 'minute').toISOString() },
-    { id: 2, type: 'opportunity', content: t('pages.dashboard.activity.mockOpportunity'), user: t('pages.dashboard.activity.userLiSi'), createdAt: dayjs().subtract(30, 'minute').toISOString() },
-    { id: 3, type: 'contract', content: t('pages.dashboard.activity.mockContract'), user: t('pages.dashboard.activity.userWangWu'), createdAt: dayjs().subtract(2, 'hour').toISOString() },
-    { id: 4, type: 'task', content: t('pages.dashboard.activity.mockTask'), user: t('pages.dashboard.activity.userZhaoLiu'), createdAt: dayjs().subtract(4, 'hour').toISOString() },
-  ], [t])
 
   if (error || (!isLoading && !data)) {
     return (
@@ -646,22 +830,11 @@ export default function DashboardPage() {
           <>
             <Col xs={24} sm={12} md={6}>
               <KpiCard
-                title={t('pages.dashboard.statCards.totalCustomers')}
-                value={s?.customerCount ?? 0}
-                icon={<TeamOutlined />}
-                iconBg="linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)"
-                onClick={() => navigate('/customers')}
-                trend={{ value: 5, label: t('home.trendVsLastMonth') }}
-              />
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <KpiCard
-                title={t('pages.dashboard.statCards.activeOpportunities')}
+                title={t('pages.dashboard.statCards.opportunityCount')}
                 value={s?.opportunityCount ?? 0}
                 icon={<FundOutlined />}
-                iconBg="linear-gradient(135deg, #52c41a 0%, #95de64 100%)"
+                iconBg="linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)"
                 onClick={() => navigate('/opportunities')}
-                trend={{ value: 8, label: t('home.trendVsLastMonth') }}
               />
             </Col>
             <Col xs={24} sm={12} md={6}>
@@ -671,7 +844,15 @@ export default function DashboardPage() {
                 prefix={t('home.currency')}
                 icon={<DollarOutlined />}
                 iconBg="linear-gradient(135deg, #fa8c16 0%, #ffc069 100%)"
-                trend={{ value: 12, label: t('home.trendVsLastMonth') }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <KpiCard
+                title={t('pages.dashboard.statCards.winRate')}
+                // winRate 是 won/closed 的 0..1 小数（DashboardStatsService），不是百分数
+                value={`${((s?.winRate ?? 0) * 100).toFixed(1)}%`}
+                icon={<TrophyOutlined />}
+                iconBg="linear-gradient(135deg, #52c41a 0%, #95de64 100%)"
               />
             </Col>
             <Col xs={24} sm={12} md={6}>
@@ -681,7 +862,6 @@ export default function DashboardPage() {
                 icon={<UserAddOutlined />}
                 iconBg="linear-gradient(135deg, #722ed1 0%, #b37feb 100%)"
                 onClick={() => navigate('/customers')}
-                trend={{ value: 3, label: t('home.trendVsLastMonth') }}
               />
             </Col>
           </>
@@ -795,34 +975,22 @@ export default function DashboardPage() {
           </Card>
         </Col>
 
-        {/* 第二行：待办事项 + 活动动态 */}
+        {/* 第二行：成交预测 + 客户分析（006 US2 / FR-D06 / FR-D07） */}
         <Col xs={24} lg={12}>
           <Card
             className="dashboard-card"
             loading={isLoading}
-            title={t('pages.dashboard.todo.title')}
+            title={t('pages.dashboard.forecast.title')}
             styles={{ body: { padding: 20 } }}
             style={{ height: '100%' }}
           >
             {isLoading ? (
               <div style={{ padding: 20 }}>
-                {[0, 1, 2].map((i) => (
-                  <div key={i} style={{ marginBottom: 12 }}>
-                    <div className="skeleton" style={{ height: 14, width: '80%', marginBottom: 8 }} />
-                    <div className="skeleton" style={{ height: 14, width: '60%' }} />
-                  </div>
-                ))}
+                <div className="skeleton" style={{ height: 28, width: '40%', marginBottom: 12 }} />
+                <div className="skeleton" style={{ height: 14, width: '90%' }} />
               </div>
             ) : (
-              <TodoList
-                todos={todos}
-                t={t}
-                onTodoClick={(todo) => {
-                  if (todo.type === 'approval') navigate('/approvals')
-                  else if (todo.type === 'followup') navigate('/opportunities')
-                  else navigate('/tasks')
-                }}
-              />
+              <ForecastCard fc={fc} t={t} />
             )}
           </Card>
         </Col>
@@ -830,21 +998,55 @@ export default function DashboardPage() {
           <Card
             className="dashboard-card"
             loading={isLoading}
-            title={t('pages.dashboard.activity.title')}
+            title={t('pages.dashboard.customerAnalysis.title')}
             styles={{ body: { padding: 20 } }}
             style={{ height: '100%' }}
           >
             {isLoading ? (
               <div style={{ padding: 20 }}>
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} style={{ marginBottom: 12 }}>
-                    <div className="skeleton" style={{ height: 14, width: '80%', marginBottom: 8 }} />
-                    <div className="skeleton" style={{ height: 14, width: '60%' }} />
-                  </div>
-                ))}
+                <div className="skeleton" style={{ height: 28, width: '60%', marginBottom: 12 }} />
+                <div className="skeleton" style={{ height: 14, width: '80%' }} />
               </div>
             ) : (
-              <ActivityFeed activities={activities} t={t} />
+              <CustomerAnalysisCard s={s} t={t} />
+            )}
+          </Card>
+        </Col>
+
+        {/* 第三行：跟进活动 + 最近跟进（006 FR-D08） */}
+        <Col xs={24} lg={12}>
+          <Card
+            className="dashboard-card"
+            loading={isLoading}
+            title={t('pages.dashboard.followUpActivity.title')}
+            styles={{ body: { padding: 20 } }}
+            style={{ height: '100%' }}
+          >
+            {isLoading ? (
+              <div style={{ padding: 20 }}>
+                <div className="skeleton" style={{ height: 28, width: '40%', marginBottom: 12 }} />
+                <div className="skeleton" style={{ height: 14, width: '80%' }} />
+              </div>
+            ) : (
+              <FollowUpActivityCard fu={fu} t={t} />
+            )}
+          </Card>
+        </Col>
+        <Col xs={24} lg={12}>
+          <Card
+            className="dashboard-card"
+            loading={isLoading}
+            title={t('pages.dashboard.recentFollowUp.title')}
+            styles={{ body: { padding: 0 } }}
+            style={{ height: '100%' }}
+          >
+            {isLoading ? (
+              <div style={{ padding: 20 }}>
+                <div className="skeleton" style={{ height: 28, width: '40%', marginBottom: 12 }} />
+                <div className="skeleton" style={{ height: 14, width: '80%' }} />
+              </div>
+            ) : (
+              <RecentFollowUpTable fu={fu} t={t} />
             )}
           </Card>
         </Col>

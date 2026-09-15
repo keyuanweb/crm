@@ -100,7 +100,6 @@ const zhCN = {
     today: '今日销售概览',
     kpiTitle: '销售关键指标',
     dateFormat: 'YYYY 年 M 月 D 日 · dddd',
-    trendVsLastMonth: '较上月',
     currency: '¥',
   },
   breadcrumb: {
@@ -843,8 +842,6 @@ const zhCN = {
         amountTotal: '金额合计',
         winRate: '赢单率',
         newCustomersThisMonth: '本月新增客户',
-        totalCustomers: '客户总数',
-        activeOpportunities: '活跃商机',
       },
       error: {
         loadFailed: '统计数据加载失败',
@@ -883,6 +880,12 @@ const zhCN = {
         weightedTotal: '加权预测总额（元）',
         historicalCalibration: '历史校准',
         defaultProbability: '默认概率',
+        fixedProbability: '固定概率',
+        probability: '概率',
+        weighted: '加权金额',
+        source: '概率来源',
+        scopeNote: '口径：全部在途商机，不含月度目标',
+        empty: '暂无预测数据',
       },
       performance: {
         title: '业绩达成',
@@ -904,6 +907,7 @@ const zhCN = {
       followUpActivity: {
         title: '跟进活动',
         totalFollowUps: '跟进总数',
+        byMethod: '按方式分布',
         empty: '暂无跟进记录',
       },
       recentFollowUp: {
@@ -927,26 +931,6 @@ const zhCN = {
         lastUpdated: '最后更新',
       },
       generatedAt: '生成时间',
-      todo: {
-        title: '待办事项',
-        empty: '暂无待办事项',
-        deadline: '截止',
-        mockApproval: '待审批：报价单 #1234',
-        mockFollowup: '待跟进：ABC 公司商机',
-        mockTask: '即将到期：季度报告',
-      },
-      activity: {
-        title: '最近活动',
-        empty: '暂无活动记录',
-        mockCustomer: '创建了新客户"XYZ 集团"',
-        mockOpportunity: '更新了商机"ABC 项目"金额',
-        mockContract: '签署了合同"DEF 年度协议"',
-        mockTask: '完成了任务"准备产品演示"',
-        userZhangSan: '张三',
-        userLiSi: '李四',
-        userWangWu: '王五',
-        userZhaoLiu: '赵六',
-      },
       modal: {
         title: '设置销售目标',
         targetAmount: '目标金额（元，月份：{{month}}）',

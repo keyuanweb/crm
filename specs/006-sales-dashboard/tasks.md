@@ -105,3 +105,62 @@
 - [x] T031 更新契约文档 in `specs/006-sales-dashboard/contracts/stats.md`（按实现校正）与 roadmap 006 标记 `[x]`
 
 **Checkpoint**: 模块完整可用
+
+---
+
+## 订正段（2026-09-15，由 `specs/093-dashboard-truthfulness/` 追加）
+
+**本段不回写上面任何历史勾选行，也不判断历史动机。** 一个 ✅ 分辨不了「做了但走得早」与「事后回填」——两种都表现为勾上，故本节只陈述**实测事实**。
+
+### 一、三项验收要件在 093 之前零渲染
+
+`frontend/src/pages/stats/DashboardPage.tsx` 在 093 之前**没有**渲染下列三项。它们的后端数据早已下发、TS 类型早已定义、i18n 键早已写好，缺的只是页面里的那一次渲染：
+
+| 要件 | 规格出处 | 数据来源（093 之前即已存在） | 落地于 |
+|---|---|---|---|
+| US2 情形 1：预测卡（加权预测总额） | `spec.md:39` | `DashboardStatsService.computeForecast` → `stats.forecast`；`frontend/src/types/stats.ts` 的 `ForecastItem` | 093 T007–T012 |
+| FR-D07：客户分析（客户总数 / 活跃 / 本月新增） | `spec.md:95` | `stats.summary.{customerCount,activeCustomerCount,newCustomersThisMonth}` | 093 T013 |
+| FR-D08：跟进活动报表（总数 / 按方式分布 / 最近记录） | `spec.md:96` | `DashboardStatsService.computeFollowUps` → `stats.followUps`；`types/stats.ts` 的 `MethodStat` / `RecentFollowUp` | 093 T014–T016 |
+
+判据是**零命中**，不是「没找到」。在 093 的第一个提交之前的那次 HEAD 上取旧版文件实测：
+
+```
+$ git show HEAD:frontend/src/pages/stats/DashboardPage.tsx | grep -nE "data\.forecast|data\.followUps|forecast\.|followUps\."
+（无输出）
+```
+
+同一次实测里，**实际渲染**的是规格中**没有任何验收要件**的两块伪造卡片，以及 4 个硬编码同比：
+
+```
+$ git show HEAD:frontend/src/pages/stats/DashboardPage.tsx | grep -nE "trendVsLastMonth|trend="
+654:                trend={{ value: 5,  label: t('home.trendVsLastMonth') }}
+664:                trend={{ value: 8,  label: t('home.trendVsLastMonth') }}
+674:                trend={{ value: 12, label: t('home.trendVsLastMonth') }}
+684:                trend={{ value: 3,  label: t('home.trendVsLastMonth') }}
+```
+
+后端从不下发任何环比字段，四个百分比是**字面量**。另：`statCards.*` 实测为 `totalCustomers` / `activeOpportunities` / `amountTotal` / `newCustomersThisMonth` —— FR-D02 要求的**赢单率不在其中**，而第二张卡的标签（「活跃商机」）与其值（`summary.opportunityCount`，后端 `DashboardStatsService` 里是**全部**商机数）不是一回事。
+
+### 二、31/31 的勾选**提前于实现**
+
+`T010`–`T016`（US2/US3 段）与 `T026`（US4 前端表格）均为 ✅，但上述三项直到 093 才真正渲染 ⇒ **本文件的 ✅ 不能当作实现证据**。
+
+这一点与 `specs/README.md` 里记录的 **082**、`067`（0/11）、`068`（0/42）属**同类形态但性质不同**，不可合并处置：
+
+- 082 / 067 / 068 是「**代码在、勾选没回填**」——文档缺陷，代码本身存在；
+- 本项是「**勾选在、代码没落地**」——登记超前于实现。
+
+### 三、FR-D06 与契约的概率口径已被 019 取代
+
+- `spec.md:94` 的 FR-D06 写「概率固定配置（20%/50%/100%/0%）」；
+- `contracts/stats.md:71` 同文。
+
+该口径已被 **`specs/019-lead-scoring`** 批次的**阶段转化率历史校准**取代：`StageConversionService.probabilityFor(stage)` 优先取历史转化率，样本不足（`MIN_SAMPLE`）时**回退**默认概率。**本文件与 FR 的原文一律保留不改写**，订正落在 `contracts/stats.md` 的 forecast 段（见该文件同日的订正块）。
+
+### 四、第二处提前登记（`specs/roadmap.md:160`）
+
+```
+- [x] 006-sales-dashboard（指标卡/漏斗/预测/业绩达成/客户分析/跟进报表/停滞预警）
+```
+
+该行把「客户分析」「跟进报表」写进了**交付描述**——与 31/31 的勾选是**同一次提前登记的两处投影**。093 落地后该描述**变为名副其实**，故该行**不改**，仅在此说明它此前超前于实现。

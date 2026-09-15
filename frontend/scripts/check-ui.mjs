@@ -296,7 +296,10 @@ const R1_ALLOWED = [
   },
   {
     file: 'src/pages/stats/DashboardPage.tsx',
-    count: 7,
+    count: 8,
+    // 093 复测：删掉「最近活动」卡（原 ActivityFeed 的 Timeline 色，−1），
+    // 新增「跟进活动」「客户分析」两张卡的统计数字色（+2）⇒ 7 → 8。
+    // 取实测值，不取预测值：白名单是双向校验的，陈旧条目会立刻转红（本次即由它抓出）。
     reason:
       '图表调色板与统计数字色，与 FunnelChart 同族。' +
       '它们是**一整套连续色阶**里的一个（同族还有 #69b1ff/#a0c4ff/#d6e4ff），单独换一个色相会让色阶明显断裂，' +
