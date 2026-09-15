@@ -179,3 +179,45 @@ EXIT=1
    `src/pages/stats/DashboardPage.tsx` 的 `count: 7 → 8`（带注释「093 复测」），
    它与其未提交的 `DashboardPage.tsx` 配套。**本项不提交它**（提交它会让那个提交孤立地红：登记 8、实际 7），
    也不改动它。⇒ 本项提交后，工区里 `check-ui.mjs` 相对索引**仍显示为 modified**，那是**对的**。
+4. **同两个登记文件上，093 的登记与我的登记撞在**同一行**（补记，T019 时发现）**：`specs/README.md` 的
+   版本行、`specs/roadmap.md` 的 `**最后更新**` 行各自被两个会话往同一行追加条款 ⇒ 整行是一处 hunk、
+   **按行切不开**。处置：按字面量锚点重建「只含我的段」的版本 + **往返断言**（把对方的段塞回去后
+   逐字节等于工作区），再用 `git hash-object -w --path=` → `update-index --cacheinfo` 入索引，
+   **工作区一字未动**。⇒ 本项的两个提交里 `093` 的登记命中 **0 处**。
+
+---
+
+## 6 SC-094-004 的静态读数（可复算，且口径自证）
+
+**口径**：只扫产品源码（排除 `*.test.tsx` 与 `src/test/`），标签名边界取
+「`<Descriptions` 之后是**非标识符字符**或**行尾**」——与 `check-ui.mjs` 的
+`scanTagEvents(code,'Descriptions')`（整标签名匹配）同界，故不会把 `<Descriptions.Item` 算进来。
+
+```
+$ cd frontend
+$ grep -rn --include='*.tsx' -E '<Descriptions([^A-Za-z0-9._-]|$)' src | grep -v '\.test\.tsx:' | grep -v '^src/test/' | wc -l
+14
+$ ...同上... | grep -E 'column=\{[0-9]+\}'
+src/pages/portal/CustomerPortalPage.tsx:147:        <Descriptions column={1} bordered size="small">
+$ ...同上... | grep -E 'column=\{[0-9]+\}' | grep -v 'column={1}' | wc -l
+0
+```
+
+⇒ 开标签 **14**、写死**多列** **0**、`column={1}` **1 处**（在册例外，见 FR-094-003），与 SC-094-004 一致。
+
+**⚠️ 口径自证（这一步不能省）**：把边界换成更窄的「`<Descriptions` 之后是**空白或 `>`**」，读数掉到 **10**
+——按行的 `grep` 里 `[[:space:]]` **匹配不到换行**，而有 **4 个详情页**把 `<Descriptions` 写在**行尾**、
+属性换到下一行：
+
+```
+src/pages/contracts/ContractDetailPage.tsx:313:        <Descriptions
+src/pages/customers/CustomerDetailPage.tsx:353:          <Descriptions
+src/pages/leads/LeadDetailPage.tsx:213:        <Descriptions
+src/pages/orders/OrderDetailPage.tsx:295:        <Descriptions
+```
+
+**为什么这条自证值得留档**：10 恰好落在 `MIN_CANDIDATES.R8 = 12` **之下**——也就是说，
+「只认单行开标签的扫描器」这一档失效的**实测读数就是 10**，会被下限拦下并打印两种成因。
+此前「12 是水位」是**推演**（见 FR-094-004 的注释），这里给出了它的**实测对照值**；
+同时它也是一个现成的例子：**读数从 14 变 10 时，先怀疑口径、别先怀疑代码**（本轮我自己就差点
+把 10 当成"代码变了"）。
