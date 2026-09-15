@@ -238,14 +238,14 @@ function TrackTicketTab() {
       </Form>
       {status && (
         <>
-          <Descriptions column={3} bordered size="small">
+          <Descriptions column={{ xs: 1, sm: 2, md: 3 }} bordered size="small">
             <Descriptions.Item label={t('pages.portal.labelTicketId')}>{status.ticketId}</Descriptions.Item>
             <Descriptions.Item label={t('pages.portal.labelStatus')}>
               <Tag color={status.status === 'CLOSED' ? 'success' : 'processing'}>{status.status}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="SLA">{status.slaStatus ?? '-'}</Descriptions.Item>
             <Descriptions.Item label={t('pages.portal.labelPriority')}>{status.priority}</Descriptions.Item>
-            <Descriptions.Item label={t('pages.portal.labelSubmittedAt')} span={2}>
+            <Descriptions.Item label={t('pages.portal.labelSubmittedAt')} span={3}>
               {status.createdAt.replace('T', ' ').slice(0, 19)}
             </Descriptions.Item>
           </Descriptions>

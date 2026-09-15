@@ -644,6 +644,49 @@ function rule3() {
   return { hits, candidates }
 }
 
+/**
+ * R8（**默认档**，2026-09-15 由 **094** 引入）：`Descriptions` 的 `column` 不得写死为**大于 1** 的数字。
+ *
+ * <p>由来：088 的 FR-015 立了「详情区块列数不得写死、按视口分档」这条规矩，
+ * 但**它没有任何门禁**（FR-015 自己写着「既没有门禁规则、也没有独立的自动化用例」）。
+ * 于是 T044 改完 4 个详情页之后，库里还留着 3 处旧写法（`SignSection` / `SurveyBlock` 的 `column={2}`、
+ * `CustomerPortalPage` 服务状态块的 `column={3}`），谁都不会红——094 补掉它们，并把这件事钉成规则，
+ * 免得同一个坑再踩第四次。
+ *
+ * <p>判据：`column` 的值若是**字面量数字且 > 1** ⇒ 命中。以下一律**放行**：
+ * <ul>
+ *   <li>`column={{ xs: 1, sm: 2, md: 3 }}` 这类**断点对象**——正是要的写法；
+ *   <li>`column={1}`——单列是**最窄档**，机制上不可能因窄屏溢出；`CustomerPortalPage` 的查询结果面板
+ *       就是这种刻意的设计（`specs/094-088-debt-closeout/spec.md` 的 FR-094-003 在册）；
+ *   <li>**不写 `column`**——antd 的 `DEFAULT_COLUMN_MAP`（`xs:1 sm:2 md:3 lg:3 xl:3 xxl:3`）
+ *       本身就是按视口分档的，省略它得到的是响应式，不是写死。
+ * </ul>
+ *
+ * <p>⚠️ **边界：这是源码级护栏，不是渲染级**。只判**字面量数字**——
+ * `column={someConst}` / `{...spread}` / 三元表达式**判不到**（既可能对也可能错，靠正则猜只会制造假红，
+ * 而假红会被绕过）。这几类要管，得走 092 那种打真实布局引擎的用例。
+ */
+function rule8() {
+  const hits = []
+  let candidates = 0
+  for (const file of tsxFiles) {
+    const { code } = readSource(file)
+    // `scanTagEvents` 按标签名**整体**匹配（`<Descriptions.Item` 不会被误算），且逐字符扫描
+    // ⇒ **跨行**的开标签同样命中（094 的第一版 `grep` 就漏了跨行的 4 个，见 research.md §3）。
+    for (const tag of scanTagEvents(code, 'Descriptions')) {
+      if (tag.kind === 'close') continue
+      candidates++
+      const column = attrOf(tag.text, 'column')
+      if (column === null) continue // 未写 ⇒ antd 默认档，响应式
+      if (!/^\s*\d/.test(column)) continue // 断点对象 / 表达式 ⇒ 不判
+      if (Number(column) > 1) {
+        hits.push({ file: rel(file), line: lineOf(code, tag.index), text: tag.text })
+      }
+    }
+  }
+  return { hits, candidates }
+}
+
 // ---------------------------------------------------------------- 执行
 
 const formItems = formItemTags()
@@ -654,8 +697,14 @@ const ruleDefs = [
   { id: 'R5', title: '`required: true` 必须带 `label`（或 `aria-label`）', run: () => rule5(formItems), allowed: R5_ALLOWED },
   { id: 'R6', title: '禁裸字符串 `placeholder` / `aria-label`（必须走 `t()`）', run: rule6, allowed: R6_ALLOWED },
   { id: 'R7', title: '组件零非测试引用（孤儿组件）', run: rule7, allowed: R7_ALLOWED },
-  { id: 'R2', title: '承载表单的 Modal 必须显式定宽', run: rule2, allowed: null },
-  { id: 'R3', title: '表单内 `<Col>` 不得只写 `span`', run: rule3, allowed: null },
+  { id: 'R2', title: '承载表单的 Modal 必须显式定宽', run: rule2, allowed: null,
+    fix: '给 Modal 加 `width`，或改用 `@/components/ui` 的 `FormModal`（四档宽度 sm/md/lg/xl）。' },
+  { id: 'R3', title: '表单内 `<Col>` 不得只写 `span`', run: rule3, allowed: null,
+    fix: '把 `<Col span={N}>` 换成 `FormGrid`（或至少补 `xs/sm/md/lg` 断点）。见 components/ui/FormGrid.tsx 的使用纪律。' },
+  { id: 'R8', title: '`Descriptions` 的 `column` 不得写死为大于 1 的数字', run: rule8, allowed: null,
+    fix:
+      '改成断点对象 `column={{ xs: 1, sm: 2, md: 3 }}`；**全宽项**（备注/签名/长文本这类整行字段）的 `span`' +
+      '与该 `column` 的上限一致（`span={3}`）。若这里**就是要单列**，写 `column={1}`——那是最窄档，本规则不判它。' },
 ]
 
 /**
@@ -672,7 +721,34 @@ const MIN_CANDIDATES = {
   R6: 1, // 至少见过一个**裸写法**的 placeholder / aria-label（走 t() 的不计入，故这里小是正常的）
   R7: 1, // 至少有一个 components/*.tsx
   R2: 1,
+  // ⚠️ R3 的**零余量**在这里（094 补记实测解剖，免得下一个人把它误读成"探针坏了"）：
+  //    全库 `<Col` **88** 处；其中位于 `<Form>` 区域内（= 本规则的候选点）的**只有 1 处**
+  //    ——`pages/tags/TagListPage.tsx` 的色板 `Col`，它带 `flex`、无 `span`，本就合规；
+  //    `<FormGrid` 用法已 **58** 处。⇒ 这条规则的**对象是被 FormGrid 取代殆尽的**，
+  //    它离「无可判对象」只差那**一个** `Col` 被重构掉。那一天的红色**是对的**（一条判不到对象的规则
+  //    已不再是护栏，该按 R2/T040、R3/T045 的先例**退役**），错的是下面那句只说了一半的失败信息。
   R3: 1,
+  // R8（094 新增）的候选池 = 全库 `<Descriptions>` 开标签数，**今天实测 14**（单行 10 + 跨行 4）。
+  // 取 12 = 今天 − 2（留给"合法删掉一个 Descriptions 区块"），
+  // 同时 12 > 10 ⇒ 能抓住「扫描器只认单行开标签」这一档失效（那会掉到 10）——094 的探针**真的踩过**这个坑。
+  R8: 12,
+}
+
+/**
+ * 每条规则的候选点**历史实测读数**（2026-09-15，094 实测补记）——只用于**比对**，不参与判定。
+ *
+ * <p>用途：候选点掉到下限以下时，先拿这里的数比一比，再决定是**扫描器坏了**还是**规则该退役**。
+ * 这两个成因的处置相反（见下面的失败信息），而在此之前，信息只印了前一种。
+ */
+const CANDIDATE_READINGS = {
+  R1: 33, // 品牌色字面量（含 R1_EXEMPT_PATHS 里的真源）
+  R4: 148, // 带 required 的 Form.Item（命中白名单 5 处）
+  R5: 149, // 同口径再含"有 label 但无 required"的那些（命中 6 处）
+  R6: 10, // **裸写法**的 placeholder / aria-label（走 t() 的不计入，故这个数小是正常的）
+  R7: 21, // components/*.tsx 文件数（命中 0 = 无孤儿）
+  R2: 55, // 承载表单的 Modal（命中 0）
+  R3: 1, // 见上：FormGrid 已把对象取代殆尽
+  R8: 14, // `<Descriptions>` 开标签（单行 10 + 跨行 4）
 }
 
 const problems = []
@@ -681,16 +757,23 @@ for (const rule of ruleDefs) {
   const { hits, candidates } = rule.run()
 
   if (candidates < MIN_CANDIDATES[rule.id]) {
+    const reading = CANDIDATE_READINGS[rule.id]
     problems.push({
       kind: `${rule.id} 自检失败`,
       file: '-',
       detail: [
         `${rule.title}`,
-        `本规则只解析出 ${candidates} 个候选点（预期 ≥ ${MIN_CANDIDATES[rule.id]}）。`,
+        `本规则只解析出 ${candidates} 个候选点（下限 ${MIN_CANDIDATES[rule.id]}；` +
+          `2026-09-15 的历史实测读数 ${reading ?? '未记录'}）。`,
       ],
       fix:
-        '护栏在输入为空时通过等于没有护栏。请先确认该规则的正则/扫描器没有失效、扫描范围没有跑偏，' +
-        '而不是直接放行。',
+        '护栏在输入为空时通过等于没有护栏。但先分清是**哪一种**失败——两种成因的处置相反：\n' +
+        `    ① **扫描器失效**（正则改坏、扫描范围跑偏、只看单行标签…）：修扫描器，候选点应回到上面那个历史读数。\n` +
+        `    ② **规则已无可判对象**（如实测读数本就很小或已归零，例如 R3 只剩 1 个候选点、FormGrid 已取代它）：\n` +
+        `       那这条规则**已经不再是一条护栏**，应按先例（R2 于 T040、R3 于 T045 逐条毕业；\`--strict\` 两档机制\n` +
+        `       也因"不再改变任何行为"而整条删除）**退役它**——连同 MIN_CANDIDATES 条目、CANDIDATE_READINGS 条目\n` +
+        `       与它的白名单一起删，**不是**把下限调低来放行。\n` +
+        '    判据：把该规则的候选点用另一条独立的取法量一遍（`grep`/探针）。与扫描器读数一致 ⇒ 是 ②。',
     })
     continue
   }
@@ -705,10 +788,7 @@ for (const rule of ruleDefs) {
         kind: `${rule.id} ${rule.title}`,
         file: h.file,
         detail: [`第 ${h.line} 行：${h.text.slice(0, 120)}`],
-        fix:
-          rule.id === 'R2'
-            ? '给 Modal 加 `width`，或改用 `@/components/ui` 的 `FormModal`（四档宽度 sm/md/lg/xl）。'
-            : '把 `<Col span={N}>` 换成 `FormGrid`（或至少补 `xs/sm/md/lg` 断点）。见 components/ui/FormGrid.tsx 的使用纪律。',
+        fix: rule.fix ?? '修复它，或把它降级成一条登记在册的规则。',
       })
     }
     continue

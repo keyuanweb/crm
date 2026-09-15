@@ -76,12 +76,12 @@ export default function SignSection({
       }
     >
       {record ? (
-        <Descriptions column={2} size="small">
+        <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small">
           <Descriptions.Item label={t('pages.signSection.labelSigner')}>{record.signerName ?? `用户#${record.signerId}`}</Descriptions.Item>
           <Descriptions.Item label={t('pages.signSection.labelSignTime')}>
             {record.signedAt.replace('T', ' ').slice(0, 19)}
           </Descriptions.Item>
-          <Descriptions.Item label={t('pages.signSection.labelSignature')} span={2}>
+          <Descriptions.Item label={t('pages.signSection.labelSignature')} span={3}>
             <Image
               src={record.signatureImage}
               alt="签名"

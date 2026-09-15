@@ -62,7 +62,7 @@ export default function SurveyBlock({ ticketId, isClosed, onSubmitted }: Props) 
       style={{ marginBottom: 16 }}
     >
       {record ? (
-        <Descriptions column={2} size="small">
+        <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small">
           <Descriptions.Item label={t('pages.surveyBlock.labelScore')}>
             <Rate disabled value={record.rating} />
             <span style={{ marginLeft: 8 }}>{record.rating} / 5</span>
@@ -71,7 +71,7 @@ export default function SurveyBlock({ ticketId, isClosed, onSubmitted }: Props) 
             {record.createdAt.replace('T', ' ').slice(0, 19)}
           </Descriptions.Item>
           {record.comment && (
-            <Descriptions.Item label={t('pages.surveyBlock.labelComment')} span={2}>
+            <Descriptions.Item label={t('pages.surveyBlock.labelComment')} span={3}>
               {record.comment}
             </Descriptions.Item>
           )}
