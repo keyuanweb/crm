@@ -69,6 +69,21 @@ export default function DepartmentListPage() {
   // `const t = await fetchDepartmentTree()` **遮蔽了 i18n 的 `t`**，故其 catch 分支的
   // `t('pages.departmentList.msgLoadFailed')` 会对数组调用函数而抛 TypeError——加载失败时用户看不到任何提示。
   // 同一函数里 `walk(n.children, …)` 也未防 `children` 为空，`children` 缺失时同样抛错。
+  //
+  // ⚠️ 2026-09-16 订正（095）：**上面这段「既有缺陷」的判定不成立，代码一行不改。**
+  //  ①「`t` 被遮蔽」是**假阳性**：`const t` 声明在 `try` **块**内，而 `catch` 是**平级**的另一个块作用域、
+  //    不在其子作用域内 ⇒ catch 里读到的是组件顶层的 i18n `t`，**既无 TypeError，也无「看不到提示」**。
+  //    （旁证：把外层 `t` 去掉后，同一段 catch 报的是 `ReferenceError: t is not defined` ——
+  //     恰是同一结论的另一面：那个 `const t` 对 catch **完全不可见**。）
+  //  ②「`walk` 未防 `children` 缺失」的**触发条件不成立**：后端 `DepartmentResponse.children` 初始化为
+  //    `new ArrayList<>()`（恒非 null），而 `application.yml` 是 `default-property-inclusion: non_null`
+  //    （省的是 **null**，**空数组仍会序列化**）⇒ 只要后端返回的是这个 DTO，`children` 恒为数组；
+  //    前端 `types/department.ts` 也把 `children` 声明为**必填**。
+  //  ⇒ 按原判去「修」，改的是一个**不存在的原因**。故**只订正注释、不动代码**；原文保留在上、不静默改写。
+  //    复现读数（两种作用域的对照 + 后端 DTO/序列化配置）见
+  //    `specs/095-ux-gap-closeout/falsification-evidence.md` §A 与 §A.2。
+  //  另记（不修）：同文件 `walk` 与 `renderTreeNode` 处**已经**对 `children` 写了 `&&` 判断，
+  //    与「类型声明为必填」**不一致** —— 这是类型与实现的风格分歧，不是本项的合规问题。
   const canManage = usePerms([PERMS.departmentManage])
 
   // 095 T032：断点二择，照抄仓内唯一范式（pages/map/UsageMapPage.tsx）。
