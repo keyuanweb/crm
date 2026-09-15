@@ -6,7 +6,7 @@ import {
   type ActionType,
   type ProColumns,
 } from '@ant-design/pro-components'
-import { App, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tag, Upload } from 'antd'
+import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Upload } from 'antd'
 import {
   DeleteOutlined,
   DownloadOutlined,
@@ -30,6 +30,7 @@ import {
 import { fetchCampaigns } from '../../services/marketingService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 import { hasPerm } from '../../hooks/usePermission'
 import { PERMS } from '../../constants/permissions'
 import type { ImportResult } from '../../types/importResult'
@@ -64,6 +65,7 @@ interface FormValues {
 
 export default function LeadListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -366,72 +368,59 @@ export default function LeadListPage() {
         <Form
           form={form}
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="name" label={t('pages.lead.list.formName')} rules={[{ required: true, message: t('pages.lead.list.msgNameRequired') }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="company" label={t('pages.lead.list.formCompany')} rules={[{ required: true, message: t('pages.lead.list.msgCompanyRequired') }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="title" label={t('pages.lead.list.formTitle')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="phone" label={t('pages.lead.list.formPhone')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="email" label={t('pages.lead.list.formEmail')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="source" label={t('pages.lead.list.colSource')}>
-                <Select
-                  options={Object.keys(ENUM_KEYS.source).map((value) => ({
-                    value,
-                    label: labelOf(t, ENUM_KEYS.source, value),
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="status" label={t('pages.lead.list.colStatus')}>
-                <Select
-                  options={Object.keys(ENUM_KEYS.leadStatus).map((value) => ({
-                    value,
-                    label: labelOf(t, ENUM_KEYS.leadStatus, value),
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="score" label={t('pages.lead.list.formScore')}>
-                <InputNumber min={0} max={100} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="campaignId" label={t('pages.lead.list.formCampaign')}>
-                <Select
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
-                  placeholder={t('pages.lead.list.phCampaign')}
-                  options={campaignOptions}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 9 个字段都是成对的短输入，整组进栅格：640px 弹窗里算出的可用宽 ≥ 2 × 256 ⇒ 两列，
+              弹窗窄到装不下两个字段时自动退成一列。原先的 `<Row gutter={16}>` + 9 个
+              `<Col span={12}>` 是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item name="name" label={t('pages.lead.list.formName')} rules={[{ required: true, message: t('pages.lead.list.msgNameRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="company" label={t('pages.lead.list.formCompany')} rules={[{ required: true, message: t('pages.lead.list.msgCompanyRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="title" label={t('pages.lead.list.formTitle')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="phone" label={t('pages.lead.list.formPhone')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="email" label={t('pages.lead.list.formEmail')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="source" label={t('pages.lead.list.colSource')}>
+              <Select
+                options={Object.keys(ENUM_KEYS.source).map((value) => ({
+                  value,
+                  label: labelOf(t, ENUM_KEYS.source, value),
+                }))}
+              />
+            </Form.Item>
+            <Form.Item name="status" label={t('pages.lead.list.colStatus')}>
+              <Select
+                options={Object.keys(ENUM_KEYS.leadStatus).map((value) => ({
+                  value,
+                  label: labelOf(t, ENUM_KEYS.leadStatus, value),
+                }))}
+              />
+            </Form.Item>
+            <Form.Item name="score" label={t('pages.lead.list.formScore')}>
+              <InputNumber min={0} max={100} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="campaignId" label={t('pages.lead.list.formCampaign')}>
+              <Select
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder={t('pages.lead.list.phCampaign')}
+                options={campaignOptions}
+              />
+            </Form.Item>
+          </FormGrid>
+          {/* 以下两项**刻意留在栅格之外**（使用纪律第 1 条）：自定义字段的数量与控件形态都是
+              运行时才知道的，备注是要全宽的 TextArea——放进栅格会被压成某一列。 */}
           <CustomFieldFormItems entityType="LEAD" />
           <Form.Item name="remark" label={t('pages.lead.list.formRemark')}>
             <Input.TextArea rows={2} />

@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
-import { App, Button, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Tag } from 'antd'
+import { App, Button, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import {
@@ -25,6 +25,7 @@ import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import { formatAmount } from '../../types/opportunity'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   name: string
@@ -50,6 +51,7 @@ interface FormValues {
 
 export default function CampaignListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -290,54 +292,44 @@ export default function CampaignListPage() {
           form={form}
           name="campaignForm"
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="name"
-                label={t('pages.marketing.campaign.formName')}
-                rules={[{ required: true, message: t('pages.marketing.campaign.msgNameRequired') }]}
-              >
-                <Input maxLength={100} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="channel"
-                label={t('pages.marketing.campaign.formChannel')}
-                rules={[{ required: true, message: t('pages.marketing.campaign.msgChannelRequired') }]}
-              >
-                <Select
-                  options={Object.keys(ENUM_KEYS.campaignChannel).map((code) => ({
-                    value: code,
-                    label: labelOf(t, ENUM_KEYS.campaignChannel, code),
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="budget" label={t('pages.marketing.campaign.formBudget')}>
-                <InputNumber min={0} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="cost" label={t('pages.marketing.campaign.formCost')}>
-                <InputNumber min={0} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="startDate" label={t('pages.marketing.campaign.formStartDate')}>
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="endDate" label={t('pages.marketing.campaign.formEndDate')}>
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 6 个成对字段进栅格（720px 弹窗里可用宽 ≥ 2 × 256 ⇒ 两列，窄了自动退一列）。
+              原先的 `<Row gutter={16}>` + 6 个 `<Col span={12}>` 是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item
+              name="name"
+              label={t('pages.marketing.campaign.formName')}
+              rules={[{ required: true, message: t('pages.marketing.campaign.msgNameRequired') }]}
+            >
+              <Input maxLength={100} />
+            </Form.Item>
+            <Form.Item
+              name="channel"
+              label={t('pages.marketing.campaign.formChannel')}
+              rules={[{ required: true, message: t('pages.marketing.campaign.msgChannelRequired') }]}
+            >
+              <Select
+                options={Object.keys(ENUM_KEYS.campaignChannel).map((code) => ({
+                  value: code,
+                  label: labelOf(t, ENUM_KEYS.campaignChannel, code),
+                }))}
+              />
+            </Form.Item>
+            <Form.Item name="budget" label={t('pages.marketing.campaign.formBudget')}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="cost" label={t('pages.marketing.campaign.formCost')}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="startDate" label={t('pages.marketing.campaign.formStartDate')}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="endDate" label={t('pages.marketing.campaign.formEndDate')}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

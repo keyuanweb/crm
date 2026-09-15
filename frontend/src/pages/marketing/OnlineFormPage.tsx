@@ -30,6 +30,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { FormField, OnlineForm, Submission } from '../../types/form'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface FieldRow extends FormField {
   key: number
@@ -37,6 +38,7 @@ interface FieldRow extends FormField {
 
 export default function OnlineFormPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -255,30 +257,29 @@ export default function OnlineFormPage() {
         destroyOnClose
         width={720}
       >
-        <Form form={form} name="formDef" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="name"
-                label={t('pages.marketing.onlineForm.formName')}
-                rules={[{ required: true, message: t('pages.marketing.onlineForm.msgNameRequired') }]}
-              >
-                <Input placeholder={t('pages.marketing.onlineForm.formNamePlaceholder')} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="source" label={t('pages.marketing.onlineForm.formSource')}>
-                <Select
-                  options={[
-                    { value: 'WEBSITE', label: t('pages.marketing.onlineForm.sourceWebsite') },
-                    { value: 'ADVERTISEMENT', label: t('pages.marketing.onlineForm.sourceAdvertisement') },
-                    { value: 'EXHIBITION', label: t('pages.marketing.onlineForm.sourceExhibition') },
-                    { value: 'OTHER', label: t('pages.marketing.onlineForm.sourceOther') },
-                  ]}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+        <Form form={form} name="formDef" layout="horizontal" labelCol={{ flex: `${metrics.labelWidth}px` }} wrapperCol={{ flex: 1 }}>
+          {/* 2 个成对字段进栅格；「提交成功提示」与下面的字段构造器是整行独占，
+              按使用纪律第 1 条留在栅格之外（构造器每行是固定配比的 Row/Col，不在本条管辖内）。
+              原先的 `<Row gutter={16}>` + 2 个 `<Col span={12}>` 是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item
+              name="name"
+              label={t('pages.marketing.onlineForm.formName')}
+              rules={[{ required: true, message: t('pages.marketing.onlineForm.msgNameRequired') }]}
+            >
+              <Input placeholder={t('pages.marketing.onlineForm.formNamePlaceholder')} />
+            </Form.Item>
+            <Form.Item name="source" label={t('pages.marketing.onlineForm.formSource')}>
+              <Select
+                options={[
+                  { value: 'WEBSITE', label: t('pages.marketing.onlineForm.sourceWebsite') },
+                  { value: 'ADVERTISEMENT', label: t('pages.marketing.onlineForm.sourceAdvertisement') },
+                  { value: 'EXHIBITION', label: t('pages.marketing.onlineForm.sourceExhibition') },
+                  { value: 'OTHER', label: t('pages.marketing.onlineForm.sourceOther') },
+                ]}
+              />
+            </Form.Item>
+          </FormGrid>
           <Form.Item name="successMessage" label={t('pages.marketing.onlineForm.formSuccessMessage')}>
             <Input placeholder={t('pages.marketing.onlineForm.formSuccessMessagePlaceholder')} />
           </Form.Item>

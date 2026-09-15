@@ -135,9 +135,14 @@ export default function TagListPage() {
             <Input placeholder={t('pages.tagList.formNamePlaceholder')} />
           </Form.Item>
           <Form.Item name="color" label={t('pages.tagList.formColorLabel')}>
+            {/* 色板：每个色块**按内容定宽**（`flex="0 0 auto"` = 声明意图），不是栅格的 1/12。
+                 原先写 `span={2}`——那是「把 24px 的色块摊成 24 分之 2 的列」，既非本意，
+                 也正是 R3 要治的「写死列宽、无断点」。这里**不用** `FormGrid`：
+                 它的轨道下限是 `labelWidth + 160 = 256px`，拿来排色块会一列一个。
+                 span 去掉后由 `flex` 定宽，间距仍由 `Row` 的 `gutter={[4,4]}` 提供。 */}
             <Row gutter={[4, 4]}>
               {COLOR_OPTIONS.map((c) => (
-                <Col key={c} span={2}>
+                <Col key={c} flex="0 0 auto">
                   <Form.Item name="color" noStyle>
                     <Tag
                       color={c}

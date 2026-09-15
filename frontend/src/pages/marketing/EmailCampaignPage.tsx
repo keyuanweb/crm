@@ -29,6 +29,7 @@ import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { EmailCampaign, EmailSendLog } from '../../types/email'
 import type { Segment } from '../../types/tag'
+import { useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   name: string
@@ -65,6 +66,7 @@ const LOG_STATUS_KEYS: Record<string, { color: string; key: string }> = {
 
 export default function EmailCampaignPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -244,7 +246,7 @@ export default function EmailCampaignPage() {
         destroyOnClose
         width={640}
       >
-        <Form form={form} name="campaignForm" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
+        <Form form={form} name="campaignForm" layout="horizontal" labelCol={{ flex: `${metrics.labelWidth}px` }} wrapperCol={{ flex: 1 }}>
           <Form.Item name="name" label={t('pages.marketing.emailCampaign.formName')} rules={[{ required: true, message: t('pages.marketing.emailCampaign.msgNameRequired') }]}>
             <Input placeholder={t('pages.marketing.emailCampaign.formNamePlaceholder')} />
           </Form.Item>

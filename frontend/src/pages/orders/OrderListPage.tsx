@@ -5,14 +5,12 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
-  Col,
   DatePicker,
   Form,
   Input,
   InputNumber,
   Modal,
   Popconfirm,
-  Row,
   Select,
   Table,
   Tag,
@@ -33,6 +31,7 @@ import { hasPerm } from '../../hooks/usePermission'
 import { PERMS } from '../../constants/permissions'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import { ORDER_STATUS_COLORS, type Order, type PlanItemPayload } from '../../types/order'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   title: string
@@ -50,6 +49,7 @@ interface PlanFormValues {
 
 export default function OrderListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -260,63 +260,54 @@ export default function OrderListPage() {
           form={form}
           name="orderForm"
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="title" label={t('pages.order.list.formTitle')} rules={[{ required: true, message: t('pages.order.list.msgTitleRequired') }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="customerId" label={t('pages.order.list.colCustomer')} rules={[{ required: true, message: t('pages.order.list.msgCustomerRequired') }]}>
-                <Select
-                  showSearch
-                  placeholder={t('pages.order.list.phCustomer')}
-                  options={customerOptions}
-                  filterOption={false}
-                  onSearch={(kw) => void loadCustomers(kw)}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="contractId" label={t('pages.order.list.formContract')}>
-                <Select allowClear placeholder={t('pages.order.list.phQuote')} options={contractOptions} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="amount" label={t('pages.order.list.formAmount')}>
-                <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder={t('pages.order.list.phAmount')} />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item name="description" label={t('pages.order.list.colDesc')}>
-                <Input.TextArea rows={2} />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontWeight: 600 }}>{t('pages.order.list.paymentPlan')}</span>
-                <Button size="small" icon={<PlusOutlined />} onClick={openAddPlan}>
-                  {t('pages.order.list.addPlan')}
-                </Button>
-              </div>
-              <Table<PlanItemPayload>
-                rowKey={(row, idx) => `${row.dueDate}-${idx}`}
-                size="small"
-                dataSource={plans}
-                columns={planColumns as never}
-                pagination={false}
-                locale={{ emptyText: '暂无期次（将自动生成一期）' }}
+          {/* 4 个成对字段进栅格；「描述」与下面的付款计划块（标题 + 明细表 + 合计）是整行独占，
+              按使用纪律第 1 条留在栅格之外。原先的 `<Row gutter={16}>` + 4 个 `<Col span={12}>`
+              + 2 个 `<Col span={24}>` 是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item name="title" label={t('pages.order.list.formTitle')} rules={[{ required: true, message: t('pages.order.list.msgTitleRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="customerId" label={t('pages.order.list.colCustomer')} rules={[{ required: true, message: t('pages.order.list.msgCustomerRequired') }]}>
+              <Select
+                showSearch
+                placeholder={t('pages.order.list.phCustomer')}
+                options={customerOptions}
+                filterOption={false}
+                onSearch={(kw) => void loadCustomers(kw)}
               />
-              {plans.length > 0 && (
-                <div style={{ textAlign: 'right', marginTop: 8, fontWeight: 600 }}>
-                  期次合计：¥ {(planSum / 100).toLocaleString('zh-CN')}
-                </div>
-              )}
-            </Col>
-          </Row>
+            </Form.Item>
+            <Form.Item name="contractId" label={t('pages.order.list.formContract')}>
+              <Select allowClear placeholder={t('pages.order.list.phQuote')} options={contractOptions} />
+            </Form.Item>
+            <Form.Item name="amount" label={t('pages.order.list.formAmount')}>
+              <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder={t('pages.order.list.phAmount')} />
+            </Form.Item>
+          </FormGrid>
+          <Form.Item name="description" label={t('pages.order.list.colDesc')}>
+            <Input.TextArea rows={2} />
+          </Form.Item>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontWeight: 600 }}>{t('pages.order.list.paymentPlan')}</span>
+            <Button size="small" icon={<PlusOutlined />} onClick={openAddPlan}>
+              {t('pages.order.list.addPlan')}
+            </Button>
+          </div>
+          <Table<PlanItemPayload>
+            rowKey={(row, idx) => `${row.dueDate}-${idx}`}
+            size="small"
+            dataSource={plans}
+            columns={planColumns as never}
+            pagination={false}
+            locale={{ emptyText: '暂无期次（将自动生成一期）' }}
+          />
+          {plans.length > 0 && (
+            <div style={{ textAlign: 'right', marginTop: 8, fontWeight: 600 }}>
+              期次合计：¥ {(planSum / 100).toLocaleString('zh-CN')}
+            </div>
+          )}
         </Form>
       </Modal>
 

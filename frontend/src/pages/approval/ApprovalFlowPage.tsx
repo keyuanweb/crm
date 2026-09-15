@@ -28,6 +28,7 @@ import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { ApprovalFlow, FlowNode } from '../../types/approval'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface NodeRow extends FlowNode {
   key: number
@@ -50,6 +51,7 @@ const APPROVER_TYPES = [
 
 export default function ApprovalFlowPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -329,19 +331,17 @@ export default function ApprovalFlowPage() {
         destroyOnClose
         width={760}
       >
-        <Form form={form} name="flowForm" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="name" label={t('pages.approvalFlow.formNameLabel')} rules={[{ required: true, message: t('pages.approvalFlow.formNameRequired') }]} >
-                <Input placeholder={t('pages.approvalFlow.formNamePlaceholder')} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="businessType" label={t('pages.approvalFlow.formBusinessTypeLabel')} rules={[{ required: true, message: t('pages.approvalFlow.formBusinessTypeRequired') }]} >
-                <Select options={BIZ_TYPES.map((value) => ({ value, label: labelOf(t, ENUM_KEYS.entity, value) }))} />
-              </Form.Item>
-            </Col>
-          </Row>
+        <Form form={form} name="flowForm" layout="horizontal" labelCol={{ flex: `${metrics.labelWidth}px` }} wrapperCol={{ flex: 1 }}>
+          {/* 2 个成对字段进栅格（原先的 `<Row gutter={16}>` + 2 个 `<Col span={12}>` 是写死两列、
+              无任何断点）。（上面的审批节点编辑器另有一组 Row/Col，那是节点行的固定配比，不在本条管辖内。） */}
+          <FormGrid>
+            <Form.Item name="name" label={t('pages.approvalFlow.formNameLabel')} rules={[{ required: true, message: t('pages.approvalFlow.formNameRequired') }]} >
+              <Input placeholder={t('pages.approvalFlow.formNamePlaceholder')} />
+            </Form.Item>
+            <Form.Item name="businessType" label={t('pages.approvalFlow.formBusinessTypeLabel')} rules={[{ required: true, message: t('pages.approvalFlow.formBusinessTypeRequired') }]} >
+              <Select options={BIZ_TYPES.map((value) => ({ value, label: labelOf(t, ENUM_KEYS.entity, value) }))} />
+            </Form.Item>
+          </FormGrid>
         </Form>
 
         <div style={{ marginBottom: 6 }}>

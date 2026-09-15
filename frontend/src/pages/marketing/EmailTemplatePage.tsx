@@ -4,12 +4,10 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
-  Col,
   Form,
   Input,
   Modal,
   Popconfirm,
-  Row,
   Select,
   Tag,
 } from 'antd'
@@ -24,6 +22,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { EmailTemplate } from '../../types/email'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   name: string
@@ -34,6 +33,7 @@ interface FormValues {
 
 export default function EmailTemplatePage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -171,21 +171,19 @@ export default function EmailTemplatePage() {
         destroyOnClose
         width={680}
       >
-        <Form form={form} name="emailTemplateForm" layout="horizontal" labelCol={{ flex: '70px' }} wrapperCol={{ flex: 1 }}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="name" label={t('pages.marketing.emailTemplate.formNameLabel')} rules={[{ required: true, message: t('pages.marketing.emailTemplate.msgNameRequired') }]}>
-                <Input placeholder={t('pages.marketing.emailTemplate.phName')} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="category" label={t('pages.marketing.emailTemplate.formCategoryLabel')}>
-                <Select
-                  options={Object.entries(categoryLabels).map(([value, label]) => ({ value, label }))}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+        <Form form={form} name="emailTemplateForm" layout="horizontal" labelCol={{ flex: `${metrics.labelWidth}px` }} wrapperCol={{ flex: 1 }}>
+          {/* 2 个成对字段进栅格；「主题」「正文」是整行独占，按使用纪律第 1 条留在栅格之外。
+              原先的 `<Row gutter={16}>` + 2 个 `<Col span={12}>` 是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item name="name" label={t('pages.marketing.emailTemplate.formNameLabel')} rules={[{ required: true, message: t('pages.marketing.emailTemplate.msgNameRequired') }]}>
+              <Input placeholder={t('pages.marketing.emailTemplate.phName')} />
+            </Form.Item>
+            <Form.Item name="category" label={t('pages.marketing.emailTemplate.formCategoryLabel')}>
+              <Select
+                options={Object.entries(categoryLabels).map(([value, label]) => ({ value, label }))}
+              />
+            </Form.Item>
+          </FormGrid>
           <Form.Item name="subject" label={t('pages.marketing.emailTemplate.formSubjectLabel')} rules={[{ required: true, message: t('pages.marketing.emailTemplate.msgSubjectRequired') }]}>
             <Input placeholder={t('pages.marketing.emailTemplate.phSubject')} />
           </Form.Item>

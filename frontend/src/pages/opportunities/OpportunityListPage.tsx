@@ -1,6 +1,6 @@
 ﻿import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { App, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select } from 'antd'
+import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import {
@@ -22,6 +22,7 @@ import {
   toCustomFieldPayload,
 } from '../../utils/customField'
 import { CustomFieldFormItems } from '../../components/CustomFieldItems'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   customerId: number
@@ -34,6 +35,7 @@ interface FormValues {
 
 export default function OpportunityListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const customFieldFilterColumns = useCustomFieldFilterColumns('OPPORTUNITY')
   const { message } = App.useApp()
@@ -189,55 +191,47 @@ export default function OpportunityListPage() {
           form={form}
           name="opportunityForm"
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="customerId"
-                label={t('pages.opportunity.list.formCustomer')}
-                rules={[{ required: true, message: t('pages.opportunity.list.msgCustomerRequired') }]}
-              >
-                <Select
-                  showSearch
-                  optionFilterProp="label"
-                  options={(customers.data?.items ?? []).map((c) => ({
-                    value: c.id,
-                    label: `${c.name}（${c.company}）`,
-                  }))}
-                  placeholder={t('pages.opportunity.list.msgCustomerRequired')}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="name"
-                label={t('pages.opportunity.list.formName')}
-                rules={[{ required: true, message: t('pages.opportunity.list.msgNameRequired') }]}
-              >
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item name="expectedAmountMin" label={t('pages.opportunity.list.formAmountMin')}>
-                <InputNumber min={0} suffix="元" style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item name="expectedAmountMax" label={t('pages.opportunity.list.formAmountMax')}>
-                <InputNumber min={0} suffix="元" style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <CustomFieldFormItems entityType="OPPORTUNITY" />
-            </Col>
-            <Col span={24}>
-              <Form.Item name="remark" label={t('pages.opportunity.list.formRemark')}>
-                <Input.TextArea rows={2} />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 2 个成对字段进栅格；「预算下限 / 上限」「自定义字段」「备注」四项是整行独占，
+              按使用纪律第 1 条留在栅格之外（放进栅格会被压成某一列）。
+              原先的 `<Row gutter={16}>` + 2 个 `<Col span={12}>` + 4 个 `<Col span={24}>`
+              是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item
+              name="customerId"
+              label={t('pages.opportunity.list.formCustomer')}
+              rules={[{ required: true, message: t('pages.opportunity.list.msgCustomerRequired') }]}
+            >
+              <Select
+                showSearch
+                optionFilterProp="label"
+                options={(customers.data?.items ?? []).map((c) => ({
+                  value: c.id,
+                  label: `${c.name}（${c.company}）`,
+                }))}
+                placeholder={t('pages.opportunity.list.msgCustomerRequired')}
+              />
+            </Form.Item>
+            <Form.Item
+              name="name"
+              label={t('pages.opportunity.list.formName')}
+              rules={[{ required: true, message: t('pages.opportunity.list.msgNameRequired') }]}
+            >
+              <Input />
+            </Form.Item>
+          </FormGrid>
+          <Form.Item name="expectedAmountMin" label={t('pages.opportunity.list.formAmountMin')}>
+            <InputNumber min={0} suffix="元" style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="expectedAmountMax" label={t('pages.opportunity.list.formAmountMax')}>
+            <InputNumber min={0} suffix="元" style={{ width: '100%' }} />
+          </Form.Item>
+          <CustomFieldFormItems entityType="OPPORTUNITY" />
+          <Form.Item name="remark" label={t('pages.opportunity.list.formRemark')}>
+            <Input.TextArea rows={2} />
+          </Form.Item>
         </Form>
       </Modal>
     </>

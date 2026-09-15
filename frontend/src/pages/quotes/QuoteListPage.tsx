@@ -5,13 +5,11 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
-  Col,
   DatePicker,
   Form,
   Input,
   InputNumber,
   Modal,
-  Row,
   Select,
   Table,
   Tag,
@@ -33,6 +31,7 @@ import {
 } from '../../types/quote'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import type { Product } from '../../types/product'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   customerId: number
@@ -48,6 +47,7 @@ interface LineFormValues {
 
 export default function QuoteListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -253,38 +253,33 @@ export default function QuoteListPage() {
           form={form}
           name="quoteForm"
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="customerId"
-                label={t('pages.quoteList.form.customer')}
-                rules={[{ required: true, message: t('pages.quoteList.form.customerRequired') }]}
-              >
-                <Select
-                  showSearch
-                  placeholder={t('pages.quoteList.form.customerPlaceholder')}
-                  options={customerOptions}
-                  filterOption={false}
-                  onSearch={(kw) => void loadCustomers(kw)}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="validUntil" label={t('pages.quoteList.form.validUntil')}>
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item name="remark" label={t('pages.quoteList.form.remark')}>
-                <Input.TextArea rows={2} />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 2 个成对字段进栅格；「备注」与下面的产品明细块是整行独占，按使用纪律第 1 条留在栅格之外。
+              原先的两个 `<Row gutter={16}>`（2 个 `<Col span={12}>` + 1 个 `<Col span={24}>`）
+              是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item
+              name="customerId"
+              label={t('pages.quoteList.form.customer')}
+              rules={[{ required: true, message: t('pages.quoteList.form.customerRequired') }]}
+            >
+              <Select
+                showSearch
+                placeholder={t('pages.quoteList.form.customerPlaceholder')}
+                options={customerOptions}
+                filterOption={false}
+                onSearch={(kw) => void loadCustomers(kw)}
+              />
+            </Form.Item>
+            <Form.Item name="validUntil" label={t('pages.quoteList.form.validUntil')}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </FormGrid>
+          <Form.Item name="remark" label={t('pages.quoteList.form.remark')}>
+            <Input.TextArea rows={2} />
+          </Form.Item>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontWeight: 600 }}>{t('pages.quoteList.form.productLines')}</span>

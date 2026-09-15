@@ -41,6 +41,7 @@ import {
   type TaskItem,
   type TaskPriority,
 } from '../../types/task'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   title: string
@@ -61,6 +62,7 @@ const TASK_PRIORITY_CODES = Object.keys(PRIORITY_COLORS) as TaskPriority[]
 
 export default function TaskListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -298,53 +300,45 @@ export default function TaskListPage() {
           form={form}
           name="taskForm"
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="title" label={t('pages.task.list.colTitle')} rules={[{ required: true, message: t('pages.task.list.msgTitleRequired') }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="dueAt" label={t('pages.task.list.colDue')}>
-                <DatePicker showTime style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="priority" label={t('pages.task.list.colPriority')}>
-                <Select
-                  options={TASK_PRIORITY_CODES.map((value) => ({
-                    value,
-                    label: labelOf(t, ENUM_KEYS.priority, value),
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="linkedType" label="Linked Type">
-                <Select
-                  allowClear
-                  placeholder={t('pages.task.list.optional')}
-                  options={Object.keys(ENUM_KEYS.linkedType).map((value) => ({
-                    value,
-                    label: labelOf(t, ENUM_KEYS.linkedType, value),
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="linkedId" label="Linked ID">
-                <Input placeholder={t('pages.task.list.optional')} />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item name="remark" label={t('pages.task.list.formRemark')}>
-                <Input.TextArea rows={2} />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 5 个成对字段进栅格；「备注」是整行独占的 TextArea，按使用纪律第 1 条留在栅格之外。
+              原先的 `<Row gutter={16}>` + 5 个 `<Col span={12}>` + 1 个 `<Col span={24}>`
+              是**写死两列、无任何断点**的。（页首三个统计块另有一组 Row/Col，那是带 `xs/md` 断点的，
+              不在本条管辖内，也未改动。） */}
+          <FormGrid>
+            <Form.Item name="title" label={t('pages.task.list.colTitle')} rules={[{ required: true, message: t('pages.task.list.msgTitleRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="dueAt" label={t('pages.task.list.colDue')}>
+              <DatePicker showTime style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="priority" label={t('pages.task.list.colPriority')}>
+              <Select
+                options={TASK_PRIORITY_CODES.map((value) => ({
+                  value,
+                  label: labelOf(t, ENUM_KEYS.priority, value),
+                }))}
+              />
+            </Form.Item>
+            <Form.Item name="linkedType" label="Linked Type">
+              <Select
+                allowClear
+                placeholder={t('pages.task.list.optional')}
+                options={Object.keys(ENUM_KEYS.linkedType).map((value) => ({
+                  value,
+                  label: labelOf(t, ENUM_KEYS.linkedType, value),
+                }))}
+              />
+            </Form.Item>
+            <Form.Item name="linkedId" label="Linked ID">
+              <Input placeholder={t('pages.task.list.optional')} />
+            </Form.Item>
+          </FormGrid>
+          <Form.Item name="remark" label={t('pages.task.list.formRemark')}>
+            <Input.TextArea rows={2} />
+          </Form.Item>
         </Form>
       </Modal>
     </>

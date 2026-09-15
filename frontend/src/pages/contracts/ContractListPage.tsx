@@ -5,13 +5,11 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
-  Col,
   DatePicker,
   Form,
   Input,
   InputNumber,
   Modal,
-  Row,
   Select,
   Tag,
 } from 'antd'
@@ -25,6 +23,7 @@ import {
 } from '../../services/contractService'
 import { fetchCustomers } from '../../services/customerService'
 import { fetchQuotes } from '../../services/quoteService'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 import { extractErrorMessage } from '../../services/apiClient'
 import {
   CONTRACT_STATUS_COLORS,
@@ -47,6 +46,7 @@ interface FormValues {
 
 export default function ContractListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -210,75 +210,61 @@ export default function ContractListPage() {
           form={form}
           name="contractForm"
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="title" label={t('pages.contract.list.formTitle')} rules={[{ required: true, message: t('pages.contract.list.msgTitleRequired') }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="customerId" label={t('pages.contract.list.formCustomer')} rules={[{ required: true, message: t('pages.contract.list.msgCustomerRequired') }]}>
-                <Select
-                  showSearch
-                  placeholder={t('pages.contract.list.phCustomer')}
-                  options={customerOptions}
-                  filterOption={false}
-                  onSearch={(kw) => void loadCustomers(kw)}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="quoteId" label={t('pages.contract.list.formQuote')}>
-                <Select
-                  showSearch
-                  allowClear
-                  placeholder={t('pages.contract.list.phQuote')}
-                  options={quoteOptions}
-                  filterOption={false}
-                  onSearch={(kw) => void loadQuotes(kw)}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="amount" label={t('pages.contract.list.formAmount')}>
-                <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder={t('pages.contract.list.phAmount')} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="templateId" label={t('pages.contract.list.formTemplate')}>
-                <Select allowClear placeholder={t('pages.contract.list.phTemplate')} options={templateOptions} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="startDate" label={t('pages.contract.list.formStart')}>
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="endDate" label={t('pages.contract.list.formEnd')}>
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item name="renewedFromId" label={t('pages.contract.list.formRenewedFrom')}>
-                <Select
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
-                  placeholder={t('pages.contract.list.phRenewedFrom')}
-                  options={renewalOptions}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item name="remark" label={t('pages.contract.list.formRemark')}>
-                <Input.TextArea rows={2} />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 7 个成对字段进栅格（720px 弹窗里 ≥ 2 × 256 ⇒ 两列，窄了自动退一列），
+              尾随的「续签自」「备注」两项是整行独占，按使用纪律第 1 条留在栅格之外。
+              原先的 `<Row gutter={16}>` + 7 个 `<Col span={12}>` + 2 个 `<Col span={24}>`
+              是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item name="title" label={t('pages.contract.list.formTitle')} rules={[{ required: true, message: t('pages.contract.list.msgTitleRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="customerId" label={t('pages.contract.list.formCustomer')} rules={[{ required: true, message: t('pages.contract.list.msgCustomerRequired') }]}>
+              <Select
+                showSearch
+                placeholder={t('pages.contract.list.phCustomer')}
+                options={customerOptions}
+                filterOption={false}
+                onSearch={(kw) => void loadCustomers(kw)}
+              />
+            </Form.Item>
+            <Form.Item name="quoteId" label={t('pages.contract.list.formQuote')}>
+              <Select
+                showSearch
+                allowClear
+                placeholder={t('pages.contract.list.phQuote')}
+                options={quoteOptions}
+                filterOption={false}
+                onSearch={(kw) => void loadQuotes(kw)}
+              />
+            </Form.Item>
+            <Form.Item name="amount" label={t('pages.contract.list.formAmount')}>
+              <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder={t('pages.contract.list.phAmount')} />
+            </Form.Item>
+            <Form.Item name="templateId" label={t('pages.contract.list.formTemplate')}>
+              <Select allowClear placeholder={t('pages.contract.list.phTemplate')} options={templateOptions} />
+            </Form.Item>
+            <Form.Item name="startDate" label={t('pages.contract.list.formStart')}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="endDate" label={t('pages.contract.list.formEnd')}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </FormGrid>
+          <Form.Item name="renewedFromId" label={t('pages.contract.list.formRenewedFrom')}>
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder={t('pages.contract.list.phRenewedFrom')}
+              options={renewalOptions}
+            />
+          </Form.Item>
+          <Form.Item name="remark" label={t('pages.contract.list.formRemark')}>
+            <Input.TextArea rows={2} />
+          </Form.Item>
         </Form>
       </Modal>
     </>

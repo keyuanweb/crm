@@ -3,13 +3,11 @@ import { useTranslation } from 'react-i18next'
 import {
   App,
   Button,
-  Col,
   DatePicker,
   Form,
   InputNumber,
   Modal,
   Popconfirm,
-  Row,
   Segmented,
   Select,
   Tag,
@@ -31,6 +29,7 @@ import { useOpportunityStages } from '../../hooks/useOpportunityStages'
 import OpportunityBoard from './OpportunityBoard'
 import { useQuery } from '@tanstack/react-query'
 import type { Dayjs } from 'dayjs'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   opportunityId: number
@@ -41,6 +40,7 @@ interface FormValues {
 
 export default function SalesOpportunityListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -215,54 +215,48 @@ export default function SalesOpportunityListPage() {
           form={form}
           name="salesOpportunityForm"
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="opportunityId"
-                label={t('pages.salesOpportunity.colOpportunityName')}
-                rules={[{ required: true, message: t('pages.salesOpportunity.messageSelectOpportunity') }]}
-              >
-                <Select
-                  showSearch
-                  optionFilterProp="label"
-                  options={(opportunities.data?.items ?? []).map((o) => ({
-                    value: o.id,
-                    label: `${o.name}（${o.customerName ?? o.customerId}）`,
-                  }))}
-                  placeholder={t('pages.salesOpportunity.placeholderSelectOpportunity')}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="amount" label={t('pages.salesOpportunity.colAmountYuan')}>
-                <InputNumber min={0} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="stage"
-                label={t('pages.salesOpportunity.colStage')}
-                rules={[{ required: true, message: t('pages.salesOpportunity.messageSelectStage') }]}
-              >
-                <Select
-                  // 只列「可新选入」的阶段：停用中的阶段不该出现在这里（服务端同样会拒）
-                  options={selectableStages.map((s) => ({
-                    value: s.code,
-                    label: stageLabel(s.code),
-                  }))}
-                  placeholder={t('pages.salesOpportunity.placeholderSelectStage')}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="expectedCloseDate" label={t('pages.salesOpportunity.labelExpectedCloseDate')}>
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 4 个成对字段进栅格（640px 弹窗里可用宽 ≥ 2 × 256 ⇒ 两列，窄了自动退一列）。
+              原先的 `<Row gutter={16}>` + 4 个 `<Col span={12}>` 是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item
+              name="opportunityId"
+              label={t('pages.salesOpportunity.colOpportunityName')}
+              rules={[{ required: true, message: t('pages.salesOpportunity.messageSelectOpportunity') }]}
+            >
+              <Select
+                showSearch
+                optionFilterProp="label"
+                options={(opportunities.data?.items ?? []).map((o) => ({
+                  value: o.id,
+                  label: `${o.name}（${o.customerName ?? o.customerId}）`,
+                }))}
+                placeholder={t('pages.salesOpportunity.placeholderSelectOpportunity')}
+              />
+            </Form.Item>
+            <Form.Item name="amount" label={t('pages.salesOpportunity.colAmountYuan')}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item
+              name="stage"
+              label={t('pages.salesOpportunity.colStage')}
+              rules={[{ required: true, message: t('pages.salesOpportunity.messageSelectStage') }]}
+            >
+              <Select
+                // 只列「可新选入」的阶段：停用中的阶段不该出现在这里（服务端同样会拒）
+                options={selectableStages.map((s) => ({
+                  value: s.code,
+                  label: stageLabel(s.code),
+                }))}
+                placeholder={t('pages.salesOpportunity.placeholderSelectStage')}
+              />
+            </Form.Item>
+            <Form.Item name="expectedCloseDate" label={t('pages.salesOpportunity.labelExpectedCloseDate')}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

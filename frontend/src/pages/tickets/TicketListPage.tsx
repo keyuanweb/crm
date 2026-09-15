@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
-import { App, Button, Col, Form, Input, Modal, Row, Select, Tag } from 'antd'
+import { App, Button, Form, Input, Modal, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   createTicket,
@@ -25,6 +25,7 @@ import {
   toCustomFieldPayload,
 } from '../../utils/customField'
 import { CustomFieldFormItems } from '../../components/CustomFieldItems'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   customerId: number
@@ -37,6 +38,7 @@ interface FormValues {
 
 export default function TicketListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const customFieldFilterColumns = useCustomFieldFilterColumns('TICKET')
   const { message } = App.useApp()
@@ -187,55 +189,51 @@ export default function TicketListPage() {
           form={form}
           name="ticketForm"
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="customerId"
-                label={t('pages.ticket.list.formCustomer')}
-                rules={[{ required: true, message: t('pages.ticket.list.msgCustomerRequired') }]}
-              >
-                <Select
-                  showSearch
-                  optionFilterProp="label"
-                  placeholder={t('pages.contract.list.phCustomer')}
-                  options={customerOptions}
-                  onSearch={loadCustomers}
-                  onFocus={() => void loadCustomers()}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="title" label={t('pages.ticket.list.formTitle')} rules={[{ required: true, message: t('pages.ticket.list.msgTitleRequired') }]}>
-                <Input maxLength={200} />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item name="description" label={t('pages.ticket.list.formDesc')}>
-                <Input.TextArea rows={4} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="priority" label={t('pages.ticket.list.formPriority')} rules={[{ required: true, message: t('pages.ticket.list.msgPriorityRequired') }]}>
-                <Select
-                  options={Object.keys(ENUM_KEYS.ticketPriority).map((code) => ({
-                    value: code,
-                    label: labelOf(t, ENUM_KEYS.ticketPriority, code),
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <CustomFieldFormItems entityType="TICKET" />
-            </Col>
-            <Col span={24}>
-              <Form.Item name="remark" label={t('pages.opportunity.list.formRemark')}>
-                <Input.TextArea rows={2} />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 「客户」「标题」两个成对字段进栅格。原先的 `<Row gutter={16}>` + `<Col span={12}>`
+              是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item
+              name="customerId"
+              label={t('pages.ticket.list.formCustomer')}
+              rules={[{ required: true, message: t('pages.ticket.list.msgCustomerRequired') }]}
+            >
+              <Select
+                showSearch
+                optionFilterProp="label"
+                placeholder={t('pages.contract.list.phCustomer')}
+                options={customerOptions}
+                onSearch={loadCustomers}
+                onFocus={() => void loadCustomers()}
+              />
+            </Form.Item>
+            <Form.Item name="title" label={t('pages.ticket.list.formTitle')} rules={[{ required: true, message: t('pages.ticket.list.msgTitleRequired') }]}>
+              <Input maxLength={200} />
+            </Form.Item>
+          </FormGrid>
+          <Form.Item name="description" label={t('pages.ticket.list.formDesc')}>
+            <Input.TextArea rows={4} />
+          </Form.Item>
+          {/* 「描述」是整行独占的 TextArea，夹在两个成对字段之间，故本表单**前后两个栅格**
+              （栅格不能跨越全宽项，否则全宽项会悄悄退化成某一列——使用纪律第 1 条）。
+              原先这里的 `<Col span={12}>` 是**孤零零一半宽、右半永远空着**；改成栅格后它按容器定宽，
+              于是这个 Select 变成整行。这是本次**有意**的可见变化。 */}
+          <FormGrid>
+            <Form.Item name="priority" label={t('pages.ticket.list.formPriority')} rules={[{ required: true, message: t('pages.ticket.list.msgPriorityRequired') }]}>
+              <Select
+                options={Object.keys(ENUM_KEYS.ticketPriority).map((code) => ({
+                  value: code,
+                  label: labelOf(t, ENUM_KEYS.ticketPriority, code),
+                }))}
+              />
+            </Form.Item>
+          </FormGrid>
+          <CustomFieldFormItems entityType="TICKET" />
+          <Form.Item name="remark" label={t('pages.opportunity.list.formRemark')}>
+            <Input.TextArea rows={2} />
+          </Form.Item>
         </Form>
       </Modal>
     </>

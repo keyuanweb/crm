@@ -28,6 +28,7 @@ import {
   updateRole,
 } from '../../services/roleService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 import type { MenuTreeNode, PermissionDefGroup, Role } from '../../types/role'
 import { useAuthStore } from '../../store/authStore'
 import { hasPerm } from '../../hooks/usePermission'
@@ -43,6 +44,7 @@ interface FormValues {
 
 export default function RoleListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const user = useAuthStore((s) => s.user)
@@ -298,62 +300,55 @@ export default function RoleListPage() {
           form={form}
           name="roleForm"
           layout="horizontal"
-          labelCol={{ flex: '90px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
           initialValues={{ dataScope: 'SELF', enabled: true }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="code"
-                label={t('pages.roleList.formCodeLabel')}
-                rules={[{ required: true, message: t('pages.roleList.formCodeRequired') }]}
-              >
-                <Input placeholder={t('pages.roleList.formCodePlaceholder')} disabled={!!editing} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="name"
-                label={t('pages.roleList.formNameLabel')}
-                rules={[{ required: true, message: t('pages.roleList.formNameRequired') }]}
-              >
-                <Input placeholder={t('pages.roleList.formNamePlaceholder')} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="dataScope"
-                label={t('pages.roleList.formDataScopeLabel')}
-                rules={[{ required: true }]}
-                extra={t('pages.roleList.formDataScopeExtra')}
-              >
-                <Radio.Group>
-                  <Radio value="ALL">{t('pages.roleList.dataScopeAll')}</Radio>
-                  <Radio value="DEPT">{t('pages.roleList.dataScopeDept')}</Radio>
-                  <Radio value="SELF">{t('pages.roleList.dataScopeSelf')}</Radio>
-                </Radio.Group>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="enabled"
-                label={t('pages.roleList.formEnabledLabel')}
-                valuePropName="checked"
-                extra={t('pages.roleList.formEnabledExtra')}
-              >
-                <Switch
-                  checkedChildren={t('pages.roleList.switchEnabled')}
-                  unCheckedChildren={t('pages.roleList.switchDisabled')}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item name="description" label={t('pages.roleList.formDescriptionLabel')}>
-                <Input placeholder={t('pages.roleList.formDescriptionPlaceholder')} />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 4 个成对字段进栅格；「描述」是整行独占，按使用纪律第 1 条留在栅格之外。
+              原先的 `<Row gutter={16}>` + 4 个 `<Col span={12}>` + 1 个 `<Col span={24}>`
+              是**写死两列、无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item
+              name="code"
+              label={t('pages.roleList.formCodeLabel')}
+              rules={[{ required: true, message: t('pages.roleList.formCodeRequired') }]}
+            >
+              <Input placeholder={t('pages.roleList.formCodePlaceholder')} disabled={!!editing} />
+            </Form.Item>
+            <Form.Item
+              name="name"
+              label={t('pages.roleList.formNameLabel')}
+              rules={[{ required: true, message: t('pages.roleList.formNameRequired') }]}
+            >
+              <Input placeholder={t('pages.roleList.formNamePlaceholder')} />
+            </Form.Item>
+            <Form.Item
+              name="dataScope"
+              label={t('pages.roleList.formDataScopeLabel')}
+              rules={[{ required: true }]}
+              extra={t('pages.roleList.formDataScopeExtra')}
+            >
+              <Radio.Group>
+                <Radio value="ALL">{t('pages.roleList.dataScopeAll')}</Radio>
+                <Radio value="DEPT">{t('pages.roleList.dataScopeDept')}</Radio>
+                <Radio value="SELF">{t('pages.roleList.dataScopeSelf')}</Radio>
+              </Radio.Group>
+            </Form.Item>
+            <Form.Item
+              name="enabled"
+              label={t('pages.roleList.formEnabledLabel')}
+              valuePropName="checked"
+              extra={t('pages.roleList.formEnabledExtra')}
+            >
+              <Switch
+                checkedChildren={t('pages.roleList.switchEnabled')}
+                unCheckedChildren={t('pages.roleList.switchDisabled')}
+              />
+            </Form.Item>
+          </FormGrid>
+          <Form.Item name="description" label={t('pages.roleList.formDescriptionLabel')}>
+            <Input placeholder={t('pages.roleList.formDescriptionPlaceholder')} />
+          </Form.Item>
         </Form>
 
         {/* 菜单/权限配置：Tabs 切换减少页面占用 */}

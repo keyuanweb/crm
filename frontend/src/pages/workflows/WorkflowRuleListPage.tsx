@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
-import { App, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Switch, Tag } from 'antd'
+import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Switch, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   createWorkflowRule,
@@ -16,6 +16,7 @@ import { fetchUsers } from '../../services/userService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { type WorkflowActionType, type WorkflowEventType, type WorkflowRule } from '../../types/workflow'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 
@@ -36,6 +37,7 @@ interface FormValues {
 
 export default function WorkflowRuleListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -251,144 +253,121 @@ export default function WorkflowRuleListPage() {
           form={form}
           name="workflowRuleForm"
           layout="horizontal"
-          labelCol={{ flex: '110px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item name="name" label={t('pages.workflowRule.formNameLabel')} rules={[{ required: true, message: t('pages.workflowRule.formNameRequired') }]}>
-                <Input placeholder={t('pages.workflowRule.formNamePlaceholder')} />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item
-                name="eventType"
-                label={t('pages.workflowRule.formEventTypeLabel')}
-                rules={[{ required: true, message: t('pages.workflowRule.formEventTypeRequired') }]}
-              >
+          {/* 本表单的字段**全是整行独占**（`span={24}`），故没有外层 `FormGrid`——
+              按使用纪律第 1 条，全宽项就该是栅格的兄弟节点而不是栅格里的项。
+              唯一的栅格在"触发条件"那一条 label 里面（两个控件并排，见下）。 */}
+          <Form.Item name="name" label={t('pages.workflowRule.formNameLabel')} rules={[{ required: true, message: t('pages.workflowRule.formNameRequired') }]}>
+            <Input placeholder={t('pages.workflowRule.formNamePlaceholder')} />
+          </Form.Item>
+          <Form.Item
+            name="eventType"
+            label={t('pages.workflowRule.formEventTypeLabel')}
+            rules={[{ required: true, message: t('pages.workflowRule.formEventTypeRequired') }]}
+          >
+            <Select
+              placeholder={t('pages.workflowRule.formEventTypePlaceholder')}
+              options={Object.keys(ENUM_KEYS.workflowEvent).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.workflowEvent, code) }))}
+            />
+          </Form.Item>
+          <Form.Item label={t('pages.workflowRule.formConditionLabel')} style={{ marginBottom: 0 }}>
+            {/* 一条 label 下并排的两个控件：容器驱动 ⇒ 640px 弹窗里是两列，
+                弹窗窄到装不下两个 256px 时自动退成一列（原先 `span={12}` 退不了）。 */}
+            <FormGrid>
+              <Form.Item name="conditionField">
                 <Select
-                  placeholder={t('pages.workflowRule.formEventTypePlaceholder')}
-                  options={Object.keys(ENUM_KEYS.workflowEvent).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.workflowEvent, code) }))}
+                  placeholder={t('pages.workflowRule.formConditionFieldPlaceholder')}
+                  allowClear
+                  options={[
+                    { value: 'stage', label: t('pages.workflowRule.conditionStage') },
+                    { value: 'source', label: t('pages.workflowRule.conditionSource') },
+                    { value: 'method', label: t('pages.workflowRule.conditionMethod') },
+                  ]}
                 />
               </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item label={t('pages.workflowRule.formConditionLabel')} style={{ marginBottom: 0 }}>
-                <Row gutter={12}>
-                  <Col span={12}>
-                    <Form.Item name="conditionField">
-                      <Select
-                        placeholder={t('pages.workflowRule.formConditionFieldPlaceholder')}
-                        allowClear
-                        options={[
-                          { value: 'stage', label: t('pages.workflowRule.conditionStage') },
-                          { value: 'source', label: t('pages.workflowRule.conditionSource') },
-                          { value: 'method', label: t('pages.workflowRule.conditionMethod') },
-                        ]}
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="conditionValue">
-                      <Input placeholder={t('pages.workflowRule.formConditionValuePlaceholder')} />
-                    </Form.Item>
-                  </Col>
-                </Row>
+              <Form.Item name="conditionValue">
+                <Input placeholder={t('pages.workflowRule.formConditionValuePlaceholder')} />
               </Form.Item>
-            </Col>
-            <Col span={24}>
+            </FormGrid>
+          </Form.Item>
+          <Form.Item
+            name="actionType"
+            label={t('pages.workflowRule.formActionTypeLabel')}
+            rules={[{ required: true, message: t('pages.workflowRule.formActionTypeRequired') }]}
+          >
+            <Select
+              placeholder={t('pages.workflowRule.formActionTypePlaceholder')}
+              options={Object.keys(ENUM_KEYS.workflowAction).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.workflowAction, code) }))}
+              onChange={(v) => {
+                // 切换动作类型时清除上一类型的参数残留
+                form.setFieldsValue({ targetUserId: undefined, titleTemplate: undefined, dueDays: undefined, message: undefined })
+                setActionType(v as WorkflowActionType)
+              }}
+            />
+          </Form.Item>
+          {actionType === 'ASSIGN' && (
+            <Form.Item
+              name="targetUserId"
+              label={t('pages.workflowRule.formTargetUserLabel')}
+              rules={[{ required: true, message: t('pages.workflowRule.formTargetUserRequired') }]}
+            >
+              <Select
+                showSearch
+                optionFilterProp="label"
+                placeholder={t('pages.workflowRule.formTargetUserPlaceholder')}
+                options={userOptions}
+              />
+            </Form.Item>
+          )}
+          {actionType === 'CREATE_TASK' && (
+            <>
               <Form.Item
-                name="actionType"
-                label={t('pages.workflowRule.formActionTypeLabel')}
-                rules={[{ required: true, message: t('pages.workflowRule.formActionTypeRequired') }]}
+                name="titleTemplate"
+                label={t('pages.workflowRule.formTitleTemplateLabel')}
+                rules={[{ required: true, message: t('pages.workflowRule.formTitleTemplateRequired') }]}
+                extra={t('pages.workflowRule.formTitleTemplateExtra')}
               >
-                <Select
-                  placeholder={t('pages.workflowRule.formActionTypePlaceholder')}
-                  options={Object.keys(ENUM_KEYS.workflowAction).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.workflowAction, code) }))}
-                  onChange={(v) => {
-                    // 切换动作类型时清除上一类型的参数残留
-                    form.setFieldsValue({ targetUserId: undefined, titleTemplate: undefined, dueDays: undefined, message: undefined })
-                    setActionType(v as WorkflowActionType)
-                  }}
-                />
+                <Input placeholder={t('pages.workflowRule.formTitleTemplatePlaceholder')} />
               </Form.Item>
-            </Col>
-            {actionType === 'ASSIGN' && (
-              <Col span={24}>
-                <Form.Item
-                  name="targetUserId"
-                  label={t('pages.workflowRule.formTargetUserLabel')}
-                  rules={[{ required: true, message: t('pages.workflowRule.formTargetUserRequired') }]}
-                >
-                  <Select
-                    showSearch
-                    optionFilterProp="label"
-                    placeholder={t('pages.workflowRule.formTargetUserPlaceholder')}
-                    options={userOptions}
-                  />
-                </Form.Item>
-              </Col>
-            )}
-            {actionType === 'CREATE_TASK' && (
-              <>
-                <Col span={24}>
-                  <Form.Item
-                    name="titleTemplate"
-                    label={t('pages.workflowRule.formTitleTemplateLabel')}
-                    rules={[{ required: true, message: t('pages.workflowRule.formTitleTemplateRequired') }]}
-                    extra={t('pages.workflowRule.formTitleTemplateExtra')}
-                  >
-                    <Input placeholder={t('pages.workflowRule.formTitleTemplatePlaceholder')} />
-                  </Form.Item>
-                </Col>
-                <Col span={24}>
-                  <Form.Item name="dueDays" label={t('pages.workflowRule.formDueDaysLabel')} extra={t('pages.workflowRule.formDueDaysExtra')}>
-                    <InputNumber min={1} style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-              </>
-            )}
-            {actionType === 'NOTIFY' && (
-              <Col span={24}>
-                <Form.Item
-                  name="message"
-                  label={t('pages.workflowRule.formMessageLabel')}
-                  rules={[{ required: true, message: t('pages.workflowRule.formMessageRequired') }]}
-                >
-                  <Input placeholder={t('pages.workflowRule.formMessagePlaceholder')} />
-                </Form.Item>
-              </Col>
-            )}
-            {actionType === 'SEND_EMAIL' && (
-              <Col span={24}>
-                <Form.Item
-                  name="templateId"
-                  label={t('pages.workflowRule.formTemplateIdLabel')}
-                  rules={[{ required: true, message: t('pages.workflowRule.formTemplateIdRequired') }]}
-                  extra={t('pages.workflowRule.formTemplateIdExtraRealEmail')}
-                >
-                  <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.workflowRule.formTemplateIdPlaceholder')} />
-                </Form.Item>
-              </Col>
-            )}
-            {actionType === 'ADD_TAG' && (
-              <Col span={24}>
-                <Form.Item
-                  name="tag"
-                  label={t('pages.workflowRule.formTagLabel')}
-                  rules={[{ required: true, message: t('pages.workflowRule.formTagRequired') }]}
-                  extra={t('pages.workflowRule.formTagExtraNeedsExisting')}
-                >
-                  <Input placeholder={t('pages.workflowRule.formTagPlaceholder')} />
-                </Form.Item>
-              </Col>
-            )}
-            <Col span={24}>
-              <Form.Item name="enabled" label={t('pages.workflowRule.formEnabledLabel')} valuePropName="checked" initialValue={true}>
-                <Switch />
+              <Form.Item name="dueDays" label={t('pages.workflowRule.formDueDaysLabel')} extra={t('pages.workflowRule.formDueDaysExtra')}>
+                <InputNumber min={1} style={{ width: '100%' }} />
               </Form.Item>
-            </Col>
-          </Row>
+            </>
+          )}
+          {actionType === 'NOTIFY' && (
+            <Form.Item
+              name="message"
+              label={t('pages.workflowRule.formMessageLabel')}
+              rules={[{ required: true, message: t('pages.workflowRule.formMessageRequired') }]}
+            >
+              <Input placeholder={t('pages.workflowRule.formMessagePlaceholder')} />
+            </Form.Item>
+          )}
+          {actionType === 'SEND_EMAIL' && (
+            <Form.Item
+              name="templateId"
+              label={t('pages.workflowRule.formTemplateIdLabel')}
+              rules={[{ required: true, message: t('pages.workflowRule.formTemplateIdRequired') }]}
+              extra={t('pages.workflowRule.formTemplateIdExtraRealEmail')}
+            >
+              <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.workflowRule.formTemplateIdPlaceholder')} />
+            </Form.Item>
+          )}
+          {actionType === 'ADD_TAG' && (
+            <Form.Item
+              name="tag"
+              label={t('pages.workflowRule.formTagLabel')}
+              rules={[{ required: true, message: t('pages.workflowRule.formTagRequired') }]}
+              extra={t('pages.workflowRule.formTagExtraNeedsExisting')}
+            >
+              <Input placeholder={t('pages.workflowRule.formTagPlaceholder')} />
+            </Form.Item>
+          )}
+          <Form.Item name="enabled" label={t('pages.workflowRule.formEnabledLabel')} valuePropName="checked" initialValue={true}>
+            <Switch />
+          </Form.Item>
         </Form>
       </Modal>
     </>

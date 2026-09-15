@@ -5,12 +5,10 @@ import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-comp
 import {
   App,
   Button,
-  Col,
   Form,
   Input,
   Modal,
   Popconfirm,
-  Row,
   Select,
   Table,
   Tag,
@@ -27,6 +25,7 @@ import {
   type ContactPayload,
 } from '../../services/contactService'
 import { fetchCustomers } from '../../services/customerService'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
@@ -46,6 +45,7 @@ interface FormValues {
 
 export default function ContactListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -262,7 +262,7 @@ export default function ContactListPage() {
           form={form}
           name="contactForm"
           layout="horizontal"
-          labelCol={{ flex: '100px' }}
+          labelCol={{ flex: `${metrics.labelWidth}px` }}
           wrapperCol={{ flex: 1 }}
         >
           <Form.Item
@@ -278,40 +278,33 @@ export default function ContactListPage() {
               onSearch={(kw) => void loadCustomers(kw)}
             />
           </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="name" label={t('pages.contact.list.colName')} rules={[{ required: true, message: t('pages.lead.list.msgNameRequired') }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="title" label={t('pages.contact.list.colTitle')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="phone" label={t('pages.contact.list.colPhone')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="email" label={t('pages.contact.list.colEmail')}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="role" label={t('pages.contact.list.colRole')}>
-                <Select
-                  allowClear
-                  placeholder="Default: Other"
-                  options={Object.keys(ENUM_KEYS.contactRole).map((value) => ({
-                    value,
-                    label: labelOf(t, ENUM_KEYS.contactRole, value),
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 5 个成对字段进栅格；上面的「客户」与下面的「备注」是整行独占，按使用纪律第 1 条
+              留在栅格之外。原先的 `<Row gutter={16}>` + 5 个 `<Col span={12}>` 是**写死两列、
+              无任何断点**的。 */}
+          <FormGrid>
+            <Form.Item name="name" label={t('pages.contact.list.colName')} rules={[{ required: true, message: t('pages.lead.list.msgNameRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="title" label={t('pages.contact.list.colTitle')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="phone" label={t('pages.contact.list.colPhone')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="email" label={t('pages.contact.list.colEmail')}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="role" label={t('pages.contact.list.colRole')}>
+              <Select
+                allowClear
+                placeholder="Default: Other"
+                options={Object.keys(ENUM_KEYS.contactRole).map((value) => ({
+                  value,
+                  label: labelOf(t, ENUM_KEYS.contactRole, value),
+                }))}
+              />
+            </Form.Item>
+          </FormGrid>
           <Form.Item name="remark" label={t('pages.contact.list.formRemark')}>
             <Input.TextArea rows={2} />
           </Form.Item>

@@ -34,9 +34,11 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { FieldVisit, VisitPayload } from '../../types/visit'
+import { useFormMetrics } from '../../components/ui'
 
 export default function VisitListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
 
@@ -275,7 +277,7 @@ export default function VisitListPage() {
         destroyOnClose
         width={640}
       >
-        <Form form={form} name="visitForm" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
+        <Form form={form} name="visitForm" layout="horizontal" labelCol={{ flex: `${metrics.labelWidth}px` }} wrapperCol={{ flex: 1 }}>
           <Form.Item name="customerId" label={t('pages.visit.colCustomer')} rules={[{ required: true, message: t('pages.visit.msgCustomerRequired') }]}>
             <Select showSearch optionFilterProp="label" placeholder={t('pages.visit.placeholderCustomer')} options={customerOptions} />
           </Form.Item>

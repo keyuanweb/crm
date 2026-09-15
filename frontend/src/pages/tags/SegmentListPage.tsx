@@ -30,6 +30,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { Segment, SegmentCondition } from '../../types/tag'
+import { FormGrid, useFormMetrics } from '../../components/ui'
 
 interface FilterRow {
   key: number
@@ -41,6 +42,7 @@ interface FilterRow {
 
 export default function SegmentListPage() {
   const { t } = useTranslation()
+  const metrics = useFormMetrics()
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
@@ -235,23 +237,21 @@ export default function SegmentListPage() {
         destroyOnClose
         width={680}
       >
-        <Form form={form} name="segmentForm" layout="horizontal" labelCol={{ flex: '80px' }} wrapperCol={{ flex: 1 }}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="name"
-                label={t('pages.segmentList.formNameLabel')}
-                rules={[{ required: true, message: t('pages.segmentList.formNameRequired') }]}
-              >
-                <Input placeholder={t('pages.segmentList.formNamePlaceholder')} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="description" label={t('pages.segmentList.formDescriptionLabel')}>
-                <Input placeholder={t('pages.segmentList.formDescriptionPlaceholder')} />
-              </Form.Item>
-            </Col>
-          </Row>
+        <Form form={form} name="segmentForm" layout="horizontal" labelCol={{ flex: `${metrics.labelWidth}px` }} wrapperCol={{ flex: 1 }}>
+          {/* 2 个成对字段进栅格（原先的 `<Row gutter={16}>` + 2 个 `<Col span={12}>` 是写死两列、
+              无任何断点）。（下面的条件构造器另有一组 Row/Col，是每行固定配比，不在本条管辖内。） */}
+          <FormGrid>
+            <Form.Item
+              name="name"
+              label={t('pages.segmentList.formNameLabel')}
+              rules={[{ required: true, message: t('pages.segmentList.formNameRequired') }]}
+            >
+              <Input placeholder={t('pages.segmentList.formNamePlaceholder')} />
+            </Form.Item>
+            <Form.Item name="description" label={t('pages.segmentList.formDescriptionLabel')}>
+              <Input placeholder={t('pages.segmentList.formDescriptionPlaceholder')} />
+            </Form.Item>
+          </FormGrid>
         </Form>
 
         <div style={{ marginBottom: 8 }}>
