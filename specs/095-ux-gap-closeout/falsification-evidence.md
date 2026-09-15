@@ -3,7 +3,7 @@
 本文件记的是**读数**：复核用的复现输出、定向破坏的**逐字失败信息**、以及每次临时改动的**逐字节还原**核对。
 结论与取舍见 `research.md`；本文件只回答「你凭什么这么说」。
 
-> **完成状态**：§A 已在立项时写入；**§B–§F 在实施过程中逐节追加**（定向破坏逐个做、逐个还原，破坏期间不提交）。
+> **完成状态**：§A 已在立项时写入；**§B–§G 已在 2026-09-15 的实施中逐节写入**（定向破坏逐个做、逐个还原，破坏期间不提交）。
 > 未追加的章节**不得**被读作「做过了」。
 
 ## §0 口径与边界（先立规矩，免得读数被误读）
@@ -86,22 +86,174 @@ $ grep -n "default-property-inclusion" backend/src/main/resources/application.ym
 
 ---
 
-## §B 定向破坏 1/5：高亮
+## §B–§G 的公共读数口径
 
-*（实施时追加）*
+- 被破坏的文件**只有** `frontend/src/pages/departments/DepartmentListPage.tsx`（§G 亦然；测试文件不动 ——
+  若同时动测试，红/绿的归因就不成立了）。
+- **逐字节还原的判据**：每次改动**之前**先算整文件 sha1，**还原之后**再算一次，两次必须相等。
+  本次全程的基准值：
 
-## §C 定向破坏 2/5：防抖
+  ```
+  $ sha1sum src/pages/departments/DepartmentListPage.tsx
+  e4169587b948246124df8178c0625aa61ca34457 *src/pages/departments/DepartmentListPage.tsx
+  ```
 
-*（实施时追加）*
+  六次破坏**逐次**还原后均复现该值（下文各节不再重复贴同一行，只标「**= 基准值**」）。
+- 破坏期间**没有任何提交**：`git log --oneline -1` 始终停在 `8168c68`，直到 §B–§G 全部结束。
+- 跑的是**定向单条**（`-t`），但 `-t` 是**按用例全名做子串匹配**，故 §E、§F 两节会把同 `describe`
+  里的兄弟用例一并带上（下文如实标出「同时通过 N 条」），**没有**把「整文件跑绿」当成读数。
 
-## §D 定向破坏 3/5：空状态
+---
 
-*（实施时追加）*
+## §B 定向破坏 1/6：高亮
 
-## §E 定向破坏 4/5：断点二择（桌面分支）
+**破坏**：`renderTreeNode` 里 `<Highlight text={node.name} keyword={q} />` 换回裸 `{node.name}`
+（即 T014 之前的老写法；`Highlight` 的 import 留着不动，避免把「删 import」也混进来）。
 
-*（实施时追加）*
+```
+$ npx vitest run src/pages/departments/DepartmentListPage.test.tsx -t "命中的片段被"
 
-## §F 定向破坏 5/5：aria-label
+ → expect(received).toBeInTheDocument()
+ FAIL  src/pages/departments/DepartmentListPage.test.tsx > DepartmentListPage 搜索（095 T018/T014/T015/T016） > 输入关键词后过滤生效，且命中的片段被 <mark> 标出
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 skipped (11)
+```
 
-*（实施时追加）*
+**红在预期的那一条**（`markFor('华东')` 的 `toBeInTheDocument`），**且只红这一条**。
+还原后 sha1 **= 基准值**。
+
+## §C 定向破坏 2/6：防抖
+
+**破坏**：`const q = useDebouncedValue(searchValue, 300)` → `const q = searchValue`（直连，防抖消失）。
+
+```
+$ npx vitest run src/pages/departments/DepartmentListPage.test.tsx -t "300ms 防抖"
+
+ → expected false to be true // Object.is equality
+ FAIL  src/pages/departments/DepartmentListPage.test.tsx > DepartmentListPage 搜索（095 T018/T014/T015/T016） > 300ms 防抖：刚输入时尚未过滤，窗口过后才生效（两段都要断言）
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 skipped (11)
+```
+
+**读法**：红的是**「窗口内」那一段**（`expect(has('上海分部')).toBe(true)`）—— 直连后过滤在同一帧就完成，
+子节点当场消失。这正是本仓最想要的形态：**断言的是「还没过滤」**，而不是「等一会儿就过滤了」
+（后者在两种实现下都是绿的，等于没守）。还原后 sha1 **= 基准值**。
+
+## §D 定向破坏 3/6：空状态
+
+**破坏**：把 `<Tree>` 外层那个三目整个删掉，让 `<Tree>` 无条件渲染
+（即 `<PageState state="empty" />` **不再出现在任何分支里**）。
+
+```
+$ npx vitest run src/pages/departments/DepartmentListPage.test.tsx -t "搜不到任何部门"
+
+ → Unable to find an element by: [data-testid="page-state-empty"]
+ FAIL  src/pages/departments/DepartmentListPage.test.tsx > DepartmentListPage 搜索（095 T018/T014/T015/T016） > 搜不到任何部门时给出空状态（而非一片空白）
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 skipped (11)
+```
+
+还原后 sha1 **= 基准值**。
+
+## §E 定向破坏 4/6：断点二择（桌面分支）
+
+**破坏**：`const isMobile = !screens.lg` → `const isMobile = true`（把窄屏分支写死，桌面分支永不执行）。
+
+```
+$ npx vitest run src/pages/departments/DepartmentListPage.test.tsx -t "桌面端"
+
+ → expected null to be truthy
+ FAIL  src/pages/departments/DepartmentListPage.test.tsx > DepartmentListPage 详情与无障碍（095 T030/T032/T037） > 桌面端（本文件内覆盖 matchMedia）：详情走对话框
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 skipped (11)
+```
+
+**这一节是本批最该做的一条**：`plan.md` 的风险表把它列为「用例全绿而桌面分支从未执行」的典型
+（本仓有先例）。读数证明：在**本文件覆盖了 `matchMedia`** 的前提下，写死 `isMobile` 会让
+`expect(document.querySelector('.ant-modal')).toBeTruthy()` 拿到 `null` 而红 —— 即**桌面那条断言真的在跑**，
+不是靠默认桩蒙过去的。还原后 sha1 **= 基准值**。
+
+## §F 定向破坏 5/6：aria-label
+
+**破坏**：删掉搜索框的 `aria-label={t('pages.departmentList.ariaSearch')}` 一行。
+
+```
+$ npx vitest run src/pages/departments/DepartmentListPage.test.tsx -t "无障碍"
+
+ → Unable to find a label with the text of: /pages\.departmentList\.ariaSearch/
+ FAIL  src/pages/departments/DepartmentListPage.test.tsx > DepartmentListPage 详情与无障碍（095 T030/T032/T037） > 无障碍：搜索框与树容器都有可朗读名称（经 t()，非字面量）
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed | 8 skipped (11)
+```
+
+**「2 passed」的来历**（免得被读成「三条无障碍断言都活着」）：`-t "无障碍"` 是按**用例全名**子串匹配，
+它同时命中同 `describe` 的移动端与桌面端两条，那两条与 aria-label 无关，故不红。被破坏的那一条**红了**，
+红的正是 `getByLabelText`。还原后 sha1 **= 基准值**。
+
+---
+
+## §G 定向破坏 6/6（**计划外新增**）：展开键的类型
+
+这一条**不在** `tasks.md` T018 的五条里，是实施中**新发现的一层缺陷**，故补做并在此登记。
+
+### G.1 发现过程（先说读数、再说结论）
+
+写 T008 的用例时，`expect(has('上海分部')).toBe(true)`（首屏展开全部）**红**。用**临时探针**
+（`src/pages/departments/zz-probe.test.tsx`，**untracked、用后已删**，不在任何提交里）把变量收敛到最小：
+
+```
+$ npx vitest run src/pages/departments/zz-probe.test.tsx
+
+ NUM-KEYS-EXPANDED: false      ← expandedKeys={[1]}   （number）
+ STR-KEYS-EXPANDED: true       ← expandedKeys={['1']} （string）
+ TREENODES: 3                  ← 树只有 2 个可见节点，第 3 个是 rc-tree 的隐藏占位
+ CLOSE-SWITCHERS: 1
+ HAS-SHANGHAI: false
+ LIST-ARIA: pages.departmentList.ariaTree
+```
+
+两组是**同一棵两节点树**（`P > C`），只有 `expandedKeys` 的元素类型不同 ⇒ **数字键不展开、字符串键展开**。
+
+**原因**（同一次核对里读的 DOM 与源码）：React 会把元素的 `key` 强制转成字符串，故
+`<Tree.TreeNode key={node.id}>` 在 rc-tree 内部的键是 `'1'`；而页面此前把 `n.id`（number）塞进
+`expandedKeys`，rc-tree 5.10 用 `expandedKeys.includes(key)` **精确比较** ⇒ `1 !== '1'` ⇒ **恒不展开**。
+
+**后果（本批必须处理，否则名实不符）**：`load()` 里的 `allKeys` 与 T008 新写的
+`expandAllKeys` **两处都是空操作**，树永远收起 —— 也就是说，**只改 T008 那个 `else` 分支是不够的**。
+这与 `4e0b6ce` 提交信息里「修正展开态自相矛盾」的说法之间有一段落差，故在此**如实记下落差**；
+修法见下，且这一条已被 §G.2 证实为**可证伪**。
+
+### G.2 破坏（把两处 `String()` 撤回成数字，即回到缺陷态）
+
+**破坏**：`allKeys.push(String(n.id))` → `allKeys.push(n.id as string)`，
+`keys.push(String(node.id))` → `keys.push(node.id as string)`。
+
+```
+$ npx vitest run src/pages/departments/DepartmentListPage.test.tsx -t "清空关键词后恢复"
+
+ → expected false to be true // Object.is equality
+ FAIL  src/pages/departments/DepartmentListPage.test.tsx > DepartmentListPage 搜索（095 T018/T014/T015/T016） > 清空关键词后恢复「全部展开」（095 T008 的可见行为变化）
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 skipped (11)
+```
+
+还原后 sha1 **= 基准值**。
+
+### G.3 顺带订正一处既有叙述
+
+`§0` 那行「`matchMedia` 恒桩成 `matches: false` ⇒ 桌面分支跑不到」在**本文件的 §E** 有了反例：
+**在测试文件内覆盖 `matchMedia` 之后，桌面分支是能跑到的**。故本批对 T032/T037 的读数是
+「**两分支各有独立断言，且桌面那条已用定向破坏证伪**」，不是「桌面分支跑不到、只能推演」。
+（`§0` 那行说的是**全局默认桩**下的行为，两者不冲突；此处只是把边界说清楚，免得被读作能力更弱。）
+
+---
+
+## §H 本批**没有**验证的事（与 `quickstart.md` §4 同源，重复在此以免只读本文件的人误解）
+
+- 抽屉在**真实窄屏下的几何/排版**、树的**方向键行为**：jsdom **没有布局引擎、没有真实焦点模型** ⇒
+  **未量过**，只断言了「结构前提」（`role`/`aria-label`/分支存在）。
+- `confirmDeleteRisk` 文案里的**数字**：`setup.ts` 的 i18n mock **丢弃插值** ⇒
+  只证明了「风险说明挂上了」，**没有**证明「数字等于该节点的 childCount/memberCount」。
+- 树的 `aria-label` **不在** `role="tree"` 那个元素上（实测落在树内部的 `.ant-tree-list`）⇒
+  **不声称** `role="tree"` 已被命名。落点由 antd 5.22 / rc-tree 5.10 的 prop 透传位置决定。
+- 目录里**没有**新的 e2e、没有视觉背书；本批所有读数都来自 jsdom 单测。
