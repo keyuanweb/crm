@@ -213,6 +213,7 @@ export default function ApprovalCenterPage() {
         onCancel={() => setActionTask(null)}
         okText={t('pages.approval.list.ok')}
         destroyOnClose
+        width={480}
       >
         <Form form={form} name="actionForm" layout="vertical">
           {actionType === 'transfer' ? (

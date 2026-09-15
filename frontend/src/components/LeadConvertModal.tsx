@@ -50,6 +50,7 @@ export default function LeadConvertModal({ open, leadId, onCancel, onSuccess }: 
       }}
       okText={t('pages.leadConvertModal.btnConfirm')}
       destroyOnClose
+      width={640}
     >
       <Form form={form} layout="vertical">
         <Form.Item

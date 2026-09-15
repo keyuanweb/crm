@@ -896,6 +896,7 @@ export default function DashboardPage() {
         okText={t('pages.dashboard.modal.save')}
         confirmLoading={targetMutation.isPending}
         destroyOnClose
+        width={480}
       >
         <Form form={form} name="salesTargetForm" layout="vertical">
           <Form.Item

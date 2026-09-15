@@ -273,6 +273,7 @@ export default function VisitListPage() {
         onCancel={() => setModalOpen(false)}
         okText={t('common.button.save')}
         destroyOnClose
+        width={640}
       >
         <Form form={form} name="visitForm" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
           <Form.Item name="customerId" label={t('pages.visit.colCustomer')} rules={[{ required: true, message: t('pages.visit.msgCustomerRequired') }]}>
@@ -299,6 +300,7 @@ export default function VisitListPage() {
         onCancel={() => setCheckInVisitRow(null)}
         okText={t('pages.visit.btnConfirmCheckIn')}
         destroyOnClose
+        width={480}
       >
         <Form form={checkInForm} name="checkInForm" layout="vertical">
           <Form.Item name="locationText" label={t('pages.visit.formLocation')}>

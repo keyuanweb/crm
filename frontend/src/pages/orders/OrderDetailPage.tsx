@@ -355,6 +355,7 @@ export default function OrderDetailPage() {
         onCancel={() => setPaymentOpen(false)}
         okText={t('pages.orderDetail.btnConfirm')}
         destroyOnClose
+        width={640}
         styles={{ body: { padding: '20px 24px' } }}
       >
         <Form form={paymentForm} name="paymentForm" layout="vertical">

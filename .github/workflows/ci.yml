@@ -78,8 +78,10 @@ jobs:
       # 界面规范（088）。这些规则守的都是**不会让任何测试变红**的漂移：新写一个品牌色字面量、
       # 裸的中文 placeholder、无引用的孤儿组件——都能编译、都能通过用例，只在界面上显形。
       # 白名单是**债务台账**（双向校验：新增违规会红，条目陈旧也会红），随迁移单调收缩。
-      # 此处只跑默认档（R1/R4/R5/R6/R7 为 error）；R2/R3 是正在被逐页还掉的债，
-      # 仍躲在 --strict 后面，故**不能**在这里改成 ui:check:strict。
+      # 此处只跑默认档（R1/R4/R5/R6/R7 与 **R2** 为 error）；**R3** 是正在被逐页还掉的债，
+      # 仍躲在 --strict 后面，故**不能**在这里改成 ui:check:strict（那会把 R3 的 90 处一起变红）。
+      # ⚠️ R2 于 2026-09-15（088 T040）由 `--strict` 档**逐条毕业**成默认档 error：22 处清零、
+      # `strict` 改 `false`、`allowed` 仍 `null` ⇒ 零容忍。它**不再**是"躲在 --strict 后面"的那一半。
       - name: UI conventions (ui:check)
         working-directory: frontend
         run: pnpm run ui:check

@@ -145,7 +145,7 @@ function ApiKeyTab() {
           </Button>,
         ]}
       />
-      <Modal title={t('pages.openPlatform.modalCreateTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.openPlatform.create')} destroyOnClose>
+      <Modal title={t('pages.openPlatform.modalCreateTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.openPlatform.create')} destroyOnClose width={480}>
         <Form form={form} layout="vertical">
           <Form.Item name="name" label={t('pages.openPlatform.formNameLabel')} rules={[{ required: true, message: t('pages.openPlatform.formNameRequired') }]}>
             <Input placeholder={t('pages.openPlatform.formNamePlaceholder')} />
@@ -237,7 +237,7 @@ function WebhookTab() {
           </Space>
         </div>
       ))}
-      <Modal title={t('pages.openPlatform.modalCreateWebhookTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.openPlatform.create')} destroyOnClose>
+      <Modal title={t('pages.openPlatform.modalCreateWebhookTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.openPlatform.create')} destroyOnClose width={480}>
         <Form form={form} layout="vertical">
           <Form.Item name="eventType" label={t('pages.openPlatform.formEventTypeLabel')} rules={[{ required: true, message: t('pages.openPlatform.formEventTypeRequired') }]}>
             <Select options={Object.keys(ENUM_KEYS.webhookEvent).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.webhookEvent, code) }))} />

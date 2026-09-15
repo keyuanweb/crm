@@ -144,7 +144,9 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
         onCancel={() => setModalOpen(false)}
         okText={t('pages.followUpTimeline.btnSave')}
         confirmLoading={saving}
-        destroyOnClose>
+        destroyOnClose
+        width={640}
+      >
         <Form form={form} name="followUpForm" layout="vertical">
           <Form.Item name="method" label={t('pages.followUpTimeline.labelMethod')} rules={[{ required: true, message: t('pages.followUpTimeline.labelMethod') }]}>
             <Select

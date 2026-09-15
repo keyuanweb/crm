@@ -262,6 +262,7 @@ export default function DepartmentListPage() {
         onCancel={() => setModalOpen(false)}
         okText={t('pages.departmentList.btnSave')}
         destroyOnClose
+        width={640}
       >
         <Form form={form} name="departmentForm" layout="vertical">
           <Form.Item name="name" label={t('pages.departmentList.formNameLabel')} rules={[{ required: true, message: t('pages.departmentList.formNameRequired') }]}>

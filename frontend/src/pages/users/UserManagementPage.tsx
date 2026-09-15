@@ -293,6 +293,7 @@ export default function UserManagementPage() {
         onCancel={() => setCreateOpen(false)}
         okText={t('pages.userManagement.modal.createOk')}
         destroyOnClose
+        width={640}
       >
         <Form form={createForm} name="createUser" layout="vertical">
           <Form.Item
@@ -337,6 +338,7 @@ export default function UserManagementPage() {
         onCancel={() => setEditOpen(false)}
         okText={t('pages.userManagement.modal.editOk')}
         destroyOnClose
+        width={480}
       >
         <Form form={editForm} name="editUser" layout="vertical">
           <Form.Item name="displayName" label={t('pages.userManagement.form.displayName')} rules={[{ required: true, message: t('pages.userManagement.form.displayNameRequired') }]}>
@@ -355,6 +357,7 @@ export default function UserManagementPage() {
         onCancel={() => setResetOpen(false)}
         okText={t('pages.userManagement.modal.resetOk')}
         destroyOnClose
+        width={480}
       >
         <Form form={resetForm} name="resetPasswordForm" layout="vertical">
           <Form.Item
@@ -378,6 +381,7 @@ export default function UserManagementPage() {
         onCancel={() => setPermOpen(false)}
         okText={t('pages.userManagement.modal.dataPermissionOk')}
         destroyOnClose
+        width={480}
       >
         <Form form={permForm} name="permUser" layout="vertical">
           <Form.Item name="departmentId" label={t('pages.userManagement.form.department')}>

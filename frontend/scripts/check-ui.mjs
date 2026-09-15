@@ -20,11 +20,20 @@
  * <h3>先宽后紧（`--strict`）</h3>
  * 规则分两档：
  * <ul>
- *   <li><b>error</b>（R1/R4/R5/R6/R7，默认就红）：违规点少、修起来都不大，白名单里冻结既存债。
- *   <li><b>warn → error</b>（R2/R3，躲在 `--strict` 后面）：违规点是**正在被 P3 逐页还掉的债**
- *       （32 个无宽度弹窗、96 个写死 span 的表单 Col）。给这两条写一份 ~40 个文件的长白名单
- *       没人会维护，而不被维护的白名单**等价于没有门禁**。所以它们在 `--strict` 下**零容忍**：
+ *   <li><b>error</b>（R1/R4/R5/R6/R7 + **R2**，默认就红）：违规点少、修起来都不大，
+ *       白名单里冻结既存债（R2 例外：它无白名单，见下一条）。
+ *   <li><b>warn → error</b>（R3，躲在 `--strict` 后面）：违规点是**正在被 P3 逐页还掉的债**
+ *       （当前 90 处写死 span 的表单 Col / 92 个候选点，原文记 96——以实测为准）。给它写一份 ~40 个文件的长白名单
+ *       没人会维护，而不被维护的白名单**等价于没有门禁**。所以它在 `--strict` 下**零容忍**：
  *       计数归零的那一天，`pnpm ui:check --strict` 就是新的门禁，中间不需要任何过渡清单。
+ *
+ * <p><b>R2 已于 2026-09-15 从 warn 档毕业</b>（088 T040）：22 处无宽度表单弹窗清零，
+ * 故 `strict` 由 `true` 改 `false`，`allowed` 仍为 `null` ⇒ **它在默认档就零容忍**。
+ * 刻意**没有**走「把门禁整档换成 `--strict`」那条路——那一档会连带把 R3 的 90 处也变成失败，
+ * 而 R3 是下一批（3.2 / 3.3）的活。**逐条毕业而不是整档切换**，是为了让每一批只翻自己要翻的那条，
+ * 否则先还完的那条会被后还的那条拖着一直不生效。
+ * （上一条里那句「计数归零的那一天，`--strict` 就是新的门禁」对 **R3 自己**仍然成立：
+ * 等 R3 归零时 R2 也已是 0，整档切换不会被别的规则拖住。）
  *
  * <h3>白名单必须是**债务台账**，不是批准清单</h3>
  * R1 的 32 处品牌色字面量**不代表它们是对的**——它们是本批次明确留给 P3/P4 的既存债
@@ -556,7 +565,7 @@ function rule7() {
 }
 
 /**
- * R2（`--strict`）：承载表单的 `Modal` 必须显式定宽（或改用 `FormModal`）。
+ * R2（**默认档**，2026-09-15 由 `--strict` 毕业）：承载表单的 `Modal` 必须显式定宽（或改用 `FormModal`）。
  *
  * <p>"含表单"的判据是**该 Modal 的区域里出现真实的 `<Form` 标签**——不是全文 grep，
  * 因为 `<FormItem` 也含 `<Form` 这三个字符。12 个不含表单的 Modal 不在本规则内。
@@ -621,7 +630,7 @@ const ruleDefs = [
   { id: 'R5', title: '`required: true` 必须带 `label`（或 `aria-label`）', run: () => rule5(formItems), allowed: R5_ALLOWED, strict: false },
   { id: 'R6', title: '禁裸字符串 `placeholder` / `aria-label`（必须走 `t()`）', run: rule6, allowed: R6_ALLOWED, strict: false },
   { id: 'R7', title: '组件零非测试引用（孤儿组件）', run: rule7, allowed: R7_ALLOWED, strict: false },
-  { id: 'R2', title: '承载表单的 Modal 必须显式定宽（--strict）', run: rule2, allowed: null, strict: true },
+  { id: 'R2', title: '承载表单的 Modal 必须显式定宽', run: rule2, allowed: null, strict: false },
   { id: 'R3', title: '表单内 `<Col>` 不得只写 `span`（--strict）', run: rule3, allowed: null, strict: true },
 ]
 
@@ -669,7 +678,9 @@ for (const rule of ruleDefs) {
     continue
   }
 
-  // `--strict` 且未登记白名单的规则：零容忍。
+  // `allowed === null` 的规则：**零容忍、无白名单**。今天有两条走这里：
+  // 默认档的 R2（已毕业）与 `--strict` 档的 R3。写死一份长白名单没人维护，
+  // 而不被维护的白名单等价于没有门禁——所以这两条宁可要"计数必须归零"，不要"登记下来慢慢还"。
   if (rule.allowed === null) {
     for (const h of hits) {
       problems.push({
@@ -740,7 +751,7 @@ console.log(
 if (warnings.length > 0) {
   console.log('\n提示（非失败）：')
   for (const w of warnings) console.log(`  · ${w}`)
-  console.log('  这两条是"先宽后紧"里尚未收紧的那一半，随 P3 逐批销账。')
+  console.log('  以上是"先宽后紧"里尚未收紧的那些，随 P3 逐批销账（R2 已于 088 T040 毕业，不再出现在这里）。')
 }
 
 if (problems.length > 0) {

@@ -225,6 +225,7 @@ export default function QuoteDetailPage() {
         onCancel={() => setRejectOpen(false)}
         okText={t('pages.quote.detail.confirmReject')}
         destroyOnClose
+        width={480}
       >
         <Form form={rejectForm} name="rejectForm" layout="vertical">
           <Form.Item

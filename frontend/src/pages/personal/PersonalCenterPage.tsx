@@ -226,6 +226,7 @@ export default function PersonalCenterPage() {
         confirmLoading={passwordLoading}
         okText={t('pages.changePassword.btnSubmit')}
         destroyOnClose
+        width={640}
       >
         <Form form={passwordForm} name="passwordChangeForm" layout="vertical">
           {passwordError && (

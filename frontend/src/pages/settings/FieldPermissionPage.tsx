@@ -155,7 +155,7 @@ export default function FieldPermissionPage() {
           </Button>,
         ]}
       />
-      <Modal title={t('pages.fieldPermission.modalTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.fieldPermission.btnSave')} destroyOnClose>
+      <Modal title={t('pages.fieldPermission.modalTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.fieldPermission.btnSave')} destroyOnClose width={640}>
         <Form form={form} layout="vertical">
           <Form.Item name="roleCode" label={t('pages.fieldPermission.formRoleLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formRoleRequired') }]}>
             <Select options={roleSelectOptions} placeholder={t('pages.fieldPermission.formRolePlaceholder')} />

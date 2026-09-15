@@ -687,6 +687,7 @@ export default function CustomerDetailPage() {
         onCancel={() => setShareOpen(false)}
         okText={t('common.button.share')}
         destroyOnClose
+        width={480}
         styles={{ body: { padding: '20px 24px' } }}
       >
         <Form form={shareForm} name="shareForm" layout="vertical">

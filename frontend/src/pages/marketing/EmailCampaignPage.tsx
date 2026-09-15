@@ -242,6 +242,7 @@ export default function EmailCampaignPage() {
         onCancel={() => setModalOpen(false)}
         okText={t('pages.marketing.emailCampaign.btnSend')}
         destroyOnClose
+        width={640}
       >
         <Form form={form} name="campaignForm" layout="horizontal" labelCol={{ flex: '90px' }} wrapperCol={{ flex: 1 }}>
           <Form.Item name="name" label={t('pages.marketing.emailCampaign.formName')} rules={[{ required: true, message: t('pages.marketing.emailCampaign.msgNameRequired') }]}>

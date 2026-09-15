@@ -131,6 +131,7 @@ export default function AtRiskCustomersPage() {
         okText={t('pages.atRiskCustomers.btnSave')}
         confirmLoading={saving}
         destroyOnClose
+        width={480}
       >
         <Form form={form} name="atRiskFollowUp" layout="vertical">
           <Form.Item name="method" label={t('pages.atRiskCustomers.followUpMethod')} rules={[{ required: true, message: t('pages.atRiskCustomers.followUpMethodRequired') }]}>

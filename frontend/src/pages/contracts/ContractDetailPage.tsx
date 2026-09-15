@@ -409,6 +409,7 @@ export default function ContractDetailPage() {
         onCancel={() => setRejectOpen(false)}
         okText={t('pages.contract.detail.confirmReject')}
         destroyOnClose
+        width={480}
         styles={{ body: { padding: '20px 24px' } }}
       >
         <Form form={rejectForm} name="contractRejectForm" layout="vertical">
@@ -426,6 +427,7 @@ export default function ContractDetailPage() {
         onCancel={() => setTerminateOpen(false)}
         okText={t('pages.contract.detail.confirmTerminate')}
         destroyOnClose
+        width={480}
         styles={{ body: { padding: '20px 24px' } }}
       >
         <Form form={terminateForm} name="contractTerminateForm" layout="vertical">
