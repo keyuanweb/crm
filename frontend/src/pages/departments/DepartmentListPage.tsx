@@ -41,7 +41,19 @@ export default function DepartmentListPage() {
   // 但**真正参与过滤与高亮的是防抖后的 `q`**。两处必须同源——
   // 若过滤用 `q` 而高亮用 `searchValue`，会出现「节点被留下、却没标出命中在哪」。
   const q = useDebouncedValue(searchValue, 300)
-  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([])
+  // 095 追加订正（单测实测，非推断）：展开键**必须**是字符串。
+  //
+  // React 会把元素的 `key` 强制转成字符串，故 `Tree.TreeNode key={node.id}` 在 rc-tree 内部
+  // 的键是 `'1'`；而展开态是拿 `node.id`（number）去比。rc-tree 5.10 用
+  // `expandedKeys.includes(key)` 精确比较 ⇒ **1 !== '1'** ⇒ 数字键恒不生效。
+  // 后果：`load()` 的 `allKeys` 与下面 effect 的「展开全部」**都是空操作**，
+  // 树永远收起 —— 这正是 T008 要修的那个现象的**第二层原因**（第一层是 else 分支写成了 `[]`）。
+  // 实测（`zz-probe` 临时探针，用后即删）：同一棵两节点树，
+  // `expandedKeys={[1]}` 不展开、`expandedKeys={['1']}` 展开。
+  //
+  // 故此处把状态收紧成 `string[]`，并在唯一的外部入口 `onExpand` 上显式 `String()` ——
+  // 让类型挡住「哪天又有人塞进数字」。
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([])
   // 086：删除部门挂 `department:manage`（DepartmentController.java:71-73）。
   //
   // <p>**当下这道判据是冗余的，如实说明**：本页取数的 `GET /departments/tree`（`:48-50`）挂的是**同一个**
@@ -72,12 +84,12 @@ export default function DepartmentListPage() {
       const t = await fetchDepartmentTree()
       setTreeData(t)
       const options: { value: number; label: string }[] = []
-      const allKeys: React.Key[] = []
+      const allKeys: string[] = []
       const walk = (nodes: Department[], prefix: string) => {
         for (const n of nodes) {
           options.push({ value: n.id, label: prefix + n.name })
           if (n.children && n.children.length > 0) {
-            allKeys.push(n.id)
+            allKeys.push(String(n.id))
           }
           walk(n.children, prefix + '  ')
         }
@@ -127,11 +139,11 @@ export default function DepartmentListPage() {
   // 095 T008：清空关键词时要恢复的「全部展开」键。与 `load()` 里收集 `allKeys` 是**同一判据**
   // （有子节点 ⇒ 可展开），此处由 `treeData` 派生，故保存/删除触发 `load()` 后自动跟随。
   const expandAllKeys = useMemo(() => {
-    const keys: React.Key[] = []
+    const keys: string[] = []
     const collect = (nodes: Department[]) => {
       for (const node of nodes) {
         if (node.children && node.children.length > 0) {
-          keys.push(node.id)
+          keys.push(String(node.id))
         }
         collect(node.children)
       }
@@ -146,13 +158,15 @@ export default function DepartmentListPage() {
   // 与 `load()` 里「收集 allKeys 并 setExpandedKeys」的意图**相反**——`load()` 完成后
   // `treeData` 变化即触发本 effect，于是每次加载后展开态都被无条件抹掉、`allKeys` 白算。
   // 现改为恢复「全部展开」。首次加载与每次保存/删除刷新后，树由「恒收起」变「展开全部」。
+  // ⚠️ 但只改这一行**还不够** —— 展开键的类型不一致会让两处都静默失效，
+  // 见 `expandedKeys` 声明处的追加订正。单测（`DepartmentListPage.test.tsx`）同时守着这两层。
   useEffect(() => {
     if (q.trim()) {
-      const keys: React.Key[] = []
-      const findKeys = (nodes: Department[], parentKey?: React.Key) => {
+      const keys: string[] = []
+      const findKeys = (nodes: Department[], parentKey?: number) => {
         for (const node of nodes) {
           if (node.name.toLowerCase().includes(q.toLowerCase())) {
-            if (parentKey) keys.push(parentKey)
+            if (parentKey) keys.push(String(parentKey))
           }
           findKeys(node.children, node.id)
         }
@@ -317,7 +331,9 @@ export default function DepartmentListPage() {
           // **不声称验证了方向键行为**（见 quickstart.md 的口径边界）。
           aria-label={t('pages.departmentList.ariaTree')}
           expandedKeys={expandedKeys}
-          onExpand={setExpandedKeys}
+          // 唯一的外部入口：rc-tree 回传的键已是字符串（它自己从元素 key 取的），
+          // 这里显式 `String()` 是为了让「展开态一律是字符串」这条约定在类型上封闭。
+          onExpand={(keys) => setExpandedKeys(keys.map(String))}
           showLine
           style={{ minHeight: 200, width: '100%' }}
         >
