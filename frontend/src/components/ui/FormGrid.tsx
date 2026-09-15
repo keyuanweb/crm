@@ -54,6 +54,19 @@ export interface FormGridProps {
   cols?: number
   /** 单列的最小宽度（px）。默认 = `labelWidth + 160`，由 `useFormMetrics` 给出。 */
   minItemWidth?: number
+  /**
+   * **列数上限**。默认不传 = 不限（纯 auto-fit）。
+   *
+   * 与 `cols` 的区别就是"最多 N 列"与"恰好 N 列"：`cols` 在窄屏会硬挤出 N 列，
+   * 本项则只封顶、不封底（窄容器照旧跟着降列）。实现见 `formGridCap`。
+   *
+   * **页面级表单要传它**：弹窗宽度是 480–960 的窄容器，auto-fit 的列数天然合理；
+   * 而页面级容器约 980px（1920 视口下更宽），下限 200 会排出 4–5 列——
+   * 那时"容器驱动"就不再是优点而成了漂移。弹出档位由 088 T043 裁决为 **3**。
+   *
+   * 传 `cols` 时本项被忽略（已有恰好 N 列的定论，无"上限"可言）；传 0/负数/小数按未传处理。
+   */
+  maxCols?: number
   /** 列间距（px）。默认 16，与 `Form.itemMarginBottom: 12` 同一量级。 */
   gutter?: number
   style?: React.CSSProperties
@@ -63,6 +76,7 @@ export default function FormGrid({
   children,
   cols,
   minItemWidth,
+  maxCols,
   gutter = 16,
   style,
 }: FormGridProps) {
@@ -71,7 +85,7 @@ export default function FormGrid({
 
   // 调用方的 `style` 在后：允许覆盖（例如某个页面要临时加 `marginTop`），
   // 但默认值全部来自上面那个纯函数，页面上不再各写一遍栅格参数。
-  const mergedStyle = { ...formGridStyle({ cols, minItemWidth: min, gutter }), ...style }
+  const mergedStyle = { ...formGridStyle({ cols, minItemWidth: min, maxCols, gutter }), ...style }
 
   return (
     <div data-testid="form-grid" style={mergedStyle}>

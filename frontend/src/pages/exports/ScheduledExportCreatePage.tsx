@@ -7,6 +7,7 @@ import { Button, Card, Form, Input, Select, Space, Typography, Alert } from 'ant
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui';
 
 const { Title } = Typography;
 
@@ -115,29 +116,34 @@ const ScheduledExportCreatePage: React.FC = () => {
             <Input.TextArea rows={3} placeholder='{"status": "active"}' />
           </Form.Item>
 
-          <Form.Item<ScheduledExportRequest>
-            label={t('pages.scheduledExport.create.exportFormat')}
-            name="exportFormat"
-            rules={[{ required: true, message: t('pages.scheduledExport.create.selectExportFormat') }]}
-          >
-            <Select>
-              {Object.entries(exportFormatLabels).map(([key, label]) => (
-                <Option key={key} value={key}>{label}</Option>
-              ))}
-            </Select>
-          </Form.Item>
+          {/* `entityType` 与 `filterConditions`（多行文本，必须整行）把它和下面两个字段隔开，
+              故只有 `exportFormat` + `periodType` 这一对相邻；两个子项落在上限 3 的栅格里
+              各占一半（auto-fit 会塌掉空轨道，不会排成 1/3 宽，见 FormGrid 的 maxCols 注释）。 */}
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH} maxCols={3}>
+            <Form.Item<ScheduledExportRequest>
+              label={t('pages.scheduledExport.create.exportFormat')}
+              name="exportFormat"
+              rules={[{ required: true, message: t('pages.scheduledExport.create.selectExportFormat') }]}
+            >
+              <Select>
+                {Object.entries(exportFormatLabels).map(([key, label]) => (
+                  <Option key={key} value={key}>{label}</Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-          <Form.Item<ScheduledExportRequest>
-            label={t('pages.scheduledExport.create.periodType')}
-            name="periodType"
-            rules={[{ required: true, message: t('pages.scheduledExport.create.selectPeriod') }]}
-          >
-            <Select onChange={handlePeriodChange}>
-              <Option value="daily">{t('pages.scheduledExport.create.periodDaily')}</Option>
-              <Option value="weekly">{t('pages.scheduledExport.create.periodWeekly')}</Option>
-              <Option value="monthly">{t('pages.scheduledExport.create.periodMonthly')}</Option>
-            </Select>
-          </Form.Item>
+            <Form.Item<ScheduledExportRequest>
+              label={t('pages.scheduledExport.create.periodType')}
+              name="periodType"
+              rules={[{ required: true, message: t('pages.scheduledExport.create.selectPeriod') }]}
+            >
+              <Select onChange={handlePeriodChange}>
+                <Option value="daily">{t('pages.scheduledExport.create.periodDaily')}</Option>
+                <Option value="weekly">{t('pages.scheduledExport.create.periodWeekly')}</Option>
+                <Option value="monthly">{t('pages.scheduledExport.create.periodMonthly')}</Option>
+              </Select>
+            </Form.Item>
+          </FormGrid>
 
           <Form.Item<ScheduledExportRequest>
             label={t('pages.scheduledExport.create.executionTime')}

@@ -6,6 +6,7 @@ import { Button, Card, Form, Input, Select, Space, Typography, message } from 'a
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui';
 
 const { Title } = Typography;
 
@@ -85,36 +86,39 @@ const ComplianceExportPage: React.FC = () => {
             userId: '1',
           }}
         >
-          <Form.Item
-            label={t('pages.dataRetention.common.entityType')}
-            name="entityType"
-            rules={[{ required: true, message: t('pages.dataRetention.common.selectEntityType') }]}
-          >
-            <Select placeholder={t('pages.dataRetention.common.selectEntityType')}>
-              {Object.entries(entityTypeLabels).map(([key, label]) => (
-                <Option key={key} value={key}>{label}</Option>
-              ))}
-            </Select>
-          </Form.Item>
+          {/* 页面级容器约 980px，上限 3（088 T043 裁决；理由见 FormGrid 的 maxCols 注释）。 */}
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH} maxCols={3}>
+            <Form.Item
+              label={t('pages.dataRetention.common.entityType')}
+              name="entityType"
+              rules={[{ required: true, message: t('pages.dataRetention.common.selectEntityType') }]}
+            >
+              <Select placeholder={t('pages.dataRetention.common.selectEntityType')}>
+                {Object.entries(entityTypeLabels).map(([key, label]) => (
+                  <Option key={key} value={key}>{label}</Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-          <Form.Item
-            label={t('pages.dataRetention.complianceExport.userId')}
-            name="userId"
-            rules={[{ required: true, message: t('pages.dataRetention.complianceExport.inputUserId') }]}
-          >
-            <Input placeholder={t('pages.dataRetention.complianceExport.inputUserId')} />
-          </Form.Item>
+            <Form.Item
+              label={t('pages.dataRetention.complianceExport.userId')}
+              name="userId"
+              rules={[{ required: true, message: t('pages.dataRetention.complianceExport.inputUserId') }]}
+            >
+              <Input placeholder={t('pages.dataRetention.complianceExport.inputUserId')} />
+            </Form.Item>
 
-          <Form.Item
-            label={t('pages.dataRetention.complianceExport.exportFormat')}
-            name="exportFormat"
-            rules={[{ required: true, message: t('pages.dataRetention.complianceExport.selectExportFormat') }]}
-          >
-            <Select>
-              <Option value="CSV">CSV</Option>
-              <Option value="XLSX">Excel</Option>
-            </Select>
-          </Form.Item>
+            <Form.Item
+              label={t('pages.dataRetention.complianceExport.exportFormat')}
+              name="exportFormat"
+              rules={[{ required: true, message: t('pages.dataRetention.complianceExport.selectExportFormat') }]}
+            >
+              <Select>
+                <Option value="CSV">CSV</Option>
+                <Option value="XLSX">Excel</Option>
+              </Select>
+            </Form.Item>
+          </FormGrid>
 
           <Form.Item>
             <Space>

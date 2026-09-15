@@ -7,6 +7,7 @@ import { Button, Card, DatePicker, Form, InputNumber, Select, Space, Typography,
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -63,46 +64,50 @@ const QuotaCreatePage: React.FC = () => {
           layout="vertical"
           initialValues={{ year: new Date().getFullYear() }}
         >
-          <Form.Item
-            label={t('pages.quotaCreate.formYear')}
-            name="year"
-            rules={[{ required: true, message: t('pages.quotaCreate.msgYearRequired') }]}
-          >
-            <InputNumber min={2000} max={2100} style={{ width: '100%' }} />
-          </Form.Item>
+          {/* 页面级表单的容器约 980px：上限 3 是 088 T043 的裁决，
+              缺了它 auto-fit 会按 200 的下限排出 4–5 列（详见 FormGrid 的 maxCols 注释）。 */}
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH} maxCols={3}>
+            <Form.Item
+              label={t('pages.quotaCreate.formYear')}
+              name="year"
+              rules={[{ required: true, message: t('pages.quotaCreate.msgYearRequired') }]}
+            >
+              <InputNumber min={2000} max={2100} style={{ width: '100%' }} />
+            </Form.Item>
 
-          <Form.Item label={t('pages.quotaCreate.formQuarter')} name="quarter">
-            <Select allowClear placeholder={t('pages.quotaCreate.phQuarter')}>
-              <Option value={1}>Q1</Option>
-              <Option value={2}>Q2</Option>
-              <Option value={3}>Q3</Option>
-              <Option value={4}>Q4</Option>
-            </Select>
-          </Form.Item>
+            <Form.Item label={t('pages.quotaCreate.formQuarter')} name="quarter">
+              <Select allowClear placeholder={t('pages.quotaCreate.phQuarter')}>
+                <Option value={1}>Q1</Option>
+                <Option value={2}>Q2</Option>
+                <Option value={3}>Q3</Option>
+                <Option value={4}>Q4</Option>
+              </Select>
+            </Form.Item>
 
-          <Form.Item label={t('pages.quotaCreate.formTeamId')} name="teamId">
-            <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.quotaCreate.phTeamId')} />
-          </Form.Item>
+            <Form.Item label={t('pages.quotaCreate.formTeamId')} name="teamId">
+              <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.quotaCreate.phTeamId')} />
+            </Form.Item>
 
-          <Form.Item label={t('pages.quotaCreate.formUserId')} name="userId">
-            <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.quotaCreate.phUserId')} />
-          </Form.Item>
+            <Form.Item label={t('pages.quotaCreate.formUserId')} name="userId">
+              <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.quotaCreate.phUserId')} />
+            </Form.Item>
 
-          <Form.Item
-            label={t('pages.quotaCreate.formAmount')}
-            name="amount"
-            rules={[{ required: true, message: t('pages.quotaCreate.msgAmountRequired') }]}
-          >
-            <InputNumber min={0.01} step={0.01} style={{ width: '100%' }} />
-          </Form.Item>
+            <Form.Item
+              label={t('pages.quotaCreate.formAmount')}
+              name="amount"
+              rules={[{ required: true, message: t('pages.quotaCreate.msgAmountRequired') }]}
+            >
+              <InputNumber min={0.01} step={0.01} style={{ width: '100%' }} />
+            </Form.Item>
 
-          <Form.Item
-            label={t('pages.quotaCreate.formPeriod')}
-            name="periodRange"
-            rules={[{ required: true, message: t('pages.quotaCreate.msgPeriodRequired') }]}
-          >
-            <DatePicker.RangePicker style={{ width: '100%' }} />
-          </Form.Item>
+            <Form.Item
+              label={t('pages.quotaCreate.formPeriod')}
+              name="periodRange"
+              rules={[{ required: true, message: t('pages.quotaCreate.msgPeriodRequired') }]}
+            >
+              <DatePicker.RangePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </FormGrid>
 
           <Form.Item>
             <Space>

@@ -9,6 +9,7 @@ import {
   submitPortalTicket,
 } from '../../services/customerPortalService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 /** 客户自助门户（050，公开访问）：知识库浏览/在线提单/进度查询。 */
 export default function CustomerPortalPage() {
@@ -154,15 +155,20 @@ function SubmitTicketTab() {
         </Descriptions>
       ) : (
         <Form form={form} layout="vertical" style={{ maxWidth: 520 }}>
-          <Form.Item name="phone" label={t('pages.portal.labelPhone')} rules={[{ required: true, message: t('pages.portal.msgPhoneRequired') }]}>
-            <Input placeholder={t('pages.portal.placeholderPhone')} maxLength={20} />
-          </Form.Item>
-          <Form.Item name="email" label={t('pages.portal.labelEmail')}>
-            <Input placeholder={t('pages.portal.placeholderOptional')} />
-          </Form.Item>
-          <Form.Item name="title" label={t('pages.portal.labelTitle')} rules={[{ required: true, message: t('pages.portal.msgTitleRequired') }]}>
-            <Input maxLength={200} />
-          </Form.Item>
+          {/* 相邻成对的是 phone/email/title 三个；`description` 是多行文本（必须整行），
+              它把 `priority` 隔在外面——两个整行项之间硬凑栅格会把字段排成破行。
+              本表单容器只有 520px（上限 3 在此不生效，auto-fit 按 200 的下限排 2 列）。 */}
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH} maxCols={3}>
+            <Form.Item name="phone" label={t('pages.portal.labelPhone')} rules={[{ required: true, message: t('pages.portal.msgPhoneRequired') }]}>
+              <Input placeholder={t('pages.portal.placeholderPhone')} maxLength={20} />
+            </Form.Item>
+            <Form.Item name="email" label={t('pages.portal.labelEmail')}>
+              <Input placeholder={t('pages.portal.placeholderOptional')} />
+            </Form.Item>
+            <Form.Item name="title" label={t('pages.portal.labelTitle')} rules={[{ required: true, message: t('pages.portal.msgTitleRequired') }]}>
+              <Input maxLength={200} />
+            </Form.Item>
+          </FormGrid>
           <Form.Item name="description" label={t('pages.portal.labelDescription')}>
             <Input.TextArea rows={3} maxLength={2000} />
           </Form.Item>

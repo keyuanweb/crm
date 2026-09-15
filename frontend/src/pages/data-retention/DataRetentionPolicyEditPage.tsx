@@ -7,6 +7,7 @@ import { Button, Card, Form, Input, Select, Space, Typography, message } from 'a
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui';
 
 const { Title } = Typography;
 
@@ -88,37 +89,40 @@ const DataRetentionPolicyEditPage: React.FC = () => {
           onFinish={onFinish}
           layout="vertical"
         >
-          <Form.Item<DataRetentionPolicyRequest>
-            label={t('pages.dataRetention.common.entityType')}
-            name="entityType"
-            rules={[{ required: true, message: t('pages.dataRetention.common.selectEntityType') }]}
-          >
-            <Select placeholder={t('pages.dataRetention.common.selectEntityType')}>
-              {Object.entries(entityTypeLabels).map(([key, label]) => (
-                <Option key={key} value={key}>{label}</Option>
-              ))}
-            </Select>
-          </Form.Item>
+          {/* 页面级容器约 980px，上限 3（088 T043 裁决；理由见 FormGrid 的 maxCols 注释）。 */}
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH} maxCols={3}>
+            <Form.Item<DataRetentionPolicyRequest>
+              label={t('pages.dataRetention.common.entityType')}
+              name="entityType"
+              rules={[{ required: true, message: t('pages.dataRetention.common.selectEntityType') }]}
+            >
+              <Select placeholder={t('pages.dataRetention.common.selectEntityType')}>
+                {Object.entries(entityTypeLabels).map(([key, label]) => (
+                  <Option key={key} value={key}>{label}</Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-          <Form.Item<DataRetentionPolicyRequest>
-            label={t('pages.dataRetention.common.retentionDaysLabel')}
-            name="retentionDays"
-            rules={[{ required: true, message: t('pages.dataRetention.common.requiredRetentionDays') }]}
-          >
-            <Input type="number" min={1} placeholder={t('pages.dataRetention.common.inputRetentionDays')} />
-          </Form.Item>
+            <Form.Item<DataRetentionPolicyRequest>
+              label={t('pages.dataRetention.common.retentionDaysLabel')}
+              name="retentionDays"
+              rules={[{ required: true, message: t('pages.dataRetention.common.requiredRetentionDays') }]}
+            >
+              <Input type="number" min={1} placeholder={t('pages.dataRetention.common.inputRetentionDays')} />
+            </Form.Item>
 
-          <Form.Item<DataRetentionPolicyRequest>
-            label={t('pages.dataRetention.common.actionType')}
-            name="actionType"
-            rules={[{ required: true, message: t('pages.dataRetention.common.selectActionType') }]}
-          >
-            <Select>
-              {Object.entries(actionTypeLabels).map(([key, label]) => (
-                <Option key={key} value={key}>{label}</Option>
-              ))}
-            </Select>
-          </Form.Item>
+            <Form.Item<DataRetentionPolicyRequest>
+              label={t('pages.dataRetention.common.actionType')}
+              name="actionType"
+              rules={[{ required: true, message: t('pages.dataRetention.common.selectActionType') }]}
+            >
+              <Select>
+                {Object.entries(actionTypeLabels).map(([key, label]) => (
+                  <Option key={key} value={key}>{label}</Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </FormGrid>
 
           <Form.Item>
             <Space>
