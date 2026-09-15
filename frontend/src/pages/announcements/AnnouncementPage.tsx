@@ -27,6 +27,7 @@ import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { Announcement } from '../../types/announcement'
 import dayjs from 'dayjs'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   title: string
@@ -198,14 +199,14 @@ export default function AnnouncementPage() {
           <Form.Item name="content" label={t('pages.announcement.form.content')} rules={[{ required: true, message: t('pages.announcement.form.contentRequired') }]}>
             <Input.TextArea rows={6} placeholder={t('pages.announcement.form.contentPlaceholder')} />
           </Form.Item>
-          <Space size={32}>
-            <Form.Item name="pinned" label={t('pages.announcement.form.pinned')} valuePropName="checked" style={{ marginBottom: 0 }}>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="pinned" label={t('pages.announcement.form.pinned')} valuePropName="checked">
               <Switch />
             </Form.Item>
-            <Form.Item name="expiresAt" label={t('pages.announcement.form.expiresAt')} style={{ marginBottom: 0 }}>
+            <Form.Item name="expiresAt" label={t('pages.announcement.form.expiresAt')}>
               <DatePicker showTime placeholder={t('pages.announcement.form.expiresAtPlaceholder')} />
             </Form.Item>
-          </Space>
+          </FormGrid>
         </Form>
       </Modal>
     </>

@@ -16,6 +16,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { MailAccount, MailSyncRecord } from '../../types/mail'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   email: string
@@ -155,34 +156,32 @@ export default function MailSyncPage() {
         width={520}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="email" label={t('pages.mail.email')} rules={[{ required: true, type: 'email', message: t('pages.mail.msgInvalidEmail') }]}>
-            <Input placeholder="sales@corp.com" />
-          </Form.Item>
-          <Form.Item name="displayName" label={t('pages.mail.displayName')} rules={[{ required: true, message: t('pages.mail.msgDisplayNameRequired') }]}>
-            <Input placeholder={t('pages.mail.placeholderDisplayName')} />
-          </Form.Item>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Form.Item name="imapHost" label={t('pages.mail.imapHost')} style={{ flex: 2 }}>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="email" label={t('pages.mail.email')} rules={[{ required: true, type: 'email', message: t('pages.mail.msgInvalidEmail') }]}>
+              <Input placeholder="sales@corp.com" />
+            </Form.Item>
+            <Form.Item name="displayName" label={t('pages.mail.displayName')} rules={[{ required: true, message: t('pages.mail.msgDisplayNameRequired') }]}>
+              <Input placeholder={t('pages.mail.placeholderDisplayName')} />
+            </Form.Item>
+            <Form.Item name="imapHost" label={t('pages.mail.imapHost')}>
               <Input placeholder="imap.corp.com" />
             </Form.Item>
-            <Form.Item name="imapPort" label={t('pages.mail.port')} style={{ flex: 1 }}>
+            <Form.Item name="imapPort" label={t('pages.mail.port')}>
               <InputNumber min={1} max={65535} style={{ width: '100%' }} />
             </Form.Item>
-          </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Form.Item name="smtpHost" label={t('pages.mail.smtpHost')} style={{ flex: 2 }}>
+            <Form.Item name="smtpHost" label={t('pages.mail.smtpHost')}>
               <Input placeholder="smtp.corp.com" />
             </Form.Item>
-            <Form.Item name="smtpPort" label={t('pages.mail.port')} style={{ flex: 1 }}>
+            <Form.Item name="smtpPort" label={t('pages.mail.port')}>
               <InputNumber min={1} max={65535} style={{ width: '100%' }} />
             </Form.Item>
-          </div>
-          <Form.Item name="isDefaultSender" label={t('pages.mail.setDefaultSender')} valuePropName="checked">
-            <Switch />
-          </Form.Item>
-          <Form.Item name="enabled" label={t('common.status.active')} valuePropName="checked">
-            <Switch />
-          </Form.Item>
+            <Form.Item name="isDefaultSender" label={t('pages.mail.setDefaultSender')} valuePropName="checked">
+              <Switch />
+            </Form.Item>
+            <Form.Item name="enabled" label={t('common.status.active')} valuePropName="checked">
+              <Switch />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

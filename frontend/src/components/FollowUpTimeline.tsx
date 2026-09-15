@@ -13,6 +13,7 @@ import { extractErrorMessage } from '../services/apiClient'
 import { type FollowUp, type FollowUpMethod } from '../types/followUp'
 import { ENUM_KEYS, labelOf } from '../constants/enumLabels'
 import { useAuthStore } from '../store/authStore'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from './ui'
 
 interface Props {
   customerId?: number
@@ -159,14 +160,16 @@ export default function FollowUpTimeline({ customerId, leadId }: Props) {
           <Form.Item name="content" label={t('pages.followUpTimeline.labelContent')} rules={[{ required: true, message: t('pages.followUpTimeline.labelContent') }]}>
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item name="nextFollowUpAt" label={t('pages.followUpTimeline.labelNextFollowUp')}>
-            <DatePicker showTime style={{ width: '100%' }} />
-          </Form.Item>
-          {!editing && (
-            <Form.Item name="createTask" valuePropName="checked" initialValue={false}>
-              <Checkbox>{t('pages.followUpTimeline.checkboxCreateTask')}</Checkbox>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="nextFollowUpAt" label={t('pages.followUpTimeline.labelNextFollowUp')}>
+              <DatePicker showTime style={{ width: '100%' }} />
             </Form.Item>
-          )}
+            {!editing && (
+              <Form.Item name="createTask" valuePropName="checked" initialValue={false}>
+                <Checkbox>{t('pages.followUpTimeline.checkboxCreateTask')}</Checkbox>
+              </Form.Item>
+            )}
+          </FormGrid>
         </Form>
       </Modal>
     </Card>

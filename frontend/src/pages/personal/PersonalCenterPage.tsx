@@ -8,6 +8,7 @@ import { changeOwnPassword } from '../../services/userService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { useAuthStore } from '../../store/authStore'
 import type { PersonalInfo as PersonalInfoType, UpdateDisplayNamePayload } from '../../types/personal'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: 'gold',
@@ -232,42 +233,44 @@ export default function PersonalCenterPage() {
           {passwordError && (
             <Alert type="error" message={passwordError} style={{ marginBottom: 16 }} />
           )}
-          <Form.Item
-            name="oldPassword"
-            label={t('pages.changePassword.currentPassword')}
-            rules={[{ required: true, message: t('pages.changePassword.msgCurrentRequired') }]}
-          >
-            <Input.Password size="large" placeholder={t('pages.changePassword.msgCurrentRequired')} />
-          </Form.Item>
-          <Form.Item
-            name="newPassword"
-            label={t('pages.changePassword.newPassword')}
-            rules={[
-              { required: true, message: t('pages.changePassword.msgNewRequired') },
-              { min: 8, max: 64, message: t('pages.changePassword.passwordLength') },
-            ]}
-            extra={t('pages.changePassword.passwordRules')}
-          >
-            <Input.Password size="large" placeholder={t('pages.changePassword.msgNewRequired')} />
-          </Form.Item>
-          <Form.Item
-            name="confirm"
-            label={t('pages.changePassword.confirmPassword')}
-            dependencies={['newPassword']}
-            rules={[
-              { required: true, message: t('pages.changePassword.msgConfirmRequired') },
-              ({ getFieldValue }) => ({
-                validator(_, value) {
-                  if (!value || getFieldValue('newPassword') === value) {
-                    return Promise.resolve()
-                  }
-                  return Promise.reject(new Error(t('pages.changePassword.msgPasswordMismatch')))
-                },
-              }),
-            ]}
-          >
-            <Input.Password size="large" placeholder={t('pages.changePassword.msgConfirmRequired')} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item
+              name="oldPassword"
+              label={t('pages.changePassword.currentPassword')}
+              rules={[{ required: true, message: t('pages.changePassword.msgCurrentRequired') }]}
+            >
+              <Input.Password size="large" placeholder={t('pages.changePassword.msgCurrentRequired')} />
+            </Form.Item>
+            <Form.Item
+              name="newPassword"
+              label={t('pages.changePassword.newPassword')}
+              rules={[
+                { required: true, message: t('pages.changePassword.msgNewRequired') },
+                { min: 8, max: 64, message: t('pages.changePassword.passwordLength') },
+              ]}
+              extra={t('pages.changePassword.passwordRules')}
+            >
+              <Input.Password size="large" placeholder={t('pages.changePassword.msgNewRequired')} />
+            </Form.Item>
+            <Form.Item
+              name="confirm"
+              label={t('pages.changePassword.confirmPassword')}
+              dependencies={['newPassword']}
+              rules={[
+                { required: true, message: t('pages.changePassword.msgConfirmRequired') },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('newPassword') === value) {
+                      return Promise.resolve()
+                    }
+                    return Promise.reject(new Error(t('pages.changePassword.msgPasswordMismatch')))
+                  },
+                }),
+              ]}
+            >
+              <Input.Password size="large" placeholder={t('pages.changePassword.msgConfirmRequired')} />
+            </Form.Item>
+          </FormGrid>
         </Form>
         <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0, marginTop: 16 }}>
           {t('pages.changePassword.reloginNotice')}

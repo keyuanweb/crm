@@ -13,6 +13,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { Department } from '../../types/department'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   name: string
@@ -265,16 +266,18 @@ export default function DepartmentListPage() {
         width={640}
       >
         <Form form={form} name="departmentForm" layout="vertical">
-          <Form.Item name="name" label={t('pages.departmentList.formNameLabel')} rules={[{ required: true, message: t('pages.departmentList.formNameRequired') }]}>
-            <Input placeholder={t('pages.departmentList.formNamePlaceholder')} />
-          </Form.Item>
-          <Form.Item name="parentId" label={t('pages.departmentList.formParentLabel')}>
-            <Select
-              allowClear
-              placeholder={t('pages.departmentList.formParentPlaceholder')}
-              options={flatOptions.filter((o) => o.value !== editing?.id)}
-            />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="name" label={t('pages.departmentList.formNameLabel')} rules={[{ required: true, message: t('pages.departmentList.formNameRequired') }]}>
+              <Input placeholder={t('pages.departmentList.formNamePlaceholder')} />
+            </Form.Item>
+            <Form.Item name="parentId" label={t('pages.departmentList.formParentLabel')}>
+              <Select
+                allowClear
+                placeholder={t('pages.departmentList.formParentPlaceholder')}
+                options={flatOptions.filter((o) => o.value !== editing?.id)}
+              />
+            </Form.Item>
+          </FormGrid>
           <Form.Item name="description" label={t('pages.departmentList.formDescLabel')}>
             <Input.TextArea rows={3} placeholder={t('pages.departmentList.formDescPlaceholder')} maxLength={500} showCount />
           </Form.Item>

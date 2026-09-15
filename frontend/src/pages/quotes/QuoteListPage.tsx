@@ -31,7 +31,7 @@ import {
 } from '../../types/quote'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import type { Product } from '../../types/product'
-import { FormGrid, useFormMetrics } from '../../components/ui'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH, useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   customerId: number
@@ -311,36 +311,38 @@ export default function QuoteListPage() {
         width={480}
       >
         <Form form={lineForm} name="quoteLineForm" layout="vertical">
-          <Form.Item
-            name="productId"
-            label={t('pages.quoteList.form.product')}
-            rules={[{ required: true, message: t('pages.quoteList.form.productRequired') }]}
-          >
-            <Select
-              showSearch
-              optionFilterProp="label"
-              options={productOptions.map((p) => ({
-                value: p.id,
-                label: `${p.name}（¥${(p.standardPrice / 100).toLocaleString('zh-CN')}）`,
-              }))}
-            />
-          </Form.Item>
-          <Form.Item
-            name="quantity"
-            label={t('pages.quoteList.form.quantity')}
-            initialValue={1}
-            rules={[{ required: true, message: t('pages.quoteList.form.quantityRequired') }]}
-          >
-            <InputNumber min={1} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="discount"
-            label={t('pages.quoteList.form.discount')}
-            initialValue={100}
-            rules={[{ required: true, message: t('pages.quoteList.form.discountRequired') }]}
-          >
-            <InputNumber min={0} max={100} style={{ width: '100%' }} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item
+              name="productId"
+              label={t('pages.quoteList.form.product')}
+              rules={[{ required: true, message: t('pages.quoteList.form.productRequired') }]}
+            >
+              <Select
+                showSearch
+                optionFilterProp="label"
+                options={productOptions.map((p) => ({
+                  value: p.id,
+                  label: `${p.name}（¥${(p.standardPrice / 100).toLocaleString('zh-CN')}）`,
+                }))}
+              />
+            </Form.Item>
+            <Form.Item
+              name="quantity"
+              label={t('pages.quoteList.form.quantity')}
+              initialValue={1}
+              rules={[{ required: true, message: t('pages.quoteList.form.quantityRequired') }]}
+            >
+              <InputNumber min={1} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item
+              name="discount"
+              label={t('pages.quoteList.form.discount')}
+              initialValue={100}
+              rules={[{ required: true, message: t('pages.quoteList.form.discountRequired') }]}
+            >
+              <InputNumber min={0} max={100} style={{ width: '100%' }} />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

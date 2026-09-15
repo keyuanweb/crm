@@ -49,7 +49,7 @@ import type {
   PaymentSummary,
   TicketBrief,
 } from '../../types/customer'
-import { StatCard, StatusTag } from '../../components/ui'
+import { FormGrid, StatCard, StatusTag, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 export default function CustomerDetailPage() {
   const { t } = useTranslation()
@@ -714,28 +714,26 @@ export default function CustomerDetailPage() {
         styles={{ body: { padding: '20px 24px' } }}
       >
         <Form form={editForm} name="editForm" layout="vertical">
-          <Form.Item name="name" label={t('pages.customer.list.formName')} rules={[{ required: true, message: t('pages.customer.list.msgNameRequired') }]}>
-            <Input maxLength={100} />
-          </Form.Item>
-          <Form.Item name="company" label={t('pages.customer.list.formCompany')} rules={[{ required: true, message: t('pages.customer.list.msgCompanyRequired') }]}>
-            <Input maxLength={100} />
-          </Form.Item>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Form.Item name="contactPerson" label={t('pages.customer.list.formContact')} style={{ flex: 1 }}>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="name" label={t('pages.customer.list.formName')} rules={[{ required: true, message: t('pages.customer.list.msgNameRequired') }]}>
+              <Input maxLength={100} />
+            </Form.Item>
+            <Form.Item name="company" label={t('pages.customer.list.formCompany')} rules={[{ required: true, message: t('pages.customer.list.msgCompanyRequired') }]}>
+              <Input maxLength={100} />
+            </Form.Item>
+            <Form.Item name="contactPerson" label={t('pages.customer.list.formContact')}>
               <Input maxLength={50} />
             </Form.Item>
-            <Form.Item name="phone" label={t('pages.customer.list.formPhone')} style={{ flex: 1 }}>
+            <Form.Item name="phone" label={t('pages.customer.list.formPhone')}>
               <Input maxLength={20} />
             </Form.Item>
-          </div>
-          <Form.Item name="email" label={t('pages.customer.list.formEmail')} rules={[{ type: 'email', message: t('common.message.invalid_email') }]}>
-            <Input maxLength={100} />
-          </Form.Item>
-          <Form.Item name="address" label={t('pages.customer.list.formAddress')}>
-            <Input maxLength={200} />
-          </Form.Item>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Form.Item name="status" label={t('pages.customer.list.colStatus')} style={{ flex: 1 }}>
+            <Form.Item name="email" label={t('pages.customer.list.formEmail')} rules={[{ type: 'email', message: t('common.message.invalid_email') }]}>
+              <Input maxLength={100} />
+            </Form.Item>
+            <Form.Item name="address" label={t('pages.customer.list.formAddress')}>
+              <Input maxLength={200} />
+            </Form.Item>
+            <Form.Item name="status" label={t('pages.customer.list.colStatus')}>
               <Select
                 options={[
                   { value: 'ACTIVE', label: t('common.status.active') },
@@ -743,7 +741,7 @@ export default function CustomerDetailPage() {
                 ]}
               />
             </Form.Item>
-          </div>
+          </FormGrid>
           <Form.Item name="remark" label={t('pages.customer.list.formRemark')}>
             <Input.TextArea rows={3} maxLength={500} />
           </Form.Item>

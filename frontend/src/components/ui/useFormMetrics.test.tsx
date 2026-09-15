@@ -4,10 +4,12 @@ import { renderWithProviders } from '../../test/renderWithProviders'
 import {
   LABEL_WIDTH,
   MIN_FIELD_WIDTH,
+  VERTICAL_MIN_ITEM_WIDTH,
   labelWidthFor,
   useFormMetrics,
   type FormMetrics,
 } from './useFormMetrics'
+import { FORM_MODAL_WIDTHS } from './formModalSize'
 
 /**
  * 表单度量（088 交付物 2）。
@@ -42,6 +44,39 @@ describe('labelWidthFor', () => {
 
   it('英文宽度确实大于中文宽度（这条是"按语言取值"本身的证据）', () => {
     expect(LABEL_WIDTH.en).toBeGreaterThan(LABEL_WIDTH.zh)
+  })
+})
+
+/**
+ * 竖向表单的栅格下限（088 T041 / 3.2）。
+ *
+ * <p>这里**刻意不钉 `200` 这个数**，钉的是它由来的两条不等式——数会随默认档宽度变，
+ * 推导不会。这样改 `FORM_MODAL_WIDTHS.md` 时，若没跟着重推下限，测试会说清是哪一条破了。
+ */
+describe('VERTICAL_MIN_ITEM_WIDTH', () => {
+  const GUTTER = 16 // 与 FormGrid 的默认 gutter 同值
+  const MODAL_BODY_PADDING = 48 // antd `.ant-modal-body` 内边距 24 × 2
+  /** 横向表单里"再窄就不能并排"的宽度：标签在左，故含 labelWidth。 */
+  const HORIZONTAL_MIN_ITEM_WIDTH = LABEL_WIDTH.zh + MIN_FIELD_WIDTH
+
+  it('在默认档 md 下恰好排两列（放得下两列、且放不下三列）', () => {
+    const avail = FORM_MODAL_WIDTHS.md - MODAL_BODY_PADDING
+    expect(2 * VERTICAL_MIN_ITEM_WIDTH + GUTTER).toBeLessThanOrEqual(avail)
+    expect(3 * VERTICAL_MIN_ITEM_WIDTH + 2 * GUTTER).toBeGreaterThan(avail)
+  })
+
+  it('不低于控件下限——否则并排出来的控件看不清内容', () => {
+    expect(VERTICAL_MIN_ITEM_WIDTH).toBeGreaterThanOrEqual(MIN_FIELD_WIDTH)
+  })
+
+  it('比横向表单的下限低（标签在上就不该为标签留列宽）', () => {
+    expect(VERTICAL_MIN_ITEM_WIDTH).toBeLessThan(HORIZONTAL_MIN_ITEM_WIDTH)
+  })
+
+  it('320px 视口下自动退化成单列，不会把控件压到 160 以下', () => {
+    // antd 把弹窗夹到 calc(100vw - 32px) = 288，再扣掉弹窗自身内边距
+    const avail = 320 - 32 - MODAL_BODY_PADDING
+    expect(Math.floor((avail + GUTTER) / (VERTICAL_MIN_ITEM_WIDTH + GUTTER))).toBe(1)
   })
 })
 

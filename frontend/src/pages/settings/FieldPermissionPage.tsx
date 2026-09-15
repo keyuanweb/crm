@@ -15,6 +15,7 @@ import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import { type FieldPermission } from '../../types/fieldPermission'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   roleCode: string
@@ -157,24 +158,26 @@ export default function FieldPermissionPage() {
       />
       <Modal title={t('pages.fieldPermission.modalTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.fieldPermission.btnSave')} destroyOnClose width={640}>
         <Form form={form} layout="vertical">
-          <Form.Item name="roleCode" label={t('pages.fieldPermission.formRoleLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formRoleRequired') }]}>
-            <Select options={roleSelectOptions} placeholder={t('pages.fieldPermission.formRolePlaceholder')} />
-          </Form.Item>
-          <Form.Item name="entityType" label={t('pages.fieldPermission.formEntityLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formEntityRequired') }]}>
-            <Select
-              options={Object.keys(ENUM_KEYS.fieldEntity).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.fieldEntity, code) }))}
-              onChange={(v: string) => void loadFields(v)}
-              placeholder={t('pages.fieldPermission.formEntityPlaceholder')}
-            />
-          </Form.Item>
-          <Form.Item name="fieldId" label={t('pages.fieldPermission.formFieldLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formFieldRequired') }]}>
-            <Select options={fieldOptions} placeholder={t('pages.fieldPermission.formFieldPlaceholder')} />
-          </Form.Item>
-          <Form.Item name="permission" label={t('pages.fieldPermission.formPermissionLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formPermissionRequired') }]} initialValue="READ_ONLY">
-            <Select
-              options={Object.keys(ENUM_KEYS.fieldPermission).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.fieldPermission, code) }))}
-            />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="roleCode" label={t('pages.fieldPermission.formRoleLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formRoleRequired') }]}>
+              <Select options={roleSelectOptions} placeholder={t('pages.fieldPermission.formRolePlaceholder')} />
+            </Form.Item>
+            <Form.Item name="entityType" label={t('pages.fieldPermission.formEntityLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formEntityRequired') }]}>
+              <Select
+                options={Object.keys(ENUM_KEYS.fieldEntity).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.fieldEntity, code) }))}
+                onChange={(v: string) => void loadFields(v)}
+                placeholder={t('pages.fieldPermission.formEntityPlaceholder')}
+              />
+            </Form.Item>
+            <Form.Item name="fieldId" label={t('pages.fieldPermission.formFieldLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formFieldRequired') }]}>
+              <Select options={fieldOptions} placeholder={t('pages.fieldPermission.formFieldPlaceholder')} />
+            </Form.Item>
+            <Form.Item name="permission" label={t('pages.fieldPermission.formPermissionLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formPermissionRequired') }]} initialValue="READ_ONLY">
+              <Select
+                options={Object.keys(ENUM_KEYS.fieldPermission).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.fieldPermission, code) }))}
+              />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

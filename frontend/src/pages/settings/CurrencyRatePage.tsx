@@ -13,6 +13,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { CurrencyRate } from '../../types/currency'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   code: string
@@ -142,22 +143,24 @@ export default function CurrencyRatePage() {
         width={420}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="code" label={t('pages.currency.formCodeLabel')} rules={[{ required: true, message: t('pages.currency.formCodeRequired') }]}>
-            <Input maxLength={10} placeholder={t('pages.currency.formCodePlaceholder')} disabled={!!editing} />
-          </Form.Item>
-          <Form.Item name="name" label={t('pages.currency.formNameLabel')} rules={[{ required: true, message: t('pages.currency.formNameRequired') }]}>
-            <Input maxLength={50} placeholder={t('pages.currency.formNamePlaceholder')} />
-          </Form.Item>
-          <Form.Item
-            name="rate"
-            label={t('pages.currency.formRateLabel')}
-            rules={[{ required: true, message: t('pages.currency.formRateRequired') }]}
-          >
-            <InputNumber min={0.000001} precision={6} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="enabled" label={t('pages.currency.formEnabledLabel')} valuePropName="checked">
-            <Switch />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="code" label={t('pages.currency.formCodeLabel')} rules={[{ required: true, message: t('pages.currency.formCodeRequired') }]}>
+              <Input maxLength={10} placeholder={t('pages.currency.formCodePlaceholder')} disabled={!!editing} />
+            </Form.Item>
+            <Form.Item name="name" label={t('pages.currency.formNameLabel')} rules={[{ required: true, message: t('pages.currency.formNameRequired') }]}>
+              <Input maxLength={50} placeholder={t('pages.currency.formNamePlaceholder')} />
+            </Form.Item>
+            <Form.Item
+              name="rate"
+              label={t('pages.currency.formRateLabel')}
+              rules={[{ required: true, message: t('pages.currency.formRateRequired') }]}
+            >
+              <InputNumber min={0.000001} precision={6} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="enabled" label={t('pages.currency.formEnabledLabel')} valuePropName="checked">
+              <Switch />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

@@ -15,6 +15,7 @@ import { useAuthStore } from '../../store/authStore'
 import { hasPerm } from '../../hooks/usePermission'
 import { PERMS } from '../../constants/permissions'
 import type { ContractTemplate } from '../../types/contract'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   name: string
@@ -173,17 +174,19 @@ export default function ContractTemplateListPage() {
         width={680}
       >
         <Form form={form} name="contractTemplateForm" layout="vertical">
-          <Form.Item name="name" label={t('pages.contractTemplate.formNameLabel')} rules={[{ required: true, message: t('pages.contractTemplate.formNameRequired') }]} style={{ flex: 1 }}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="status" label={t('pages.contractTemplate.formStatusLabel')} style={{ flex: 1 }}>
-            <Select
-              options={[
-                { value: 'ACTIVE', label: t('pages.contractTemplate.enabled') },
-                { value: 'INACTIVE', label: t('pages.contractTemplate.disabled') },
-              ]}
-            />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="name" label={t('pages.contractTemplate.formNameLabel')} rules={[{ required: true, message: t('pages.contractTemplate.formNameRequired') }]} style={{ flex: 1 }}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="status" label={t('pages.contractTemplate.formStatusLabel')} style={{ flex: 1 }}>
+              <Select
+                options={[
+                  { value: 'ACTIVE', label: t('pages.contractTemplate.enabled') },
+                  { value: 'INACTIVE', label: t('pages.contractTemplate.disabled') },
+                ]}
+              />
+            </Form.Item>
+          </FormGrid>
           <Form.Item
             name="content"
             label={t('pages.contractTemplate.formContentLabel')}

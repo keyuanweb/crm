@@ -17,6 +17,7 @@ import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { LandingPage } from '../../types/landingPage'
 import type { Color } from 'antd/es/color-picker'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   title: string
@@ -169,24 +170,28 @@ export default function LandingPageListPage() {
         width={520}
       >
         <Form form={form} name="landingPageForm" layout="vertical">
-          <Form.Item name="title" label={t('pages.landing.formTitle')} rules={[{ required: true, message: t('pages.landing.msgTitleRequired') }]}>
-            <Input maxLength={200} />
-          </Form.Item>
-          <Form.Item name="subtitle" label={t('pages.landing.formSubtitle')}>
-            <Input maxLength={500} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="title" label={t('pages.landing.formTitle')} rules={[{ required: true, message: t('pages.landing.msgTitleRequired') }]}>
+              <Input maxLength={200} />
+            </Form.Item>
+            <Form.Item name="subtitle" label={t('pages.landing.formSubtitle')}>
+              <Input maxLength={500} />
+            </Form.Item>
+          </FormGrid>
           <Form.Item name="description" label={t('pages.landing.formDescription')}>
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item name="themeColor" label={t('pages.landing.formThemeColor')}>
-            <ColorPicker showText />
-          </Form.Item>
-          <Form.Item name="formId" label={t('pages.landing.formFormId')} rules={[{ required: true, message: t('pages.landing.msgFormRequired') }]}>
-            <Select options={formOptions} placeholder={t('pages.landing.formFormIdPlaceholder')} />
-          </Form.Item>
-          <Form.Item name="enabled" label={t('pages.landing.formEnabled')} valuePropName="checked">
-            <Switch />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="themeColor" label={t('pages.landing.formThemeColor')}>
+              <ColorPicker showText />
+            </Form.Item>
+            <Form.Item name="formId" label={t('pages.landing.formFormId')} rules={[{ required: true, message: t('pages.landing.msgFormRequired') }]}>
+              <Select options={formOptions} placeholder={t('pages.landing.formFormIdPlaceholder')} />
+            </Form.Item>
+            <Form.Item name="enabled" label={t('pages.landing.formEnabled')} valuePropName="checked">
+              <Switch />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

@@ -15,6 +15,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { CallRecord, CallStats } from '../../types/callRecord'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   customerId?: number
@@ -213,27 +214,23 @@ export default function CallRecordPage() {
         width={480}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="customerId" label={t('pages.call.colCustomer')} rules={[{ required: true, message: t('pages.call.msgCustomerRequired') }]}>
-            <CustomerSelect />
-          </Form.Item>
-          <Form.Item name="contactId" label={t('pages.call.colContact')}>
-            <Input placeholder={t('pages.call.placeholderContact')} />
-          </Form.Item>
-          <Row gutter={12}>
-            <Col span={12}>
-              <Form.Item name="direction" label={t('pages.call.colDirection')} rules={[{ required: true }]}>
-                <Select options={Object.entries(CALL_DIRECTION_LABELS).map(([value, label]) => ({ value, label }))} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="result" label={t('pages.call.colResult')} rules={[{ required: true }]}>
-                <Select options={Object.entries(CALL_RESULT_LABELS).map(([value, label]) => ({ value, label }))} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="durationSeconds" label={t('pages.call.formDuration')} rules={[{ required: true, message: t('pages.call.msgDurationRequired') }]}>
-            <InputNumber min={0} max={86400} style={{ width: '100%' }} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="customerId" label={t('pages.call.colCustomer')} rules={[{ required: true, message: t('pages.call.msgCustomerRequired') }]}>
+              <CustomerSelect />
+            </Form.Item>
+            <Form.Item name="contactId" label={t('pages.call.colContact')}>
+              <Input placeholder={t('pages.call.placeholderContact')} />
+            </Form.Item>
+            <Form.Item name="direction" label={t('pages.call.colDirection')} rules={[{ required: true }]}>
+              <Select options={Object.entries(CALL_DIRECTION_LABELS).map(([value, label]) => ({ value, label }))} />
+            </Form.Item>
+            <Form.Item name="result" label={t('pages.call.colResult')} rules={[{ required: true }]}>
+              <Select options={Object.entries(CALL_RESULT_LABELS).map(([value, label]) => ({ value, label }))} />
+            </Form.Item>
+            <Form.Item name="durationSeconds" label={t('pages.call.formDuration')} rules={[{ required: true, message: t('pages.call.msgDurationRequired') }]}>
+              <InputNumber min={0} max={86400} style={{ width: '100%' }} />
+            </Form.Item>
+          </FormGrid>
           <Form.Item name="remark" label={t('pages.call.formRemark')}>
             <Input.TextArea rows={2} maxLength={500} placeholder={t('pages.call.placeholderRemark')} />
           </Form.Item>

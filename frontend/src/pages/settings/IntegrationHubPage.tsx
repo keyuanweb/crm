@@ -16,6 +16,7 @@ import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import { type IntegrationChannel } from '../../types/integration'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   channelType: string
@@ -158,18 +159,20 @@ export default function IntegrationHubPage() {
         width={480}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="channelType" label={t('pages.integrationHub.formChannelTypeLabel')} rules={[{ required: true, message: t('pages.integrationHub.formChannelTypeRequired') }]}>
-            <Select options={Object.keys(ENUM_KEYS.channelType).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.channelType, code) }))} />
-          </Form.Item>
-          <Form.Item name="name" label={t('pages.integrationHub.formNameLabel')} rules={[{ required: true, message: t('pages.integrationHub.formNameRequired') }]}>
-            <Input placeholder={t('pages.integrationHub.formNamePlaceholder')} maxLength={100} />
-          </Form.Item>
-          <Form.Item name="webhookUrl" label={t('pages.integrationHub.formWebhookUrlLabel')} rules={[{ required: true, message: t('pages.integrationHub.formWebhookUrlRequired') }]}>
-            <Input placeholder={t('pages.integrationHub.formWebhookUrlPlaceholder')} />
-          </Form.Item>
-          <Form.Item name="enabled" label={t('pages.integrationHub.formEnabledLabel')} valuePropName="checked">
-            <Switch />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="channelType" label={t('pages.integrationHub.formChannelTypeLabel')} rules={[{ required: true, message: t('pages.integrationHub.formChannelTypeRequired') }]}>
+              <Select options={Object.keys(ENUM_KEYS.channelType).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.channelType, code) }))} />
+            </Form.Item>
+            <Form.Item name="name" label={t('pages.integrationHub.formNameLabel')} rules={[{ required: true, message: t('pages.integrationHub.formNameRequired') }]}>
+              <Input placeholder={t('pages.integrationHub.formNamePlaceholder')} maxLength={100} />
+            </Form.Item>
+            <Form.Item name="webhookUrl" label={t('pages.integrationHub.formWebhookUrlLabel')} rules={[{ required: true, message: t('pages.integrationHub.formWebhookUrlRequired') }]}>
+              <Input placeholder={t('pages.integrationHub.formWebhookUrlPlaceholder')} />
+            </Form.Item>
+            <Form.Item name="enabled" label={t('pages.integrationHub.formEnabledLabel')} valuePropName="checked">
+              <Switch />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
       <Drawer

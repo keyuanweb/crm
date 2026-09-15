@@ -31,7 +31,7 @@ import { hasPerm } from '../../hooks/usePermission'
 import { PERMS } from '../../constants/permissions'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import { ORDER_STATUS_COLORS, type Order, type PlanItemPayload } from '../../types/order'
-import { FormGrid, useFormMetrics } from '../../components/ui'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH, useFormMetrics } from '../../components/ui'
 
 interface FormValues {
   title: string
@@ -321,15 +321,17 @@ export default function OrderListPage() {
         width={480}
       >
         <Form form={planForm} name="orderPlanForm" layout="vertical">
-          <Form.Item name="amount" label={t('pages.order.list.planAmount')} rules={[{ required: true, message: t('pages.order.list.msgAmountRequired') }]}>
-            <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="dueDate" label={t('pages.order.list.planDueDate')} rules={[{ required: true, message: t('pages.order.list.msgDateRequired') }]}>
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="description" label={t('pages.order.list.planDesc')}>
-            <Input placeholder={t('pages.order.list.phPlan')} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="amount" label={t('pages.order.list.planAmount')} rules={[{ required: true, message: t('pages.order.list.msgAmountRequired') }]}>
+              <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="dueDate" label={t('pages.order.list.planDueDate')} rules={[{ required: true, message: t('pages.order.list.msgDateRequired') }]}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="description" label={t('pages.order.list.planDesc')}>
+              <Input placeholder={t('pages.order.list.phPlan')} />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

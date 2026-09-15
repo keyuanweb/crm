@@ -13,6 +13,7 @@ import { useAuthStore } from '../../store/authStore'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import dayjs from 'dayjs'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface CreateValues {
   username: string
@@ -296,38 +297,40 @@ export default function UserManagementPage() {
         width={640}
       >
         <Form form={createForm} name="createUser" layout="vertical">
-          <Form.Item
-            name="username"
-            label={t('pages.userManagement.form.username')}
-            rules={[
-              { required: true, message: t('pages.userManagement.form.usernameRequired') },
-              { pattern: /^[a-zA-Z0-9_]{3,50}$/, message: t('pages.userManagement.form.usernamePattern') },
-            ]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item name="displayName" label={t('pages.userManagement.form.displayName')} rules={[{ required: true, message: t('pages.userManagement.form.displayNameRequired') }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="role"
-            label={t('pages.userManagement.form.role')}
-            initialValue="SALES"
-            rules={[{ required: true, message: t('pages.userManagement.form.roleRequired') }]}
-          >
-            <Select options={roleSelectOptions} />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label={t('pages.userManagement.form.initialPassword')}
-            rules={[
-              { required: true, message: t('pages.userManagement.form.initialPasswordRequired') },
-              { min: 8, max: 64, message: t('pages.userManagement.form.initialPasswordLength') },
-            ]}
-            extra={t('pages.userManagement.form.initialPasswordExtra')}
-          >
-            <Input.Password />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item
+              name="username"
+              label={t('pages.userManagement.form.username')}
+              rules={[
+                { required: true, message: t('pages.userManagement.form.usernameRequired') },
+                { pattern: /^[a-zA-Z0-9_]{3,50}$/, message: t('pages.userManagement.form.usernamePattern') },
+              ]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item name="displayName" label={t('pages.userManagement.form.displayName')} rules={[{ required: true, message: t('pages.userManagement.form.displayNameRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="role"
+              label={t('pages.userManagement.form.role')}
+              initialValue="SALES"
+              rules={[{ required: true, message: t('pages.userManagement.form.roleRequired') }]}
+            >
+              <Select options={roleSelectOptions} />
+            </Form.Item>
+            <Form.Item
+              name="password"
+              label={t('pages.userManagement.form.initialPassword')}
+              rules={[
+                { required: true, message: t('pages.userManagement.form.initialPasswordRequired') },
+                { min: 8, max: 64, message: t('pages.userManagement.form.initialPasswordLength') },
+              ]}
+              extra={t('pages.userManagement.form.initialPasswordExtra')}
+            >
+              <Input.Password />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
 
@@ -341,12 +344,14 @@ export default function UserManagementPage() {
         width={480}
       >
         <Form form={editForm} name="editUser" layout="vertical">
-          <Form.Item name="displayName" label={t('pages.userManagement.form.displayName')} rules={[{ required: true, message: t('pages.userManagement.form.displayNameRequired') }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="role" label={t('pages.userManagement.form.role')} rules={[{ required: true, message: t('pages.userManagement.form.roleRequired') }]}>
-            <Select options={roleSelectOptions} placeholder={t('pages.userManagement.form.rolePlaceholder')} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="displayName" label={t('pages.userManagement.form.displayName')} rules={[{ required: true, message: t('pages.userManagement.form.displayNameRequired') }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="role" label={t('pages.userManagement.form.role')} rules={[{ required: true, message: t('pages.userManagement.form.roleRequired') }]}>
+              <Select options={roleSelectOptions} placeholder={t('pages.userManagement.form.rolePlaceholder')} />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
 
@@ -384,12 +389,14 @@ export default function UserManagementPage() {
         width={480}
       >
         <Form form={permForm} name="permUser" layout="vertical">
-          <Form.Item name="departmentId" label={t('pages.userManagement.form.department')}>
-            <Select allowClear placeholder={t('pages.userManagement.form.departmentPlaceholder')} options={deptOptions} />
-          </Form.Item>
-          <Form.Item name="dataScope" label={t('pages.userManagement.form.dataScope')} rules={[{ required: true, message: t('pages.userManagement.form.dataScopeRequired') }]}>
-            <Select options={Object.keys(ENUM_KEYS.dataScope).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.dataScope, code) }))} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="departmentId" label={t('pages.userManagement.form.department')}>
+              <Select allowClear placeholder={t('pages.userManagement.form.departmentPlaceholder')} options={deptOptions} />
+            </Form.Item>
+            <Form.Item name="dataScope" label={t('pages.userManagement.form.dataScope')} rules={[{ required: true, message: t('pages.userManagement.form.dataScopeRequired') }]}>
+              <Select options={Object.keys(ENUM_KEYS.dataScope).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.dataScope, code) }))} />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

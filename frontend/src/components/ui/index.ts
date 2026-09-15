@@ -26,5 +26,5 @@ export type { FormModalSize } from './formModalSize'
 export { default as PageState } from './PageState'
 export type { PageStateProps, PageStateKind } from './PageState'
 
-export { useFormMetrics, LABEL_WIDTH, MIN_FIELD_WIDTH } from './useFormMetrics'
+export { useFormMetrics, LABEL_WIDTH, MIN_FIELD_WIDTH, VERTICAL_MIN_ITEM_WIDTH } from './useFormMetrics'
 export type { FormMetrics } from './useFormMetrics'

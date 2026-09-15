@@ -14,6 +14,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { CustomField, FieldEntityType, FieldType } from '../../types/customField'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   entityType: FieldEntityType
@@ -196,43 +197,43 @@ export default function CustomFieldListPage() {
         width={560}
       >
         <Form form={form} name="customFieldForm" layout="vertical">
-          <Form.Item
-            name="entityType"
-            label={t('pages.customField.formEntityTypeLabel')}
-            rules={[{ required: true, message: t('pages.customField.formEntityTypeRequired') }]}
-          >
-            <Select
-              disabled={!!editing}
-              options={Object.entries(FIELD_ENTITY_LABELS).map(([value, label]) => ({ value, label }))}
-            />
-          </Form.Item>
-          <Form.Item name="name" label={t('pages.customField.formNameLabel')} rules={[{ required: true, message: t('pages.customField.formNameRequired') }]}>
-            <Input maxLength={50} />
-          </Form.Item>
-          <Form.Item name="fieldType" label={t('pages.customField.formFieldTypeLabel')} rules={[{ required: true, message: t('pages.customField.formFieldTypeRequired') }]}>
-            <Select
-              disabled={!!editing}
-              options={Object.entries(FIELD_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
-              onChange={(v) => setFieldType(v as FieldType)}
-            />
-          </Form.Item>
-          {fieldType === 'SELECT' && (
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
             <Form.Item
-              name="options"
-              label={t('pages.customField.formOptionsLabel')}
-              rules={[{ required: true, message: t('pages.customField.formOptionsRequired') }]}
+              name="entityType"
+              label={t('pages.customField.formEntityTypeLabel')}
+              rules={[{ required: true, message: t('pages.customField.formEntityTypeRequired') }]}
             >
-              <Input placeholder={t('pages.customField.formOptionsPlaceholder')} />
+              <Select
+                disabled={!!editing}
+                options={Object.entries(FIELD_ENTITY_LABELS).map(([value, label]) => ({ value, label }))}
+              />
             </Form.Item>
-          )}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-            <Form.Item name="sortOrder" label={t('pages.customField.formSortOrderLabel')} style={{ flex: 1 }}>
+            <Form.Item name="name" label={t('pages.customField.formNameLabel')} rules={[{ required: true, message: t('pages.customField.formNameRequired') }]}>
+              <Input maxLength={50} />
+            </Form.Item>
+            <Form.Item name="fieldType" label={t('pages.customField.formFieldTypeLabel')} rules={[{ required: true, message: t('pages.customField.formFieldTypeRequired') }]}>
+              <Select
+                disabled={!!editing}
+                options={Object.entries(FIELD_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+                onChange={(v) => setFieldType(v as FieldType)}
+              />
+            </Form.Item>
+            {fieldType === 'SELECT' && (
+              <Form.Item
+                name="options"
+                label={t('pages.customField.formOptionsLabel')}
+                rules={[{ required: true, message: t('pages.customField.formOptionsRequired') }]}
+              >
+                <Input placeholder={t('pages.customField.formOptionsPlaceholder')} />
+              </Form.Item>
+            )}
+            <Form.Item name="sortOrder" label={t('pages.customField.formSortOrderLabel')}>
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item name="required" label={t('pages.customField.formRequiredLabel')} valuePropName="checked">
               <Switch />
             </Form.Item>
-          </div>
+          </FormGrid>
         </Form>
       </Modal>
     </>

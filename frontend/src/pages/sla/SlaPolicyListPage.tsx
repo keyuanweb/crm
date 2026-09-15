@@ -17,6 +17,7 @@ import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { SlaPolicy } from '../../types/sla'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   priority: TicketPriority
@@ -195,30 +196,30 @@ export default function SlaPolicyListPage() {
         width={520}
       >
         <Form form={form} name="slaForm" layout="vertical">
-          <Form.Item
-            name="priority"
-            label={t('pages.slaPolicy.formPriorityLabel')}
-            rules={[{ required: true, message: t('pages.slaPolicy.formPriorityRequired') }]}
-          >
-            <Select
-              disabled={!!editing}
-              options={Object.keys(ENUM_KEYS.ticketPriority).map((code) => ({
-                value: code,
-                label: labelOf(t, ENUM_KEYS.ticketPriority, code),
-              }))}
-            />
-          </Form.Item>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Form.Item name="respondHours" label={t('pages.slaPolicy.formRespondHoursLabel')} style={{ flex: 1 }}>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item
+              name="priority"
+              label={t('pages.slaPolicy.formPriorityLabel')}
+              rules={[{ required: true, message: t('pages.slaPolicy.formPriorityRequired') }]}
+            >
+              <Select
+                disabled={!!editing}
+                options={Object.keys(ENUM_KEYS.ticketPriority).map((code) => ({
+                  value: code,
+                  label: labelOf(t, ENUM_KEYS.ticketPriority, code),
+                }))}
+              />
+            </Form.Item>
+            <Form.Item name="respondHours" label={t('pages.slaPolicy.formRespondHoursLabel')}>
               <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.slaPolicy.formRespondHoursPlaceholder')} />
             </Form.Item>
-            <Form.Item name="resolveHours" label={t('pages.slaPolicy.formResolveHoursLabel')} style={{ flex: 1 }}>
+            <Form.Item name="resolveHours" label={t('pages.slaPolicy.formResolveHoursLabel')}>
               <InputNumber min={1} style={{ width: '100%' }} placeholder={t('pages.slaPolicy.formResolveHoursPlaceholder')} />
             </Form.Item>
-          </div>
-          <Form.Item name="enabled" label={t('pages.slaPolicy.formEnabledLabel')} valuePropName="checked">
-            <Switch />
-          </Form.Item>
+            <Form.Item name="enabled" label={t('pages.slaPolicy.formEnabledLabel')} valuePropName="checked">
+              <Switch />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

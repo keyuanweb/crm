@@ -17,6 +17,7 @@ import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import { type ArticleCategory, type KnowledgeArticle } from '../../types/knowledge'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   category: ArticleCategory
@@ -211,24 +212,26 @@ export default function KnowledgeArticleListPage() {
         width={720}
       >
         <Form form={form} name="articleForm" layout="vertical">
-          <Form.Item
-            name="category"
-            label={t('pages.knowledge.formCategory')}
-            rules={[{ required: true, message: t('pages.knowledge.msgCategoryRequired') }]}
-          >
-            <Select
-              options={Object.keys(ENUM_KEYS.articleCategory).map((code) => ({
-                value: code,
-                label: labelOf(t, ENUM_KEYS.articleCategory, code),
-              }))}
-            />
-          </Form.Item>
-          <Form.Item name="title" label={t('pages.knowledge.formTitle')} rules={[{ required: true, message: t('pages.knowledge.msgTitleRequired') }]}>
-            <Input maxLength={200} />
-          </Form.Item>
-          <Form.Item name="keywords" label={t('pages.knowledge.formKeywords')}>
-            <Input placeholder={t('pages.knowledge.placeholderKeywords')} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item
+              name="category"
+              label={t('pages.knowledge.formCategory')}
+              rules={[{ required: true, message: t('pages.knowledge.msgCategoryRequired') }]}
+            >
+              <Select
+                options={Object.keys(ENUM_KEYS.articleCategory).map((code) => ({
+                  value: code,
+                  label: labelOf(t, ENUM_KEYS.articleCategory, code),
+                }))}
+              />
+            </Form.Item>
+            <Form.Item name="title" label={t('pages.knowledge.formTitle')} rules={[{ required: true, message: t('pages.knowledge.msgTitleRequired') }]}>
+              <Input maxLength={200} />
+            </Form.Item>
+            <Form.Item name="keywords" label={t('pages.knowledge.formKeywords')}>
+              <Input placeholder={t('pages.knowledge.placeholderKeywords')} />
+            </Form.Item>
+          </FormGrid>
           <Form.Item name="content" label={t('pages.knowledge.formContent')}>
             <Input.TextArea rows={10} />
           </Form.Item>

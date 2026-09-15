@@ -15,6 +15,7 @@ import type { StageActionTemplate } from '../../types/playbook'
 import { useOpportunityStages } from '../../hooks/useOpportunityStages'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   stage: string
@@ -201,23 +202,25 @@ export default function StageActionTemplatePage() {
         width={520}
       >
         <Form form={form} name="stageActionForm" layout="vertical">
-          <Form.Item name="stage" label={t('pages.playbook.formStageLabel')} rules={[{ required: true, message: t('pages.playbook.msgStageRequired') }]}>
-            <Select disabled={!!editing} loading={stagesLoading} options={stageOptions} />
-          </Form.Item>
-          <Form.Item name="actionName" label={t('pages.playbook.formActionNameLabel')} rules={[{ required: true, message: t('pages.playbook.msgActionNameRequired') }]}>
-            <Input maxLength={100} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="stage" label={t('pages.playbook.formStageLabel')} rules={[{ required: true, message: t('pages.playbook.msgStageRequired') }]}>
+              <Select disabled={!!editing} loading={stagesLoading} options={stageOptions} />
+            </Form.Item>
+            <Form.Item name="actionName" label={t('pages.playbook.formActionNameLabel')} rules={[{ required: true, message: t('pages.playbook.msgActionNameRequired') }]}>
+              <Input maxLength={100} />
+            </Form.Item>
+          </FormGrid>
           <Form.Item name="description" label={t('pages.playbook.formDescriptionLabel')}>
             <Input.TextArea rows={2} maxLength={500} />
           </Form.Item>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-            <Form.Item name="sortOrder" label={t('pages.playbook.formSortOrderLabel')} style={{ flex: 1 }}>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="sortOrder" label={t('pages.playbook.formSortOrderLabel')}>
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item name="required" label={t('pages.playbook.formRequiredLabel')} valuePropName="checked">
               <Switch />
             </Form.Item>
-          </div>
+          </FormGrid>
         </Form>
       </Modal>
     </>

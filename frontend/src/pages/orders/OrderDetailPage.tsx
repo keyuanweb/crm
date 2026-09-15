@@ -23,7 +23,7 @@ import { fetchOrder, recordPayment } from '../../services/orderService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import type { PaymentPlanItem } from '../../types/order'
-import { StatusTag, AmountDisplay, StatCard } from '../../components/ui'
+import { AmountDisplay, FormGrid, StatCard, StatusTag, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface PaymentFormValues {
   planId: number
@@ -359,44 +359,46 @@ export default function OrderDetailPage() {
         styles={{ body: { padding: '20px 24px' } }}
       >
         <Form form={paymentForm} name="paymentForm" layout="vertical">
-          <Form.Item name="planId" label={t('pages.orderDetail.formLabelPlan')} rules={[{ required: true, message: t('pages.orderDetail.formMessageSelectPlan') }]}>
-            <Select
-              options={(data.plans ?? [])
-                .filter((p) => p.status !== 'PAID')
-                .map((p) => ({
-                  value: p.id,
-                  label: t('pages.orderDetail.planOptionLabel', {
-                    seqNo: t('pages.orderDetail.seqNo', { seq: p.seqNo }),
-                    receivable: (p.amount / 100).toLocaleString('zh-CN'),
-                    unpaid: (p.unpaidAmount / 100).toLocaleString('zh-CN'),
-                  }),
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="planId" label={t('pages.orderDetail.formLabelPlan')} rules={[{ required: true, message: t('pages.orderDetail.formMessageSelectPlan') }]}>
+              <Select
+                options={(data.plans ?? [])
+                  .filter((p) => p.status !== 'PAID')
+                  .map((p) => ({
+                    value: p.id,
+                    label: t('pages.orderDetail.planOptionLabel', {
+                      seqNo: t('pages.orderDetail.seqNo', { seq: p.seqNo }),
+                      receivable: (p.amount / 100).toLocaleString('zh-CN'),
+                      unpaid: (p.unpaidAmount / 100).toLocaleString('zh-CN'),
+                    }),
+                  }))}
+              />
+            </Form.Item>
+            <Form.Item
+              name="amount"
+              label={t('pages.orderDetail.formLabelAmount')}
+              rules={[{ required: true, message: t('pages.orderDetail.formMessageAmount') }]}
+              style={{ flex: 1 }}
+            >
+              <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item
+              name="paidAt"
+              label={t('pages.orderDetail.formLabelDate')}
+              rules={[{ required: true, message: t('pages.orderDetail.formMessageDate') }]}
+              style={{ flex: 1 }}
+            >
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="method" label={t('pages.orderDetail.formLabelMethod')} rules={[{ required: true, message: t('pages.orderDetail.formMessageMethod') }]}>
+              <Select
+                options={Object.keys(ENUM_KEYS.paymentMethod).map((value) => ({
+                  value,
+                  label: labelOf(t, ENUM_KEYS.paymentMethod, value),
                 }))}
-            />
-          </Form.Item>
-          <Form.Item
-            name="amount"
-            label={t('pages.orderDetail.formLabelAmount')}
-            rules={[{ required: true, message: t('pages.orderDetail.formMessageAmount') }]}
-            style={{ flex: 1 }}
-          >
-            <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="paidAt"
-            label={t('pages.orderDetail.formLabelDate')}
-            rules={[{ required: true, message: t('pages.orderDetail.formMessageDate') }]}
-            style={{ flex: 1 }}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="method" label={t('pages.orderDetail.formLabelMethod')} rules={[{ required: true, message: t('pages.orderDetail.formMessageMethod') }]}>
-            <Select
-              options={Object.keys(ENUM_KEYS.paymentMethod).map((value) => ({
-                value,
-                label: labelOf(t, ENUM_KEYS.paymentMethod, value),
-              }))}
-            />
-          </Form.Item>
+              />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </div>

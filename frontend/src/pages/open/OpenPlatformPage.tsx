@@ -17,6 +17,7 @@ import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import { type ApiKey, type WebhookSubscription } from '../../types/openPlatform'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 /**
  * 086 权限判据：本页的**全部**端点（含两个列表读端点）挂的都是 `open_platform:manage`
@@ -147,19 +148,21 @@ function ApiKeyTab() {
       />
       <Modal title={t('pages.openPlatform.modalCreateTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.openPlatform.create')} destroyOnClose width={480}>
         <Form form={form} layout="vertical">
-          <Form.Item name="name" label={t('pages.openPlatform.formNameLabel')} rules={[{ required: true, message: t('pages.openPlatform.formNameRequired') }]}>
-            <Input placeholder={t('pages.openPlatform.formNamePlaceholder')} />
-          </Form.Item>
-          <Form.Item name="scopes" label={t('pages.openPlatform.formScopesLabel')} initialValue={['customer:read']}>
-            <Select
-              mode="multiple"
-              options={[
-                { value: 'customer:read', label: t('pages.openPlatform.scopeCustomerRead') },
-                { value: 'lead:read', label: t('pages.openPlatform.scopeLeadRead') },
-                { value: 'lead:write', label: t('pages.openPlatform.scopeLeadWrite') },
-              ]}
-            />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="name" label={t('pages.openPlatform.formNameLabel')} rules={[{ required: true, message: t('pages.openPlatform.formNameRequired') }]}>
+              <Input placeholder={t('pages.openPlatform.formNamePlaceholder')} />
+            </Form.Item>
+            <Form.Item name="scopes" label={t('pages.openPlatform.formScopesLabel')} initialValue={['customer:read']}>
+              <Select
+                mode="multiple"
+                options={[
+                  { value: 'customer:read', label: t('pages.openPlatform.scopeCustomerRead') },
+                  { value: 'lead:read', label: t('pages.openPlatform.scopeLeadRead') },
+                  { value: 'lead:write', label: t('pages.openPlatform.scopeLeadWrite') },
+                ]}
+              />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
       <Modal
@@ -239,12 +242,14 @@ function WebhookTab() {
       ))}
       <Modal title={t('pages.openPlatform.modalCreateWebhookTitle')} open={modalOpen} onOk={() => void onCreate()} onCancel={() => setModalOpen(false)} okText={t('pages.openPlatform.create')} destroyOnClose width={480}>
         <Form form={form} layout="vertical">
-          <Form.Item name="eventType" label={t('pages.openPlatform.formEventTypeLabel')} rules={[{ required: true, message: t('pages.openPlatform.formEventTypeRequired') }]}>
-            <Select options={Object.keys(ENUM_KEYS.webhookEvent).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.webhookEvent, code) }))} />
-          </Form.Item>
-          <Form.Item name="callbackUrl" label={t('pages.openPlatform.formCallbackUrlLabel')} rules={[{ required: true, message: t('pages.openPlatform.formCallbackUrlRequired') }]}>
-            <Input placeholder={t('pages.openPlatform.formCallbackUrlPlaceholder')} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="eventType" label={t('pages.openPlatform.formEventTypeLabel')} rules={[{ required: true, message: t('pages.openPlatform.formEventTypeRequired') }]}>
+              <Select options={Object.keys(ENUM_KEYS.webhookEvent).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.webhookEvent, code) }))} />
+            </Form.Item>
+            <Form.Item name="callbackUrl" label={t('pages.openPlatform.formCallbackUrlLabel')} rules={[{ required: true, message: t('pages.openPlatform.formCallbackUrlRequired') }]}>
+              <Input placeholder={t('pages.openPlatform.formCallbackUrlPlaceholder')} />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
       <Modal

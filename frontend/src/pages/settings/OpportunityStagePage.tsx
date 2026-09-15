@@ -20,6 +20,7 @@ import { ENUM_KEYS } from '../../constants/enumLabels'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { OpportunityStageDef } from '../../types/opportunity'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface StageFormValues {
   name: string
@@ -260,60 +261,62 @@ export default function OpportunityStagePage() {
         width={560}
       >
         <Form form={form} layout="vertical">
-          <Form.Item
-            name="name"
-            label={t('pages.opportunityStageSettings.formName')}
-            rules={[
-              { required: true, message: t('pages.opportunityStageSettings.messageNameRequired') },
-            ]}
-          >
-            <Input maxLength={64} />
-          </Form.Item>
-          <Form.Item
-            name="code"
-            label={t('pages.opportunityStageSettings.formCode')}
-            extra={t('pages.opportunityStageSettings.formCodeHint')}
-            rules={
-              editing
-                ? []
-                : [
-                    {
-                      required: true,
-                      message: t('pages.opportunityStageSettings.messageCodeRequired'),
-                    },
-                    {
-                      // 与后端 OpportunityStageRequest 的 @Pattern 一致：以字母开头，2–63 位大写/数字/下划线
-                      pattern: /^[A-Z][A-Z0-9_]{1,62}$/,
-                      message: t('pages.opportunityStageSettings.messageCodePattern'),
-                    },
-                  ]
-            }
-          >
-            {/* 编码创建后不可改：历史商机的 stage 列按它关联 */}
-            <Input disabled={editing !== null} placeholder="BUDGET_APPROVAL" />
-          </Form.Item>
-          <Form.Item
-            name="sortOrder"
-            label={t('pages.opportunityStageSettings.formSortOrder')}
-            extra={t('pages.opportunityStageSettings.formSortOrderHint')}
-          >
-            <InputNumber min={0} max={9999} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="probability"
-            label={t('pages.opportunityStageSettings.formProbability')}
-            extra={t('pages.opportunityStageSettings.formProbabilityHint')}
-            rules={[{ type: 'number', min: 0, max: 1 }]}
-          >
-            {/* 终态赢率由服务端按 stage_type 固定为 1 / 0，不开放配置 */}
-            <InputNumber
-              min={0}
-              max={1}
-              step={0.05}
-              style={{ width: '100%' }}
-              disabled={editing !== null && editing.stageType !== 'ACTIVE'}
-            />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item
+              name="name"
+              label={t('pages.opportunityStageSettings.formName')}
+              rules={[
+                { required: true, message: t('pages.opportunityStageSettings.messageNameRequired') },
+              ]}
+            >
+              <Input maxLength={64} />
+            </Form.Item>
+            <Form.Item
+              name="code"
+              label={t('pages.opportunityStageSettings.formCode')}
+              extra={t('pages.opportunityStageSettings.formCodeHint')}
+              rules={
+                editing
+                  ? []
+                  : [
+                      {
+                        required: true,
+                        message: t('pages.opportunityStageSettings.messageCodeRequired'),
+                      },
+                      {
+                        // 与后端 OpportunityStageRequest 的 @Pattern 一致：以字母开头，2–63 位大写/数字/下划线
+                        pattern: /^[A-Z][A-Z0-9_]{1,62}$/,
+                        message: t('pages.opportunityStageSettings.messageCodePattern'),
+                      },
+                    ]
+              }
+            >
+              {/* 编码创建后不可改：历史商机的 stage 列按它关联 */}
+              <Input disabled={editing !== null} placeholder="BUDGET_APPROVAL" />
+            </Form.Item>
+            <Form.Item
+              name="sortOrder"
+              label={t('pages.opportunityStageSettings.formSortOrder')}
+              extra={t('pages.opportunityStageSettings.formSortOrderHint')}
+            >
+              <InputNumber min={0} max={9999} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item
+              name="probability"
+              label={t('pages.opportunityStageSettings.formProbability')}
+              extra={t('pages.opportunityStageSettings.formProbabilityHint')}
+              rules={[{ type: 'number', min: 0, max: 1 }]}
+            >
+              {/* 终态赢率由服务端按 stage_type 固定为 1 / 0，不开放配置 */}
+              <InputNumber
+                min={0}
+                max={1}
+                step={0.05}
+                style={{ width: '100%' }}
+                disabled={editing !== null && editing.stageType !== 'ACTIVE'}
+              />
+            </Form.Item>
+          </FormGrid>
         </Form>
       </Modal>
     </>

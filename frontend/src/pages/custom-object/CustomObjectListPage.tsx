@@ -15,6 +15,7 @@ import { extractErrorMessage } from '../../services/apiClient'
 import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { CustomObject, ObjectFieldDef } from '../../types/customObject'
+import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 
 interface FormValues {
   name: string
@@ -159,12 +160,14 @@ export default function CustomObjectListPage() {
         width={640}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="name" label={t('pages.customObject.formNameLabel')} rules={[{ required: true, message: t('pages.customObject.formNameRequired') }]}>
-            <Input maxLength={100} placeholder={t('pages.customObject.formNamePlaceholder')} />
-          </Form.Item>
-          <Form.Item name="code" label={t('pages.customObject.formCodeLabel')} rules={[{ required: true, pattern: /^[A-Z][A-Z0-9_]*$/, message: t('pages.customObject.formCodeRequired') }]}>
-            <Input maxLength={50} placeholder={t('pages.customObject.formCodePlaceholder')} disabled={!!editing} />
-          </Form.Item>
+          <FormGrid minItemWidth={VERTICAL_MIN_ITEM_WIDTH}>
+            <Form.Item name="name" label={t('pages.customObject.formNameLabel')} rules={[{ required: true, message: t('pages.customObject.formNameRequired') }]}>
+              <Input maxLength={100} placeholder={t('pages.customObject.formNamePlaceholder')} />
+            </Form.Item>
+            <Form.Item name="code" label={t('pages.customObject.formCodeLabel')} rules={[{ required: true, pattern: /^[A-Z][A-Z0-9_]*$/, message: t('pages.customObject.formCodeRequired') }]}>
+              <Input maxLength={50} placeholder={t('pages.customObject.formCodePlaceholder')} disabled={!!editing} />
+            </Form.Item>
+          </FormGrid>
           <Form.List name="fields" rules={[{ validator: async (_, v) => { if (!v || v.length === 0) throw new Error(t('pages.customObject.formFieldsRequired')) } }]}>
             {(fieldList, { add, remove }) => (
               <>
