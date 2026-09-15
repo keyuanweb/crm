@@ -57,8 +57,8 @@
 **Goal**: 移除未使用的 @tanstack/react-query（FR-H04）
 
 - [x] ~~T008 [US3] 全局搜索确认无 react-query 引用~~ — **发现实际在使用**：`main.tsx`（QueryClientProvider）、`hooks/useCustomers.ts`（useQuery）、`test/renderWithProviders.tsx`、`pages/opportunities/`、`pages/sales-opportunities/`、`pages/stats/` 均有引用
-- [ ] ~~T009 [US3] 从 package.json 移除 @tanstack/react-query~~ — **取消**：依赖正在使用，不应移除
-- [ ] ~~T010 [US3] 验证构建测试~~ — **取消**
+- [x] ~~T009 [US3] 从 package.json 移除 @tanstack/react-query~~ — **取消**：依赖正在使用，不应移除
+- [x] ~~T010 [US3] 验证构建测试~~ — **取消**
 
 **Checkpoint**: US3 取消（React Query 是前端数据获取层的核心依赖，之前分析有误）
 
@@ -98,8 +98,8 @@
 - [x] Backend `mvn verify`：28 测试通过、Spotless 格式检查通过、JaCoCo 覆盖率门禁通过（BUILD SUCCESS）
 - [x] Frontend `tsc --noEmit`：类型检查通过（pnpm 11.7.0 与 Node 20.20.2 有环境兼容性问题，使用本地 tsc 二进制验证）
 - [x] H2 测试 schema 同步 V6 生成列 + 唯一约束，集成测试通过
-- [ ] V6 迁移在真实 MySQL 上执行（需本地 MySQL 环境验证）
-- [ ] 手动端到端验证（启动后端 + 前端，登录、客户 CRUD、统计报表）
+- [ ] V6 迁移在真实 MySQL 上执行（需本地 MySQL 环境验证） — ⚠️ **仍未做**（2026-09-15 登记清扫复核）：需真实 MySQL 与整机环境，**不是文档缺口**，**有意不勾**
+- [ ] 手动端到端验证（启动后端 + 前端，登录、客户 CRUD、统计报表） — ⚠️ **仍未做**（同上）：同上，**有意不勾**
 
 ## Notes
 
@@ -109,3 +109,16 @@
 - **用户状态缓存一致性**：TTL 30 秒仅为兜底，所有写操作（update/resetPassword/changeOwnPassword）均主动 `evict`，实际一致性窗口为 0；登录成功后预热缓存。
 - **Redis fail-open**：`UserStateCache` 所有 Redis 操作 try-catch，异常时 `get()` 返回 null（降级查 DB）、`put()`/`evict()` 静默忽略，不影响认证主流程。
 - **CORS 配置**：开发环境继续使用 Vite proxy（`/api` → `http://localhost:8081`），CORS 主要服务于生产前后端分离部署；允许的 Origin 通过 `CORS_ALLOWED_ORIGINS` 环境变量配置。
+
+---
+
+## 订正（2026-09-15 登记清扫）
+
+本文件的勾选账在一次全仓登记清扫中复核过，如实记两件事，**原文一律保留在上、不改写**：
+
+1. **T009 / T010 补勾**：原文已带删除线并写明「**取消**」，但方块仍是 `[ ]`——**是漏勾，不是没做**。
+   本文件的先例（T006–T008「**已满足**」、T017「由框架保证」）都是 `- [x] ~~…~~`，故按同一形制补勾。
+   ⚠️ 读作：**该方块只表示「该项已裁决关闭」，不表示「移除动作执行过」**——Phase 4 整段是「取消」，
+   理由见该 Phase 的 Checkpoint 与 Notes（`@tanstack/react-query` 实际在使用，不应移除）。
+2. **验证区最后两条仍不勾**（V6 迁移跑真实 MySQL、手工端到端）：它们要的是**环境**而不是文档改动，
+   属**真未做**，就地加 ⚠️ 标注「**有意不勾**」，**不**用「已记录」冒充完成。
