@@ -241,8 +241,86 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
       **门禁**：R2 `23 处/58 → 22 处/56`、R3 `97 处/99 → 90 处/92`（隔离测量，各减 7）、
       白名单 54 处不变、i18n 2888/2888（本页零新增键）。⚠️ §11.2 的 T031 读数与本次隔离测量**对不上**
       （+1 命中/−3 候选点，本批次提交解释不了），已记进 §14.5：**R3 绝对计数跨小节不可比**。
-- [ ] **T038** 视觉验收（**用户执行，SC-005**）：1920/1440/1024/768/**375** × 中英文，
+- [X] **T038** 视觉验收（**用户执行，SC-005**）：1920/1440/1024/768/**375** × 中英文，
       4 个页面的列表 + 弹窗 + 详情；并就 plan.md 末节的 **6 件事**给出裁决。
+      → **已做**（2026-09-15 用户反馈「视觉验收通过」）。**验收粒度是用户自述，不是逐档复量的矩阵**
+      ——本条记录不声称我逐档验过 1920/1440/1024/768/375 × 中英文，那是用户执行的那一半。
+      6 件事的落地情况**逐条核实过代码**（不是照 plan 抄），结论见下；其中**只有第 4 项需要裁决**。
+      ⚠️ 验收时点的一个边界：T053 的圆角统一（`bac6da6`）落在 P4 之后、本次验收**之前**，
+      故「通过」涵盖的是 8/8/8 的圆角，不是改前的 8/10/12。
+
+      | # | 决策 | 实测落地 |
+      |---|---|---|
+      | 1 | 全站字号 13 | ✅ `theme/index.ts:119`（种子）+ `index.css:65`（`--font-size-base`）+ `index.css:83-85`（`body`），三处一致 |
+      | 2 | 统一标签宽度 中文 96 / 英文 112 | ✅ `useFormMetrics.ts:39,45`；`labelWidthFor` 已抽成纯函数且带语言分支（`:48-50`），hook 只转调 |
+      | 3 | 保留 `layout="horizontal"` | ✅ 4 个 FormModal 页均为横排 + `labelCol={{ flex: metrics.labelWidth }}`。**订正一句口径**：全库仍有 50 处 `layout="vertical"`（筛选表单、窄弹窗、页级表单），"保留横向"指的是**主表单**，不是全站没有纵向表单 |
+      | 4 | `FormModal` 自定义 footer + Enter | ⚠️ **拆成两半，只采纳后半**——见下方订正 E |
+      | 5 | R2/R3 先宽后紧 | ✅ `check-ui.mjs:624-625`（`strict: true`）+ `:666-670`（默认档 push 进 warnings 后 `continue`） |
+      | 6 | 内容区 `maxWidth` 封顶 | ⚠️ **变量从未引入**——见下方订正 E |
+
+      第 6 项补一句口径：plan 的推荐是「先 `none`，P1 只引入变量、零视觉变化」。实测全 frontend
+      搜 `content-max-width` / `contentMaxWidth` / `CONTENT_MAX_WIDTH` **零命中**，`.page-container`
+      只有 `width: 100%`（`index.css:102-105`）⇒ **变量没建，但功能上恰好等于推荐值 `none`**
+      （没有任何容器封顶）。**不补建该变量**：本仓已有一个零消费者的 `--radius-xl`（见「附带发现」#10），
+      再造一个是同一个味道。「没有理由的 token 不写」是这里的既有纪律。
+
+### 订正 E：第 4 项决策**只采纳了一半**（Enter 采纳、自定义 footer 不采纳），并订正第 6 项
+
+**（一）第 4 项的裁决与落地**（2026-09-15，用户拍板）
+
+plan 的原话是「`FormModal` 用自定义 footer + Enter 提交，取代 antd 默认的 `Modal.onOk` 脚注」，
+推荐「采用」。**验收时只采纳了 Enter 那半句**，理由是原判词把两件事捆在一起、而它们是可分的：
+
+- 那一项自称的价值是「把 `validateFields()` 从 ~58 个页面里删掉」。**这件事 `onSubmit` 已经做到了**
+  （调用方不再自己 `validateFields()`，loading 与「异常不吞」也由组件兜住）——自定义 footer
+  **不是这项收益的来源**。
+- 代价却是实的：OK 按钮不再是 antd 默认脚注，而全站 9 个自己写了 `footer=` 的弹窗
+  （contacts / leads / departments / marketing / portal / tasks / open ×2 / map）
+  **用的都是裸 `<Modal>`、根本不经过 `FormModal`**。即：为一个不带来收益的改动去动 9 个无关页面。
+- `footer` 的透传口**保留**，将来改主意不必再动契约。
+
+落地在 `FormModal.tsx` + 新增的 `formModalEnter.ts`。**新增 8 条用例**（`FormModal.test.tsx`
+从 **9 → 17**；落地时一度记作「10 → 17 = 新增 7」，是**把左端数错了**——`git show HEAD:`
+那份声明数实测为 9 条 `it`，全量因此是 378 + 8 = **386**）。其中「不提交」的三条比
+「能提交」的那一条更要紧——只测「Enter 能提交」，会把一个「到处误提交」的实现判成绿的。
+
+**（二）两处此前不知道的事实，都是被实测逼出来的**
+
+1. **`<Modal onKeyDown={...}>` 静默失效。** antd 把未知 prop 收进 `restProps` 交给 rc-dialog 的
+   `Dialog`（`antd/es/modal/Modal.js:126`），`Dialog` 再 `{...props}` 传给 `Content`，而
+   `Content` **只解构自己认识的那些**再交给 `Panel`，`Panel` 也只写死属性
+   （`rc-dialog/es/Dialog/Content/Panel.js:116-139`）。于是 `onKeyDown` 一层层被丢掉——
+   **不报错、不警告、DOM 上也没有**。故锚点改为一层自己的包裹 `<div onKeyDown>`。
+   加它之前核对过本库 CSS 对 `.ant-modal-body` 子级无选择器依赖（`index.css` 里与弹窗相关的
+   只有一条 `.ant-modal .ant-row .ant-col`），故这层包裹是安全的。
+
+2. **我写的第一版实现里有一条死分支。** 原本除了「只认 `INPUT`」之外，另写了一条
+   `if (el.tagName === 'TEXTAREA') return false`，注释还写着「误提交会让用户根本敲不出第二行」。
+   **定向破坏证明它恒不可达**——见下表 ①。已删除该行，理由并入末行注释：
+   `TEXTAREA !== 'INPUT'` 本来就兜住了。**留着它比删掉它更危险**：一行不起作用的代码配一句
+   "它很要紧"的注释，会让下一个动这块的人以为改了它才有事。
+
+**（三）定向破坏留痕**（逐个做、逐个逐字节还原；还原后已核对无 `BROKEN` 残留）
+
+| 破坏 | 结果 | 结论 |
+|---|---|---|
+| ① `tagName === 'TEXTAREA'` 改成恒不成立 | **17 条全绿** | 那条守卫是**死分支**（末行已兜住）→ **据此改了实现** |
+| ② `.ant-select, .ant-picker` 改成恒不匹配 | **红 3 条** | 正是 DatePicker / Select / 判据表三条，该守卫承重 |
+| ③ 撤掉包裹 `div`、`onKeyDown` 挂回 `<Modal>` | **红 2 条**，报 `got 0 times` | `onKeyDown` 在 `<Modal>` 上**一次都不触发**，把上面第（二）1 条从读源码的推断变成实测 |
+| ④ 末行 `tagName === 'INPUT'` 改成恒真 | **红 2 条** | 「TextArea 不提交」**不是空过**，它由末行单独承重 |
+
+**（四）一处不是设计选择、而是被门禁逼出来的结构**
+
+`shouldSubmitOnEnter` 从 `FormModal.tsx` 拆到 `formModalEnter.ts`，**不是风格偏好**：
+`eslint` 的 `react-refresh/only-export-components` 会因「组件文件里导出非组件」报 warning，
+而本仓 lint 门禁要求**零 warning 且不许 `eslint-disable`**。同目录的 `formModalSize.ts`
+是同一个原因拆出去的先例。
+
+**（五）订正第 6 项**
+
+plan 推荐「先 `none`，P1 只引入变量、零视觉变化」。实测该变量**从未引入**（见 T038 表格下的口径），
+即「只引入变量」这半句没做。功能上无碍（没有任何容器封顶 = `none`），故**不补建**——
+理由同 T038 条目里那段。
 
 ---
 
@@ -250,9 +328,35 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
 
 > **按表单形态分批，不按业务模块分批**——这样每批是一次机械变换 + 一套验证。
 
-- [ ] **T040** 3.1 其余 **3 个无宽度弹窗**（`InvoiceListPage` 与 `TagListPage` 已在 P2 收掉）：
+- [ ] **T040** 3.1 ~~其余 **3 个无宽度弹窗**（`InvoiceListPage` 与 `TagListPage` 已在 P2 收掉）：
       `announcements/AnnouncementPage.tsx`、`sla/SlaCalendarPage.tsx`、`visits/VisitListPage.tsx`。
-      完成后把 **R2 从 warn 翻成 error** 并删掉已还清的条目。
+      完成后把 **R2 从 warn 翻成 error** 并删掉已还清的条目。~~
+      → **前提不成立，已按实测重切**（2026-09-15，用户裁决）。原判词保留在上（删除线），逐条对：
+
+      | 原文点名的文件 | 实测 |
+      |---|---|
+      | `announcements/AnnouncementPage.tsx` | 它的 Modal 在 `:195` **已有 `width={640}`**——**根本不在 R2 名单里** |
+      | `sla/SlaCalendarPage.tsx` | **没有 Modal**。它是页级 `<Form layout="vertical" style={{ maxWidth: 560 }}>`，不属 R2（R2 判据是「`<Modal>` 区域内出现真实 `<Form` 标签」） |
+      | `visits/VisitListPage.tsx` | ✅ 真在名单里，且是 **2 处**（`:268`、`:294`） |
+
+      即：原文说的「3 个」里**只有 1 个成立**——与 T052/T053 是同一类错误（**判词先于实测**）。
+
+      **重切为（用户选定）：本项 = 清完 R2 全量 22 处 / 16 个文件，独立一批、一次提交。**
+      出口判据同时订正——原文「删掉已还清的条目」**够不着**：R2 的 `allowed` 是 `null`
+      （**没有白名单可销**），只有 22 处**全部**清零才翻得动 error。
+
+      | 文件 | 处数 |
+      |---|---|
+      | `users/UserManagementPage.tsx` | 4 |
+      | `visits/VisitListPage.tsx` | 2 |
+      | `open/OpenPlatformPage.tsx` | 2 |
+      | `contracts/ContractDetailPage.tsx` | 2 |
+      | 其余 12 个文件（含 2 个组件、3 个详情页） | 各 1 |
+
+      全量取自 `node scripts/check-ui.mjs --strict` 的 R2 段，可复跑复算。
+      这 22 处横跨**组件**（`FollowUpTimeline`、`LeadConvertModal`）、**列表页**、**详情页**三类，
+      故**不适合**按页面族拆进 3.2–3.5——同一个文件会被碰两次。修法机械：每处补 `width`
+      或改用 `FormModal`（四档 `sm/md/lg/xl`）。
 - [ ] **T041** 3.2 其余 `layout="vertical"` 的表单（**43 个**）—— **密度收益最大的一批**
       （单列堆叠 → 两列栅格，表单高度直接减半）。
       ⚠️ 注意不要把"43 个纵向**表单**"与"58 个承载表单的**弹窗**"混为一谈（§2.2 与 §2.4 是两个分母）。
@@ -427,7 +531,7 @@ P1 是**所有后续阶段的共同前置**，且**零 `pages/**` 改动**。
 |---|---|---|
 | 1 | **规则 2 的真实基数是 25 处 / 19 文件，不是 plan 初稿的 23** —— 23 是**只看 `src/pages/`** 的口径，规则扫全部产品 tsx，多出 `components/FollowUpTimeline.tsx:141` 与 `components/LeadConvertModal.tsx:43` | 两个数都对，量的是不同范围；已记入 plan.md 与 research.md §8 |
 | 2 | **规则 6 的 11 处构成与 research.md §2.9 不同**：§2.9 把 `title=` 也计入（`LoginPage` 记 2 处），实现只扫 `placeholder`/`aria-label`（`LoginPage` 记 1 处），差额由 `ScheduledExportCreatePage.tsx:115` 的 JSON 示例补上。**总数巧合相同，构成不同**；§2.9 的"6 处该翻译"应改为 **2 处**（两个 `aria-label`） | 已记入 research.md §9 |
-| 3 | `vite.config.ts:45-56` 的覆盖率快照**已过期**（写的是"22 文件 / 96 用例"，实际已 72→76 文件），且 `specs/083-engineering-consolidation/data-model.md §4` 自己声明了同步义务 | **待刷新**（阈值一律不动，084 T037）；本规格结束时另起提交 |
+| 3 | `vite.config.ts:45-56` 的覆盖率快照**已过期**（写的是"22 文件 / 96 用例"，实际已 72→76 文件），且 `specs/083-engineering-consolidation/data-model.md §4` 自己声明了同步义务 | **已刷新**（2026-09-15，由并行会话落地，**不是我做的**）：`42d6b07`「chore: 刷新前端覆盖率实测快照（阈值一律未动）」。追加 09-13 实测 83 文件 / statements·lines 68.55 / branches 73.68 / functions 36.58，连跑三次逐位相同；**阈值四项均未动**（符合 084 T037「不得下调」）。同批把 `data-model.md §4` 按该文件自陈的同步义务一并更新。另记一条**实测否决**：拟议给该文件加 `maxWorkers` ——空转机器上对拍后否决（默认池 3/3 全绿且读数逐位相同、141–146s；限 4 worker 慢一倍且 branches 反抖 0.01pp） |
 | 4 | `.ai-card` **不是死代码——该选择器根本不存在**（`index.css` 里只有 `.ai-suggestion-card` / `.ai-icon-pulse`） | 已订正（research.md §4.1）；plan 初稿的「非目标」清单已删去该条 |
 | 5 | `Descriptions layout="horizontal"` 的行号有两个口径：plan 引 `layout=` 所在行（317/357/217/299），脚本引**标签起始行**（313/353/213/295），差 4 行 | **统一用标签起始行**（唯一），已订正（research.md §4.3） |
 | 6 | **`InvoiceListPage` 首屏从不拉统计**：`loadStats()` 只被 `reload()` 调用，而 `reload()` 只被 `onCreate`/`onVoid` 调用 ⇒ 首次进入页面时三个统计卡片恒为 `0% / 0.00 / 0.00`，只有开过票或作废过一张才变真值。换 `StatCard` **之前**即如此（同一个 `stats` state），与 T031 无关，但验收时极易被误读成"`StatCard` 把数字改坏了" | **已修**（T031 之后的第三次提交）：加挂载期 `useEffect`（照本仓 `useCallback`+`useEffect([load])` 惯例，避免 `exhaustive-deps` 警告）；`form.test` 首条断言从 `0%`/两个 `0.00` **翻成真实值**，且**实测过它真会红**（临时禁用 effect → 该用例失败、其余 4 条仍绿）。见 research.md §11.4 |

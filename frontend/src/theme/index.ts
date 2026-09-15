@@ -113,9 +113,13 @@ export const antdTheme: ThemeConfig = {
     // 「所有大圆角面一起走」。波及面（Card / Table / Modal / Descriptions）已实测并记录。
     borderRadiusLG: 8,
 
-    // 与 `index.css:59` 的 `--font-size-base: 13px` 及 `body{font-size:13px}` 对齐。
+    // 与 `index.css` 的 `--font-size-base: 13px` 及 `body { font-size: var(--font-size-base) }` 对齐。
     // 注意这是**统一**而不是**改小**：CSS 早就把 body 设成 13px 了，只有 antd 组件还在 14，
     // 所以今天页面上两种字号是混着的。这是可见度最高的一项，已列为验收项。
+    //
+    // ⚠️ 这里原写「`index.css:59`」——**行号已腐坏**（实测在 `:65`）。故改成引用**变量名**：
+    // 行号会随本文件与 index.css 的每次增删而失效，而 `--font-size-base` 不会。
+    // （同类教训：引用行号会腐坏，锚字符串才稳。）
     fontSize: 13,
 
     fontFamily,

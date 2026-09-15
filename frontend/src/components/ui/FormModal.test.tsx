@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { DatePicker, Form, Input, Select } from 'antd'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import FormModal from './FormModal'
+import { shouldSubmitOnEnter } from './formModalEnter'
 import { FORM_MODAL_WIDTHS } from './formModalSize'
 
 /**
@@ -133,5 +136,141 @@ describe('FormModal 提交态', () => {
     await waitFor(() => expect(onRejected).toHaveBeenCalledTimes(1))
     // 不复位的话弹窗会永久卡在 loading，用户连重试都点不了。
     await waitFor(() => expect(ok).not.toHaveClass('ant-btn-loading'))
+  })
+})
+
+/**
+ * Enter 提交 —— 2026-09-15 用户对 plan 第 4 项的裁决：**只加 Enter，不改 footer**。
+ *
+ * <p>这一组里**「不提交」的三条比「提交」那一条更要紧**：Enter 在 TextArea 里是换行、
+ * 在下拉控件里是确认选项，全局绑定的风险全在这三处误触上。只测「Enter 能提交」
+ * 会把一个「到处误提交」的实现判成绿的。
+ *
+ * <p>## 定向破坏留痕（2026-09-15，逐个做、逐个逐字节还原）
+ *
+ * 护栏不证伪就等于没护栏，故逐条破坏过。**第 ① 条直接改掉了实现**——它暴露出的
+ * 不是用例的问题，是代码的问题：
+ *
+ * | 破坏 | 结果 | 结论 |
+ * |---|---|---|
+ * | ① 把 `tagName === 'TEXTAREA'` 排成恒不成立 | **17 条全绿** | 那条守卫是**死分支**：末尾 `tagName === 'INPUT'` 已经兜住 TEXTAREA。**已删除该行**，理由并入末行注释 |
+ * | ② 把 `.ant-select, .ant-picker` 排成恒不匹配 | **红 3 条** | 正是 DatePicker / Select / 判据表三条 —— 该守卫承重 |
+ * | ③ 撤掉包裹 `div`、把 `onKeyDown` 挂回 `<Modal>` | **红 2 条**，且报 `got 0 times` | `onKeyDown` 在 `<Modal>` 上**一次都不触发**，坐实了「antd 静默丢 prop」不是读源码的臆测 |
+ * | ④ 把末行 `tagName === 'INPUT'` 改成恒真 | **红 2 条** | 「TextArea 不提交」这条**不是空过**，它由末行单独承重 |
+ */
+describe('FormModal Enter 提交', () => {
+  function setup(onSubmit = vi.fn()) {
+    renderWithProviders(
+      <FormModal open onSubmit={onSubmit}>
+        <Form layout="vertical">
+          <Form.Item name="title" label="标题">
+            <Input placeholder="单行" />
+          </Form.Item>
+          <Form.Item name="content" label="正文">
+            <Input.TextArea placeholder="多行" />
+          </Form.Item>
+          <Form.Item name="date" label="日期">
+            <DatePicker placeholder="日期" />
+          </Form.Item>
+          <Form.Item name="owner" label="负责人">
+            <Select showSearch placeholder="负责人" options={[{ value: 'a', label: 'A' }]} />
+          </Form.Item>
+        </Form>
+      </FormModal>,
+    )
+    return onSubmit
+  }
+
+  it('在单行输入里按 Enter 提交（本项要加的就是这条）', () => {
+    const onSubmit = setup()
+    fireEvent.keyDown(screen.getByPlaceholderText('单行'), { key: 'Enter' })
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  it('在 TextArea 里按 Enter **不**提交——那是换行', () => {
+    const onSubmit = setup()
+    fireEvent.keyDown(screen.getByPlaceholderText('多行'), { key: 'Enter' })
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('在 DatePicker 的输入框里按 Enter **不**提交——那是确认日期', () => {
+    const onSubmit = setup()
+    fireEvent.keyDown(screen.getByPlaceholderText('日期'), { key: 'Enter' })
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('在 Select 的搜索框里按 Enter **不**提交——那是确认选项', () => {
+    const onSubmit = setup()
+    const search = document.querySelector('.ant-select-selection-search-input')
+    // 自证锚点：取不到就说明选择器过期了，本条必须**红**而不是空过。
+    expect(search).not.toBeNull()
+    fireEvent.keyDown(search as Element, { key: 'Enter' })
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('非 Enter 键不提交', () => {
+    const onSubmit = setup()
+    fireEvent.keyDown(screen.getByPlaceholderText('单行'), { key: 'a' })
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('没给 onSubmit 时 Enter 是空操作（与 OK 按钮一致，不抛错）', () => {
+    renderWithProviders(
+      <FormModal open>
+        <Input placeholder="单行" />
+      </FormModal>,
+    )
+    expect(() => fireEvent.keyDown(screen.getByPlaceholderText('单行'), { key: 'Enter' })).not.toThrow()
+  })
+
+  it('提交期间再按 Enter 不会二次提交', async () => {
+    let finish: () => void = () => {}
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
+    )
+    setup(onSubmit)
+    const input = screen.getByPlaceholderText('单行')
+
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+
+    // 第一次 Enter 之后 `submitting` 已置位（React 对 keydown 这类离散事件会同步冲刷状态），
+    // 所以这里必须仍是 1 次。少了 `submitting` 这道闸，连按两下回车就提交两遍。
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+
+    finish()
+  })
+})
+
+/**
+ * 判据真值表。上面那一组走的是真实 antd 控件，这组走的是最小 DOM——
+ * 两者互补：这组能在 antd 改类名时立刻指出是哪一格失了守。
+ */
+describe('shouldSubmitOnEnter 判据表', () => {
+  const fake = (key: string, target: unknown) => ({ key, target }) as unknown as ReactKeyboardEvent<HTMLElement>
+
+  it('只有「真按了 Enter」且「落在单行输入上」才为真', () => {
+    const input = document.createElement('input')
+    const textarea = document.createElement('textarea')
+    const button = document.createElement('button')
+    const picker = document.createElement('div')
+    picker.className = 'ant-picker'
+    const inputInPicker = document.createElement('input')
+    picker.appendChild(inputInPicker)
+    const select = document.createElement('div')
+    select.className = 'ant-select'
+    const inputInSelect = document.createElement('input')
+    select.appendChild(inputInSelect)
+
+    expect(shouldSubmitOnEnter(fake('Enter', input))).toBe(true)
+    expect(shouldSubmitOnEnter(fake('a', input))).toBe(false)
+    expect(shouldSubmitOnEnter(fake('Enter', textarea))).toBe(false)
+    expect(shouldSubmitOnEnter(fake('Enter', button))).toBe(false)
+    expect(shouldSubmitOnEnter(fake('Enter', inputInPicker))).toBe(false)
+    expect(shouldSubmitOnEnter(fake('Enter', inputInSelect))).toBe(false)
   })
 })
