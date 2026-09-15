@@ -244,10 +244,38 @@ R2/R3 躲在 `--strict` 后面（它们是**正在被 P3 逐页还掉的债**）
 > **`span={3}` 本身**（`column` 保持 `2` 时同样 8 条），与响应式 `column` 无关。
 > 机制：antd 按 `count += span` 贪心装行，`count > column` 即告警并把 span **截到剩余列数**——
 > 故 `span={3}` 的真实语义是"填满本行剩余"，**不是**"独占整行"；`span="filled"` 是同语义且**不告警**的写法。
+> **⚠️ 订正 1/6（094，2026-09-15）**：上句后半「`span="filled"` 是同语义」**部分作废**——
+> 语义确实相同，但**这个写法在本仓库的类型下根本写不出来**（详见下方 `⚠️ 订正 2/6` 的实测与出处）。
+> 原文保留不删，仅订正。
 > **这不是本项引入的新形态**：Track A 的 `ContractDetailPage` + `OrderDetailPage` 在**我改动之前**
 > （committed 状态）就合计报 **16** 条。⇒ 本项让两 Track 一致，**包括这条副作用**；告警只在
 > `NODE_ENV !== 'production'` 出现，不影响产物与用例。**收口办法（覆盖两 Track，属另一项）**：
 > 全宽项改 `span="filled"`——像素不变、告警消失。
+>
+> **⚠️ 订正 2/6（094，2026-09-15）——这条收口办法不成立，作废。**
+> - **做不到**：本项目全部 `Descriptions` 走的是 **children 写法**（`<Descriptions.Item>`），
+>   而它的 `span` 类型是 `number`——`node_modules/antd/es/descriptions/Item.d.ts` 声明 `span?: number`。
+>   实测（探针 `frontend/src/tmp-probe-filled.tsx`，同一文件里再放一句**故意的**类型错做自证）：
+>   ```
+>   src/tmp-probe-filled.tsx(5,7):  error TS2322: Type 'string' is not assignable to type 'number'.   ← 故意的那句
+>   src/tmp-probe-filled.tsx(11,36): error TS2322: Type 'string' is not assignable to type 'number'.  ← span="filled"
+>   EXIT=2
+>   ```
+>   允许 `'filled'` 的是**另一个**类型：`descriptions/index.d.ts` 的
+>   `DescriptionsItemType.span?: number | 'filled' | {[key in Breakpoint]?: number}`，它服务于 **`items` prop**。
+>   运行时的 `useItems.js` 两种写法都支持（`if (span === 'filled') return { ...restItem, filled: true }`）
+>   ⇒ **运行时支持、类型堵死**——这就是"做不到"的确切含义。
+>   ⚠️ 取证时要当心一个**假绿**：`tsconfig` 的 `include: ["src"]` **不匹配点号开头的文件**，
+>   第一版探针名叫 `.tmp-probe-filled.tsx` ⇒ **根本没被编译**、`tsc` 退出码 0，
+>   看起来像"`span="filled"` 通过了类型检查"。故意那句类型错就是为识破它而放的。
+> - **三条真实路径**（本项都不做，归入「Descriptions 现代化」）：
+>   ① 这些区块改用 `items` prop（`span: 'filled'` 与逐档 `span` 都在类型内）；
+>   ② 写一个类型化的薄包装（内部一处断言、调用点干净）——**不采用**：包装层会掩盖 antd 后续的类型变更；
+>   ③ 维持 `span={3}` 并接受 dev 告警（**即本段的现状**）。
+> - **094 的处置**：三条都不做，而是**沿用了 ③**——把 Track B 之外残留的 3 处也改成 `span={3}`
+>   （`SignSection` / `SurveyBlock` / `CustomerPortalPage` 服务状态块），做到"同一件事在每个页面上长一样"；
+>   并给 FR-015 补上了它自己承认缺失的**门禁规则 R8**（见 `specs/094-088-debt-closeout/`）。
+> - **不得**用 `as any` / `@ts-expect-error` 绕过——那是把类型检查关掉，不是收口。
 > **本项必然改变这 4 页在 md 档的观感**（列数 2 → 3，且全宽项不再独占整行、而与上一格共享末行）
 > ⇒ **须由用户在 SC-005 一并终判**，验收前不得读成"已获视觉背书"。
 > **六道门禁全过；受影响 4 文件先单跑 22/22 绿；`test:coverage` 83 文件 / 398 用例、退出码 0**

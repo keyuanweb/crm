@@ -942,12 +942,40 @@ plan 推荐「先 `none`，P1 只引入变量、零视觉变化」。实测该�
       `span={3}` 就会溢出，antd 把它**截到"剩余列数"**（`span: restSpan`）并告警。也就是说
       `span={3}` 表达的是"**填满本行剩余**"而不是"独占整行"，**这两种写法在像素上完全一致**
       （antd 的 `span="filled"` 也是同一语义，区别只是它**不告警**）。
+      ⚠️ **订正 5/6（094，2026-09-15）**：括注里「antd 的 `span="filled"` 也是同一语义」——**语义那半对，
+      可用性那半错**：`span="filled"` 在本仓库**写不出来**（children 写法的类型是 `span?: number`，
+      实测报 `TS2322`）。详见下方 `⚠️ 订正 6/6`。原文保留不删。
       **这不是本项引入的新形态**：实测 Track A 的两个页面用例今天就已经在报这个警告
       （`ContractDetailPage` + `OrderDetailPage` 合计 **16** 条，**在我改动之前**，committed 状态）。
       ⇒ 本项让 Track B 与 Track A 一致，**包括这一条副作用**；告警仅在 `NODE_ENV !== 'production'` 下出现，
       不影响产物、不影响任何用例（4 个受影响文件的用例 22/22 全绿）。
       **收口办法（覆盖两条 Track，不在本项范围）**：把全宽项由 `span={3}` 改为 `span="filled"` ——
       像素不变、告警消失、且语义正确（"填满本行"）。这属**判据/写法变更**，须单独一项做并重新验证。
+
+      ⚠️ **订正 6/6（094，2026-09-15）——这条收口办法不成立，作废。**
+      - **做不到（实测）**：本仓库的 `Descriptions` 全走 **children 写法**，其 `span` 类型是 `number`
+        （`node_modules/antd/es/descriptions/Item.d.ts` 的 `span?: number`）。探针
+        `frontend/src/tmp-probe-filled.tsx`（同文件另放一句**故意的**类型错当自证）跑
+        `pnpm exec tsc --noEmit`：
+        ```
+        src/tmp-probe-filled.tsx(5,7):  error TS2322: Type 'string' is not assignable to type 'number'.   ← 故意的那句
+        src/tmp-probe-filled.tsx(11,36): error TS2322: Type 'string' is not assignable to type 'number'.  ← span="filled"
+        EXIT=2
+        ```
+        允许 `'filled'` 的是**另一个类型**——`descriptions/index.d.ts` 的 `DescriptionsItemType.span`
+        （`number | 'filled' | {[key in Breakpoint]?: number}`），它服务于 **`items` prop**；
+        运行时的 `useItems.js` 两种写法都支持（`if (span === 'filled') return { ...restItem, filled: true }`）
+        ⇒ **运行时支持、类型堵死**。
+        ⚠️ 取证时防一个**假绿**：`tsconfig` 的 `include: ["src"]` **不匹配点号开头的文件**——
+        第一版探针叫 `.tmp-probe-filled.tsx`，**根本没被编译**、`tsc` 退出码 0，
+        看着像"通过了类型检查"。故意那句类型错就是为识破它而放的。
+      - **三条真实路径**（094 **都不做**，归入「Descriptions 现代化」）：
+        ① 改用 `items` prop；② 类型化薄包装（内部一处断言、调用点干净）——**不采用**，包装层会掩盖
+        antd 后续的类型变更；③ **维持 `span={3}` 并接受 dev 告警**（即本项的现状）。
+      - **094 的处置**：**沿用 ③**，并把 Track B 之外残留的 3 处也改成 `span={3}` 做到同形
+        （`SignSection` / `SurveyBlock` / `CustomerPortalPage` 服务状态块），
+        同时给 FR-015 补上它自己承认缺失的门禁 **R8**（详见下方订正过的「遗漏」第 3 条）。
+      - **不得**用 `as any` / `@ts-expect-error` 绕过——那是把类型检查关掉，不是收口。
 
       **判据④/SC-005 终判（欠账，如实记）**：本项**必然改变这 4 个页面在 md 档（≥768px）的观感**——
       列数由写死 2 变 3，且全宽项不再是"自己独占一整行"，而是**与上一格共享末行**（上表那 4 处）。
@@ -965,12 +993,34 @@ plan 推荐「先 `none`，P1 只引入变量、零视觉变化」。实测该�
 
       **遗漏（本项未做，供后续排期，不静默）**：
       1. **`span="filled"` 收口**（见上）：改两条 Track 的全宽项写法，消掉 `exceed` 告警。
+         ⚠️ **订正（094）**：此条**作废**——该写法类型上写不出来，见上方 `⚠️ 订正 6/6`。不要照此排期。
       2. **Track B 之外的同类写死仍有 5 处，本项按裁决**未动**：`components/SignSection.tsx`（`column={2}`）、
          `components/SurveyBlock.tsx`（`column={2}`）、`Personal/PersonalCenterPage.tsx`（`{ xs: 1, sm: 2 }` ×2）、
          `portal/CustomerPortalPage.tsx`（`column={1}` 与 `column={3}`）。
          它们**不在** T044 标题的"详情页"范围内，逐处是否该统一**未裁决**——本项不替它们下结论。
+         ⚠️ **订正（094，2026-09-15）——这 5 处里只有 3 处是真违规，清单原是按"字形相似"列的。**
+         094 逐处复核，改按**"是否构成窄屏缺陷"**这条判据重判：
+
+         | 落点 | 原文 | 094 判定 |
+         |---|---|---|
+         | `components/SignSection.tsx` | `column={2}` + 全宽项 `span={2}` | **真违规** ⇒ 已改 |
+         | `components/SurveyBlock.tsx` | 同上 | **真违规** ⇒ 已改 |
+         | `pages/portal/CustomerPortalPage.tsx` 服务状态块 | `column={3}` + 提交时间 `span={2}` | **真违规** ⇒ 已改 |
+         | `pages/personal/PersonalCenterPage.tsx` ×2 | `column={{ xs: 1, sm: 2 }}` | **已合规**：`md` 及以上由 `DEFAULT_COLUMN_MAP` 补成 **3**，是响应式的，不是写死 2 ⇒ **不动** |
+         | `portal/CustomerPortalPage.tsx` 查询结果面板 | `column={1}` | **不是违规**：刻意的单列结果面板，`1` 已是最窄档 ⇒ **不动** |
+
+         ⇒ **5 处 → 3 处**。差在**判据**（字形相似 → 是否构成窄屏缺陷），不在代码；
+         这一步是**订正清单**，不是"两处逃掉了"。3 处已由 **094** 补齐（`span={3}` + 断点对象，
+         与两条 Track 逐字同形）。**"逐处是否该统一未裁决"如今已裁决**（用户 2026-09-15）。
       3. **`Descriptions` 的 `column` 今天没有任何门禁**：本项完全靠人工逐处核实 + SC-005 兜底。
          若要常态化，同 T043 遗留 2 的思路，应另立一条规则或并入几何护栏。
+         ⚠️ **订正（094，2026-09-15）——前一句已不成立：规则有了。**
+         094 在 `frontend/scripts/check-ui.mjs` 新增 **R8**（默认档、`allowed: null` 零容忍）：
+         `Descriptions` 的 `column` **不得写死为大于 1 的数字**；`column={1}`、不写 `column`（走 antd 默认档）、
+         断点对象一律放行。候选池下限 **12**（实测 14 个开标签），并做了**定向破坏自证**：
+         写回 `column={2}` ⇒ 门禁 **exit 1** 且只红在【R8】上 ⇒ 逐字节还原 ⇒ 转绿。
+         **后一句仍然成立**（故 094 未照此条"并入几何护栏"）：R8 是**源码级**的，
+         判不到 `column={someConst}` / `{...spread}`，也量不到渲染出的列数——**渲染级几何判据仍属 092 的家族**。
 
 - [x] **T045** ✅ **已完成**（2026-09-15）**R3 从 `--strict` 翻成 error**（原文记 96 处，**当前实测 89 处 / 89 候选点**——以实测为准；
       原写「90 处 / 92 候选点」，那是 `readSource` 剥注释缺陷未修时的读数，订正见 **T046**），
