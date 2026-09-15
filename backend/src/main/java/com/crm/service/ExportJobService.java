@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.springframework.security.concurrent.DelegatingSecurityContextExecutorService;
 import org.springframework.stereotype.Service;
 
 /** 导出任务服务（016，FR-S08~S10）：任务创建/状态/下载/异步执行。 */
@@ -38,7 +39,18 @@ public class ExportJobService {
   private final ExportExecutor exportExecutor;
   private final ObjectMapper objectMapper;
   private final AuditService auditService;
-  private final ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+  /**
+   * 导出在独立线程执行，而 {@code SecurityUtil} 读的是 {@code SecurityContextHolder}（默认 MODE_THREADLOCAL）—— 裸
+   * {@code Executors.newFixedThreadPool} 里主体恒为 {@code null}，于是 063 的两处加固**双双退化为空转**： {@code
+   * ExportExecutor.mask()} 原样返回（非 ADMIN 不脱敏）、{@code visibleOwnersOrNull()} 返回 null（=不做行级过滤）；
+   * 本次新增的自定义字段 HIDDEN 过滤同理够不着。
+   *
+   * <p>用 {@link DelegatingSecurityContextExecutorService} 把**提交时**的上下文带进执行线程。定时导出 （{@code
+   * ScheduledExportServiceImpl}）不在本机制覆盖内——它根本没有请求主体，另见待办。
+   */
+  private final ExecutorService executorService =
+      new DelegatingSecurityContextExecutorService(Executors.newFixedThreadPool(2));
 
   public ExportJobService(
       ExportJobMapper exportJobMapper,

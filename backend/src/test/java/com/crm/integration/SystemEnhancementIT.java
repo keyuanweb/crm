@@ -298,6 +298,135 @@ class SystemEnhancementIT extends AbstractIntegrationTest {
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
   }
 
+  /**
+   * 导出在独立线程池里跑，而 {@code SecurityUtil} 读的是 ThreadLocal 里的 SecurityContext —— 裸 {@code
+   * Executors.newFixedThreadPool} 里主体恒为 null，063 的脱敏与行级过滤会双双退化为空转。本用例钉住"异步线程必须带上主体"。
+   *
+   * <p>两侧都断言：非 ADMIN 脱敏、ADMIN 不脱敏 —— 只测前者的话，一个"无差别脱敏"的实现同样能骗过它。
+   *
+   * <p>行级过滤是同一根因的**第二个**受害者（{@code visibleOwnersOrNull()} 同样读不到主体就返回 null = 不做过滤），故一并钉住：ADMIN
+   * 名下（owner 为空）的客户不得出现在 SALES 的文件里。只断言"该有的在"会漏掉它。
+   */
+  @Test
+  @DisplayName("导出：非 ADMIN 的文件必须脱敏且不得越界，ADMIN 不脱敏（异步线程须带主体）")
+  void exportMasksSensitiveFieldsForNonAdmin() throws Exception {
+    String adminToken = loginAndGetToken();
+    String username = "exportsales" + (System.nanoTime() % 100000);
+    mockMvc
+        .perform(
+            post("/api/v1/users")
+                .header("Authorization", bearer(adminToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    String.format(
+                        "{\"username\": \"%s\", \"password\": \"Passw0rd!\", \"displayName\": \"导出销售\", \"role\": \"SALES\"}",
+                        username)))
+        .andExpect(status().isCreated());
+    String salesToken = loginAndGetToken(username, "Passw0rd!");
+
+    // 非 ADMIN 建的客户归属自己 ⇒ 必定落在其可见范围内（不受数据权限档位影响）
+    String customerName = "脱敏客户" + System.nanoTime();
+    mockMvc
+        .perform(
+            post("/api/v1/customers")
+                .header("Authorization", bearer(salesToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    String.format(
+                        "{\"name\": \"%s\", \"company\": \"脱敏公司\", \"phone\": \"13800001234\", \"email\": \"mask@example.com\"}",
+                        customerName)))
+        .andExpect(status().isCreated());
+
+    // ADMIN 建的客户 owner 为空（CustomerService 只给非 ADMIN 设默认负责人）⇒ 必在 SALES 的 owner 集之外
+    String outsiderName = "越界客户" + System.nanoTime();
+    mockMvc
+        .perform(
+            post("/api/v1/customers")
+                .header("Authorization", bearer(adminToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    String.format(
+                        "{\"name\": \"%s\", \"company\": \"越界公司\", \"phone\": \"13900004321\"}",
+                        outsiderName)))
+        .andExpect(status().isCreated());
+
+    String salesSheet = exportAsText(salesToken, customerName);
+    org.assertj.core.api.Assertions.assertThat(salesSheet)
+        .contains("138****1234")
+        .contains("m***k@example.com")
+        .doesNotContain("13800001234")
+        .doesNotContain("mask@example.com")
+        .as("行级过滤：他人名下的客户不得进入非 ADMIN 的导出")
+        .doesNotContain(outsiderName);
+
+    String adminSheet = exportAsText(adminToken, customerName);
+    org.assertj.core.api.Assertions.assertThat(adminSheet)
+        .contains("13800001234")
+        // 反空断言：越界客户确实存在、确实导得出来 —— 否则上一句的 doesNotContain 可能只是"它压根不在文件里"
+        .contains(outsiderName);
+  }
+
+  /** 建导出任务 → 轮询到 DONE → 下载 → 工作簿所有单元格拼成一个字符串。 */
+  private String exportAsText(String token, String mustContain) throws Exception {
+    String jobResp =
+        mockMvc
+            .perform(
+                post("/api/v1/exports")
+                    .header("Authorization", bearer(token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"exportType\": \"CUSTOMER\"}"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    long jobId = objectMapper.readTree(jobResp).path("data").path("id").asLong();
+
+    String status = "PENDING";
+    for (int i = 0; i < 50 && ("PENDING".equals(status) || "RUNNING".equals(status)); i++) {
+      Thread.sleep(200);
+      String listResp =
+          mockMvc
+              .perform(get("/api/v1/exports").header("Authorization", bearer(token)))
+              .andExpect(status().isOk())
+              .andReturn()
+              .getResponse()
+              .getContentAsString();
+      for (var item : objectMapper.readTree(listResp).path("data").path("items")) {
+        if (item.path("id").asLong() == jobId) {
+          status = item.path("status").asText();
+        }
+      }
+    }
+    org.assertj.core.api.Assertions.assertThat(status).as("导出任务应完成").isEqualTo("DONE");
+
+    byte[] bytes =
+        mockMvc
+            .perform(
+                get("/api/v1/exports/{id}/download", jobId).header("Authorization", bearer(token)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsByteArray();
+
+    org.apache.poi.ss.usermodel.DataFormatter fmt = new org.apache.poi.ss.usermodel.DataFormatter();
+    StringBuilder sb = new StringBuilder();
+    try (org.apache.poi.ss.usermodel.Workbook wb =
+        new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(bytes))) {
+      for (org.apache.poi.ss.usermodel.Sheet sheet : wb) {
+        for (org.apache.poi.ss.usermodel.Row row : sheet) {
+          for (org.apache.poi.ss.usermodel.Cell cell : row) {
+            sb.append(fmt.formatCellValue(cell)).append('');
+          }
+        }
+      }
+    }
+    String text = sb.toString();
+    org.assertj.core.api.Assertions.assertThat(text)
+        .as("导出文件应包含目标行 %s", mustContain)
+        .contains(mustContain);
+    return text;
+  }
+
   @Test
   @DisplayName("权限：SUPPORT 不可配置 SLA 之外的字段相关均走 403 路径已覆盖")
   void permissionMatrix() throws Exception {
