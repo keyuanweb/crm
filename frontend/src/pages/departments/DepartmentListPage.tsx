@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { App, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Tag, InputNumber, Tree } from 'antd'
+import { App, Button, Card, Drawer, Form, Grid, Input, Modal, Popconfirm, Select, Space, Tag, InputNumber, Tree } from 'antd'
 import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutlined, EyeOutlined } from '@ant-design/icons'
 import {
   createDepartment,
@@ -14,6 +14,7 @@ import { usePerms } from '../../hooks/usePerms'
 import { PERMS } from '../../constants/permissions'
 import type { Department } from '../../types/department'
 import { FormGrid, Highlight, PageState, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
+import DepartmentDetail from '../../components/DepartmentDetail'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 
 interface FormValues {
@@ -57,6 +58,13 @@ export default function DepartmentListPage() {
   // `t('pages.departmentList.msgLoadFailed')` 会对数组调用函数而抛 TypeError——加载失败时用户看不到任何提示。
   // 同一函数里 `walk(n.children, …)` 也未防 `children` 为空，`children` 缺失时同样抛错。
   const canManage = usePerms([PERMS.departmentManage])
+
+  // 095 T032：断点二择，照抄仓内唯一范式（pages/map/UsageMapPage.tsx）。
+  // ⚠️ 测试环境里 `setup.ts` 把 `matchMedia` **恒桩成 `matches: false`** ⇒ `screens.lg` 恒假
+  // ⇒ `isMobile` **恒真** ⇒ **桌面分支在默认桩下跑不到**。要断桌面分支的用例必须在
+  // **本测试文件内**覆盖 `matchMedia`（范式见 UsageMapPage.test.tsx），且不得改全局桩。
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.lg
 
   const load = async () => {
     setLoading(true)
@@ -214,6 +222,13 @@ export default function DepartmentListPage() {
     }
   }
 
+  // 095 T030：上级部门名的解析留在页面（它依赖本页持有的 `flatOptions`），
+  // `DepartmentDetail` 只接收**已解析好的**结果 ⇒ 组件保持纯展示、可独立测。
+  // 未命中时回落到原始 id，与抽取前的行为逐字一致。
+  const detailParentLabel = detailData?.parentId
+    ? flatOptions.find((o) => o.value === detailData.parentId)?.label || String(detailData.parentId)
+    : undefined
+
   const renderTreeNode = (node: Department): React.ReactNode => (
     <Tree.TreeNode
       key={node.id}
@@ -232,7 +247,19 @@ export default function DepartmentListPage() {
               {t('pages.departmentList.btnEdit')}
             </Button>
             {canManage[PERMS.departmentManage] && (
-              <Popconfirm title={t('pages.departmentList.confirmDelete', { name: node.name })} onConfirm={(e) => { if (e) onDelete(node) }}>
+              <Popconfirm
+                title={t('pages.departmentList.confirmDelete', { name: node.name })}
+                // 095 T025：风险提示用**该节点自己的**数字现算，不用通用警告。
+                // 后端确会拦截（`DepartmentService.delete` 对「有子部门」与「有成员」
+                // 抛同一码 DEPARTMENT_HAS_CHILDREN_OR_MEMBERS），故这两句是**告知**、
+                // 不是前端自己推断的规则。措辞**不得**写成「不可恢复」——本系统是
+                // 逻辑删除 + 回收站，那句在这里不成立，写上去就是新的名实不符。
+                description={t('pages.departmentList.confirmDeleteRisk', {
+                  children: node.childCount ?? 0,
+                  members: node.memberCount ?? 0,
+                })}
+                onConfirm={(e) => { if (e) onDelete(node) }}
+              >
                 <Button size="small" type="link" danger icon={<DeleteOutlined />}>
                   {t('pages.departmentList.btnDelete')}
                 </Button>
@@ -263,6 +290,9 @@ export default function DepartmentListPage() {
     >
       <div style={{ marginBottom: 16 }}>
         <Input
+          // 095 T037：无障碍名。**必须经 `t()`** —— 门禁 R6 抓裸 `placeholder`/`aria-label`
+          // 字面量，其白名单是**冻结台账**，写死字面量会迫使台账增长、`ui:check` 直接红。
+          aria-label={t('pages.departmentList.ariaSearch')}
           placeholder={t('pages.departmentList.placeholderSearch')}
           prefix={<SearchOutlined />}
           value={searchValue}
@@ -281,6 +311,11 @@ export default function DepartmentListPage() {
         <PageState state="empty" />
       ) : (
         <Tree
+          // 095 T037：树容器的可朗读名称。⚠️ **结构前提 ≠ 键盘行为已验**：
+          // antd `Tree` 自带 `role="tree"`/`treeitem` 与方向键处理，但 jsdom 下
+          // **没有真实焦点模型** ⇒ 本项只断言「role 与 aria-label 在场」，
+          // **不声称验证了方向键行为**（见 quickstart.md 的口径边界）。
+          aria-label={t('pages.departmentList.ariaTree')}
           expandedKeys={expandedKeys}
           onExpand={setExpandedKeys}
           showLine
@@ -322,56 +357,29 @@ export default function DepartmentListPage() {
         </Form>
       </Modal>
 
+      {/* 095 T030/T032：详情体已抽成 `components/DepartmentDetail`（纯展示）。
+          容器按断点二择：窄屏走底部抽屉、否则走对话框。两个容器**都渲染**，
+          靠 `open` 二择 —— 这样两个分支在任何环境下都存在，不依赖条件渲染的分支裁剪。 */}
       <Modal
         title={t('pages.departmentList.modalDetailTitle')}
-        open={detailOpen}
+        open={detailOpen && !isMobile}
         onCancel={() => setDetailOpen(false)}
         footer={null}
+        destroyOnClose
         width={600}
       >
-        {detailData && (
-          <div>
-            <div style={{ marginBottom: 16 }}>
-              <strong>{t('pages.departmentList.detailName')}：</strong>{detailData.name}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <strong>{t('pages.departmentList.detailId')}：</strong>{detailData.id}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <strong>{t('pages.departmentList.detailParent')}：</strong>
-              {detailData.parentId ? (
-                flatOptions.find(o => o.value === detailData.parentId)?.label || detailData.parentId
-              ) : (
-                t('pages.departmentList.detailTopLevel')
-              )}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <strong>{t('pages.departmentList.detailDesc')}：</strong>
-              {detailData.description || '-'}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <strong>{t('pages.departmentList.detailSort')}：</strong>
-              {detailData.sortOrder ?? 0}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <strong>{t('pages.departmentList.detailCreatedAt')}：</strong>
-              {detailData.createdAt ? new Date(detailData.createdAt).toLocaleString('zh-CN') : '-'}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <strong>{t('pages.departmentList.detailCreatedBy')}：</strong>
-              {detailData.createdBy || '-'}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <strong>{t('pages.departmentList.detailMembers')}：</strong>
-              {detailData.memberCount ?? 0}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <strong>{t('pages.departmentList.detailChildren')}：</strong>
-              {detailData.childCount ?? 0}
-            </div>
-          </div>
-        )}
+        {detailData && <DepartmentDetail department={detailData} parentLabel={detailParentLabel} />}
       </Modal>
+
+      <Drawer
+        title={t('pages.departmentList.modalDetailTitle')}
+        open={detailOpen && isMobile}
+        onClose={() => setDetailOpen(false)}
+        placement="bottom"
+        height="auto"
+      >
+        {detailData && <DepartmentDetail department={detailData} parentLabel={detailParentLabel} />}
+      </Drawer>
     </Card>
   )
 }

@@ -1646,6 +1646,8 @@ const zhCN = {
       btnRefresh: '刷新',
       btnAdd: '新增部门',
       placeholderSearch: '搜索部门名称',
+      ariaSearch: '搜索部门名称',
+      ariaTree: '部门树',
       btnSave: '保存',
       msgSaved: '已保存',
       msgCreated: '已创建',
@@ -1654,6 +1656,9 @@ const zhCN = {
       msgDeleteFailed: '删除失败',
       msgLoadFailed: '加载部门失败',
       confirmDelete: '确定删除部门「{{name}}」吗？',
+      // 095 T025：用该节点自己的数字现算，且只说**后端真会执行**的那条规则。
+      // 「不可恢复」之类的泛化风险在本系统不成立（逻辑删除 + 回收站），不得使用。
+      confirmDeleteRisk: '该部门下有 {{children}} 个子部门、{{members}} 名成员；有子部门或成员时删除会被拒绝。',
       modalEditTitle: '编辑部门',
       modalAddTitle: '新增部门',
       modalDetailTitle: '部门详情',
