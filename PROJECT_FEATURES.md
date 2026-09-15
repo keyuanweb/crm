@@ -2,21 +2,22 @@
 
 > 核对基准：**当前工作区代码**（`backend/`、`frontend/`、`specs/`），非既有文档描述。
 > 与 README / specs/README.md 不一致之处见「八、文档与代码的偏差」。
+> **规模数字于 2026-09-15 按下表「依据」列的口径重新实测**（上一版为 2026-09-11，多数已滞后）。
 
 ## 一、规模速览
 
-| 维度 | 实测值 | 依据 |
+| 维度 | 实测值（2026-09-15） | 依据 |
 |---|---|---|
-| 后端 REST Controller | **65** | `backend/src/main/java/**/*Controller.java` |
-| 数据库表 | **84** | `db/migration/*.sql` 中 `CREATE TABLE` 去重 |
-| Flyway 迁移 | **76 个（V1–V77，缺 V72）** | `backend/src/main/resources/db/migration` |
-| 后端测试类 | **141** | `backend/src/test/**/*.java` |
-| 前端页面组件 | **110 个 tsx** | `frontend/src/pages` |
-| 前端路由定义 | **86 个 `<Route>`** | `frontend/src/App.tsx` |
-| 前端 service | **54 个**（+`apiClient.ts`） | `frontend/src/services` |
-| 前端单测 / E2E | **17 / 3** | `frontend/tests`、`frontend/e2e` |
-| i18n 资源 | zh-CN 2397 行 / en 2405 行 | `frontend/src/i18n` |
-| Spec 模块 | **81 个（001–081，缺 069）** | `specs/` |
+| 后端 REST Controller | **66** | `backend/src/main/java/**/*Controller.java` |
+| 数据库表 | **85** | `db/migration/*.sql` 中 `CREATE TABLE` 去重（**注意用 `src/main/resources`，`target/classes` 会让计数翻倍**） |
+| Flyway 迁移 | **87 个（V1–V88，缺 V72）** | `backend/src/main/resources/db/migration` |
+| 后端测试类 | **163 个含用例的类**（`src/test` 共 167 个 `.java`） | `grep -rlE "@Test\|@ParameterizedTest" backend/src/test/java` |
+| 前端页面组件 | **101 个非测试 tsx**（含测试共 170） | `frontend/src/pages` 下 `*.tsx` 且非 `*.test.tsx` |
+| 前端路由定义 | **88 个 `<Route>`** | `frontend/src/App.tsx` 的 `<Route` 89 处 − `<Routes>` 1 处 |
+| 前端 service | **55 个 `*Service.ts`**（+`apiClient.ts`；`services/` 非测试 `.ts` 共 59） | `frontend/src/services` |
+| 前端单测 / E2E | **83 / 7** | `*.test.ts(x)`、`frontend/e2e/*.spec.ts` |
+| i18n 资源 | zh-CN 3348 行 / en 3348 行 | `frontend/src/i18n` |
+| Spec 模块 | **91 个（001–092，缺 069）** | `specs/NNN-*` |
 
 ## 二、技术栈
 
@@ -136,7 +137,7 @@
 | 个人中心 | `/personal-center` | 顶栏头像下拉菜单 |
 | 修改密码 | `/account/password` | 顶栏头像下拉菜单 |
 | 使用地图 | `/usage-map` | 头像下拉 + 首页卡片 |
-| 全局搜索 | `/search` | 组件 `GlobalSearch.tsx` 已实现但**未被任何页面引用** |
+| 全局搜索 | `/search` | 顶栏渲染（`App.tsx:656`），回车进入结果页 |
 
 ## 五、免登录公开页面
 
@@ -148,7 +149,7 @@
 | 客户自助门户 | `/portal` |
 | 公开 API 域 | `/api/v1/public/portal`、`/api/v1/public/track`、`/api/v1/public/email` |
 
-## 六、后端 API 域（65 个 Controller 归组）
+## 六、后端 API 域（66 个 Controller 归组）
 
 - **认证与组织**：Auth、User、Role、Department、PersonalCenter、FieldPermission、CustomerShare
 - **客户域**：Customer、CustomerPool、CustomerMerge、Contact、Lead、FollowUp、Tag、Segment、Comment

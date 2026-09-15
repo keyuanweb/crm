@@ -36,11 +36,11 @@
 - **工作流自动化**：规则引擎、执行日志、通知
 - **公告管理**：团队公告
 - **外勤拜访**：拜访记录、轨迹
-- **邮件同步**：邮件记录自动同步
+- **邮件同步**：邮箱账户与同步记录管理（同步流程为模拟实现，尚未接入 IMAP）
 
 ### 数据与分析
 - **数据大屏**：KPI 实时看板、ECharts 可视化
-- **仪表盘**：KPI 指标、销售漏斗、预测成交
+- **仪表盘**：KPI 指标、销售漏斗、客户分析、业绩趋势
 - **自定义报表**：报表模板、多维分析、灵活配置查询维度
 - **团队排行**：销售业绩排行榜
 - **智能建议**：规则型智能建议、健康评分、流失预警、停滞商机预警
@@ -81,7 +81,7 @@ CREATE USER 'crm_user'@'localhost' IDENTIFIED BY 'crm123456';
 GRANT ALL PRIVILEGES ON crm_db.* TO 'crm_user'@'localhost';
 ```
 
-> ⚠️ 只需创建空数据库，无需手动导入 SQL。Flyway 会在后端启动时自动创建全部 84 张表。
+> ⚠️ 只需创建空数据库，无需手动导入 SQL。Flyway 会在后端启动时自动创建全部 85 张表。
 
 启动 Redis（`redis-server`）。
 
@@ -152,14 +152,14 @@ cd frontend && pnpm run test:e2e
 crm/
 ├── backend/                    # Spring Boot 后端
 │   ├── src/main/java/com/crm/ # controller/service/repository/entity/dto
-│   ├── src/main/resources/    # application.yml、db/migration（V1~V77）
+│   ├── src/main/resources/    # application.yml、db/migration（V1~V88，缺 V72）
 │   └── pom.xml
 ├── frontend/                   # React 前端
 │   ├── src/                   # pages/components/services/types/store/hooks
 │   ├── tests/                 # 单元测试
 │   ├── e2e/                   # 端到端测试
 │   └── package.json
-├── specs/                      # Spec Kit 设计文档（81 个功能模块，001~081）
+├── specs/                      # Spec Kit 设计文档（91 个功能模块，001~092，缺 069）
 ├── .specify/                   # Spec Kit 配置与模板
 ├── docker-compose.yml          # Docker 编排
 ├── Dockerfile                  # 后端镜像（多阶段构建）
@@ -183,7 +183,7 @@ spec.md → plan.md → research.md → data-model.md → contracts/ → tasks.m
 
 ## 功能对比
 
-本项目功能覆盖与 Salesforce、HubSpot、Creatio 等主流 CRM 平台的对比分析，详见 [CRM_FEATURE_COMPARISON.md](CRM_FEATURE_COMPARISON.md)。
+本项目功能覆盖与 Salesforce、HubSpot、Zoho/Dynamics 365、纷享销客/销售易、SuiteCRM/EspoCRM/Odoo 等平台的对比分析，详见 [CRM_FEATURE_COMPARISON.md](CRM_FEATURE_COMPARISON.md)。
 
 ## 许可证
 
