@@ -26,5 +26,11 @@ export type { FormModalSize } from './formModalSize'
 export { default as PageState } from './PageState'
 export type { PageStateProps, PageStateKind } from './PageState'
 
+// 095：自 `pages/search/SearchResultPage.tsx` 提取的关键字高亮（一份实现两处用）。
+// 该页现从本 barrel 引入——**R7 的「被引用」正是靠这一层再导出满足的**，
+// 若把 Highlight 从 barrel 去掉，`ui:check` 会判它孤儿。
+export { default as Highlight } from './Highlight'
+export type { HighlightProps } from './Highlight'
+
 export { useFormMetrics, LABEL_WIDTH, MIN_FIELD_WIDTH, VERTICAL_MIN_ITEM_WIDTH } from './useFormMetrics'
 export type { FormMetrics } from './useFormMetrics'

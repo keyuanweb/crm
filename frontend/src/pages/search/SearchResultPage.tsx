@@ -3,26 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Empty, List, Space, Tabs, Tag, Typography } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { searchFull, type SearchGroup, type SearchResponse } from '../../services/searchService'
-
-/** 高亮关键字。 */
-function Highlight({ text, keyword }: { text: string; keyword: string }) {
-  if (!text || !keyword) return <>{text}</>
-  const parts = text.split(new RegExp(`(${keyword.split(' ').map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi'))
-  return (
-    <>
-      {parts.map((p, i) =>
-        keyword.toLowerCase().split(' ').some((k) => k && p.toLowerCase() === k) ? (
-          <mark key={i} style={{ background: '#ffe58f', padding: '0 2px', borderRadius: 3 }}>
-            {p}
-          </mark>
-        ) : (
-          <span key={i}>{p}</span>
-        ),
-      )}
-    </>
-  )
-}
-
+// 095：本页原有的页内私有 `Highlight` 已提取为 `components/ui/Highlight.tsx`
+// （一份实现两处用——部门树搜索更依赖它）。**行为逐字未变**：多词分词、正则转义、
+// 色值 `#ffe58f` 全部保留。不要在此处再写第二份。
+import { Highlight } from '../../components/ui'
 export default function SearchResultPage() {
   const { t } = useTranslation()
   const [params] = useSearchParams()
