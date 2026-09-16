@@ -174,6 +174,7 @@ const en = {
       assigned: 'Assigned',
     },
     message: {
+      requestFailed: 'Request failed. Please try again later.',
       success: 'Operation successful',
       saved: 'Saved',
       deleted: 'Deleted (logical)',
@@ -2980,6 +2981,8 @@ const en = {
     },
     visit: {
       title: 'Visit Plans',
+      geoUnsupported: 'This browser does not support geolocation',
+      geoFailed: 'Location failed. Please enter the coordinates manually or allow location access.',
       create: 'New Visit',
       edit: 'Edit Visit',
       statusPlanned: 'Planned',

@@ -204,22 +204,7 @@ const ZH_ALLOWED = [
       '**降级兜底中文名 ⇒ 非欠账。** `SUB_PAGE_LABELS` 的两条**已经带 `i18nKey`**，取词优先走键，' +
       '注释原文就是「**缺键时降级为这里的中文名**」，与 `i18n/labelOf.ts#menuLabel()` 是**同一条降级机制**。',
   },
-  // ---- 二条**本批要清的债**（清完即摘）----
-  {
-    file: 'src/services/visitService.ts',
-    count: 2,
-    reason:
-      '**本批清零（提交 5）—— 服务层取词的第一个先例。** L42/51 两个 `new Error(...)` 的文案' +
-      '**用户可见**：`pages/VisitListPage.tsx:148` 是 `message.warning((err as Error).message)`，原样弹给用户。' +
-      '服务层**拿不到 hook** ⇒ 改走 i18next 单例 `import i18n from \'../i18n\'` + `i18n.t(...)`（边界见文件头）。',
-  },
-  {
-    file: 'src/services/apiClient.ts',
-    count: 1,
-    reason:
-      '**本批清零（提交 5）—— 服务层取词（同上）。** L78 `extractErrorMessage(error, fallback = \'请求失败，请稍后重试\')` ' +
-      '的**默认实参**。默认实参**在调用时求值** ⇒ 语言切换之后拿到的是**当前语言**，语义正确。',
-  },
+  // ---- 本批要清的债已全部清完（提交 3/4/5）⇒ 以下只剩**真源条目**；下一批再清零时从这里往下加 ----
 ]
 
 /**

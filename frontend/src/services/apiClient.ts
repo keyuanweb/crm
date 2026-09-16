@@ -1,4 +1,5 @@
 import axios from 'axios'
+import i18n from '../i18n'
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
@@ -74,15 +75,23 @@ export function isVersionConflict(error: unknown): boolean {
  * <p>`error.response` 不存在时（超时、连不上、被 CORS 挡下）**一律回落到调用方文案**：
  * 这些情况下 axios 自己的 message 是英文的（`timeout of 30000ms exceeded` / `Network Error`），
  * 那是给开发者看的，不是给用户看的。后端的文案仍然优先——有响应体就说明拿到的是真结论。
+ *
+ * <p>**098：兜底文案改走 i18next 单例。** 默认实参原本是裸中文 `'请求失败，请稍后重试'`，而它会被
+ * 原样弹给用户。本模块**不是组件、拿不到 `useTranslation` 的 hook** ⇒ 用 `i18n.t(...)`
+ * （服务层取词的第一个先例，边界见 `services/visitService.ts#getCurrentPosition()` 的注释）。
+ * <p>**语义与原来一致，且只强不强**：原默认实参在**每次调用时**求值，改为函数体内 `fallback ?? t(...)`
+ * 同样在调用时求值 ⇒ 语言切换后拿到的是**当前语言**；调用方显式传 `''` 依旧被当作有效值（不是缺省）。
+ * 唯一的差别是**翻译只在实际用到时才求值**（原来编译期常量，无所谓）。
  */
-export function extractErrorMessage(error: unknown, fallback = '请求失败，请稍后重试'): string {
+export function extractErrorMessage(error: unknown, fallback?: string): string {
+  const fb = fallback ?? i18n.t('common.message.requestFailed')
   if (axios.isAxiosError(error)) {
     const body = error.response?.data as { error?: ApiErrorBody } | undefined
     if (body?.error?.message) return body.error.message
-    if (!error.response) return fallback
-    return error.message ?? fallback
+    if (!error.response) return fb
+    return error.message ?? fb
   }
-  return fallback
+  return fb
 }
 
 /**

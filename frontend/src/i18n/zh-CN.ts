@@ -175,6 +175,9 @@ const zhCN = {
       assigned: '已分配',
     },
     message: {
+      // 098：`services/apiClient.ts#extractErrorMessage` 的**兜底文案**（服务层取词，走 i18next 单例）。
+      // 值**逐字复制**改动前的默认实参字面量。
+      requestFailed: '请求失败，请稍后重试',
       success: '操作成功',
       saved: '已保存',
       deleted: '已删除（逻辑删除）',
@@ -2999,6 +3002,11 @@ const zhCN = {
     },
     visit: {
       title: '拜访计划',
+      // 098：定位失败的两条文案。由**服务层** `services/visitService.ts#getCurrentPosition()` 取词
+      // （i18next 单例，非 hook），值**逐字复制**改动前的 `new Error(...)` 字面量。
+      // 用户可见性已核：调用方 `pages/visits/VisitListPage.tsx:148` 是 `message.warning(err.message)`。
+      geoUnsupported: '当前浏览器不支持定位',
+      geoFailed: '定位失败，请手动填写坐标或允许定位权限',
       create: '新建拜访',
       edit: '编辑拜访',
       statusPlanned: '计划中',
