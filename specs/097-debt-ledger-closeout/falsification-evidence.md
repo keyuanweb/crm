@@ -137,7 +137,7 @@ grep -n "9 处不该翻译" frontend/scripts/check-ui.mjs       # 同上
 | 3 | `89 / 7`（前端单测 / E2E） | `grep -n "89 / 7" PROJECT_FEATURES.md` | 待填 |
 | 4 | `含测试共 174` | `grep -n "含测试共 174" PROJECT_FEATURES.md` | 待填 |
 | 5 | `design/tasks，无 spec`（081 行） | `grep -n "design/tasks，无 spec" specs/README.md` | 待填 |
-| 6 | 编号说明里 081 缺 spec 的那句 | `grep -n "081" specs/README.md`（`:137` 附近） | 待填 |
+| 6 | 编号说明里 081 缺 spec 的那句 | `grep -n "081 仅有" specs/README.md`（立项时 `:137`，097 登记后 `:138`——**按锚不按行号**） | 待填 |
 | 7 | `仍待处理`（§九） | `grep -n "仍待处理" PROJECT_FEATURES.md` | 待填 |
 
 ⚠️ 表里第 1/2 列的 `–` 是 **en dash**（原文字符），照抄，别敲成 `-`（敲错会得到「零命中」，

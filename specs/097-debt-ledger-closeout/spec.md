@@ -21,7 +21,8 @@
 | **①** | 「`follow_up:delete` 死码的处置」 | **不是 1 个码，是 22 个**。字典 144 码里，**零个 `@RequirePermission` 引用**的有 22 个，且**两种性质各 11 个**：<br>**A 类（11）——有对应操作，但服务端由相邻的码放行（或故意不挂）**：`email:create/update/delete/send`（`EmailController` 全类挂 `email:manage`；其中 `send` 对应的就是 `POST /email-campaigns`，其 summary 是「**创建并发送**邮件群发」）、`invoice:create/update`（`InvoiceController` 挂 `invoice:manage`）、`segment:manage`（`SegmentController` 三个写挂 `tag:manage`）、`approval:create/update/delete`（审批流 CRUD 挂 `workflow:manage`）、`approval:approve`（审批端点**故意不挂码**——096 §2 US3 已书面论证「挂码 = 削弱授权」）<br>**B 类（11）——全仓没有对应操作**：`invoice:delete`、`follow_up:delete`、`quote:delete`、`ticket:approve`、`quota:delete`、`contract:delete`、`customer:transfer`、`export:delete`、`opportunity:export`、`campaign:export`、`system:manage`。<br>⚠️ **两类都逐条核过近似端点**，近似的**不算对应**（否则「暂无对应操作」会变假话）：`contract:delete` 最接近的是 `POST /contracts/{id}/terminate`（终止 ≠ 删除，挂 `contract:update`）；`customer:transfer` 最接近的是 `CustomerMergeController` 的 `POST /customers/merge`（合并 ≠ 转移，挂 `customer:merge`）；`export:delete` 最接近的是 `ScheduledExportController` 的 `DELETE /{id}`（那是订阅删除，挂 `export:scheduled`）。逐条依据与命中的端点见 `research.md` §1.4 |
 | **②** | 「`check-ui.mjs` 的 R6 注释与 `R6_ALLOWED` 计数差 1」 | **注释 11/9，代码 10/8**。`R6_ALLOWED` 8 条、`count` 合计 **10**，`CANDIDATE_READINGS.R6 = 10`，`MIN_CANDIDATES.R6 = 1`；而块头注释写「实测 **11** 处，其中 **9** 处不该翻译」+「真正是缺陷的只有 **2** 处」（9+2=11）。**根因已定位**：`Currency`（`ProductListPage`）**已修**（该条目自己写着「① `Currency` 已修…改用新键」），**块头的两个聚合数没跟着改** |
 | **③** | 「`frontend/src/App.tsx.bak` 清理」 | 文件**未跟踪**且被 `.gitignore:45`（`*.bak`）覆盖 ⇒ **本项不产生任何提交**。498 行（现行 `App.tsx` 890 行），mtime 2026-08-23。**内容不在任何可达提交里**（`git log --all --find-object` 空；全历史无 498 行的 `App.tsx`）⇒ **删除不可逆**。**已核实它没有独有信息**：其路由集 54 条，与今天的差异**只有 `/board` 一条**——那是「数据大屏」改名前的路径，`68a14d5` 起叫 `/data-vision`（现行 `App.tsx:435`「酷炫大屏」+ `pages/dataVision/`） |
-| **④** | 「`specs/081` 缺 `spec.md`」 | 081 实际交付 **13 个预置角色**（`V46` 三个 `ADMIN`/`SALES`/`SUPPORT` + `V75` 十个）与 `role`/`role_menu`/`role_permission` 三表；而它的 `tasks.md` 描述的是**另一套模型**（`RolePermission.action` 列、`RoleMenu.path` 列、`RolePermissionInitializerService` 启动初始化、11×40+ 模块矩阵、E2E 用例）。⇒ 回填件**必须如实写「计划与实现的偏差」**，不得装扮成 spec-first。另：登记在各处的「**11** 个预置角色」是 `design.md` §1.1 的口径（含 ADMIN），与既有 `SALES`/`SUPPORT` 求并集后**库存是 13 个** |
+| **④** | 「`specs/081` 缺 `spec.md`」 | 081 实际交付 **13 个预置角色**（`V46` 三个 `ADMIN`/`SALES`/`SUPPORT` + `V75` 十个）与 `role`/`role_menu`/`role_permission` 三表；而它的 `tasks.md` 描述的是**另一套模型**（`RolePermission.action` 列、`RoleMenu.path` 列、`RolePermissionInitializerService` 启动初始化、11×40+ 模块矩阵）。⇒ 回填件**必须如实写「计划与实现的偏差」**，不得装扮成 spec-first。
+⚠️ **订正（2026-09-16，同一日内）**：本句初稿把「E2E 用例」也列进了「写了但没交付」那一串——**错了**，081 的 E2E **确实交付了**（`frontend/e2e/role-permissions.spec.ts`，其文件头自己写着 081）。初稿按**文件名**找归属，而该 spec 的归属只在注释里。原文保留在上、不静默改写，**原因与教训记在 `research.md` §4.2 的 ⚠️ 块**。另：登记在各处的「**11** 个预置角色」是 `design.md` §1.1 的口径（含 ADMIN），与既有 `SALES`/`SUPPORT` 求并集后**库存是 13 个** |
 | **⑤** | 「`PROJECT_FEATURES.md` §九「V72 空缺」」 | §九「仍待处理」那一条的**两项都已查明**：`V72` 与 `specs/069` 在**全历史里从未存在**（`git log --all --diff-filter=A -- '*V72*'` 与 `'specs/069*'` 均空）⇒ 是**纯编号空缺**：**不补号**（补一个空迁移 = 造一个假工件）、**不改名**（重排 V73+ 会破坏**已应用**迁移的 Flyway checksum）。另发现 §一 有 **4 行**已被 096 直接作废（见 §1.3） |
 
 ### 1.2 一条必须先读的既有裁决（它决定 ① 只能怎么做）
@@ -86,7 +87,7 @@
 **角色**：用 081 当权限模型参考的人；**诉求**：能读到「081 要解决什么、验收是什么」，
 并且**知道它实际交付的模型与 `tasks.md` 写的模型不是一套**。
 
-**为什么**：081 是权限模型的源头规格，却**缺 spec.md**——`specs/README.md:137` 的编号说明已如实记着这一点。
+**为什么**：081 是权限模型的源头规格，却**缺 spec.md**——`specs/README.md` 的编号说明（「`081` 仅有 `design.md` / `tasks.md`，未按标准流程产出 `spec.md`」）已如实记着这一点。
 补一个「事后追认成 spec-first」的假工件，比缺文件更坏。
 
 **验收**：`spec.md` 首段明写「事后回填、非立项期产物」；含一张**逐条偏差表**（`tasks.md` 写了什么 / 实际是什么 / 证据）；
@@ -127,9 +128,11 @@
 - **FR-005** 新建 `specs/081-role-permissions-update/spec.md`：
   - 首段**明写**「**事后回填**（2026-09-16），非立项期产物；081 的实际编写顺序无法追溯，**不得**据此声称走过 spec-first」。
   - 用户故事与验收：写成**兑现事实**（13 个角色、三表、`permission_code` 模型、菜单双射、内置角色不可删）。
-  - **偏差表**：逐条对照 `tasks.md` 的 T001–T017 与 `design.md` §4/§5 与实际实现（含 `action`/`path` 列、初始化服务、11×40+ 矩阵、E2E 四项）。
+  - **偏差表**：逐条对照 `tasks.md` 的 T001–T017 与 `design.md` §4/§5 与实际实现（`action`/`path` 列、初始化服务、11×40+ 矩阵、`V75` 头注释自称「8 个角色」而 INSERT 了 10 个），
+    **并如实记下「E2E 与单测都确实交付了」**（第 7/8 行是**兑现**而不是偏差）。
   - 明写「**11 个预置角色**」与「**库存 13 个**」的口径差。
-- **FR-006** `specs/README.md:111`（081 行的「—（design/tasks，无 spec）」）与 `:137`（编号说明）**原文保留** + 带日期 ⚠️ 指向回填件。
+- **FR-006** `specs/README.md` 的 **081 行**（「—（design/tasks，无 spec）」）与**编号说明**（「`081` 仅有 `design.md` / `tasks.md`…」）**原文保留** + 带日期 ⚠️ 指向回填件。
+  ⚠️ **引用的锚是文本、不是行号**：立项时这两处在 `:111` 与 `:137`，而 097 自己那行插进模块表后编号说明被顶到 `:138`——行号会漂，锚字符串才稳。
 
 ### 3.4 编号与数字（⑤）
 

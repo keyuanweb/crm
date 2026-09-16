@@ -185,9 +185,17 @@ for c in $(git log --format=%h --all -- frontend/src/App.tsx); do \
 | 3 | T005「`RolePermission` 实体加 `action` 字段」 | **无** `action` 列，也未落实体 | `V46` 的 `role_permission` DDL |
 | 4 | T006「`RoleMenu` 加 `path` 字段」 | **无** `path` 列，菜单用 `menu_key` 关联 `MENU_TREE` | 同上 |
 | 5 | T007「`RolePermissionInitializerService` 启动时初始化、幂等」 | **Flyway 迁移**承担初始化；字典是 Java 常量（**不落库**） | `backend/src/main/resources/db/migration/V46,V75`；全仓无该类 |
-| 6 | T009「数据范围控制 ALL/DEPT/SELF，查询时自动过滤」 | 有 `data_scope` 列与判定类，但**是手动调用、无全局拦截**（086 的清单第 11 项仍记着这条） | 见 `CRM_FEATURE_COMPARISON.md` P1 #11 |
-| 7 | T016「E2E 测试」 | 本项**未见** 081 名下的 e2e | `frontend/e2e/` 7 个 spec 无 081 对应物 |
-| 8 | §4.3/§5 的「单元测试覆盖率 80%+」 | 无该口径的留痕（覆盖率门槛是后来才立的） | — |
+| 6 | T009「数据范围控制 ALL/DEPT/SELF，查询时自动过滤」 | 有 `data_scope` 列与判定类，但**是手动调用、无全局拦截** | `CRM_FEATURE_COMPARISON.md` 里「**数据权限（行级）**」那一行（末尾写着「仍非全局拦截器」，并有 2026-09-16 的调用点订正块）——**按文本锚，不按行号** |
+| 7 | T016「E2E 测试」 | **已交付**：`frontend/e2e/role-permissions.spec.ts`，**其文件头自己写着**「端到端测试（081-role-permissions-update）」 | `git log --follow -- frontend/e2e/role-permissions.spec.ts` → `c9b3378`（081 交付批次），后由 `a12f956`（083）修复其中的失效断言 |
+| 8 | §4.3/§5 的「单元测试覆盖率 80%+」 | 有覆盖（`RoleServiceTest` / `RoleIT` 等），但**没有「80%+ 口径」的留痕**（覆盖率门槛是后来才立的）——**哪些用例属 081 未逐一考证**，故**只记「存在覆盖」，不记「达标/不达标」** | `backend/src/test/java/com/crm/service/RoleServiceTest.java`、`.../integration/RoleIT.java` |
+| 9 | `V75` **自己的头注释**「新增 **8** 个预置角色」 | 同一文件 **INSERT 了 10 个** | `V75__role_permissions_update.sql` 头注释 vs 其后的 `INSERT INTO role` 10 行 |
+
+⚠️ **一处本项初稿判错、在此订正（2026-09-16，同一日内）**：偏差表第 7 行初稿写的是
+「本项**未见** 081 名下的 e2e / `frontend/e2e/` 7 个 spec 无 081 对应物」——**这是错的**。
+`role-permissions.spec.ts` **一直存在**（该目录共 7 个 `.spec.ts`，它就是其中之一），
+错在我**按文件名找归属**：该 spec 的 081 归属**只写在它的文件头注释里**，文件名里看不出来。
+⇒ 教训与仓里那条「**grep 模式的边界要自证**」同形：**「我没找到」不是「不存在」**。
+本行原文保留在上（第 7 行已按订正后的写法改，本块说明改了什么、为什么）。
 
 ⚠️ **不臆断**：上表只写**可核的差异**。哪些是「计划改过」、哪些是「实现走偏」，**081 的工件里没有记录**，
 本项**不替它下结论**——回填件照实写「未查见当时的裁决记录」。
@@ -207,7 +215,8 @@ ls backend/src/main/resources/db/migration/ | grep -E "V7[0-9]__"   # V71 … V7
 ⇒ 是**纯编号空缺**，不是「被删过」或「被改过名」。**两条处置都要否决**：
 - **不补号**：补一个空的 `V72__noop.sql` 是**造一个假工件**，且它会进入迁移计数；
 - **不改名**：把 `V73`+ 整体前移会**改变已应用迁移的版本号** ⇒ **破坏 Flyway checksum**，生产库会拒绝启动。
-- `specs/069` 同理（`specs/README.md:137` 的编号说明**已登记**过这件事）。
+- `specs/069` 同理（`specs/README.md` 的编号说明**已登记**过这件事——**按文本锚，不按行号**：
+  该行在立项时是 `:137`，097 自己那行插进模块表后被顶到 `:138`）。
 
 ### 5.2 `PROJECT_FEATURES.md` §一 的 4 行已被 096 作废
 
