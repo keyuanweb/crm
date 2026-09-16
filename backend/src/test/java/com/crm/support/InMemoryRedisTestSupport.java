@@ -78,6 +78,7 @@ public final class InMemoryRedisTestSupport {
   private final Map<String, Entry> values = new ConcurrentHashMap<>();
   private final Map<String, Set<String>> sets = new ConcurrentHashMap<>();
   private final List<String> failingPrefixes = new CopyOnWriteArrayList<>();
+  private final List<Map.Entry<String, Runnable>> keyHooks = new CopyOnWriteArrayList<>();
 
   private Clock clock = Clock.systemDefaultZone();
 
@@ -188,6 +189,7 @@ public final class InMemoryRedisTestSupport {
               guard(key);
               Entry entry = live(key);
               values.remove(key);
+              fireHooks(key);
               return entry == null ? null : entry.value();
             })
         .when(ops)
@@ -291,6 +293,33 @@ public final class InMemoryRedisTestSupport {
     failingPrefixes.clear();
   }
 
+  // ===== 一次性副作用钩子 =====
+
+  /**
+   * 在命中该前缀的键被 {@code getAndDelete} 取走之后、返回之前，执行一次这个回调（用完即弃）。
+   *
+   * <p><b>为什么需要它</b>：{@code MfaVerificationService.verify} 的 ①（读用户）与 ⑤（消费票据后重读用户）
+   * 之间隔着验码与消费票据，两次读到的可能是**不同的行**。要断言 ⑤ 的重读确实发生，就必须让"行在这两次读之间被改" 真的发生一次——而 MockMvc
+   * 是**同步**的，用例没有任何办法从外面插进这个窗口。
+   *
+   * <p>钩在 {@code getAndDelete} 上而不是别的原语上：④（{@code consumeTicket}）正好落在那个窗口里，
+   * 且它是这条流程里**唯一**一次票据读删，故触发点既精确又不歧义。
+   *
+   * <p>回调**只执行一次**：留着的话同一用例里后续的消费会反复触发，把"这次变更是谁引起的"搅浑。 与故障注入一样，{@link #clear()} 会把它一并清掉（不跨用例泄漏）。
+   */
+  public void onGetAndDeleteKeyPrefix(String prefix, Runnable action) {
+    keyHooks.add(Map.entry(prefix, action));
+  }
+
+  /** 触发并**移除**命中的钩子（一次性）。 */
+  private void fireHooks(String key) {
+    for (Map.Entry<String, Runnable> hook : keyHooks) {
+      if (key.startsWith(hook.getKey()) && keyHooks.remove(hook)) {
+        hook.getValue().run();
+      }
+    }
+  }
+
   private void guard(String key) {
     if (key == null) {
       return;
@@ -357,10 +386,11 @@ public final class InMemoryRedisTestSupport {
     return live(key) != null;
   }
 
-  /** 回到干净状态：清空数据**并撤掉故障注入**（故障注入不跨用例泄漏）。 */
+  /** 回到干净状态：清空数据**并撤掉故障注入与钩子**（两者都不跨用例泄漏）。 */
   public void clear() {
     values.clear();
     sets.clear();
+    keyHooks.clear();
     healAll();
   }
 }

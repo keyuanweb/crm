@@ -144,6 +144,16 @@ public class MfaStateStore {
 
   // ===== 失败计数与锁定 =====
 
+  /**
+   * 失败阈值（{@code crm.security.mfa.max-attempts}）。
+   *
+   * <p>暴露给调用方是为了让失败响应能如实报出"还可尝试几次"（契约 §3 要求码错误的响应含剩余尝试次数）。 另一种写法是在 {@link MfaVerificationService}
+   * 里再读一遍同一份配置——那样阈值会有两个真源， 而它们不一致时唯一的症状是"提示说还能试 3 次，实际第 2 次就锁了"，用户看不出哪一个是对的。
+   */
+  public int maxAttempts() {
+    return maxAttempts;
+  }
+
   /** 当前失败次数；无记录为 0。 */
   public int failureCount(long userId) {
     Object raw;

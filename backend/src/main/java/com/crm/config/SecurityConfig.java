@@ -81,6 +81,14 @@ public class SecurityConfig {
                         "/api/v1/auth/login",
                         "/api/v1/auth/refresh",
                         "/api/v1/auth/captcha",
+                        // 082：二次验证。它进场时用户还没有令牌（凭密码阶段的一次性 mfaToken），
+                        // 故必须放行 —— 但**只能是这一条精确路径**，绝不能写成 /api/v1/auth/2fa/**：
+                        // 通配会把 setup/enable/status/regenerate/disable 一起放出去，而那五个端点靠
+                        // SecurityUtil.currentUserId() 取主体、放行后拿到 null，症状从"401 被拒"
+                        // 变成控制器里抛出的另一个 401/500，且失败方向由"少了授权"变成"少了认证"。
+                        // 护栏是 AuthMfaIT：它断言未带令牌调 /2fa/status 得到的是**空体** 401
+                        // （HttpStatusEntryPoint 不写 body），而通配化会让响应变成带 code 的 JSON。
+                        "/api/v1/auth/2fa/verify",
                         "/error")
                     .permitAll()
                     .requestMatchers("/api/v1/public/**")

@@ -6,6 +6,7 @@ import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
 import com.crm.dto.auth.AuthResponse;
 import com.crm.dto.auth.LoginRequest;
+import com.crm.dto.auth.MfaChallenge;
 import com.crm.dto.auth.RefreshRequest;
 import com.crm.dto.auth.UserInfo;
 import com.crm.entity.User;
@@ -15,6 +16,7 @@ import com.crm.security.UserStateCache;
 import io.jsonwebtoken.Claims;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -40,6 +42,7 @@ public class AuthService {
   private final UserStateCache userStateCache;
   private final CaptchaService captchaService;
   private final TokenService tokenService;
+  private final MfaChallengeService mfaChallengeService;
   private final boolean captchaEnabled;
 
   public AuthService(
@@ -50,6 +53,7 @@ public class AuthService {
       UserStateCache userStateCache,
       CaptchaService captchaService,
       TokenService tokenService,
+      MfaChallengeService mfaChallengeService,
       @org.springframework.beans.factory.annotation.Value("${crm.captcha.enabled:true}")
           boolean captchaEnabled) {
     this.userMapper = userMapper;
@@ -59,6 +63,7 @@ public class AuthService {
     this.userStateCache = userStateCache;
     this.captchaService = captchaService;
     this.tokenService = tokenService;
+    this.mfaChallengeService = mfaChallengeService;
     this.captchaEnabled = captchaEnabled;
   }
 
@@ -85,6 +90,19 @@ public class AuthService {
     clearIpFailures(clientIp);
     if (!Boolean.TRUE.equals(user.getEnabled())) {
       throw new BusinessException(ErrorCode.FORBIDDEN, "账号已停用");
+    }
+    // 082（FR-M07）：口令对了、账号没停用，但该账号启用了 2FA ⇒ 密码阶段到此为止，改走一次性票据的二次验证。
+    //
+    // 位置刻意在 lastLoginAt 更新与签发**之前**（这两件事都挪到 MfaVerificationService 成功之后做）：
+    // 此时"登录"尚未完成，而 last_login_at 常被用来判断某账号最近活没活跃 —— 若在这里就写，
+    // 一次失败/未完成的二次验证会在库里看起来像一次成功登录。未启用 2FA 的账号不受影响：
+    // challengeFor 返回空、本分支整体跳过，下面的语句与 082 之前逐字相同（FR-M14，由 LoginResponseShapeIT 守）。
+    //
+    // challengeFor 会签一张票据并写 Redis；Redis 不可用时它抛 503（fail closed），
+    // 即"Redis 挂了时已启用 2FA 的账号登不进来"，而不是静默地少验一个因素。
+    Optional<MfaChallenge> challenge = mfaChallengeService.challengeFor(user);
+    if (challenge.isPresent()) {
+      return AuthResponse.mfaChallenge(challenge.get().token(), challenge.get().expiresInSeconds());
     }
     // FR-002：更新最后登录时间
     // 085（FR-V01）：此处必须是**定向单列更新**，不得用实体级 updateById。
