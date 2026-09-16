@@ -15,6 +15,7 @@
     "menu:check": "node scripts/check-menu.mjs",
     "perms:check": "node scripts/check-perms.mjs",
     "ui:check": "node scripts/check-ui.mjs",
+    "zh:check": "node scripts/check-zh.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

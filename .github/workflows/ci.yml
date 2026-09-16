@@ -92,6 +92,14 @@ jobs:
       - name: UI conventions (ui:check)
         working-directory: frontend
         run: pnpm run ui:check
+      # 098 新增：源码硬编码中文（源码字面量口径，与 ui:check 的 R6「裸写法 placeholder/aria-label」
+      # **关注点不同、不重叠、不合并**）。台账 ZH_ALLOWED 是**债务台账**，双向校验：未登记命中 / count 多了 /
+      # count 少了（含已归零）**三者皆红** ⇒ 「清零」不是靠人记得改台账，而是不改台账就红。
+      # ⚠️ **如实边界**：本仓库**无远端、无 gh**（083 的既有订正），本文件里的全部作业**一次都不会触发**
+      # ——本步骤是为**将来接 CI 准备的声明**，**不得**据此声称「门禁已上 CI」。锚字符串：`run: pnpm run zh:check`。
+      - name: Source hardcoded Chinese (zh:check)
+        working-directory: frontend
+        run: pnpm run zh:check
       # 必须走 test:coverage 而不是 test：覆盖率阈值（vite.config.ts 的 coverage.thresholds，
       # FR-G09）只在该命令下生效。跑 test 的话门禁「配了但不管」——正是本规格要消除的形态。
       - name: Unit tests (with coverage threshold)
