@@ -264,3 +264,209 @@ AesGcmCipherTest.wrongKeyIsRejected    ==> Expected ... but nothing was thrown.
 
 **三次破坏都未提交**，破坏期间工作区只含本批自己的改动。
 `TotpGenerator` 的字母表校正是**还原之后**才落的正式改动，不在破坏范围内。
+
+### ⚠️ 追加订正（2026-09-16，第 5 步）：§C 里 `AesGcmCipher` 的 sha1 基准已作废
+
+原文（上面每条破坏的「还原」判据里引用的）基准是 `0a837ad658…`。**该基准不再成立**：
+第 5 步把 `AesGcmCipher.KEY_BYTES` 由包内可见改为 `public`，供
+`MfaSecretEncryptionService` 复用「解码后必须恰好 32 字节」这个判据——否则 `32` 这个数字会有
+**两个出处**（一处改、另一处不改就会静默漂移）。
+
+这是一次**正式改动，不是还原失败**：§C 的三次破坏在**其记录时点**都逐字节还原成功（当时 `sha1sum -c`
+输出 `OK`），改动发生在**那之后**。原文保留不改，新基线如下：
+
+| 文件 | 第 5 步提交时的 sha1 |
+|---|---|
+| `common/AesGcmCipher.java` | `66592dc4a54119f076f1562f9adaa38d4a55e70b` |
+
+---
+
+## §D 配置接缝、启动守卫与 TOTP 时间侧（第 5 步，2026-09-16）
+
+**本步新增 27 条用例**：`TotpServiceTest` 10、`MfaSecretEncryptionServiceTest` 10、
+`SecurityDefaultsGuardTest` 7（surefire 601 → **628**，与「基线 + 本项 N」对得上）。
+
+**破坏基准**（破坏前先记，逐字节还原后 `sha1sum -c` 必须全 `OK`）：
+
+```
+f42bb68e73d7f0ddbdca1648804e112e8bdb1ac1 *src/main/java/com/crm/config/SecurityDefaultsGuard.java
+030150b4cc999f1e04d7030a09d0e0e157a4eeb3 *src/main/java/com/crm/service/TotpService.java
+a49ee0e6854b8b692b35c995c0820b809ccefb64 *src/main/java/com/crm/service/MfaSecretEncryptionService.java
+5fac788166fa43f8c0e85290376646be72ef0ed3 *src/main/java/com/crm/config/ClockConfig.java
+```
+
+四条破坏**全部**观测到转红，且**每条都逐字节还原**（四次 `sha1sum -c` 全 `OK`）。
+还原之后才对 `SecurityDefaultsGuard` 做了一处**引用订正**（陈旧地指向一个**刻意未创建**的
+`MfaStartupGuardIT`，见 §D 末），因此该文件的**提交态** sha1 是
+`54a0a7c4fba75bc7c9aefa501714f4c0547224d7`，不再是上表里的 `f42bb68e…`。
+
+### 破坏 D1：把 MFA 密钥检查挪到 dev 的 `return` **之后**（位置性质）
+
+**被守护的断言**：`SecurityDefaultsGuardTest.checkRunsBeforeTheDevEarlyReturn`。
+
+**为什么需要单独守护**：`run()` 第 1 步在 dev 环境走的是 **`return`**（不是"检查完继续往下"），
+所以**任何追加在它之后的检查在 dev 里永远不会执行**——而 dev 恰恰是"本机没配 MFA 密钥"最常见的地方。
+失效方向是「**看起来检查过了**」。这条性质**靠注释保证不了**，`run()` 上方那段注释就是为此写的。
+
+**破坏**：删掉 `run()` 开头的 `checkMfaSecretKey();`，追加到第 3 步（生产环境提示）之后。
+
+**观测（逐字，7 条里恰好 1 条转红）**：
+```
+Tests run: 7, Failures: 1, Errors: 0, Skipped: 0 -- in com.crm.config.SecurityDefaultsGuardTest
+SecurityDefaultsGuardTest.checkRunsBeforeTheDevEarlyReturn
+  AssertionFailedError: 在会提前 return 的 dev 路径上，畸形密钥仍必须让启动失败
+  ==> Expected java.lang.IllegalStateException to be thrown, but nothing was thrown.
+```
+⇒ **对照组 `devPathPassesWithAValidKey` 保持绿**（同一条 dev 路径、同样的 `return`，只是密钥合法），
+故这次转红可归因于「检查的位置」这一件事，而不是 dev 分支本身。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 D2：`matchTimeStep` 返回"当前步"而不是"命中那一步"
+
+**被守护的断言**：`TotpServiceTest.returnsTheMatchedStepNotTheCurrentOne`。
+
+**为什么需要单独守护**：返回值是**防重放的键**。若实现图省事返回 `currentTimeStep()`，
+单次验证的表现**完全正常**（窗口内的码照样通过），只有重放时才出问题：用户提交上一步的码、
+却被按当前步记下来 ⇒ **上一步没被标记 ⇒ 同一个码还能再用一次**。
+这个缺陷**不会让任何"能登录"的测试转红**。
+
+**破坏**：`matchTimeStep` 的两处 `return OptionalLong.of(step);` → `return OptionalLong.of(now);`
+（即"命中的就是当前步"这个错误假设，其余一字不动）。
+
+**观测（逐字，10 条里恰好 1 条转红）**：
+```
+Tests run: 10, Failures: 1, Errors: 0, Skipped: 0 -- in com.crm.service.TotpServiceTest
+TotpServiceTest.returnsTheMatchedStepNotTheCurrentOne:72
+  AssertionFailedError: 上一步的码应命中上一步
+  ==> expected: <OptionalLong[59650799]> but was: <OptionalLong[59650800]>
+```
+⇒ `59650799` = `now - 1`，`59650800` = `now`：期望与实得的**差恰好是一步**，
+这就是"返回了当前步"的签名。同类的 `matchesCurrentStep`（当前步的码 ⇒ 命中当前步，
+此时 `step == now` 两者无法区分）、`rejectsOutsideTheWindow`、
+`zeroToleranceAcceptsOnlyCurrentStep` **全绿** —— 说明转红的归属是干净的。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 D3：`timeStepRetention()` 写死 90 秒
+
+**被守护的断言**：`TotpServiceTest.retentionIsDerivedFromTheWindow` 的第二条
+（`tolerance = 2` ⇒ 150 秒）。
+
+**为什么需要单独守护**：保留期必须**由窗口参数推出**。写死 90 的后果是：容错窗口一旦被调宽，
+被标记的步会**在它仍可被接受时提前解禁** ⇒ 同一个码能在两条票据上各用一次，正是 FR-M08 要防的重放。
+
+**破坏**：`Duration.ofSeconds((2L * tolerance + 1) * timeStepSeconds)` → `Duration.ofSeconds(90)`。
+
+**观测（逐字，10 条里恰好 1 条转红）**：
+```
+Tests run: 10, Failures: 1, Errors: 0, Skipped: 0 -- in com.crm.service.TotpServiceTest
+TotpServiceTest.retentionIsDerivedFromTheWindow:135
+  AssertionFailedError: 容错窗口变宽时保留期必须跟着变
+  ==> expected: <PT2M30S> but was: <PT1M30S>
+```
+⇒ 值得记下来的一点：**同一条用例里 `tolerance = 1` 那半仍然是绿的**（写死 90 与推导出的 90 相等）。
+即「写死 90」这个缺陷**只用默认参数是验不出来的**，必须有一条**非默认参数**的用例才抓得住 ——
+这就是那条 `tolerance = 2 ⇒ 150s` 断言存在的全部理由。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 D4：把配置内容回显进问题描述
+
+**被守护的断言**：`MfaSecretEncryptionServiceTest.messagesNeverContainTheConfiguredValue`
+与 `SecurityDefaultsGuardTest.failureMessageDoesNotEchoTheKey`。
+
+**为什么需要单独守护**：配置值可能是运维**误粘的别的东西**（私钥、口令）。它一旦进了异常消息，
+就会跟着错误报告、日志、工单一路扩散出去——而这条路径**只在配置出错时才走**，
+正是没有人会去读日志的时刻。
+
+**破坏**：在 `configurationProblem()` 的**非 Base64** 分支与**长度不对**分支各自追加
+`+ "（当前值：" + configuredKey + "）"`。
+
+**观测（逐字，两个类合计 17 条里 2 条转红）**：
+```
+Tests run: 7, Failures: 1 -- in com.crm.config.SecurityDefaultsGuardTest
+SecurityDefaultsGuardTest.failureMessageDoesNotEchoTheKey
+  AssertionFailedError: 消息里出现了配置内容：SECURITY: crm.security.mfa.secret-key 不是合法的 Base64。
+  应为 `openssl rand -base64 32` 的输出（44 字符，末尾一个 =）（当前值：!!!这不是 Base64!!!）
+
+Tests run: 10, Failures: 1 -- in com.crm.service.MfaSecretEncryptionServiceTest
+MfaSecretEncryptionServiceTest.messagesNeverContainTheConfiguredValue
+  AssertionFailedError: 描述里出现了配置内容的片段 [!]：…（当前值：!!!这不是 Base64!!!）
+```
+
+#### 破坏 D4b：**同一条破坏证明不了两个分支** —— 补一次只坏长度分支的观测
+
+`messagesNeverContainTheConfiguredValue` 是**逐样本循环**的，它在**第一个样本**
+（`NOT_BASE64`，片段 `!`）就中止了。所以上面那次转红**证明不了**长度分支的回显也会被抓住。
+把非 Base64 分支先还原、只留长度分支的回显，再观测一次：
+
+**观测（逐字，`SecurityDefaultsGuardTest` 7/7 全绿，只有循环那条转红）**：
+```
+Tests run: 7, Failures: 0 -- in com.crm.config.SecurityDefaultsGuardTest
+Tests run: 10, Failures: 1 -- in com.crm.service.MfaSecretEncryptionServiceTest
+MfaSecretEncryptionServiceTest.messagesNeverContainTheConfiguredValue
+  AssertionFailedError: 描述里出现了配置内容的片段 [MDEy]：crm.security.mfa.secret-key 解码后为 16 字节，
+  AES-256 要求恰好 32 字节（…）。注意长度是**解码后**算的：44 个字符的 Base64 串才是 32 字节
+  （当前值：MDEyMzQ1Njc4OWFiY2RlZg==）
+```
+⇒ 这次红的样本是 `SHORT_16`、片段 `MDEy`，走的正是**长度分支**；而守卫那边因为样本走非 Base64 分支
+（已还原）**全绿**。**两个分支各自被观测到一次**，归属干净。
+
+**还原**：`sha1sum -c` 输出 `OK`（两处回显各自还原后复验）。
+
+### 本步同时做的一处**引用订正**（不是破坏）
+
+`checkMfaSecretKey()` 的 javadoc 原先写着「'它在 `run()` 里被调到、且在 dev 的 `return` 之前'
+是另一条性质——**那条只有真起一个上下文才看得见（`MfaStartupGuardIT`）**」。
+**`MfaStartupGuardIT` 是刻意不创建的**：要真起一个 dev 上下文得连 MySQL，而这条性质本身只是
+`run()` 内两步的**先后**，与容器无关。该性质已由
+`SecurityDefaultsGuardTest.checkRunsBeforeTheDevEarlyReturn`（反射设好两个 `@Value` 字段后直接调 `run()`）承担。
+javadoc 与 `MfaSecretEncryptionServiceTest` 类注释里对它的引用一并订正为指向那个用例。
+
+### ⚠️ 本次门禁期间观测到**一次与本批无关的间歇失败**（如实记，未修）
+
+第 5 步的首次与第二次全量 `mvn -B verify` 都**不是全绿**：`failsafe 291 条里 1 条失败`，
+稳定落在 `WebhookRedirectIT.legitimateRedirectIsFollowedHopByHop`（两次都是同一条，报
+`expected: "SUCCESS" but was: "FAILED"`）。此后：
+
+| 第几次全量 `verify` | 工作区状态 | failsafe |
+|---|---|---|
+| 第 1 次 | 干净 | 291 / **1 失败** |
+| 第 2 次 | 干净 | 291 / **1 失败** |
+| 第 3 次 | 测试文件里**带着临时诊断断言**（生产代码未变） | 291 / 0 绿 |
+| 第 4 次 | 诊断已逐字节还原（`sha1sum -c` 输出 `OK`） | 291 / 0 绿 |
+
+⇒ 它是**间歇的**，不是本批引入的确定性回归；第 4 次是**干净工作区**上的门禁跑，
+surefire **628 / 0**（= 基线 601 + 本步 27）、failsafe **291 / 0**、
+`All coverage checks have been met.`、`BUILD SUCCESS`。
+
+**取证过程**（给一条只改消息、不改逻辑的临时诊断，跑完逐字节还原，`sha1sum -c` 复验 `OK`）：
+失败时该投递记录的真实内容是
+```
+error = I/O error on POST request for "http://localhost:9999/hook": Connection refused: connect
+retryCount = 3        httpStatus = 200
+回环服务命中： /hook 命中=1, /final 命中=1
+```
+
+**机制**：`localhost:9999` **在 `WebhookRedirectIT` 里从不出现**（它用的是 `HttpServer` 随机回环端口）。
+它属于**别的 IT 类**（`IntegrationHubIT` / `OpenPlatformIT` 用 `localhost:9999/hook`，而 9999 上无人监听
+⇒ 该投递要走完 1s／5s／30s 三次退避、约 36 秒才落库）。于是：
+**前一个测试类的在飞投递线程，在库被 `resetDatabase()` 重放之后才写下它的终态行**；
+而重放会让自增 id 重新开始，于是那条行的 `subscription_id` 与**本用例新建的订阅**撞号，
+被 `awaitDelivery` 的 `items.path(0)` 读成了本次的结果。本用例自己的两跳**其实都成功了**
+（各命中 1 次、落点 200），这也与"读到的是别人的行"一致。
+
+**这是本仓既有的跨测试类异步泄漏 + 主键重用的组合，不在 082 的改动面内**
+（本批没有碰 webhook／投递／异步调度的任何代码）。**本步不修**：它属于另一个特性的测试隔离缺陷，
+值得单独立项，而不该在 082 里顺手改掉（那会让 082 的门禁证据里混进一次无关的行为变更）。
+
+**同时订正我自己在排查中的一条错误推断**：我曾据「失败那次整类只跑 1.68s、隔离跑 10.42s」
+推断"跑得快即失败"。**不成立**——后来两次全绿里 `WebhookRedirectIT` 是 1.627s／1.647s，
+以及失败那两次本身就是 1.669s／1.680s：**耗时并不区分成败**，该推断作废（此处留痕以免后人重蹈）。
+
+**排查中另有一处工具陷阱值得记**：给测试加诊断后头两次跑都读到**旧报告**，原因是
+① `spotless:check` 在 `verify` 相位**早于 failsafe**，格式违规会让构建在跑测试**之前**就中止；
+② Maven 的增量编译判定 "Nothing to compile - all classes are up to date"，改动**根本没被编进去**
+（那份 `.class` 被判为比源码新）。故诊断类改动要生效，必须**先 `spotless:apply`**、
+并**删掉对应的陈旧 `target/test-classes/**.class`** 强制重编，否则会拿着上一轮的结论继续推理。

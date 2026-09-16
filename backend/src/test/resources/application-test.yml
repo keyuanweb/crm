@@ -39,6 +39,21 @@ jwt:
 crm:
   captcha:
     enabled: false
+  security:
+    mfa:
+      # 082：测试用固定密钥 —— Base64 的 32 字节 ASCII "test-mfa-key-for-082-0123456789x"。
+      #
+      # 刻意写死字面量而**不**回落到 ${MFA_SECRET_KEY}：开发机上若恰好导出了那个变量，
+      # 测试就会用上另一把密钥，表现为"本机绿、CI 红"（或反过来）——而这条失败信息会
+      # 指向"密钥不符"，看起来像 AesGcmCipher 出了问题，排查要从测试基建查起。
+      secret-key: dGVzdC1tZmEta2V5LWZvci0wODItMDEyMzQ1Njc4OXg=
+      # 与默认值刻意不同：这样凡是把 issuer 写死成 "CRM"（而不是读配置）的代码，
+      # 都会在断言 otpauth URI 时暴露出来。
+      issuer: CRM-Test
+      # 其余项（token-ttl / time-step / tolerance / max-attempts / lock-duration /
+      # recovery-code-count）刻意沿用主 yml 的默认值，不在此重复：重复声明会让
+      # "生产默认值改了、测试没跟上"这种漂移有一个藏身处。需要缩短窗口的用例走
+      # FixedClockTestSupport 推进时钟，而不是改成更小的配置值。
 
 logging:
   level:

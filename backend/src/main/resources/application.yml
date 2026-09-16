@@ -74,6 +74,36 @@ crm:
     # 运维无从得知准确拼写，等价于这项白名单在实践中不可用（见 data-model.md §4）。
     # 判定顺序（白名单优先于网段判定）与残余风险边界见 com.crm.common.OutboundUrlValidator。
     allowed-hosts: ${CRM_OUTBOUND_ALLOWED_HOSTS:}
+  security:
+    # 082-two-factor-auth：TOTP 双因素认证。
+    mfa:
+      # TOTP 密钥的静态加密密钥（AES-256-GCM，见 com.crm.common.AesGcmCipher）。
+      # 必须是 Base64 编码的**恰好 32 字节**：openssl rand -base64 32
+      #
+      # ⚠️ 留空 = 未配置，这是**合法状态**（2FA 是可选功能，很多部署不用它）：
+      # 启动只告警，绑定/启用等用到密钥的路径在**调用时**以 MFA_SECRET_MISSING 失败
+      # ——fail closed，绝不会静默降级成单因素。
+      # 配了但解出来不是 32 字节 = 误配，**启动即抛**（见 SecurityDefaultsGuard）。
+      # 两种错法分开处置的理由写在 SecurityDefaultsGuard.checkMfaSecretKey 上。
+      secret-key: ${MFA_SECRET_KEY:}
+      # 二次验证票据（mfaToken）的有效期，秒。只覆盖"密码已通过、验证码尚未提交"
+      # 这一段，与 jwt 的 access/refresh TTL 无关。
+      token-ttl-seconds: ${MFA_TOKEN_TTL:300}
+      # TOTP 时间步长（秒）与容错步数。±1 步 = 前后各 30 秒，是认证器 App 与服务器
+      # 时钟漂移的通行容忍度；取 0 会让时钟差一秒的用户直接登不进来。
+      time-step-seconds: ${MFA_TIME_STEP:30}
+      time-step-tolerance: ${MFA_TIME_STEP_TOLERANCE:1}
+      # 连续失败达到 max-attempts 即锁定 lock-duration-seconds。
+      # ⚠️ 窗口从**达到阈值的那一次失败**起算，不是从第 1 次失败起算——
+      # 后者会把"5 次"变成"5 分钟内总共 5 次"，与规格 SC-M04 的措辞不符。
+      max-attempts: ${MFA_MAX_ATTEMPTS:5}
+      lock-duration-seconds: ${MFA_LOCK_DURATION:900}
+      # 启用 / 重新生成恢复码时下发的条数。
+      recovery-code-count: ${MFA_RECOVERY_CODE_COUNT:10}
+      # otpauth:// URI 里的发行方（认证器 App 中的条目分组名）。改它会让已绑定的
+      # 用户在 App 里看到的名字与服务器不一致，但**不影响码的校验**（码只由密钥与
+      # 时间步决定）——故它不是安全参数，只是显示名。
+      issuer: ${MFA_ISSUER:CRM}
 
 # CORS：允许的前端 Origin（逗号分隔），生产环境通过环境变量覆盖
 cors:

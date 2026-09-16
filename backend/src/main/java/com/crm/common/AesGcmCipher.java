@@ -39,8 +39,13 @@ public final class AesGcmCipher {
   /** 认证标签长度（位）。128 位是 GCM 允许的最大值，没有理由取更小。 */
   static final int TAG_BITS = 128;
 
-  /** AES-256 的密钥长度（字节）。 */
-  static final int KEY_BYTES = 32;
+  /**
+   * AES-256 的密钥长度（字节）。
+   *
+   * <p>{@code public} 是给 {@code MfaSecretEncryptionService} 用的：配置校验要在**解码后、加密前** 就把"这不是 32
+   * 字节"报出来（启动时给运维看的一句话，而不是等到某个用户绑定时抛一句通用异常）， 而它若自己再写一遍 {@code 32}，那个数字就有两个出处。
+   */
+  public static final int KEY_BYTES = 32;
 
   private static final String TRANSFORMATION = "AES/GCM/NoPadding";
 
