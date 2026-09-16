@@ -78,3 +78,122 @@
 - **US5 强制策略**：本期不实现按角色强制绑定与强制引导登录，仅预留 `mfaSetupRequired` 扩展点与策略判定挂点。
 - **SMS/邮件找回**：不做短信或邮件找回恢复码/重置 2FA 通道，恢复仅靠恢复码与管理员重置。
 - **开放平台鉴权**：不改变开放平台 API Key 与 Webhook 的既有鉴权方式，2FA 仅作用于主站登录。
+
+---
+
+## ⚠️ 订正（2026-09-16，**事后按现状订正**）
+
+**性质说明**：本计划写于 2026-09-12，此后 13 批特性落地。以下按**今天的实测现状**订正，
+**属"事后按现状订正"（照 090/094/095 的先例）**。原文一律逐字保留在上方。
+
+### 一、迁移号 `V78` → **`V89`**（原文的号已被占）
+
+**原文（保留）**：技术上下文「Flyway：新增 `V78__two_factor_auth.sql`」、实现步骤 1 同。
+
+**实测**：`V78` **已被占用** —— `backend/src/main/resources/db/migration/V78__sla_escalation.sql`（`72a74e0`，
+属 1.3-sla-escalation 批，内容是 `ticket` 的 SLA 列）。当前最高号为 **`V88`**（且 `V72` 是历史空缺、未使用）。
+⇒ 本批用 **`V89__two_factor_auth.sql`**。`specs/README.md` 的迁移对照表原记「V78 | 082」，
+是当年的一次**预留**被写成了既成事实，已同批订正（该行现已改为 V78 的真实归属 + 新增 V89 行）。
+
+### 二、`ErrorCode` 的 8 个码里 **`MFA_REQUIRED` 是死数据**，实际落 7+1
+
+**原文（保留）**：实现步骤 2「ErrorCode 枚举新增 8 个码：`MFA_REQUIRED`、…」；
+端点清单第 8 条「login 命中 2FA 用户时返回 `{mfaRequired, mfaToken, expiresIn: 300}`」。
+
+**订正**：`MFA_REQUIRED` **不加**。`ErrorCode` 在本仓是**错误**枚举 ——
+`GlobalExceptionHandler.handleBusiness` 会用 `code.getStatus()` + `error` 段把它渲染成 `ApiResponse.fail`，
+而 HTTP 200 的「需要二次验证」**永远不会被抛**。加进去就是一条**永不可达的枚举项**（死数据），
+且它的 HTTP 200 一旦被谁误用，会把一个成功响应渲染成失败信封。
+⇒ 实际落 **7 个错误码**：`MFA_TICKET_INVALID`(401)、`MFA_CODE_INVALID`(401)、`MFA_LOCKED`(**429，全仓首个 429**)、
+`MFA_NOT_ENABLED`(400)、`MFA_ALREADY_ENABLED`(400)、`RECOVERY_CODE_INVALID`(401)、`MFA_SECRET_MISSING`(500)，
+**外加**原计划没有的 `MFA_STORE_UNAVAILABLE`(**503**)（见 §四），合计 **8 个可达码**，与原计划的条数相同而性质不同。
+「需要二次验证」由**响应体字段** `mfaRequired: true` 表达，不由错误码表达。
+
+### 三、`mfaToken` **不是** JWT（原文写的是 `"eyJ…"`）
+
+**原文（保留）**：端点清单 / 契约样例里的 `mfaToken` 形如 `eyJ...`；技术上下文未明说。
+
+**订正**：`mfaToken` 改为 **`SecureRandom` 32 字节 → Base64URL 的不透明随机串**，`JwtUtil` **不动**。
+理由：票据的**服务端权威是 Redis**（`createTicket`/`consumeTicket` 的 TTL 与一次性语义）。
+若把它做成 JWT，会引入**第二个真源**——JWT 自带的 `exp` 可与 Redis TTL 不一致，
+且「JWT 解得开但票据已被消费/过期」仍必须折回 `MFA_TICKET_INVALID`，
+白增一处不一致面而零收益。（契约样例里的 `eyJ...` 只是**形状示意**，不是对编码格式的要求。）
+
+### 四、新增 `MFA_STORE_UNAVAILABLE`(503)：Redis 故障要有可观测出口
+
+**原文（保留）**：风险与缓解「**Redis 依赖**：…缓解：明确失败关闭策略（不降级）」。
+**订正**：语义不变（fail closed），但原计划的 8 个码里**没有任何一个能表达"Redis 挂了"** ——
+`MFA_SECRET_MISSING` 是密钥配置问题、`MFA_TICKET_INVALID` 是票据问题，二者都会把故障归错因。
+⇒ 新增 `MFA_STORE_UNAVAILABLE`(503)，由 `MfaStateStore` 的**每一个公开方法**在 Redis 异常时转抛。
+**这是本批唯一能"静默降级为单因素"的地方**：一处 `catch { return null; }` 就会让所有 2FA 账号在 Redis 抖动时
+变成单因素，而响应里看不出来。
+
+### 五、Redis 键族 `mfa:*` → **`auth:2fa-*`**
+
+**原文（保留）**：技术上下文「`mfa:ticket:{token}`、`mfa:fail:{userId}`、`mfa:used:{userId}:{timeStep}`」。
+
+**订正**：改为 **`auth:2fa-ticket:` / `auth:2fa-fail:` / `auth:2fa-used:`**。
+仓内惯例是**每服务的键都挂在 `auth:` 下**（`auth:refresh:`、`auth:fail:`、`auth:ip-fail:`、`auth:captcha:`、`auth:user-state:`），
+另起一个顶层 `mfa:` 命名空间会让人以为它由另一个服务管理。语义与 TTL 一字不改。
+
+### 六、管理员重置的路径：`/api/v1/admin/users/{id}/2fa/reset` → **`/api/v1/users/{id}/2fa/reset`**
+
+**原文（保留）**：实现步骤 10「`com.crm.controller.AdminUserController`（或既有用户管理控制器）」、
+端点清单第 7 条、`data-model.md` 无涉。
+
+**实测**：后端**不存在 `/api/v1/admin/**` 这个前缀**。用户管理端点在 `UserController`，挂 `/api/v1/users`
+（`GET /`、`GET /{id}`、`POST /`、`PUT /{id}`、`PUT /{id}/password`、`PUT /{id}/data-permission`，
+每条都带 `@RequirePermission("user:manage")`）。
+⇒ 重置端点挂 **`POST /api/v1/users/{id}/2fa/reset`**，与其它管理动作同处一个控制器、同一个权限码。
+**原计划的"或既有用户管理控制器"这一支就是被采纳的那一支**，故实现步骤 10 的 `AdminUserController` 分支不建。
+
+### 七、`verify` 的响应：`{accessToken, refreshToken, expiresIn: 3600}` → **既有 `AuthResponse`**
+
+**原文（保留）**：契约 §3「响应 200：`{accessToken, refreshToken, expiresIn: 3600}`」；
+原计划 §四「`expiresIn` 在 login 分支语义 = mfaToken TTL」。
+
+**订正**：`verify` 返回**与 `login`/`refresh` 同一个 `AuthResponse{accessToken, refreshToken, user}`**。
+理由是**前端需要 `user`**：`user.menus` / `user.permissions` 是渲染外壳与菜单的依据，
+只回两个令牌会迫使前端**多打一次** `GET /auth/me`——而这次额外的往返恰好落在
+SC-M01「全流程 ≤ 30 秒」的计时区间里，且多一次可失败的请求。
+⇒ **`expiresIn` 只出现在 `mfaRequired` 分支**（登录响应里），语义唯一 = `mfaToken` 的 TTL 秒数。
+`verify` 响应里**没有** `expiresIn`（令牌自身的有效期由既有机制表达，不需要在这里重复），
+即原契约 §3 与 §8 里"同名不同义"的 3600 与 300 **收敛为只有一个 300**。
+
+### 八、`MFA_SECRET_MISSING` 的触发时机：**启动即抛 → 懒惰失败**（否则炸掉测试套件）
+
+**原文（保留）**：`quickstart.md`「若未配置该密钥，后端应报 `MFA_SECRET_MISSING`」；
+`tasks.md` T004「缺失时 fail closed，报 `MFA_SECRET_MISSING`」。
+
+**订正**：**密钥缺失/空白 ≠ 启动失败**。改为**两分**：
+
+| 情形 | 行为 |
+|---|---|
+| `MFA_SECRET_KEY` 缺失或空白 | **启动只告警**；**调用 2FA 功能时**抛 `MFA_SECRET_MISSING`（**懒惰失败，仍 fail closed**） |
+| 密钥存在但 Base64 解码后**不是 32 字节** | **启动即抛**（误配必须响，不能等到用户绑定时才发现） |
+
+理由是照 `SecurityDefaultsGuard` 抄会**炸掉整个测试套件**：该类用
+`@Value("${spring.profiles.active:}")` + `activeProfiles.toLowerCase().contains("dev")` 判定，
+而测试跑在 `@ActiveProfiles("test")` 下 —— **`"test"` 不含 `"dev"`，故测试会被判为非 dev 而硬失败**。
+更根本的是：一个**不用 2FA 的部署**没有理由因为缺这个密钥就拒绝启动。
+「懒惰失败」不削弱安全性：密钥缺失时 **2FA 功能整体不可用**，已启用 2FA 的用户**登录被拒**（fail closed），
+而不是降级为单因素 —— 失败方向没变，只是失败的**时刻**从启动推迟到首次调用。
+
+### 九、前端既有测试的基数 `58` → **86 文件 / 429 用例**
+
+**原文（保留）**：测试策略「58 项前端测试保持绿（SC-M08、FR-M14）」；实现步骤 12「回归…前端 58 项测试」。
+
+**订正**：同 `spec.md` §二，实测 **86 文件 / 429 用例**。判据（零回归）不变。
+
+### 十、本批的真实工作量：前端**必须与后端同一批交付**
+
+**原文（保留）**：实现步骤 11 与 12 把前端列在末尾，形制上像是"后端的收尾"。
+
+**订正**：**前后端不可独立发布** —— 这是实测出的**硬耦合**，不是排期偏好。
+`frontend/src/pages/LoginPage.tsx` 的 `onFinish` **无条件读 `res.accessToken`** 并调用
+`setTokens(res.accessToken, res.refreshToken)`；`services/authService.ts` 里
+`AuthResponse.accessToken` 是**非可选**的 `string`。若后端单独上线，一个已启用 2FA 的用户登录会得到
+`{mfaRequired:true, mfaToken, expiresIn}` —— 没有 `accessToken` —— 前端会把**字符串 `"undefined"`
+写进 localStorage**，于是 `isAuthenticated()` 恒真、外壳渲染、随后 `fetchMe()` 返回 401、
+拦截器硬跳 `/login`，形成**静默重定向环**：用户看到的是页面反复闪烁，而不是任何一条错误信息。
+⇒ 步骤 11（前端）与步骤 2~10（后端）**同批交付**，二者之间**不得**插入一次发布。

@@ -87,3 +87,57 @@
 - 恢复码只存哈希：`code_hash` 存 `base64(salt):hex(sha256)`，明文恢复码仅在生成响应中返回一次，落库后不可逆。
 - `user_id` 外键级联删除：删除用户时 `user_recovery_code` 随 `ON DELETE CASCADE` 自动清理，避免孤儿记录。
 - 绑定未完成不得置 `enabled`：只有「生成密钥 → 输入动态码校验通过」两步完成后才将 `two_factor_enabled` 置 1 并写入绑定时间；校验失败或中途放弃保持未启用，且不影响下次登录。
+
+---
+
+## ⚠️ 订正（2026-09-16，**事后按现状订正**）
+
+**性质说明**：本文件写于 2026-09-12，此后 13 批落地。以下按**今天的实测现状**订正，
+**属"事后按现状订正"（照 090/094/095 的先例）**。原文一律逐字保留在上方、不删改。
+
+### 一、迁移号 `V78` → **`V89`**
+
+同 `plan.md` 订正块 §一：`V78` 已被 `V78__sla_escalation.sql`（1.3-sla-escalation 批）占用，
+当前最高 `V88`。实际文件为 **`V89__two_factor_auth.sql`**。
+
+### 二、Redis 键族 `mfa:*` → **`auth:2fa-*`**
+
+**原文（保留）**：`## Redis 键模型` 三行 `mfa:ticket:{token}` / `mfa:fail:{userId}` / `mfa:used:{userId}:{timeStep}`。
+
+**订正**：改为 **`auth:2fa-ticket:` / `auth:2fa-fail:` / `auth:2fa-used:`**，与仓内既有的
+`auth:refresh:` / `auth:fail:` / `auth:ip-fail:` / `auth:captcha:` / `auth:user-state:` 同族。
+**类型、值、TTL 三列一字不改**（300s / 900s / 90s）。
+
+### 三、`ON DELETE CASCADE` 在软删除下**永不触发**（如实记）
+
+**原文（保留）**：`## user_recovery_code 表` 的 `user_id` 行「NOT NULL（FK → user.id，**ON DELETE CASCADE**）」；
+`## 数据一致性约束`「删除用户时 `user_recovery_code` 随 `ON DELETE CASCADE` 自动清理，避免孤儿记录」。
+
+**订正**：约束照建（`V73`/`V74` 已有同形先例），但**要如实说明它在本仓不会触发**：
+`User extends BaseEntity`，而 `BaseEntity` 的 `deleted` 字段带 **`@TableLogic`** ——
+用户的"删除"是**软删除**（`UPDATE ... SET deleted=1`），**从不产生物理 `DELETE`**，
+故 MySQL 的 `ON DELETE CASCADE` **没有触发的机会**。
+⇒ 恢复码真正的清理路径是**应用层**：关闭 2FA / 管理员重置时调 `RecoveryCodeService.revokeAll(userId)`。
+外键在此的角色是**防御性的**（若有人手工跑物理 `DELETE` 时不至于留下孤儿行），
+**不是**"一致性靠它保证"。这一条写下来，是为了避免下一位读者把"有 CASCADE"读成"孤儿已有人管"。
+
+### 四、H2 测试镜像**故意不含任何外键**（本批照旧）
+
+**原文（保留）**：`## 迁移`「同步镜像到 `backend/src/test/resources/schema-h2.sql`，保证测试用 H2 内存库结构与 MySQL 主库一致」；
+「索引与约束保持一致」。
+
+**实测**：`backend/src/test/resources/schema-h2.sql` 里 `FOREIGN KEY` 出现 **0 次**
+（而主迁移链里有 12 处，分布在 `V71`/`V73`/`V74`）—— 即**镜像在这一点上历来就与主库不一致**，
+是**既有设计**而非本批引入。⇒ 本批**照旧**：`user_recovery_code` 的 FK 只写进 `V89`，
+镜像里**不写**，`SchemaParityIT` 的门禁也**只核表名**（见 `plan.md` 的测试面事实）。
+"结构与主库一致"这句原文在**外键与列类型**两个维度上**自古就是近似**，本批不改变这个近似，
+也不假装它精确。
+
+### 五、`totp_secret_encrypted` 的长度 `VARCHAR(512)` 够用（核算过）
+
+**原文（保留）**：`## user 表新增列` 的 `totp_secret_encrypted | VARCHAR(512)`。
+
+**核算**：32 字节密钥经 AES-256-GCM 加密后密文 32 字节 + tag 16 字节 = 48 字节，
+`base64(iv)` 12 字节 → 16 字符（去 padding）、`base64(ct||tag)` 48 字节 → 64 字符，
+加分隔符 `:` ⇒ **约 81 字符**。`VARCHAR(512)` 有 6 倍余量，**不改**。
+（此处只是把原文没写的核算补上，结论与原文一致。）

@@ -58,3 +58,60 @@
 - T022 → T013 / T014
 - T023 → T016 / T017 / T018
 - T024 → T019
+
+---
+
+## ⚠️ 订正（2026-09-16，**事后按现状订正**）
+
+**性质说明**：本文件写于 2026-09-12，此后 13 批落地。以下按**今天的实测现状**订正，
+**属"事后按现状订正"（照 090/094/095 的先例）**。
+**上方的任务原文与勾选行一律逐字保留**；本块只追加，**不回写**。
+**勾选纪律**：实施时**做一项勾一项**，**不预勾**。
+
+### 一、逐条订正
+
+| 任务 | 原文（保留在上方） | 订正 |
+|---|---|---|
+| T001 | 迁移 `V78__two_factor_auth.sql` | **`V89__two_factor_auth.sql`** —— `V78` 已被 `V78__sla_escalation.sql`（1.3-sla-escalation 批）占用，当前最高 `V88`。见 `plan.md` 订正块 §一 |
+| T002 | 镜像 `schema-h2.sql` 与 `V78` 一致 | 同上，改为与 `V89` 一致。**且"一致"是指表名与列**：镜像**历来不含任何外键**（实测 0 处，而主迁移链有 12 处），本批照旧，见 `data-model.md` 订正块 §四 |
+| T003 | `ErrorCode` 新增 **8** 个码，**含 `MFA_REQUIRED`** | **`MFA_REQUIRED` 删除**（HTTP 200 的错误码 = 永不可达的死数据），**新增 `MFA_STORE_UNAVAILABLE`(503)**。仍是 **8** 个码，但**集合与原文不同**：`MFA_TICKET_INVALID`、`MFA_CODE_INVALID`、`MFA_LOCKED`(429)、`MFA_NOT_ENABLED`、`MFA_ALREADY_ENABLED`、`RECOVERY_CODE_INVALID`、`MFA_SECRET_MISSING`、`MFA_STORE_UNAVAILABLE`。见 `contracts/auth-mfa.md` 订正块 §四 |
+| T004 | 缺失密钥时 fail closed，报 `MFA_SECRET_MISSING` | **触发时机改为"懒惰失败"**：密钥**缺失/空白 ⇒ 启动只告警**、调用 2FA 时抛 `MFA_SECRET_MISSING`；密钥**存在但解码后非 32 字节 ⇒ 启动即抛**。照 `SecurityDefaultsGuard` 抄会**炸掉整个测试套件**（`@ActiveProfiles("test")` 不含 `"dev"`，会被判为非 dev 而硬失败）。见 `plan.md` 订正块 §八 |
+| T008 | `QrCodeService`（zxing core → PNG Base64） | 类名定为 **`MfaQrCodeService`**（与 `MfaService` / `MfaStateStore` 同前缀）。zxing **不在本机 m2 仓**，首次构建需网络 |
+| T009–T011 | 三个独立服务：`MfaTicketService` / `MfaAttemptService` / `MfaReplayGuard` | **合并为单个 `MfaStateStore`**。理由：三者是**同一个 fail-closed 边界**的三个面 —— 拆成三个类，`catch { return null; }` 就有**三个**地方可以写错；合一个类，**全仓只有一处**能写错。**Redis 键与 TTL 逐字不变**（见 §二） |
+| T012 | 恢复码"生成 10 个 **8 位 Base32**" | 措辞改 **"8 位无歧义字符"**（字母表 = `CaptchaService.CHARS`，31 符号，含 `8`/`9`）。**标准 Base32 不含 `8`/`9`**，原文自相矛盾。见 `contracts/auth-mfa.md` 订正块 §十一 |
+| T015 | verify 校验动态码或恢复码，**签发访问令牌** | 签发的是**完整 `AuthResponse`**（含 `user`），**不是**裸令牌 + `expiresIn`。见 `contracts/auth-mfa.md` 订正块 §二 |
+| T019 | `POST /api/v1/**admin**/users/{id}/2fa/reset` | **`POST /api/v1/users/{id}/2fa/reset`** —— 后端不存在 `/api/v1/admin/**`，用户管理端点在 `UserController` 的 `/api/v1/users`。权限码 `user:manage` 不变 |
+| T020 | login 返回 `{mfaRequired, mfaToken, expiresIn: 300}` | 字段名与值**全部成立**；但 **`expiresIn` 只在此分支出现**（`verify` 不返回它）。另：**未启用用户"逐字节不变"必须有自动化用例守**（新增 `LoginResponseShapeIT`），不能只靠"我没改那段代码" |
+| T027 | 集成测试覆盖……、非 2FA 登录逐字节兼容 | 覆盖项**增加**：`SecurityConfig` 的 permitAll（无 `Authorization` 的 `verify` 要能到控制器）、`lastLoginAt` 写入**不得自增 `user.version`**（085 回归，本批最高风险） |
+| T028 | 既有前端 **58** 项保持全绿 | 实测 **86 文件 / 429 用例**。判据（零回归）不变，基数按实测 |
+
+### 二、Redis 键与 TTL（**这三行是全批最不能写错的东西**）
+
+| 用途 | 键 | 值 | TTL | 原语 |
+|---|---|---|---|---|
+| 二次验证票据 | `auth:2fa-ticket:{token}` | userId | 300 s | `set` / **`getAndDelete`**（消费） |
+| 失败计数与锁定 | `auth:2fa-fail:{userId}` | 计数（int） | 900 s | `increment` + 达阈值时 `expire` |
+| 防重放时间步 | `auth:2fa-used:{userId}:{timeStep}` | 1 | 90 s | **`setIfAbsent`** |
+
+原计划的 `mfa:*` 顶层命名空间改为 `auth:2fa-*`（与 `auth:refresh:` / `auth:fail:` / `auth:captcha:` 同族）。
+**TTL 三个数一字不改**（300/900/90）。
+
+### 三、原任务清单**未列、但本批必须做**的工作（如实记账，不摊派给既有任务号）
+
+这几件在原文里**没有对应的任务号**，是实施中实测出的必要件。**不塞进 T001–T029 的某一个号里**，
+以免造成"原计划已覆盖"的错觉：
+
+1. **`TokenService` 抽取**：把 `AuthService.issueTokens` / `toUserInfo` 原样搬进新类。
+   不抽则 `AuthService → MfaChallengeService` 与 `MfaVerificationService → AuthService`
+   构成 **bean 环**，Spring 启动即失败。
+2. **`Clock` 接缝**（`@Bean Clock`）：没有它，「防重放」与「15 分钟锁定到期」两条
+   都**只能靠真实等待**才能测 —— 前者要等 30 秒、后者要等 15 分钟。
+3. **`LoginResponseShapeIT`**：把 FR-M14「非 2FA 响应逐字节不变」钉成断言（T020 的订正里已提）。
+4. **两条测试基建**：`InMemoryRedisTestSupport`（功能性 Redis 替身 + 按 key 前缀注入故障）
+   与 `FixedClockTestSupport`。**不建则 2FA 的端到端路径一条都测不了** ——
+   `AbstractIntegrationTest` 只装一个**未被捕获**的 `mock(ValueOperations.class)`，
+   读恒返 `null`、写是空操作，票据永远查不到。**该基类本批不改**（JUnit 5 父类 `@BeforeEach` 先跑，
+   子类重装即可生效；改基类默认值会动到 74 个 IT 的可观测行为）。
+5. **`AuthController` 的 permitAll**：`/api/v1/auth/2fa/verify` 必须**作为精确路径**加进
+   `SecurityConfig`（`permitAll` 是逐条列举的），**不能用 `/api/v1/auth/2fa/**` 通配** ——
+   那会把 `setup`/`status`/`disable` 一起放出去。
