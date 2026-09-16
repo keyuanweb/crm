@@ -99,14 +99,64 @@
 **删除前**取的两条读数（照 `quickstart.md` §4 的命令）：
 
 ```
-（待填：check-ignore 命中行 / --find-object 空 / 全历史 498 行无输出）
+$ ls -l frontend/src/App.tsx.bak
+-rw-r--r-- 1 Administrator 197121 22354 Aug 23 23:55 frontend/src/App.tsx.bak     # 498 行
+$ git check-ignore -v frontend/src/App.tsx.bak
+.gitignore:45:*.bak	frontend/src/App.tsx.bak
+$ git ls-files --error-unmatch frontend/src/App.tsx.bak
+error: pathspec 'frontend/src/App.tsx.bak' did not match any file(s) known to git
+$ git log --all --oneline -- frontend/src/App.tsx.bak | wc -l
+0
+$ git hash-object frontend/src/App.tsx.bak              # 注意：不带 -w
+f3e8c6013f169b2f44ace54276a8eea06a957d43
+$ git log --all --oneline --find-object=f3e8c6013f169b2f44ace54276a8eea06a957d43 | wc -l
+0
 ```
+
+⚠️ **本次读数里有一项会被误读，必须先说明**：
+
+```
+$ git cat-file -e f3e8c6013f169b2f44ace54276a8eea06a957d43 && echo 存在
+存在
+$ git rev-list --objects --all | grep -c f3e8c60…      # 从任何 ref 可达吗
+0
+$ git fsck --unreachable --no-progress | grep -c f3e8c60…
+1
+$ ls -l .git/objects/f3/e8c6013f169b2f44ace54276a8eea06a957d43
+-r--r--r-- 1 Administrator 197121 6732 Sep 16 19:03 …/f3/e8c6013f169b2f44ace54276a8eea06a957d43
+```
+
+**这个 blob 确实在对象库里，但那是「本项调研自己写进去的」**：mtime `2026-09-16 19:03`（今天）、
+`fsck` 判 **unreachable**、`rev-list --objects --all` **0 命中**。成因是 `research.md` §3 记的那个坑——
+立项调研时先跑了 `git hash-object -w`（**带 `-w`**），对象因此落库。
+⇒ **判「历史里有没有」只能用 `--find-object`（查可达性）**；用 `cat-file -e`（查对象存在性）会得到
+**由本次调研自己制造的假阳性**。上面那条 `cat-file` 读数是**故意留下的反面样本**。
+
+（尺寸也对得上：磁盘 22354 字节 − 498 行 × 1 字节 CRLF = 21856 = `git cat-file -s` 的读数。）
+
+**第三条读数（删除当时做的更严复核，见 `research.md` §3 末尾的 ⚠️）**：
+按**行**粒度比「`.bak` 独有的行 vs 全历史 + 现行」⇒ **19 行**，**全部是静态 `import` 句**；
+18 个落点今天仍在同一路径，第 19 个 `pages/board/KpiBoardPage.tsx` 由 `68a14d5` 删除、可从其父版本取回。
+⇒ **无独有信息**在更严的粒度上依然成立。
 
 > 立项期已取过一次**同形**读数（记在 `research.md` §3，含那次踩到的 `hash-object -w` 循环论证坑）；
 > 这里要的是**删除当时**的一份，两份并存、互不替代。
 
 **删除后**：`ls frontend/src/App.tsx.bak` 应报 No such file；`git status --porcelain` **不应多出任何条目**
 （这正是「不产生提交」的证据）。
+
+```
+$ rm frontend/src/App.tsx.bak
+$ ls frontend/src/App.tsx.bak
+ls: cannot access 'frontend/src/App.tsx.bak': No such file or directory
+$ git status --porcelain        # 删除前 3 条 = 删除后 3 条（且 3 条都是本次要提交的文件）
+ M PROJECT_FEATURES.md
+ M specs/097-debt-ledger-closeout/falsification-evidence.md
+ M specs/097-debt-ledger-closeout/research.md
+```
+
+⇒ **条目数无增减**：`.bak` 从未被跟踪、又被 `.gitignore:45` 覆盖，删它**不产生任何提交**。
+`App.tsx.bak` 的全部凭据就是本节的读数——**它已不存在于任何地方，包括 git 历史**。
 
 ---
 
