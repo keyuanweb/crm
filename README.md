@@ -48,6 +48,7 @@
 ### 系统管理
 - **用户/角色/部门**：完整的组织架构管理
 - **权限控制**：RBAC + 字段级权限 + 数据权限
+- **双因素认证（2FA）**：TOTP 动态码绑定与二次验证、恢复码、管理员重置
 - **审计日志**：操作追踪、合规导出
 - **回收站**：批量恢复、彻底删除
 - **自定义字段/对象**：动态表单、扩展实体
@@ -81,7 +82,7 @@ CREATE USER 'crm_user'@'localhost' IDENTIFIED BY 'crm123456';
 GRANT ALL PRIVILEGES ON crm_db.* TO 'crm_user'@'localhost';
 ```
 
-> ⚠️ 只需创建空数据库，无需手动导入 SQL。Flyway 会在后端启动时自动创建全部 85 张表。
+> ⚠️ 只需创建空数据库，无需手动导入 SQL。Flyway 会在后端启动时自动创建全部 86 张表。
 
 启动 Redis（`redis-server`）。
 
@@ -152,14 +153,14 @@ cd frontend && pnpm run test:e2e
 crm/
 ├── backend/                    # Spring Boot 后端
 │   ├── src/main/java/com/crm/ # controller/service/repository/entity/dto
-│   ├── src/main/resources/    # application.yml、db/migration（V1~V88，缺 V72）
+│   ├── src/main/resources/    # application.yml、db/migration（V1~V89，缺 V72；V89 = 082 双因素认证）
 │   └── pom.xml
 ├── frontend/                   # React 前端
 │   ├── src/                   # pages/components/services/types/store/hooks
 │   ├── tests/                 # 单元测试
 │   ├── e2e/                   # 端到端测试
 │   └── package.json
-├── specs/                      # Spec Kit 设计文档（91 个功能模块，001~092，缺 069）
+├── specs/                      # Spec Kit 设计文档（94 个功能模块，001~095，缺 069）
 ├── .specify/                   # Spec Kit 配置与模板
 ├── docker-compose.yml          # Docker 编排
 ├── Dockerfile                  # 后端镜像（多阶段构建）

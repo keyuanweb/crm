@@ -2,22 +2,32 @@
 
 > 核对基准：**当前工作区代码**（`backend/`、`frontend/`、`specs/`），非既有文档描述。
 > 与 README / specs/README.md 不一致之处见「八、文档与代码的偏差」。
-> **规模数字于 2026-09-15 按下表「依据」列的口径重新实测**（上一版为 2026-09-11，多数已滞后）。
+> **规模数字于 2026-09-16 按下表「依据」列的口径重新实测**（上一版为 2026-09-15，此后 082/093/094/095 等批次落地，多行已滞后）。
 
 ## 一、规模速览
 
-| 维度 | 实测值（2026-09-15） | 依据 |
+| 维度 | 实测值（2026-09-16） | 依据 |
 |---|---|---|
 | 后端 REST Controller | **66** | `backend/src/main/java/**/*Controller.java` |
-| 数据库表 | **85** | `db/migration/*.sql` 中 `CREATE TABLE` 去重（**注意用 `src/main/resources`，`target/classes` 会让计数翻倍**） |
-| Flyway 迁移 | **87 个（V1–V88，缺 V72）** | `backend/src/main/resources/db/migration` |
-| 后端测试类 | **163 个含用例的类**（`src/test` 共 167 个 `.java`） | `grep -rlE "@Test\|@ParameterizedTest" backend/src/test/java` |
-| 前端页面组件 | **101 个非测试 tsx**（含测试共 170） | `frontend/src/pages` 下 `*.tsx` 且非 `*.test.tsx` |
+| 数据库表 | **86** | `db/migration/*.sql` 中 `CREATE TABLE` 去重（**注意用 `src/main/resources`，`target/classes` 会让计数翻倍**） |
+| Flyway 迁移 | **88 个（V1–V89，缺 V72）** | `backend/src/main/resources/db/migration` |
+| 后端测试类 | **181 个含用例的类**（`src/test` 共 187 个 `.java`） | `grep -rlE "@Test\|@ParameterizedTest" backend/src/test/java` |
+| 前端页面组件 | **101 个非测试 tsx**（含测试共 174） | `frontend/src/pages` 下 `*.tsx` 且非 `*.test.tsx` |
 | 前端路由定义 | **88 个 `<Route>`** | `frontend/src/App.tsx` 的 `<Route` 89 处 − `<Routes>` 1 处 |
-| 前端 service | **55 个 `*Service.ts`**（+`apiClient.ts`；`services/` 非测试 `.ts` 共 59） | `frontend/src/services` |
-| 前端单测 / E2E | **83 / 7** | `*.test.ts(x)`、`frontend/e2e/*.spec.ts` |
-| i18n 资源 | zh-CN 3348 行 / en 3348 行 | `frontend/src/i18n` |
-| Spec 模块 | **91 个（001–092，缺 069）** | `specs/NNN-*` |
+| 前端 service | **56 个 `*Service.ts`**（+`apiClient.ts`；`services/` 非测试 `.ts` 共 60） | `frontend/src/services` |
+| 前端单测 / E2E | **89 / 7** | `*.test.ts(x)`、`frontend/e2e/*.spec.ts` |
+| i18n 资源 | zh-CN 3393 行 / en 3395 行 | `frontend/src/i18n`（⚠️ **行数不等 ≠ 键集不等**：两语行数相差 2 行是排版差异，**键集双向一致性由 `pnpm i18n:check` 判定**，不以行数为准） |
+| Spec 模块 | **94 个（001–095，缺 069）** | `specs/NNN-*` |
+
+> ⚠️ **本次重测相对上一版的变动（逐行列出，不静默改数）**：数据库表 **85 → 86**（+`user_recovery_code`，082）；
+> Flyway **87（V1–V88）→ 88（V1–V89）**（+`V89__two_factor_auth.sql`，082）；
+> 后端测试类 **163/167 → 181/187**；前端页面组件（含测试）**170 → 174**；
+> service **55/59 → 56/60**；前端单测 **83 → 89**（+6：082 三件、095 两件、093 一件）；
+> i18n **3348/3348 → 3393/3395**；Spec 模块 **91（001–092）→ 94（001–095）**。
+> **未变的三行**：Controller 66、前端路由 88、E2E 7。
+> 口径说明：本表**只报实测**、不追认变动归属；上表「依据」列即为复现命令。
+> 数据库表一行的读法**经自证**——`grep -hioE 'create table( if not exists)? +\`?[a-zA-Z_0-9]+\`?'`
+> 去重后 **86**，且每个表名**恰好出现 1 次**（无重复计数），其中 `user_recovery_code` 见于 `V89`。
 
 ## 二、技术栈
 
@@ -101,7 +111,7 @@
 ### 8. 系统管理（g-admin）
 | 菜单 | 路由 | 后端能力 |
 |---|---|---|
-| 用户管理 | `/users` | 用户 CRUD、启停、密码重置、令牌失效 |
+| 用户管理 | `/users` | 用户 CRUD、启停、密码重置、令牌失效、**重置双因素认证**（082） |
 | 角色权限 | `/roles` | 角色-菜单-权限点（RBAC，含 081 更新） |
 | 部门 | `/departments` | 组织架构、层级、排序 |
 | 字段权限 | `/field-permissions` | 字段级隐藏/只读/可编辑 |
@@ -134,7 +144,7 @@
 | 定时导出订阅（079） | `/exports/scheduled`、`/exports/scheduled/create`、`/exports/scheduled/:id/executions` | 仅路由可达 |
 | 数据保留策略（080） | `/data-retention`、`/data-retention/create`、`/data-retention/:id/executions` | 仅路由可达 |
 | 合规导出（GDPR） | `/data-retention/compliance-export` | 页面内跳转 |
-| 个人中心 | `/personal-center` | 顶栏头像下拉菜单 |
+| 个人中心（含**双因素认证安全卡**，082） | `/personal-center` | 顶栏头像下拉菜单；卡内可绑定/关闭 TOTP、查看与重新生成恢复码 |
 | 修改密码 | `/account/password` | 顶栏头像下拉菜单 |
 | 使用地图 | `/usage-map` | 头像下拉 + 首页卡片 |
 | 全局搜索 | `/search` | 顶栏渲染（`App.tsx:656`），回车进入结果页 |
@@ -143,7 +153,7 @@
 
 | 页面 | 路由 |
 |---|---|
-| 登录（含图形验证码，可开关） | `/login` |
+| 登录（含图形验证码，可开关；启用 2FA 的账号在此切**二次验证视图**，可按动态码或恢复码验证，082） | `/login` |
 | 在线表单提交 | `/f/:id` |
 | 托管落地页 | `/lp/:id` |
 | 客户自助门户 | `/portal` |
@@ -165,8 +175,8 @@
 
 ## 七、非功能能力
 
-- **权限体系**：JWT 认证 + RBAC（角色-菜单-权限点）+ 字段级权限（056）+ 行级数据权限/客户共享（012、063）+ 登录验证码可开关（048）。
-- **安全加固**：唯一约束（生成列）、导出安全、Redis 缓存、异常统一处理（003、063）。
+- **权限体系**：JWT 认证 + RBAC（角色-菜单-权限点）+ 字段级权限（056）+ 行级数据权限/客户共享（012、063）+ 登录验证码可开关（048）+ **登录双因素认证（TOTP 2FA，082）**。
+- **安全加固**：唯一约束（生成列）、导出安全、Redis 缓存、异常统一处理（003、063）；**2FA**（082）——密钥以 AES-256-GCM 密文落库、恢复码只存哈希、动态码防重放（Redis 记已用时间步）、5 次失败锁定 15 分钟、Redis 不可用时**拒绝登录（503）而非降级为单因素**；管理员可用 `user:manage` 重置他人 2FA。
 - **性能与完整性**：预警批量聚合、默认负责人、只读事务（064）。
 - **国际化**：zh-CN / en 双语，菜单、列表页、ProTable 搜索表单均已资源化（060、066、074–076）。
 - **PWA**：Service Worker、离线缓存、安装提示（027）。
