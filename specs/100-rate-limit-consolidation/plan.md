@@ -409,7 +409,7 @@ backend/src/main/java/com/crm/
 backend/src/main/resources/application.yml        # 改：crm.rate-limit.enabled / trust-forwarded-for（含「为什么是这个默认值」注释）
 
 backend/src/test/java/com/crm/
-├── integration/RateLimitIT.java                  # 【新】T1–T4、T12–T14
+├── integration/RateLimitIT.java                  # 【新】T1–T4、T12、T14（⚠️ T13 已移 C5，见验证节订正块）
 ├── security/RateLimitStoreTest.java              # 【新】T5（读时补窗）
 ├── security/RateLimiterShapeTest.java            # 【新】T6（调用形状，裸 mock）
 ├── security/RateLimitIdentityTest.java           # 【新】T7、T8
@@ -445,9 +445,9 @@ specs/README.md · README.md · specs/roadmap.md · PROJECT_FEATURES.md   # 立�
 |---|---|---|
 | C1 | `docs(100): 立项` | 本目录 7 件工件（`falsification-evidence.md` 除外）+ `specs/README.md` 模块表 100 行（状态「⏳ 进行中」）+ 编号说明 + `roadmap.md` 的 100 行（**勾选框留空**）与两条聚合数。**零 Java 改动。⚠️ `README.md:163` 与 `PROJECT_FEATURES.md` 的模块数不在本次**（见上「偏离二」）。 |
 | C2 | `feat(100): 共享限流件与通用 429 错误码` | **纯新增、零行为变更**：**8 个**新类（`RateLimit`/`RateLimitDimension`/`RateLimitKeys`/`RateLimitIdentity`/`ClientIpResolver`/`RateLimitStore`/`RateLimiter`/`RateLimitAspect`）+ `RateLimitExceededException` + `ErrorCode.RATE_LIMITED` + `GlobalExceptionHandler` **新**处理器 + `application.yml` 配置段 + **`PermissionAspect` 的 `@Order`** + `SecurityUtil.currentApiKeyId()`（**纯新增成员**）+ 单测（T5–T9）。**不删旧处理器、不动任何 Controller/Service、不改 `SecurityUtil` 的既有成员。** |
-| C3 | `refactor(100): 邮件追踪改用共享限流件` | 收敛 `EmailTrackController`（60/60s 逐字不变）+ 删私有 `RateLimitedException` **与**其处理器（**同一次提交**，否则编译不过）+ `RateLimitIT`（T1–T4、T12–T14）。**本次单独暴露对外 code 变更**（`TOO_MANY_REQUESTS` → `RATE_LIMITED`），便于日后二分。 |
+| C3 | `refactor(100): 邮件追踪改用共享限流件` | 收敛 `EmailTrackController`（60/60s 逐字不变）+ 删私有 `RateLimitedException` **与**其处理器（**同一次提交**，否则编译不过）+ `RateLimitIT`（T1–T4、T12、**T14**）。⚠️ **T13 不在本次**（已移 C5，见验证节 T13 的订正块）。**本次单独暴露对外 code 变更**（`TOO_MANY_REQUESTS` → `RATE_LIMITED`），便于日后二分。 |
 | C4 | `refactor(100): 表单提交改用共享限流件并订正 429 契约` | 收敛 `FormService`（3/60s 逐字不变）+ 400→429 + javadoc 引 036 契约行号 + 3 份 `clientIp` 收敛成 `ClientIpResolver`（含 `AuthService` 的 1 行委托）。 |
-| C5 | `feat(100): 零限流路径接入与覆盖台账` | P0 清单 5 组标注 + **`RateLimitCoverageTest` + 豁免白名单**（⚠️ **必须同批**，否则 C5 引入的是一堆**没有护栏的标注**）。⚠️ `SecurityUtil.currentApiKeyId()` 已前移到 C2（见上「两处实做调整」②）。 |
+| C5 | `feat(100): 零限流路径接入与覆盖台账` | P0 清单 5 组标注 + **`RateLimitCoverageTest` + 豁免白名单**（⚠️ **必须同批**，否则 C5 引入的是一堆**没有护栏的标注**）+ **T13**（**本批第一个同时带 `@RequirePermission` 与 `@RateLimit` 的端点在此出现**，即 13 个导出端点 ⇒ 该用例的落点由 C3 后移至此）。⚠️ `SecurityUtil.currentApiKeyId()` 已前移到 C2（见上「两处实做调整」②）。 |
 | C6 | `docs(100): P1 接入、文档订正与数字收口` | P1 两组标注；`CRM_FEATURE_COMPARISON.md` 两处订正；`SecurityConfig` 注释；债务台账三条；**`README.md:163` 与 `PROJECT_FEATURES.md` 的 Spec 模块数 `98 / 001~099` → `99 / 001~100`（与后端规模行同批，实跑取值）**；交付态登记与 `falsification-evidence.md` 实测输出 + `tasks.md` 勾选。 |
 
 ⚠️ **`PermissionAspect` 的 `@Order` 必须落在 C2**：C2 起仓里就有了第二个切面，两者同用默认序 = 并列，
@@ -497,6 +497,15 @@ specs/README.md · README.md · specs/roadmap.md · PROJECT_FEATURES.md   # 立�
 > `ArrayIndexOutOfBoundsException`**，不是返回空串。**判据本身不变**（本类必须由红转绿地钉住
 > `XFF = ","` 的处理），只是那条**劣解的名字**要改对：`split(",")[0]` 在这里是**500**、不是空串桶。
 > T9 实做已落到 `security/ClientIpResolverTest.degenerateHeadersFallBackToTheFallback`（5 组退化输入）。
+
+> ⚠️ **2026-09-16 C3 实做订正上表 T13 的「文件」列**（**判定列与文件列都是被改写的断言**，
+> 故逐列点名）：该列原文写「同上」＝ `integration/RateLimitIT.java`，**实做时该用例不在 C3 落地、
+> 后移到 C5**。原因：T13 要的端点必须**同时**带 `@RequirePermission` 与 `@RateLimit`，而 **C3 里
+> 带限流的只有两个公开邮件追踪端点**（它们本来就不需要权限）⇒ 此时写「403 且无配额键」是**空断言**
+> —— 「未授权者得 403」与「没消耗配额」在这个端点上**无论如何都成立**，它与「权限先于限流」这个
+> 待测命题之间没有因果链。T13 的**判据本身一字不变**（仍须 403 且 `redis.snapshot()` 无该键），
+> 只是它的**落点**随「第一个同时带两种注解的端点」一起走，即 C5 的 P0 标注（13 个导出端点）。
+> C3 的 `RateLimitIT` 类 javadoc 已就地写明这条，免得读者以为漏了。
 ⚠️ **白名单条目必须带非空理由**（无理由判失败），防「随手加一行让测试变绿」。
 ⚠️ **测试类不在 `com.crm` 包下**，不会被字节码扫描算进来。
 
@@ -573,7 +582,7 @@ ls backend/target/jacoco.exec         # 必须存在（不存在 = jacoco 被静
 |---|---|
 | **假绿**：默认基类 Redis 是裸 mock ⇒ 限流 no-op | 三件事硬规则（装替身 + **正对照**断言键在 Redis + 负对照断 200）；把「不装就假绿」写进 `falsification-evidence.md` 与记忆 |
 | **切 Redis 后 `FormIT`/`LandingPageIT` 在默认基类下限流变 no-op —— 算不算弄丢护栏？** | **不算**：那个内存桶今天**不是护栏而是跨用例共享状态**（事实 ⑬，已在制造与真因无关的假红），且它对限流是**零用例**的。**净收益为正**，但**必须**在交付留痕里显式登记这个语义变化 |
-| 内存桶 → Redis 的**语义变化** | 见「五处对外可观测变更」逐条写进提交信息 |
+| 内存桶 → Redis 的**语义变化** | 见「**六处**对外可观测变更」逐条写进提交信息（⑥ 滑动窗口 → 固定窗口，2026-09-16 补登） |
 | 事实 ⑬ 那颗 3/3 的雷 | 换 Redis 后在上下文层自动拆除；新用例一律自带独立 XFF；改完**单独复跑** `FormIT` 与 `LandingPageIT` 确认仍绿（**零改动是验收的一部分**） |
 | 切 Redis 引入外部依赖（抖动时限流失效 + 追踪像素多一次 `INCR`） | fail-open 使其**不构成可用性风险**；登记 `rl:` 键族纳入运维监控（`allkeys-lru` 淘汰会让限流时强时弱，方向是 fail-open，**可接受**） |
 | `FormService` 400 → 429 是**行为变更** | 它是在**修一个违反冻结契约的偏差**；照 085 判例：契约不动、实现改，并在留痕里写清 |
@@ -585,10 +594,21 @@ ls backend/target/jacoco.exec         # 必须存在（不存在 = jacoco 被静
 | **XFF 洞被本项「扩大」而非「绕开」** | 见 `research.md` §9：结论取「不修」+ `trust-forwarded-for` 显式化 + javadoc 写明前提 + 债务台账 + **口径降级为「误用与意外的阻尼」**；**不得宣传成攻击防护** |
 | 数字落点漏改（模块数/编号各住 3 处以上） | 交付提交逐落点核对，以「**旧值仍能被 grep 到**」作订正留痕自查 |
 
-**五处对外可观测的行为变更**（逐条写进提交信息）：
+**六处对外可观测的行为变更**（逐条写进提交信息）：
 ① 邮件追踪 429 的 `error.code`：`TOO_MANY_REQUESTS` → `RATE_LIMITED`；
 ② 表单提交 **400 → 429**（**订正**，非破坏）；③ 两处 message 文案统一为 `ErrorCode.RATE_LIMITED` 的那一条；
-④ XFF 空段退化行为统一（`""` → fallback）；⑤ 新增 **`Retry-After`** 头。
+④ XFF 空段退化行为统一（`""` → fallback）；⑤ 新增 **`Retry-After`** 头；⑥ **窗口算法：滑动窗口 → 固定窗口**。
+
+> ⚠️ **2026-09-16 C3 实做期**在本清单上**补登第 ⑥ 处**（**本清单原文是「五处」，此处按「一个数字住在好几个
+> 地方，要一起改」把标题一并改掉，旧值仍可 grep**）：计划原来**只在债务台账里登记了「固定窗口的 2× 边界
+> 突发」这个性质**（见「明确不做」末条），却**没把它写进对外变更清单** —— 而它同时是**变更**：改造前两处
+> 内存桶是**滑动窗口**（`Deque<Long>` 时间戳队列，逐次 `now - peekFirst() > WINDOW` 淘汰 ⇒ **任意** 60 秒
+> 跨度内 ≤ 阈值），共享件是**固定窗口**（`INCR` + 首次 `EXPIRE` ⇒ **跨窗口边界**两次窗口各放满，最坏
+> 2× 突发）。**两者在「窗口内均匀打」时逐字等价**（第 60 次放行、第 61 次拒绝 —— T1 钉的正是这个），
+> 差异只在**边界突发**这一段。⇒ 判据（阈值、窗口、拒绝点）**一个字不改**，但要**如实把它列为第 ⑥ 处
+> 变更**，否则「阈值语义与改造前一致」这句话会被读成「窗口语义也一样」。处②与处⑥ 同源（都是
+> `EmailTrackController` + `FormService` 两处收敛的副产物）。
+> `research.md` §12 的清单已同步为六行并**原文保留**「共五处」的标题痕迹。
 
 ---
 

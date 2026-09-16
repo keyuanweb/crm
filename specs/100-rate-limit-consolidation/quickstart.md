@@ -137,15 +137,17 @@ grep -rn "X-Forwarded-For" backend/src/main/java/com/crm/ | grep -v ClientIpReso
 #   期望：只有 AuthService.resolveClientIp 的 1 行委托 + ApiKeyAuthFilter/JwtAuthFilter 的无关用途
 
 # ② 两处内存桶已消失
-grep -rn "rateBuckets\|cleanupRateBuckets" backend/src/main/java/
-#   期望：零命中
-grep -rn "rateBuckets\|cleanupRateBuckets\|提交过于频繁" backend/src/test/java/
+grep -rn "rateBuckets\|cleanupRateBuckets" backend/src/main/java/ | grep -v ':[0-9]*: *[/*]'
+#   期望：零命中（⚠️ **必须排除注释行** —— 口径订正见本节末 ⚠️）
+grep -rn "rateBuckets\|cleanupRateBuckets\|提交过于频繁" backend/src/test/java/ | grep -v ':[0-9]*: *[/*]'
 #   期望：零命中（证明这两条路径此前【零用例】—— 事实 ⑬ 的判据）
 
 # ③ 旧处理器与旧的裸字符串 code 已消失
-grep -rn "TOO_MANY_REQUESTS" backend/src/ frontend/src/
-#   期望：零命中（这是本项唯一一处对外 code 字符串变更，见 plan.md「五处对外可观测变更」①）
-grep -rn "RateLimitedException" backend/src/
+grep -rn "TOO_MANY_REQUESTS" backend/src/ frontend/src/ | grep -v ':[0-9]*: *[/*]'
+#   期望：**主代码与前端**零命中（这是本项唯一一处对外 code 字符串变更，见 plan.md「六处对外可观测变更」①）；
+#   `src/test` 里**只允许** RateLimitIT 的**负断言**（`.doesNotContain("TOO_MANY_REQUESTS")`）——
+#   那是「旧串已消失」的**正向证据**，不是残留
+grep -rn "RateLimitedException" backend/src/ | grep -v ':[0-9]*: *[/*]'
 #   期望：零命中（旧的控制器私有内部类及其处理器同批删除）
 
 # ④ 阈值逐字未变（收敛不得顺手改数字）
@@ -156,6 +158,21 @@ grep -n "public-form-submit\|public-email-track" -A3 backend/src/main/java/com/c
 # ⑤ 每个端点都有限流或显式豁免（台账测试自己会跑，这里是人工复核）
 mvn -B test -Dtest=RateLimitCoverageTest
 ```
+
+> ⚠️ **2026-09-16 C3 实做订正 ②③ 的判据口径（原口径「零命中」逐字保留在上面的「期望」行里）**：
+> 原文 ②③ 写的是**零命中**，但它与本项自己的「**订正不静默**」规则**直接冲突** —— 那条规则要求
+> **旧值仍能被 `grep` 到**，而 ②③ 要 grep 的**正是旧值的名字**（`rateBuckets`、
+> `TOO_MANY_REQUESTS`），它们**必然**出现在本批新增的 ⚠️ 注释里（`EmailTrackController` 的类 javadoc
+> 点了 `rateBuckets`；`GlobalExceptionHandler` 与 `ErrorCode` 的 ⚠️ 块点了 `TOO_MANY_REQUESTS`）。
+> ⇒ **照字面跑，这两条在任何正确实现下都会失败**，于是它们要么被无视、要么逼后人**删掉留痕**，
+> **两条路都比缺陷本身坏**。实做口径改为：**排除注释行**（`| grep -v ':[0-9]*: *[/*]'`），
+> 实质判据（**可执行位置零命中**）**一个字不改**；③ 另加一条显式许可：`src/test` 里的
+> **负断言**是「旧串已消失」的**正向证据**，不算残留。
+> ⚠️ 该 filter 的边界要自证：它匹配的是**行首注释**（`//`、`/*`、`*`），
+> **行尾注释**（`foo(); // TOO_MANY_REQUESTS`）**漏得掉** —— 本批的留痕一律是**整行注释**，
+> 故够用；若日后有人把旧值写进行尾注释，这条判据会**静默放行**（已知口径缺口，登记在此）。
+> 机制说明：本项的全部「零命中」类判据都受这条约束影响（§6 那五条 grep 的「期望非零」是**反向**要求，
+> 不受影响）。
 
 ## 6 订正不静默自查（交付时必跑）
 

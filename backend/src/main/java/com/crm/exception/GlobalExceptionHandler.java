@@ -137,11 +137,11 @@ public class GlobalExceptionHandler {
     return build(409, "DUPLICATE_KEY", "数据已存在或违反唯一约束", null);
   }
 
-  @ExceptionHandler(com.crm.controller.EmailTrackController.RateLimitedException.class)
-  public ResponseEntity<ApiResponse<Void>> handleRateLimited(
-      com.crm.controller.EmailTrackController.RateLimitedException ex) {
-    return build(429, "TOO_MANY_REQUESTS", ex.getMessage(), null);
-  }
+  // ⚠️ 100-rate-limit-consolidation（C3）在此**删除**了 `EmailTrackController.RateLimitedException`
+  // 的处理器——它渲染的是**裸字符串** "TOO_MANY_REQUESTS"（不走 ErrorCode 枚举），且让本类反向依赖
+  // `com.crm.controller`。两者一起删除，不留兼容壳：控制器私有异常类已随之删除，它已无抛出点。
+  // 该出口现由下面的 `handleRateLimitExceeded` 取代，码统一为 `ErrorCode.RATE_LIMITED`（同为 429）。
+  // 对外可见的变更：邮件追踪 429 的 `error.code` 由 "TOO_MANY_REQUESTS" 变为 "RATE_LIMITED"。
 
   /**
    * 100-rate-limit-consolidation：共享限流件的拒绝出口 → 429 + {@code Retry-After}。
