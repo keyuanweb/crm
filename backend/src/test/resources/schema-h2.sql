@@ -2054,3 +2054,29 @@ JOIN (
   UNION SELECT 'quota:breakdown' UNION SELECT 'quota:achievement'
 ) p
 WHERE r.code IN ('ADMIN', 'SALES_MANAGER');
+
+-- ---------- V90__comment_and_custom_object_record_codes：096 两族补授 ----------
+-- 两处闸门都是角色字面量，且**都没有数据范围兜底**（CommentService.checkEntityVisible 只保证
+-- "看得见就能评"；CustomObjectRecordService 里任何范围过滤都没有）。两族都走 V81 判据①。
+-- comment:* → ADMIN + SALES + SUPPORT（旧门是**类级** hasAnyRole('ADMIN','SALES','SUPPORT')）
+-- custom_object_record:* → ADMIN + SALES（旧门是五个记录端点**各自**的 hasAnyRole('ADMIN','SALES')）
+-- 七个码全部在本文件内授出（无一个留给任何角色空转）；SALES_REP / SUPPORT_AGENT 不补——
+-- hasAnyRole 匹配的是角色 code，它们改造前后都进不来。
+INSERT INTO role_permission (role_id, permission_code)
+SELECT r.id, p.permission_code FROM role r
+JOIN (
+  SELECT 'comment:read' AS permission_code
+  UNION SELECT 'comment:create'
+  UNION SELECT 'comment:delete'
+) p
+WHERE r.code IN ('ADMIN', 'SALES', 'SUPPORT');
+
+INSERT INTO role_permission (role_id, permission_code)
+SELECT r.id, p.permission_code FROM role r
+JOIN (
+  SELECT 'custom_object_record:read' AS permission_code
+  UNION SELECT 'custom_object_record:create'
+  UNION SELECT 'custom_object_record:update'
+  UNION SELECT 'custom_object_record:delete'
+) p
+WHERE r.code IN ('ADMIN', 'SALES');
