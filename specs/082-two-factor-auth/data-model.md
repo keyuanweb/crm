@@ -141,3 +141,27 @@
 `base64(iv)` 12 字节 → 16 字符（去 padding）、`base64(ct||tag)` 48 字节 → 64 字符，
 加分隔符 `:` ⇒ **约 81 字符**。`VARCHAR(512)` 有 6 倍余量，**不改**。
 （此处只是把原文没写的核算补上，结论与原文一致。）
+
+### 六、`user_recovery_code` 的列清单**漏了 BaseEntity 的三列**（第 1 步实施时发现）
+
+**原文（保留）**：`## user_recovery_code 表` 的列清单是
+`id` / `user_id` / `code_hash` / `used` / `used_at` / `created_at` —— **六列**。
+
+**订正**：实际落库是 **九列**，缺的三列是 **`updated_at` / `deleted` / `version`**。
+理由是 `## Java 实体映射` 自己写的「新建 `UserRecoveryCode` 实体」（本仓 50 个实体一律
+`extends BaseEntity`，该实体也不例外），而 `BaseEntity` 声明了这四列：
+
+| 列 | 为什么**不能省** |
+|---|---|
+| `deleted` | `@TableLogic` 会把它加进**每一条** MyBatis-Plus 生成的 SELECT 的 `WHERE` ⇒ 缺列报 `Unknown column 'deleted'` |
+| `version` | `@Version` 会把它加进**每一条** INSERT/UPDATE 的列清单 |
+| `updated_at` | `@TableField(fill = INSERT_UPDATE)` 同上 |
+
+**这不是理论风险，本仓刚修过一次同类缺陷**：`V88__quota_child_tables_base_entity_columns.sql`
+补的正是三张 quota 子表缺这三列的问题，其注释记录了用户可见形态 ——
+`PUT /api/v1/sales-quota/{id}` 与 `POST /{id}/breakdown` **在生产库上双双 5xx**
+（不只是测试库）。故本批在 `V89` 里一次性把九列建全。
+
+**并且补了一道门禁**：新建 `TwoFactorSchemaMappingIT` 做**列级**的写-读往返断言。
+原计划没有它 —— 因为 `SchemaParityIT` 只核表名、**明文声明不覆盖列级漂移**，
+仅靠它无法拦住这一类缺陷（`plan.md` 的测试面事实里已记其边界）。
