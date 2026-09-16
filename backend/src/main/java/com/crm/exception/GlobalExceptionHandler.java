@@ -3,12 +3,14 @@ package com.crm.exception;
 import com.crm.common.ApiResponse;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
+import com.crm.common.RateLimitExceededException;
 import com.crm.dto.opportunity.CloseRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -139,6 +141,24 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiResponse<Void>> handleRateLimited(
       com.crm.controller.EmailTrackController.RateLimitedException ex) {
     return build(429, "TOO_MANY_REQUESTS", ex.getMessage(), null);
+  }
+
+  /**
+   * 100-rate-limit-consolidation：共享限流件的拒绝出口 → 429 + {@code Retry-After}。
+   *
+   * <p><b>为什么不能只靠上面的 {@link #handleBusiness}</b>：那个方法按 {@link ErrorCode} 渲染信封**但不带 响应头**，而 429 的
+   * {@code Retry-After} 是这个状态码的标准机器可读部分（本仓先例：{@code AuthMfaIT} 断言 429 的 message
+   * 里要有剩余秒数，头是它的机器可读版本）。两个处理器并存不冲突：Spring 选**最具体** 的那个，本方法比父类 {@code BusinessException}
+   * 更具体，故限流异常必走这里。
+   *
+   * <p>剩余秒数取自异常、**不回头去查 Redis**：拒绝路径上 Redis 可能正好不可用（那时根本没有窗口可查）， 响应头不该依赖一个可能故障的外部系统。
+   */
+  @ExceptionHandler(RateLimitExceededException.class)
+  public ResponseEntity<ApiResponse<Void>> handleRateLimitExceeded(RateLimitExceededException ex) {
+    ErrorCode code = ex.getErrorCode();
+    return ResponseEntity.status(HttpStatus.valueOf(code.getStatus()))
+        .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
+        .body(ApiResponse.fail(code.getCode(), ex.getMessage(), null));
   }
 
   @ExceptionHandler(Exception.class)

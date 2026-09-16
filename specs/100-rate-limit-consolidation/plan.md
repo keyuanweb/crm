@@ -100,6 +100,15 @@
 ⇒ **所有这类请求共用一个键为 `""` 的桶**；`AuthService` 那份多一层「首段非空」判定并回退 fallback。
 `nginx.conf` 确实注入 XFF；全仓无 `server.forward-headers-strategy`。
 
+> ⚠️ **2026-09-16 实测订正（上面这条对 `","` 的描述被推翻，原文逐字保留）**：实测
+> `",".split(",")` **抛 `ArrayIndexOutOfBoundsException: Index 0 out of bounds for length 0`**
+> （Java 的 `split` 丢弃末尾空段 ⇒ 长度 0 的数组），**不是**返回空串 ⇒ 三份副本在公开端点上
+> **各有一条潜伏的 500**（请求头由调用方任意构造），严重性高于「共用空串桶」。产生**空串桶**的
+> 是 `", 1.2.3.4"` 这类输入（整串非空、首段空白）。**实做**改用 `indexOf(',')` + `substring`，
+> 三种退化输入**一律回退 fallback**；「取更严那份」的决定与「统一为 fallback」的判据都不变，
+> 理由从「另两份更松」升级为「**另两份会抛异常**」。逐条见 `tasks.md` §实做订正 第 9 条、
+> `research.md` §9 与 §12 第 ④ 行的 ⚠️ 块。
+
 **⑥ Redis 计数的两个既有范式，体例相反 —— 新件照 `MfaStateStore`**
 `MfaStateStore.recordFailure` 是「**恰好等于阈值**那次才 `expire`」；`AuthService.recordFailure` 是
 `increment` 后**无条件** `expire`（每次失败续整窗）。后者对**登录失败计数**是**有意**的
@@ -186,9 +195,19 @@
 | `RateLimitKeys` | 键构造 | 具名静态方法，**供调用形状断言逐字核对键名**（照 `MfaStateStore` 的 `failKey` 那组先例）；键族 `rl:<scope>:<identity>` |
 | `RateLimitIdentity` | 解析身份 | 纯静态函数，**可脱 Spring 单测**（手工塞 `SecurityContextHolder`）；显式 `USER`/`API_KEY` 而主体缺失时**回退 IP 并 `log.warn`**（候选取舍见 `research.md` §8） |
 | `ClientIpResolver` | 解析客户端 IP | 语义**逐字取** `AuthService.resolveClientIp` 那一份（**更严**的那份） |
-| `RateLimiter` | 判定 + 读时补窗 | 依赖**只有** `RedisTemplate`（**不需要 `Clock`** —— 窗口是 Redis 自己的 TTL） |
+| `RateLimitStore` | Redis 计数协议：`increment` + **仅首次 `expire`** + **读时补窗** + fail-open | 依赖**只有** `RedisTemplate`（**不需要 `Clock`** —— 窗口是 Redis 自己的 TTL）；**全仓唯一**碰计数原语的地方 |
+| `RateLimiter` | 组合：身份 → 键 → 交给 store → 超限抛异常 | 依赖 `RateLimitStore` + `ClientIpResolver`；**自己不碰 `SecurityContextHolder`**（那在 `RateLimitIdentity` 里） |
 | `RateLimitAspect` | `@Before("@annotation(rateLimit)")` | `@Order` **显式声明**，排在 `PermissionAspect` **之后**（权限先于限流） |
 | `RateLimitExceededException`（放 `com.crm.common`） | 拒绝信号 | **`extends BusinessException`**（多重保障：万一没走到新处理器，父类的 `handleBusiness` 仍给正确 429，不会掉进 `Exception` catch-all 变 500） |
+
+⚠️ **两处实做调整（立项期写的是 7 个新件，实做 8 个；均在 C2 内）**：
+① **`RateLimiter` 拆成 `RateLimitStore` + `RateLimiter`**（上表已按实做写）——把「Redis 计数协议」
+与「身份→键→拒绝」分成两层，是为了让本批两个关键测试各对着**一个**类：`RateLimitStoreTest` 钉住
+**补窗协议**（T5），`RateLimiterShapeTest` 钉住**调用形状**（T6，`increment` 而非 `get`+`set`）。
+混在一个类里时，两个测试类名与实际结构对不上，而「对着什么测」正是这两条用例唯一的可读线索。
+② **`SecurityUtil.currentApiKeyId()` 由 C5 提前到 C2**：`RateLimitIdentity` 在 C2 就要用它
+（机器主体必须按 `keyId` 分桶，见事实 ④）。它是**纯新增成员、零行为变更** ⇒ C2 的「纯新增」
+性质不变；其余 P0/P1 标注仍在 C5/C6。
 
 **`@Order` 必须先定**：`PermissionAspect` 今天**没有 `@Order`**。本项起仓里就有了第二个切面，
 两者同用默认序 = 并列，谁先谁后取决于排序实现 ⇒ **在第一次提交里就给定**（权限先于限流，
@@ -207,6 +226,13 @@
   **不 catch 裸 `Exception`**（那会把「键构造写错」这类**真 bug** 也降级成静默放行）；每条 `log.warn`；
   **不提供 `fail-open=false` 旋钮**。
 
+  > ⚠️ **2026-09-16 实做订正（上面的多 catch 写法是编译错误，原文逐字保留）**：
+  > `RedisConnectionFailureException` **是** `DataAccessException` 的**子类** ⇒ javac 判「已由备选
+  > `DataAccessException` 捕获」，多 catch 形式**过不了编译**。实做为**单个 `DataAccessException` catch**。
+  > **判据覆盖面不变**（子类照旧被捕获；「不 catch 裸 `Exception`」逐字成立），
+  > `RateLimitStoreTest.everyStoreFailureIsFailOpen` 注入的正是 `RedisConnectionFailureException`
+  > ⇒ 「Redis 挂 ⇒ 放行」仍被钉住。见 `tasks.md` §实做订正 第 6 条。
+
 ### 配置两层
 
 - **逐端点数字写在注解上**（与端点同址，照 `@RequirePermission` 的体例）—— **不集中配置**，
@@ -220,6 +246,13 @@
 
 - 新增 `ErrorCode.RATE_LIMITED(429, "RATE_LIMITED", "请求过于频繁，请稍后再试")`，紧邻 `MFA_LOCKED` 放置。
   **不合并 `MFA_LOCKED`**（事实 ⑧：断言会红，且两者窗口语义**相反** —— 一个是「账号被锁」，一个是「等一下」）。
+
+  > ⚠️ **2026-09-16 实做订正（「紧邻 `MFA_LOCKED`」未逐字照做，原文逐字保留）**：新码实做放在
+  > **`MFA_STORE_UNAVAILABLE` 之后**（即 082 的整个 MFA 组**之后**），因为插进组中间会把该 MFA 块
+  > **劈成两半**、注释块与枚举项对不上。**判据逐字成立**：**不合并 `MFA_LOCKED`**、两码并存
+  > （① `AuthMfaIT` 逐字断言 `error.code == "MFA_LOCKED"`；② 两者窗口语义相反）。
+  > `:158` 那句「首个 429」的订正 ⚠️ 里已点明新码在「**下方 MFA 组之后的 429 段**」。
+  > 见 `tasks.md` §实做订正 第 7 条。
 - `ErrorCode` 里那句「全仓首个 429（本项引入；此前本枚举里没有任何限流码）」**描述的仍是 082 当时的事实**
   ⇒ 按「订正不静默」**原文逐字保留 + 追加带日期 ⚠️**（说明此后新增了通用限流码、「首个」照旧指 082）。
 - `GlobalExceptionHandler`：**删掉** `EmailTrackController.RateLimitedException` 的处理器
@@ -411,10 +444,10 @@ specs/README.md · README.md · specs/roadmap.md · PROJECT_FEATURES.md   # 立�
 | # | 提交 | 内容 |
 |---|---|---|
 | C1 | `docs(100): 立项` | 本目录 7 件工件（`falsification-evidence.md` 除外）+ `specs/README.md` 模块表 100 行（状态「⏳ 进行中」）+ 编号说明 + `roadmap.md` 的 100 行（**勾选框留空**）与两条聚合数。**零 Java 改动。⚠️ `README.md:163` 与 `PROJECT_FEATURES.md` 的模块数不在本次**（见上「偏离二」）。 |
-| C2 | `feat(100): 共享限流件与通用 429 错误码` | **纯新增、零行为变更**：7 个新类 + `RateLimitExceededException` + `ErrorCode.RATE_LIMITED` + `GlobalExceptionHandler` **新**处理器 + `application.yml` 配置段 + **`PermissionAspect` 的 `@Order`** + 单测（T5–T9）。**不删旧处理器、不动任何 Controller/Service、不改 `SecurityUtil`。** |
+| C2 | `feat(100): 共享限流件与通用 429 错误码` | **纯新增、零行为变更**：**8 个**新类（`RateLimit`/`RateLimitDimension`/`RateLimitKeys`/`RateLimitIdentity`/`ClientIpResolver`/`RateLimitStore`/`RateLimiter`/`RateLimitAspect`）+ `RateLimitExceededException` + `ErrorCode.RATE_LIMITED` + `GlobalExceptionHandler` **新**处理器 + `application.yml` 配置段 + **`PermissionAspect` 的 `@Order`** + `SecurityUtil.currentApiKeyId()`（**纯新增成员**）+ 单测（T5–T9）。**不删旧处理器、不动任何 Controller/Service、不改 `SecurityUtil` 的既有成员。** |
 | C3 | `refactor(100): 邮件追踪改用共享限流件` | 收敛 `EmailTrackController`（60/60s 逐字不变）+ 删私有 `RateLimitedException` **与**其处理器（**同一次提交**，否则编译不过）+ `RateLimitIT`（T1–T4、T12–T14）。**本次单独暴露对外 code 变更**（`TOO_MANY_REQUESTS` → `RATE_LIMITED`），便于日后二分。 |
 | C4 | `refactor(100): 表单提交改用共享限流件并订正 429 契约` | 收敛 `FormService`（3/60s 逐字不变）+ 400→429 + javadoc 引 036 契约行号 + 3 份 `clientIp` 收敛成 `ClientIpResolver`（含 `AuthService` 的 1 行委托）。 |
-| C5 | `feat(100): 零限流路径接入与覆盖台账` | P0 清单 5 组标注 + `SecurityUtil.currentApiKeyId()` + **`RateLimitCoverageTest` + 豁免白名单**（⚠️ **必须同批**，否则 C5 引入的是一堆**没有护栏的标注**）。 |
+| C5 | `feat(100): 零限流路径接入与覆盖台账` | P0 清单 5 组标注 + **`RateLimitCoverageTest` + 豁免白名单**（⚠️ **必须同批**，否则 C5 引入的是一堆**没有护栏的标注**）。⚠️ `SecurityUtil.currentApiKeyId()` 已前移到 C2（见上「两处实做调整」②）。 |
 | C6 | `docs(100): P1 接入、文档订正与数字收口` | P1 两组标注；`CRM_FEATURE_COMPARISON.md` 两处订正；`SecurityConfig` 注释；债务台账三条；**`README.md:163` 与 `PROJECT_FEATURES.md` 的 Spec 模块数 `98 / 001~099` → `99 / 001~100`（与后端规模行同批，实跑取值）**；交付态登记与 `falsification-evidence.md` 实测输出 + `tasks.md` 勾选。 |
 
 ⚠️ **`PermissionAspect` 的 `@Order` 必须落在 C2**：C2 起仓里就有了第二个切面，两者同用默认序 = 并列，
@@ -458,6 +491,12 @@ specs/README.md · README.md · specs/roadmap.md · PROJECT_FEATURES.md   # 立�
 
 ⚠️ **豁免白名单的粒度必须是「类#方法」而不是 URI 前缀**：`/public/**` 内部风险差一个量级
 （且 `/public/track/**` 两条**已有限流**），用前缀会让白名单变成「一放一大片」—— 那正是台账要防的东西。
+
+> ⚠️ **2026-09-16 实测订正上表 T9 的「会因什么缺陷变红」列**（**判定列本身就是被改写的断言**，
+> 故单独点名）：该列原文写「返回空串（今天 `EmailTrackController` 的行为）」——**实测是抛
+> `ArrayIndexOutOfBoundsException`**，不是返回空串。**判据本身不变**（本类必须由红转绿地钉住
+> `XFF = ","` 的处理），只是那条**劣解的名字**要改对：`split(",")[0]` 在这里是**500**、不是空串桶。
+> T9 实做已落到 `security/ClientIpResolverTest.degenerateHeadersFallBackToTheFallback`（5 组退化输入）。
 ⚠️ **白名单条目必须带非空理由**（无理由判失败），防「随手加一行让测试变绿」。
 ⚠️ **测试类不在 `com.crm` 包下**，不会被字节码扫描算进来。
 

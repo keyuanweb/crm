@@ -156,6 +156,10 @@ public enum ErrorCode {
   MFA_CODE_INVALID(401, "MFA_CODE_INVALID", "动态码错误"),
   RECOVERY_CODE_INVALID(401, "RECOVERY_CODE_INVALID", "恢复码无效或已使用"),
   // 全仓首个 429（本项引入；此前本枚举里没有任何限流码）
+  // ⚠️ 2026-09-16（100-rate-limit-consolidation）订正：这行注释对**历史**的陈述没变，但它已不是本枚举
+  // 唯一的 429 —— 100 在下面 MFA 组之后新增了通用的 RATE_LIMITED。两码并存、**不合并**：
+  // ① `AuthMfaIT` 逐字断言 `error.code == "MFA_LOCKED"`；② 两者窗口语义相反（这个码是"直到解锁为止"
+  // 的失败计数、无条件续窗；那个码是"窗口内容量"、只在首次设窗）。
   MFA_LOCKED(429, "MFA_LOCKED", "二次验证失败次数过多，账号已临时锁定"),
   MFA_NOT_ENABLED(400, "MFA_NOT_ENABLED", "账号未启用双因素认证，该操作不适用"),
   MFA_ALREADY_ENABLED(400, "MFA_ALREADY_ENABLED", "账号已启用双因素认证，不可重复启用"),
@@ -164,6 +168,12 @@ public enum ErrorCode {
   // 若没有这个码，Redis 故障会被误报成 MFA_TICKET_INVALID（票据问题）或 MFA_SECRET_MISSING（配置问题），
   // 两者都把故障归错了因。
   MFA_STORE_UNAVAILABLE(503, "MFA_STORE_UNAVAILABLE", "认证状态存储不可用，请稍后重试"),
+  // 全局限流（100-rate-limit-consolidation）：共享限流件拒绝请求时的**唯一**错误码。
+  // 改造前仓里有两个自造的 429 出口——邮件追踪抛控制器私有的 RateLimitedException、被一个专用处理器
+  // 渲染成**裸字符串** "TOO_MANY_REQUESTS"；表单提交抛 BAD_REQUEST ⇒ 400。前者由此码取代，后者由
+  // 400 改写为 429（036 的冻结契约本就承诺 429，是实现在违约）。⚠️ 该字符串变更对外可见：
+  // 邮件追踪 429 的 `error.code` 由 "TOO_MANY_REQUESTS" 变为 "RATE_LIMITED"。
+  RATE_LIMITED(429, "RATE_LIMITED", "请求过于频繁，请稍后再试"),
   INTERNAL_ERROR(500, "INTERNAL_ERROR", "服务器内部错误");
 
   private final int status;

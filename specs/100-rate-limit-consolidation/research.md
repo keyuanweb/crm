@@ -222,6 +222,18 @@ XFF 信任由 `crm.rate-limit.trust-forwarded-for`（默认 `true`）显式化�
     XFF 为 `","` 时 `split(",")[0].trim()` = **空串** ⇒ **所有这类请求共用一个键为 `""` 的桶**。
   ⇒ 收敛取**更严**的那一份（首段为空则回退）。这**是一处对外可观测的行为变更**（`spec.md` §5 第 ④ 条），
   须写进提交信息。
+
+  > ⚠️ **2026-09-16 实测订正（`",` 那一格的结论被推翻，上面的原文逐字保留）**：上面这条对
+  > `XFF = ","` 的描述**是错的** —— 它写「`split(",")[0].trim()` = **空串** ⇒ 共用一个键为 `""` 的桶」，
+  > 而**实测抛的是 `ArrayIndexOutOfBoundsException: Index 0 out of bounds for length 0`**
+  > （暴露它的用例：`ClientIpResolverTest.degenerateHeadersFallBackToTheFallback`，实做期由红转绿）。
+  > **真因**：Java 的 `split` **丢弃末尾空段**，故 `",".split(",")` 是**长度 0 的数组**，取 `[0]` 抛异常；
+  > 产生**空串桶**的是 `", 1.2.3.4"` 这一类（整串非空、首段为空白）。⇒ 三份副本在公开端点上是
+  > **一条潜伏的 500**，比「共用空串桶」更严重一个量级（请求头由调用方任意构造）。
+  > **实做**：`ClientIpResolver` 用 `indexOf(',')` + `substring`，三种退化输入**一律回退 fallback**。
+  > **本节的 Decision 与「取更严那份」的结论不变**，只是理由从「另两份更松」升级为「**另两份会抛异常**」；
+  > `EmailTrackController` / `FormService` 两份私有副本仍按本节处置（C3/C4 删除）。
+  > 逐条偏差与落点见 `tasks.md` §实做订正 第 9 条。
 - **放 `com.crm.security` 而不是 `com.crm.config`**：`service → security` 是本仓**既有**方向
   （`FormService` 已 import `SecurityUtil`）；放 `config` 会让 `service → config` 成为一条**新**方向，
   而 `config` 是装配层不是工具层。
@@ -304,6 +316,13 @@ XFF 信任由 `crm.rate-limit.trust-forwarded-for`（默认 `true`）显式化�
 | ③ | 两处限流 message 文案统一为 `ErrorCode.RATE_LIMITED` 的那一条 | 破坏性（文案） |
 | ④ | XFF 退化输入（首段为空）行为统一：**空串桶 → 回退 fallback** | **订正**（三份副本里两份的行为被收敛到更严的那份） |
 | ⑤ | 限流响应新增 **`Retry-After`** 头 | 新增（向后兼容） |
+
+> ⚠️ **2026-09-16 实测订正第 ④ 行（原文逐字保留）**：第 ④ 行对**变更内容**的描述只覆盖了一半 ——
+> 它只说「空串桶 → 回退 fallback」，而实做期实测发现三份副本在 `XFF = ","` 上**抛
+> `ArrayIndexOutOfBoundsException`**（Java 的 `split` 丢弃末尾空段 ⇒ 长度 0 的数组），
+> 即**另有一处「潜伏 500 → 回退 fallback」的变更**，其对外严重性高于空串桶。
+> ⇒ 第 ④ 行的**类**（**订正**、而非破坏性变更）与**方向**（收敛到更严那份）都不变，
+> 但**变更集合比本行写的更大**。理由与逐条落点见 §9 的 ⚠️ 块与 `tasks.md` §实做订正 第 9 条。
 
 ⚠️ ① 单独暴露在**第 2 次提交**（`EmailTrackController` 的收敛）里，**便于日后二分**。
 

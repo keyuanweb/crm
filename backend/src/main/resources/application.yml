@@ -74,6 +74,28 @@ crm:
     # 运维无从得知准确拼写，等价于这项白名单在实践中不可用（见 data-model.md §4）。
     # 判定顺序（白名单优先于网段判定）与残余风险边界见 com.crm.common.OutboundUrlValidator。
     allowed-hosts: ${CRM_OUTBOUND_ALLOWED_HOSTS:}
+  rate-limit:
+    # 全局限流（100-rate-limit-consolidation）。**逐端点的配额数字不在这里**——它们写在端点方法上的
+    # @RateLimit(scope, limit, windowSeconds)（与端点同址，照 @RequirePermission 的体例），
+    # 理由是配额是逐端点的量（导出 10/60s 与表单 3/60s 差 20 倍），集中成一张表会让「这个端点该配多少」
+    # 与「这个端点干什么」分居两地。本段只有两个全局开关。
+    #
+    # ⚠️ 默认值只留一处真源：@Value 里的默认值与本文件必须一致。仓里有「代码默认 true、yml 里 false、
+    # yml 胜出」的前例（见 captcha），那种情况下运维从代码里读不到生效值——故这两个键在这里显式声明。
+    #
+    # enabled=false 时切面**跳过一切计数**（含 Redis 调用），用于压测/排障，不是长期配置钮。
+    enabled: ${CRM_RATE_LIMIT_ENABLED:true}
+    # X-Forwarded-For 首值是否可信。默认 true = 与改造前三处 clientIp 副本的行为逐字相同
+    # （它们无条件读 XFF），从而保住现有部署的可观测行为。
+    #
+    # ⚠️ 该默认值只在「反向代理是唯一入口、且代理自己重写 XFF」时成立（生产上 nginx 是唯一入口）。
+    # **直连后端端口时可以伪造首值** ⇒ 此时「按 IP 分桶」形同虚设。这是**已知并登记为债务**的洞
+    # （修复动作：可信代理网段白名单 + 从右往左取 XFF），本批不做；server.forward-headers-strategy
+    # 不解决它（同样要求可信边界配置）。
+    # ⇒ 因此公开端点上的 IP 限流的定位是**误用与意外的阻尼**（防一个死循环的前端把工单表灌满、
+    # 防一个预取器把落地页打成 DB 热点），**不是抗敌手措施**——不得在任何文档里把它宣传成攻击防护。
+    # 「直连在公网、前面没有可信代理」的部署应设为 false：此时完全不看 XFF，只按 remoteAddr 分桶。
+    trust-forwarded-for: ${CRM_RATE_LIMIT_TRUST_FORWARDED_FOR:true}
   security:
     # 082-two-factor-auth：TOTP 双因素认证。
     mfa:

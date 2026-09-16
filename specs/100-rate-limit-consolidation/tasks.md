@@ -49,7 +49,8 @@
 
 ## 阶段 B 共享限流件与通用 429 错误码（提交 C2 = `feat(100): 共享限流件与通用 429 错误码`）
 
-**⚠️ 本阶段是「纯新增、零行为变更」**：不删旧处理器、不动任何 Controller/Service、不改 `SecurityUtil`。
+**⚠️ 本阶段是「纯新增、零行为变更」**：不删旧处理器、不动任何 Controller/Service、
+不改 `SecurityUtil` 的**既有成员**（只**新增** `currentApiKeyId()` —— 它在 C2 就要用上，见 §实做订正 5）。
 **本阶段结束时仓里同时存在两套限流**（旧的 2 处内存桶 + 新的共享件），**这是有意的**（可回退的中间态）。
 
 - [ ] T009 新建 `com/crm/security/RateLimit.java`：`@Target(METHOD)` + `@Retention(RUNTIME)`；
@@ -62,17 +63,24 @@
       （照 `MfaStateStore` 的 `failKey` 那组先例）；javadoc 写明「`rl:` 与 `auth:` **同级**，便于运维按前缀监控」
 - [ ] T012 新建 `com/crm/security/RateLimitIdentity.java`：**纯静态函数**（可脱 Spring 单测）；
       `AUTO` 判定顺序按 T010；显式 `USER`/`API_KEY` 而**主体缺失时回退 IP 并 `log.warn`**
-      （候选取舍见 `research.md` §8）；机器主体判定**复用** `SecurityUtil.isMachineSubject()`
+      （候选取舍见 `research.md` §8）；机器主体判定**复用** `SecurityUtil.isMachineSubject()`；
+      机器主体取 `SecurityUtil.currentApiKeyId()` —— **该方法在本次一并新增**（从
+      `authentication.getDetails()` 的 `ApiKeyAuthFilter.ApiKeyPrincipal.keyId()` 取，⚠️ **密钥 id 不在 principal 里**，
+      与 `currentUserId()` 并列、同 javadoc 体例）；**纯新增成员、零行为变更**，故不破本阶段的「纯新增」性质
 - [ ] T013 新建 `com/crm/security/ClientIpResolver.java`：语义**逐字取** `AuthService.resolveClientIp` 那一份
       （**更严**的那份：XFF 首段为空则回退 fallback）；配置项 `crm.rate-limit.trust-forwarded-for`；
       ⚠️ javadoc **必须**写明三件事：① 只在反向代理是唯一入口时成立；② 直连可伪造（**已知并登记为债务**）；
       ③ **它不是抗敌手措施**，公开端点上的定位是**误用与意外的阻尼**
-- [ ] T014 新建 `com/crm/security/RateLimiter.java`：依赖**只有** `RedisTemplate`（**不需要 `Clock`** —— 窗口是 Redis 自己的 TTL）；
+- [ ] T014 新建 `com/crm/security/RateLimitStore.java`（**立项期这一件写成 `RateLimiter`，实做拆成两个类**，见 §实做订正 4）：
+      依赖**只有** `RedisTemplate`（**不需要 `Clock`** —— 窗口是 Redis 自己的 TTL）；
       `increment` → **仅 `n == 1` 时 `expire`**（照 `MfaStateStore.recordFailure`，**不照** `AuthService.recordFailure`）；
       `count >= limit` 时读 `getExpire(key, MILLISECONDS)`，为 `-1`/`-2` 则**补回整窗 + `log.warn` + 放行**；
-      拒绝时抛 `RateLimitExceededException`（带剩余秒数）；**fail-open 只 catch `RedisConnectionFailureException | DataAccessException`**、
+      返回值 = **剩余秒数**（`0` = 放行）；**fail-open 只 catch `RedisConnectionFailureException | DataAccessException`**、
       每条 `log.warn`、**不 catch 裸 `Exception`**、**不提供 `fail-open` 开关**；
       ⚠️ javadoc **必须**写明与 `MfaStateStore.lockRemainingSeconds` **刻意相反**的理由（引其类名与方法名）
+- [ ] T014a 新建 `com/crm/security/RateLimiter.java`（**组合层**，与 T014 的 store 分开）：依赖 `RateLimitStore` + `ClientIpResolver`；
+      身份 → 键 → 交给 store → **剩余秒数 > 0 时抛** `RateLimitExceededException`；
+      **自己不碰 `SecurityContextHolder`**（那在 `RateLimitIdentity` 里），使两层各自可单测
 - [ ] T015 新建 `com/crm/security/RateLimitAspect.java`：`@Aspect @Component` + `@Before("@annotation(rateLimit)")`；
       **显式 `@Order`**，排在 `PermissionAspect` **之后**（权限先于限流 ⇒ 未授权者不消耗配额）；
       `crm.rate-limit.enabled=false` 时直接放行
@@ -132,7 +140,9 @@
 
 **⚠️ 本阶段的 P0 标注与台账测试必须同批**（否则中间提交是一堆**没有护栏的标注**）。
 
-- [ ] T032 `SecurityUtil` 新增 `currentApiKeyId()`：从 `authentication.getDetails()` 取
+- [ ] T032 ⚠️ **已前移到 T012（C2）**：`SecurityUtil.currentApiKeyId()` 是 `RateLimitIdentity` 在
+      C2 的必要依赖（机器主体按 `keyId` 分桶），故与共享件同批交付、**不在本阶段**。此处保留行号占位，
+      内容见 T012。**原描述（留痕）**：`SecurityUtil` 新增 `currentApiKeyId()`：从 `authentication.getDetails()` 取
       `ApiKeyAuthFilter.ApiKeyPrincipal.keyId()`（⚠️ **密钥 id 不在 principal 里**）；与 `currentUserId()` 并列，同 javadoc 体例
 - [ ] T033 **P0 匿名 IP 三处**标注：`CustomerPortalController#ticketStatus`（`public-ticket-status` 10/60s）·
       `CustomerPortalController#submitTicket`（`public-ticket-submit` 5/60s）·
@@ -205,7 +215,7 @@
 
 ## 实做订正（**如实记录与本计划的偏差**，交付时填）
 
-> 立项期已登记的**三**条（**不是事后补记**）：
+> 立项期已登记的**五**条（**不是事后补记**）：
 
 1. **提交数 5 → 6**：已批准计划写的是 **5 次**提交（C1 共享件起步），实做拆成 **6 次** ——
    多出的第一次是 `docs(100): 立项`（**纯文档、零代码**）。
@@ -218,17 +228,60 @@
    分开改等于用一次订正造出两处新矛盾。该偏离**已在立项提交时向用户说明**，并写进 `plan.md`。
 3. **`roadmap.md` 第 6 行的交付态断言在立项阶段不改**（T007）：它是**已交付**的断言，
    立项期改等于把在办项写成已交付；照 097/099 同一处置，只在交付时（T050）改。**旧值逐字保留可 grep**。
+4. **新件 7 → 8 个**：`RateLimiter` 拆成 `RateLimitStore`（Redis 计数协议）+ `RateLimiter`（组合层）。
+   理由：让 `RateLimitStoreTest`（T5 补窗协议）与 `RateLimiterShapeTest`（T6 调用形状）**各对着一个类**——
+   混在一个类里时，这两个测试的文件名与实际结构对不上，而「对着什么测」正是它们唯一的可读线索。
+   `plan.md` 的组件表与 C2 行已同步按实做改写。
+5. **`SecurityUtil.currentApiKeyId()` 由 C5 前移到 C2**（T032 → T012）：`RateLimitIdentity` 在 C2 就需要它，
+   而它是**纯新增成员、零行为变更** ⇒ C2 的「纯新增」性质不变。C5 少一件，其余 P0/P1 标注计划不变。
+
+> **C2 实做期登记的偏差（4 条，随 C2 提交一并入库）**：
+
+6. **T014 的「多 catch」是编译错误 ⇒ 只 catch `DataAccessException`**：原文写「fail-open 只 catch
+   `RedisConnectionFailureException | DataAccessException`」，但 `RedisConnectionFailureException`
+   **是** `DataAccessException` 的**子类** ⇒ 多 catch 形式直接被 javac 判「已由备选 `DataAccessException` 捕获」。
+   实做为**单个 `DataAccessException` catch**（两处：计数路径与读窗口路径）。**判据覆盖面不变** ——
+   子类照旧被捕获，`RateLimitStoreTest.everyStoreFailureIsFailOpen` 注入的正是
+   `RedisConnectionFailureException` ⇒ 「Redis 挂 ⇒ 放行」仍被钉住；「**不 catch 裸 `Exception`**」逐字成立。
+   `RateLimitStore` 的 javadoc 把这条**编译错误**明白写出来（防后人「顺手补回多 catch」）。
+7. **`RATE_LIMITED` 落在 082 MFA 组**之后**，不是字面的「紧邻 `MFA_LOCKED`」**：T017 写「**紧邻
+   `MFA_LOCKED` 放置**」。实做放在 `MFA_STORE_UNAVAILABLE` **之后**（整个 MFA 组之后），
+   因为插进组中间会把 082 的 MFA 块**劈成两半**、注释块与枚举项对不上。
+   `:158` 那句「全仓首个 429（本项引入…）」**原文逐字保留 + 追加带日期 ⚠️**（照 T017 要求），
+   并在该 ⚠️ 里点明新码的位置是「**下方 MFA 组之后的 429 段**」。其余判据逐字成立：
+   **不合并 `MFA_LOCKED`**、两码并存（① `AuthMfaIT` 逐字断言 `error.code == "MFA_LOCKED"`；
+   ② 两者窗口语义相反）。
+8. **T6「用 `increment` 而非 `get`+`set`」的判据落在 `RateLimitStoreTest`**（不是字面的
+   `RateLimiterShapeTest`）：判据本身（断言 `increment` 被调用、`get` / `set` **零调用**）**逐字成立**，
+   但落点是 `RateLimitStoreTest` —— T014/T014a 把新件拆成 store 与组合层后，**原语住在 store 里**，
+   `get`+`set` 的劣解只可能在那里发生；`RateLimiterShapeTest` 钉的是**组合层**的调用形状
+   （键名逐字 + 配额三元组 + `verifyNoMoreInteractions`）。两者失效方式不同（「用了哪个原语」vs
+   「键长什么样」），故分在两类里并互相在 javadoc 里指路。T020a 的行文已按实做列出四个文件。
+9. **`ClientIpResolver` 用 `indexOf(',')` 而非 `split(",")[0]` —— 立项期对退化输入的事实描述被实测推翻
+   （同时堵掉一处潜伏 500）**：`plan.md`「五处对外可观测变更」第 ④ 条与 `research.md` §9 都写
+   「XFF 为 `","` 时 `split(",")[0].trim()` = **空串** ⇒ **所有这类请求共用一个键为 `""` 的桶**」。
+   ⚠️ **实测该表述是错的**（由 `ClientIpResolverTest.degenerateHeadersFallBackToTheFallback` 实测转红暴露，
+   红的是 `ArrayIndexOutOfBoundsException: Index 0 out of bounds for length 0`）：Java 的 `split`
+   **丢弃末尾空段**，故 `",".split(",")` 切出的是**长度 0 的数组**，取 `[0]` **抛异常**。
+   ⇒ 三份副本在**公开端点**上是**一条潜伏的 500**（请求头由调用方任意构造），而不是共用一个空串桶。
+   真正产生**空串桶**的输入是 `", 1.2.3.4"` 这一类（整串非空、首段为空白），此时另两份
+   （只判「整头非空」）返回空串，`AuthService` 那份（多一层「首段非空」判定）正确回退。
+   **实做**：改用 `indexOf(',')` + `substring`，三种退化输入**一律回退 fallback —— 既不返回空串、也不抛异常**。
+   **结论不变**（收敛取更严那份、「统一为 fallback」），但**理由升级**：不再是「另两份更松」，
+   而是「**另两份会抛异常**」；这同时是「把三份改成一份」这个动作的**净收益** —— 照抄 `split`
+   只是把三份的同一个洞搬进一份。`research.md` §9 与「五处变更」第 ④ 行已按实测订正
+   （**原文逐字保留 + 带日期 ⚠️**，旧值仍可 grep）。
 
 > 以下待交付时如实填：
 
-4. **事实 ⑬ 那颗雷的语义变化必须显式登记**：切 Redis 后，`FormIT` / `LandingPageIT` 在**默认基类**下
-   限流**变成 no-op**。**这不是弄丢护栏** —— 那个内存桶今天**不是护栏而是跨用例共享状态**，
-   且它对限流是**零用例**的（`rateBuckets` / `RATE_LIMIT` / `提交过于频繁` 在 `src/test` **0 命中**）。
-   但**必须写进留痕**，免得后人以为「IT 里限流一直生效」。
-5. **定向破坏里若出现「预期仍绿」的条目**（D11 最可能），**如实记为已知空档**，**不假装有护栏**。
-   ⚠️ 造破坏时先写「它该改变哪条可观察行为」，跑完核对**那条行为确实变了** —— 没变就是**空操作**，
-   别把绿记成结论；看到红先读**是不是判据本身**（`TS6133` 一类是**手段**的红，不是**目的**的红）。
-6. （预留）其余偏差在交付时逐条补记。
+10. **事实 ⑬ 那颗雷的语义变化必须显式登记**：切 Redis 后，`FormIT` / `LandingPageIT` 在**默认基类**下
+    限流**变成 no-op**。**这不是弄丢护栏** —— 那个内存桶今天**不是护栏而是跨用例共享状态**，
+    且它对限流是**零用例**的（`rateBuckets` / `RATE_LIMIT` / `提交过于频繁` 在 `src/test` **0 命中**）。
+    但**必须写进留痕**，免得后人以为「IT 里限流一直生效」。
+11. **定向破坏里若出现「预期仍绿」的条目**（D11 最可能），**如实记为已知空档**，**不假装有护栏**。
+    ⚠️ 造破坏时先写「它该改变哪条可观察行为」，跑完核对**那条行为确实变了** —— 没变就是**空操作**，
+    别把绿记成结论；看到红先读**是不是判据本身**（`TS6133` 一类是**手段**的红，不是**目的**的红）。
+12. （预留）其余偏差在交付时逐条补记。
 
 ---
 
