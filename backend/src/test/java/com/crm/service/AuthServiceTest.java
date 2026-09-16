@@ -51,7 +51,9 @@ class AuthServiceTest {
             redis,
             userStateCache,
             captchaService,
-            mock(RoleService.class),
+            // 082 第 3 步：签发令牌与装配 UserInfo 已搬到 TokenService。本类只测限流/锁定/凭据校验，
+            // 对令牌内容零断言，故这里传替身——登录成功那条路径上它返回 null，用例不看返回值。
+            mock(TokenService.class),
             false);
   }
 

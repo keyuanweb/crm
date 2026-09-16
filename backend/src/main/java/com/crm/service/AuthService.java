@@ -15,7 +15,6 @@ import com.crm.security.UserStateCache;
 import io.jsonwebtoken.Claims;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -40,7 +39,7 @@ public class AuthService {
   private final RedisTemplate<String, Object> redisTemplate;
   private final UserStateCache userStateCache;
   private final CaptchaService captchaService;
-  private final RoleService roleService;
+  private final TokenService tokenService;
   private final boolean captchaEnabled;
 
   public AuthService(
@@ -50,7 +49,7 @@ public class AuthService {
       RedisTemplate<String, Object> redisTemplate,
       UserStateCache userStateCache,
       CaptchaService captchaService,
-      RoleService roleService,
+      TokenService tokenService,
       @org.springframework.beans.factory.annotation.Value("${crm.captcha.enabled:true}")
           boolean captchaEnabled) {
     this.userMapper = userMapper;
@@ -59,7 +58,7 @@ public class AuthService {
     this.redisTemplate = redisTemplate;
     this.userStateCache = userStateCache;
     this.captchaService = captchaService;
-    this.roleService = roleService;
+    this.tokenService = tokenService;
     this.captchaEnabled = captchaEnabled;
   }
 
@@ -109,7 +108,9 @@ public class AuthService {
     int tv = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
     userStateCache.put(
         user.getId(), new UserStateCache.UserState(Boolean.TRUE.equals(user.getEnabled()), tv));
-    return issueTokens(user);
+    // 082：这里在"验证码/口令/停用检查之后、签发之前"插入二次验证分支（第 9 步）。
+    // 未启用 2FA 的账号在此处的行为与 082 之前逐字相同——issue() 就是原来的 issueTokens()。
+    return tokenService.issue(user);
   }
 
   /** 登录防暴力破解（T052）：失败 5 次后锁定 15 分钟。 */
@@ -219,9 +220,8 @@ public class AuthService {
       redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
       throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
     }
-    String newAccess =
-        jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), tokenVersion);
-    return new AuthResponse(newAccess, request.getRefreshToken(), toUserInfo(user));
+    String newAccess = tokenService.accessToken(user);
+    return new AuthResponse(newAccess, request.getRefreshToken(), tokenService.toUserInfo(user));
   }
 
   public void logout(RefreshRequest request) {
@@ -241,48 +241,6 @@ public class AuthService {
     if (user == null) {
       throw new BusinessException(ErrorCode.USER_NOT_FOUND);
     }
-    return toUserInfo(user);
-  }
-
-  private AuthResponse issueTokens(User user) {
-    int tokenVersion = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
-    String access =
-        jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), tokenVersion);
-    String refresh =
-        jwtUtil.generateRefreshToken(
-            user.getId(), user.getUsername(), user.getRole(), tokenVersion);
-    redisTemplate
-        .opsForValue()
-        .set(
-            REFRESH_KEY_PREFIX + user.getId(),
-            refresh,
-            Duration.ofSeconds(jwtUtil.refreshTtlSeconds()));
-    return new AuthResponse(access, refresh, toUserInfo(user));
-  }
-
-  private UserInfo toUserInfo(User user) {
-    // 028：角色菜单/权限（ADMIN 兜底全量）
-    if ("ADMIN".equals(user.getRole())) {
-      return new UserInfo(
-          user.getId(),
-          user.getUsername(),
-          user.getDisplayName(),
-          user.getRole(),
-          roleService.menuTree().stream()
-              .flatMap(g -> ((List<?>) g.get("children")).stream())
-              .map(m -> (String) ((java.util.Map<?, ?>) m).get("key"))
-              .toList(),
-          roleService.permissionDefs().stream()
-              .flatMap(g -> ((List<?>) g.get("children")).stream())
-              .map(p -> (String) ((java.util.Map<?, ?>) p).get("code"))
-              .toList());
-    }
-    return new UserInfo(
-        user.getId(),
-        user.getUsername(),
-        user.getDisplayName(),
-        user.getRole(),
-        roleService.menusOf(user.getRole()),
-        roleService.permissionsOf(user.getRole()));
+    return tokenService.toUserInfo(user);
   }
 }
