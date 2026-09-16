@@ -422,15 +422,26 @@ const R5_ALLOWED = [
  * <p>**读者可自证**（`R6_ALLOWED` 才是当前的事实，别采信本注释里的数）——
  * 以下两条命令的输出即为「条目数」与「count 合计」：
  *
- * <p>`awk '/^const R6_ALLOWED = \[/,/^\]/' scripts/check-ui.mjs | grep -c "file:"` ⇒ **8**
+ * <p>`awk '/^const R6_ALLOWED = \[/,/^\]/' scripts/check-ui.mjs | grep -c "file:"` ⇒ **7**
  *
- * <p>`awk '/^const R6_ALLOWED = \[/,/^\]/' scripts/check-ui.mjs | grep -o "count: [0-9]*" | awk '{s+=$2} END{print s}'` ⇒ **10**
+ * <p>`awk '/^const R6_ALLOWED = \[/,/^\]/' scripts/check-ui.mjs | grep -o "count: [0-9]*" | awk '{s+=$2} END{print s}'` ⇒ **9**
  *
- * <p>⚠️ **三个数互相不是一回事，别混**：`R6_ALLOWED` 的**条目数 = 8**（8 个文件）、
- * **count 合计 = 10**（10 处命中，与 `CANDIDATE_READINGS.R6 = 10` 一致）、
+ * <p>⚠️ **2026-09-16 第三次订正（098 提交 3）：`10 / 8` → `9 / 7`。**
+ * **上面那段（含 097 的订正）原文逐字保留、不改写** —— 它是写下时的真实读数。
+ * 本次变化**不是漂移，是 098 本批**：`src/pages/LoginPage.tsx` 的 `aria-label="验证码图片"`
+ * 已改走 i18n 键 `login.captchaImage`（该条目的理由原文自己就写着"属 i18n 批次"，098 就是那一批）
+ * ⇒ **必须摘除该条目**，否则双向校验会因"命中数少于登记数"当场转红。
+ * 至此 R6 的**两处真缺陷只剩 `App.tsx` 一处**（098 提交 6 处理，届时再订正为 `8 / 6`）。
+ *
+ * <p>⚠️ **三个数互相不是一回事，别混**：`R6_ALLOWED` 的**条目数 = 7**（7 个文件）、
+ * **count 合计 = 9**（9 处命中；`CANDIDATE_READINGS.R6` 仍是 **10**，它数的是**裸写法命中**、
+ * **不是台账大小**，两者不等是正常的）、
  * `MIN_CANDIDATES.R6 = 1`（**反假绿**的下限，不是台账大小）。
  * **机器守的是 count 与命中**：块头注释里的数**没有任何断言看着它**——这正是它能悄悄漂移的原因，
  * 故本处**只能订正 + 留下复算命令**，不声称此处有护栏。
+ * ⚠️ **摘的是台账条目，规则本身不动**：R6 仍看着这两处 —— **本注释写下的这一刻尚未观测**，
+ * 098 的交付阶段以反向破坏 D6（把 `App.tsx` 的 aria-label 改回裸字符串）**应**使其转红；
+ * **「应」不是「已」**，实测留痕以 `specs/098-i18n-zh-residue/falsification-evidence.md` 为准。
  */
 const R6_ALLOWED = [
   {
@@ -440,16 +451,6 @@ const R6_ALLOWED = [
       '**真缺陷但本轮不动**：第 623 行 `aria-label="折叠/展开菜单"`（无障碍名称只有中文）。' +
       '修它需要新 i18n 键，且 `App.render.test.tsx:274,277` 正以 `getByLabelText(\'折叠/展开菜单\')` 断言该值——' +
       '属 i18n 清扫（一期 1.4 / P3）的批次，混进布局批次会让两件事的回归都难以归因',
-  },
-  {
-    file: 'src/pages/LoginPage.tsx',
-    count: 1,
-    reason:
-      '**真缺陷但本轮不动**：验证码图片那处 `aria-label="验证码图片"`。' +
-      '（原文写的是"第 274 行"——082 改了同一个文件，行号已失效 ⇒ 改为锚字符串。' +
-      '082 之后它在 `LoginPage.tsx` 的验证码 `<img>` 上，与二次验证的改动无关。）' +
-      '`LoginPage.test.tsx:48` 已**书面记录**该处为"硬编码中文（非 i18n）"并断言它——' +
-      '改它意味着同时改掉那条测试，属 i18n 批次',
   },
   {
     file: 'src/pages/mail/MailSyncPage.tsx',

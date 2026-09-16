@@ -30,11 +30,13 @@ interface MfaValues {
   recoveryCode?: string
 }
 
+// 卖点四条。**表里存键、渲染时 `t()`** —— 与 `src/constants/enumLabels.ts` 同一条纪律
+// （模块级常量拿不到 `useTranslation` 的 hook，故中文不能写在这里）。
 const features = [
-  '客户全生命周期管理',
-  '商机与销售漏斗追踪',
-  '多维度数据统计分析',
-  '操作审计与权限管控',
+  'login.featureLifecycle',
+  'login.featurePipeline',
+  'login.featureAnalytics',
+  'login.featureAudit',
 ]
 
 export default function LoginPage() {
@@ -119,7 +121,7 @@ export default function LoginPage() {
       }
       completeLogin(res)
     } catch (err) {
-      setError(extractErrorMessage(err, '登录失败，请检查用户名与密码'))
+      setError(extractErrorMessage(err, t('login.failed')))
       void refreshCaptcha()
     } finally {
       setLoading(false)
@@ -236,21 +238,21 @@ export default function LoginPage() {
             >
               <TeamOutlined style={{ fontSize: 28, color: '#fff' }} />
             </div>
-            <Text style={{ fontSize: 20, fontWeight: 600, color: '#fff' }}>CRM 系统</Text>
+            <Text style={{ fontSize: 20, fontWeight: 600, color: '#fff' }}>{t('login.brandTitle')}</Text>
           </div>
 
           <Title level={2} style={{ color: '#fff', marginBottom: 16, fontWeight: 700 }}>
-            客户关系管理系统
+            {t('login.heroTitle')}
           </Title>
           <Paragraph style={{ color: 'rgba(255,255,255,0.85)', fontSize: 15, marginBottom: 40, lineHeight: 1.8 }}>
-            一站式管理客户资源、销售商机与跟进记录，助力团队高效协作，提升成交转化率。
+            {t('login.heroSubtitle')}
           </Paragraph>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px' }}>
             {features.map((f) => (
               <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <CheckCircleOutlined style={{ color: '#91caff', fontSize: 18 }} />
-                <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 14 }}>{f}</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 14 }}>{t(f)}</Text>
               </div>
             ))}
           </div>
@@ -429,18 +431,18 @@ export default function LoginPage() {
                     justifyContent: 'center',
                   }}
                   onClick={() => void refreshCaptcha()}
-                  title="点击刷新验证码"
+                  title={t('login.captchaRefresh')}
                 >
                   {captchaImg ? (
                     <img
                       src={captchaImg}
-                      alt="验证码"
-                      aria-label="验证码图片"
+                      alt={t('login.captcha')}
+                      aria-label={t('login.captchaImage')}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   ) : (
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      点击获取
+                      {t('login.captchaClickToLoad')}
                     </Text>
                   )}
                 </div>
@@ -473,7 +475,7 @@ export default function LoginPage() {
               }}
             >
               <Text type="secondary" style={{ fontSize: 12 }}>
-                演示账号：<Text strong style={{ color: '#595959' }}>admin</Text> /{' '}
+                {t('login.demoAccounts')}<Text strong style={{ color: '#595959' }}>admin</Text> /{' '}
                 <Text strong style={{ color: '#595959' }}>admin123</Text>
               </Text>
             </div>

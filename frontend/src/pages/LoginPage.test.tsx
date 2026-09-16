@@ -54,8 +54,9 @@ describe('LoginPage', () => {
   it('点击验证码图片触发刷新', async () => {
     renderWithProviders(<LoginPage />)
 
-    // 验证码图片的 alt/aria-label 是硬编码中文（非 i18n）
-    const img = await screen.findByRole('img', { name: /验证码图片/ })
+    // 098：验证码图片的 alt/aria-label 已改走 i18n；此处断言的是**键名**
+    // （`src/test/setup.ts` 的 i18n mock 让 `t(key)` 原样返回 key，缺键会直接抛错）。
+    const img = await screen.findByRole('img', { name: /login\.captchaImage/ })
     fireEvent.click(img)
 
     await waitFor(() => {

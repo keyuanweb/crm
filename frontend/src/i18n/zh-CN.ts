@@ -109,6 +109,20 @@ const zhCN = {
     mfaExpired: '验证已超时，请重新输入账号密码',
     mfaFailed: '验证失败，请重试',
     mfaUnexpected: '服务端返回了无法识别的登录结果，请稍后重试',
+    // 098：登录页剩余的用户可见硬编码文案（此前只有表单骨架走了 i18n）。
+    // ⚠️ 这些 zh 值与改动前的字面量**逐字相同**（含全角标点）——这是「界面与 e2e 不变」的唯一保证。
+    failed: '登录失败，请检查用户名与密码',
+    brandTitle: 'CRM 系统',
+    heroTitle: '客户关系管理系统',
+    heroSubtitle: '一站式管理客户资源、销售商机与跟进记录，助力团队高效协作，提升成交转化率。',
+    featureLifecycle: '客户全生命周期管理',
+    featurePipeline: '商机与销售漏斗追踪',
+    featureAnalytics: '多维度数据统计分析',
+    featureAudit: '操作审计与权限管控',
+    captchaRefresh: '点击刷新验证码',
+    captchaImage: '验证码图片',
+    captchaClickToLoad: '点击获取',
+    demoAccounts: '演示账号：',
   },
   home: {
     greeting: '你好，{{name}} 👋',
