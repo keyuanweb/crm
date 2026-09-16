@@ -5,6 +5,8 @@ import com.crm.common.PageResult;
 import com.crm.dto.contact.ContactRequest;
 import com.crm.dto.contact.ContactResponse;
 import com.crm.dto.customer.ImportResult;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.ContactExcelService;
 import com.crm.service.ContactService;
@@ -63,6 +65,11 @@ public class ContactController {
   }
 
   @GetMapping("/import-template")
+  @RateLimit(
+      scope = "export-download",
+      limit = 30,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "下载联系人导入模板")
   public ResponseEntity<byte[]> importTemplate() {
     return ResponseEntity.ok()

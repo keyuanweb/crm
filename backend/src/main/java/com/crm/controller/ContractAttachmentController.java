@@ -2,6 +2,8 @@ package com.crm.controller;
 
 import com.crm.common.ApiResponse;
 import com.crm.dto.contract.AttachmentResponse;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.ContractAttachmentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -63,6 +65,11 @@ public class ContractAttachmentController {
 
   @GetMapping("/{attachmentId}/download")
   @RequirePermission("contract:read")
+  @RateLimit(
+      scope = "export-download",
+      limit = 30,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "下载附件")
   public ResponseEntity<Resource> download(
       @PathVariable Long contractId, @PathVariable Long attachmentId) {

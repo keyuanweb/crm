@@ -14,6 +14,8 @@ package com.crm.controller;
 import com.crm.dto.ScheduledExportExecutionResponse;
 import com.crm.dto.ScheduledExportRequest;
 import com.crm.dto.ScheduledExportResponse;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.ScheduledExportService;
 import jakarta.validation.Valid;
@@ -41,6 +43,11 @@ public class ScheduledExportController {
 
   @PostMapping
   @RequirePermission("export:scheduled")
+  @RateLimit(
+      scope = "export-generate",
+      limit = 10,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   public ResponseEntity<ScheduledExportResponse> createScheduledExport(
       @Valid @RequestBody ScheduledExportRequest request) {
     return ResponseEntity.ok(scheduledExportService.createScheduledExport(request));
@@ -83,6 +90,11 @@ public class ScheduledExportController {
 
   @PostMapping("/{id}/execute-now")
   @RequirePermission("export:scheduled")
+  @RateLimit(
+      scope = "export-generate",
+      limit = 10,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   public ResponseEntity<Void> executeNow(@PathVariable Long id) {
     scheduledExportService.executeNow(id);
     return ResponseEntity.ok().build();

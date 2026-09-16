@@ -4,6 +4,8 @@ import com.crm.common.ApiResponse;
 import com.crm.common.PageResult;
 import com.crm.dto.export.ExportJobResponse;
 import com.crm.dto.export.ExportRequest;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.security.SecurityUtil;
 import com.crm.service.ExportJobService;
@@ -37,6 +39,13 @@ import org.springframework.web.bind.annotation.RestController;
  * **没有范围过滤**，是整表导出。这与 V80 里 {@code lead:export} 的判断同一条原则：把一份无过滤的全量导出顺手扩给 9
  * 个角色，不该由"权限接线"完成；等这两条导出补上范围过滤，再按菜单扩。已知代价：那 9 个角色打开导出中心点 "新建导出"会 403——与 {@code CommentController}
  * 同类的一处**待裁决的锁死**（见 1.5 报告）。
+ *
+ * <p>⚠️ <b>2026-09-17（100-rate-limit-consolidation）</b>：本类的两次「拿字节」各挂 {@link RateLimit}，维度取
+ * <b>USER</b> ——导出是「谁在导」而不是「从哪导」（IP 维度在移动网络/多分支办公会误伤同一批人）。两个 scope 刻意分开： <b>创建</b>走 {@code
+ * export-generate}（10/60s，真在服务端跑整表导出），<b>下载</b>走 {@code export-download}（30/60s，从盘上取字节、 轻得多）。合并成一个
+ * quota 会让「点了三次导出、又点了三次下载」的常规操作直接撞上限。 ⚠️ 权限与限流是两层、顺序是<b>权限先</b>（{@code PermissionAspect} 的
+ * {@code @Order(10)} 在 {@code RateLimitAspect} 的 {@code @Order(20)} 之前）： 未持 {@code export:create}
+ * 的调用者在切面就停了，<b>不消耗配额</b>——{@code RateLimitIT} 的 T13 钉着这条。
  */
 @RestController
 @RequestMapping("/api/v1/exports")
@@ -51,6 +60,11 @@ public class ExportController {
 
   @PostMapping
   @RequirePermission("export:create")
+  @RateLimit(
+      scope = "export-generate",
+      limit = 10,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "创建导出任务（后台执行）")
   public ApiResponse<ExportJobResponse> create(@Valid @RequestBody ExportRequest request) {
     return ApiResponse.ok(exportJobService.create(request));
@@ -65,6 +79,11 @@ public class ExportController {
   }
 
   @GetMapping("/{id}/download")
+  @RateLimit(
+      scope = "export-download",
+      limit = 30,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "下载导出文件（仅创建人/ADMIN，需已完成）")
   public ResponseEntity<ByteArrayResource> download(@PathVariable Long id) throws Exception {
     Path file = exportJobService.downloadPath(id);

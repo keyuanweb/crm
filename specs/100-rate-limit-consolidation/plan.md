@@ -318,6 +318,16 @@
   `ScheduledExportController#create`、`ScheduledExportController#executeNow`。
 - **download（5）**：`CustomerController#importTemplate`、`LeadController#importTemplate`、
   `ContactController#importTemplate`、`ExportController#download`、`ContractAttachmentController#download`。
+  —— ⚠️ **2026-09-17（C5 实做期订正）**：上面 generate 那一行的 6 个方法名**是立项期按语义推测的占位名**，
+  **不是端点实际的名字**（原文逐字保留在上方，仍可 grep）；**download 那一行 5 个 + 本行未列的
+  `ExportController#create` / `#download` / `ScheduledExportController#executeNow` 共 7 个逐字正确**。
+  真实对照：`#exportExcel`→`#exportCustomers`（客户）· `#exportExcel`→`#exportLeads`（线索）·
+  `#exportPdf`→`#pdf`（报价单）· `#exportReport`→`#export`（报表）· `#export`→`#executeExport`（合规导出）·
+  `#create`→`#createScheduledExport`（定时导出）。**错的全部落在「名字里带 `export`」那一族**——
+  没有照字面写 `export` 的（`pdf` / `#export` / `executeExport`）反而猜错了。
+  **13 个端点的清单与配额三元组（8 × 10/60s + 5 × 30/60s，均 `by = USER`）一字未变**，
+  变的只是「哪个方法」。⚠️ 本文件**文件树**里 `controller/*.java` 的注释（`exportExcel` 等）同属这一处错，
+  一并按同一对照读；详细留痕见 `tasks.md` §实做订正 22。
 - **不纳入**（逐条列出以免自相矛盾）：`ExportController#page`、`ScheduledExportController` 的 5 个读/状态端点、
   `ReportController#query`、`CustomerPortalController#articles` / `#article`（属 P1 的 `public-read`）。
   ⚠️ 注意 `LeadController#importTemplate` 与 `ContactController#importTemplate` **今天没有 `@RequirePermission`**
@@ -330,6 +340,8 @@
   且落地页/表单 meta 是任何爬虫与预取器都会打的路径。
 - **三个导入端点** `scope=import-excel`，**USER**，**5/60s**：`CustomerController#importExcel`、
   `LeadController#importExcel`、`ContactController#importContacts`。
+  —— ⚠️ **2026-09-17（C5 实做期订正，同上一处）**：前两个是占位名，真实为 `#importCustomers`（客户）、
+  `#importLeads`（线索）；`ContactController#importContacts` **逐字正确**。原文逐字保留在上方。
   multipart + Excel 解析，成本与导出同级**还带写**；**漏掉它会形成明显的不对称**（能导出受限、能导入不受限）。
 
 **故意不纳入（逐条有理由，进台账白名单）**
@@ -389,6 +401,10 @@ backend/src/main/java/com/crm/common/
 └── RateLimitExceededException.java               # 【新】extends BusinessException
 
 backend/src/main/java/com/crm/
+# ⚠️ 2026-09-17（C5 实做期订正）：下面 `controller/*` 的注释里，凡写 `exportExcel` / `exportPdf` /
+#   `exportReport` / `export`（合规） / `create`（定时） / `importExcel` 的，都是**立项期占位名**；
+#   真实方法名见上文「导出面的判定口径」的 ⚠️ 块（`exportCustomers` / `pdf` / `export` /
+#   `executeExport` / `createScheduledExport` / `importCustomers` / `importLeads`）。原文逐字保留。
 ├── exception/GlobalExceptionHandler.java         # 改：删旧处理器，加 RateLimitExceededException → 429 + Retry-After
 ├── security/SecurityUtil.java                    # 改：加 currentApiKeyId()（从 authentication.getDetails() 取）
 ├── security/PermissionAspect.java                # 改：加 @Order（本项起仓里有第二个切面）
@@ -514,6 +530,16 @@ specs/README.md · README.md · specs/roadmap.md · PROJECT_FEATURES.md   # 立�
 > C3 的 `RateLimitIT` 类 javadoc 已就地写明这条，免得读者以为漏了。
 ⚠️ **白名单条目必须带非空理由**（无理由判失败），防「随手加一行让测试变绿」。
 ⚠️ **测试类不在 `com.crm` 包下**，不会被字节码扫描算进来。
+
+> ⚠️ **2026-09-17 C5 实做订正上面两条 ⚠️ 的「白名单」形态**（**判据不变、结构与落点变**，故点名）：
+> 「粒度到方法 + 每条非空理由」**一字不改**，但白名单从**一张逐条表**改成**两级结构**——
+> **显式条目 23 条**（需逐条判断的有限集）+ **具名规则 2 条**（已认证常规读 **121** / 写 **203**，
+> 各带非空理由 **∧ 断言命中数 > 0**），因为全仓端点实测 **368** 个，逐条手写会让「理由」栏
+> 退化成一百多行同样的字（正是本条要防的形态）。另**新增第三条硬判据**：条目必须**指向真实端点**
+> 且**尚未被注解覆盖**（悬空 / 陈旧判红）—— 它是 P1 那 4 条过渡条目的到期机制。
+> 全文见 `spec.md` FR-031 的 ⚠️ 块与 `tasks.md` §实做订正 23。
+> 另：上文「初始四类」里的 `/actuator/**` / `/error` / `OPTIONS /**` / swagger / `/ws/**`
+> **不在扫描面上**（不是控制器端点）⇒ 无需条目，它们是「FR-029 故意不纳入」的对象，与豁免白名单是两回事。
 
 ⚠️ **不要为事实 ⑬ 那颗雷去改 `FormIT`/`LandingPageIT`**：它们**零改动**是验收的一部分；
 若它们变红，要么是接线错了、要么是限流真在拦，必须**查清原因**而**不是**改断言。

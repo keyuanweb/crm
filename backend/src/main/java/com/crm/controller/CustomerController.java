@@ -6,6 +6,8 @@ import com.crm.dto.customer.CustomerDetailResponse;
 import com.crm.dto.customer.CustomerRequest;
 import com.crm.dto.customer.CustomerResponse;
 import com.crm.dto.customer.ImportResult;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.CustomFieldFilterSupport;
 import com.crm.service.CustomerExcelService;
@@ -138,6 +140,11 @@ public class CustomerController {
 
   @GetMapping("/export")
   @RequirePermission("customer:export")
+  @RateLimit(
+      scope = "export-generate",
+      limit = 10,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "按当前筛选条件导出客户")
   public ResponseEntity<byte[]> exportCustomers(
       @RequestParam(required = false) String keyword,
@@ -155,6 +162,11 @@ public class CustomerController {
 
   @GetMapping("/import-template")
   @RequirePermission("customer:import")
+  @RateLimit(
+      scope = "export-download",
+      limit = 30,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "下载客户导入模板")
   public ResponseEntity<byte[]> importTemplate() {
     return ResponseEntity.ok()

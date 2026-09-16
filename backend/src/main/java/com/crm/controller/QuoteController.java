@@ -4,6 +4,8 @@ import com.crm.common.ApiResponse;
 import com.crm.common.PageResult;
 import com.crm.dto.quote.QuoteRequest;
 import com.crm.dto.quote.QuoteResponse;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.QuotePdfService;
 import com.crm.service.QuoteService;
@@ -128,8 +130,20 @@ public class QuoteController {
     return ApiResponse.ok(quoteService.reject(id, reason));
   }
 
+  /**
+   * 导出报价单 PDF。
+   *
+   * <p>⚠️ <b>2026-09-17（100-rate-limit-consolidation）</b>：走 PDF 引擎<b>现算字节</b>，属 {@code
+   * export-generate} 组 （10/60s、{@code USER} 维度——导出是「谁在导」不是「从哪导」）。注意它的权限码是 {@code
+   * quote:read}：<b>读码不等于低成本</b>， 这一条正是「判定依据是响应类型 + 是否走 Excel/PDF 引擎，而不是 URI 前缀或方法名」的例子。
+   */
   @GetMapping("/{id}/pdf")
   @RequirePermission("quote:read")
+  @RateLimit(
+      scope = "export-generate",
+      limit = 10,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "导出报价单 PDF")
   public ResponseEntity<byte[]> pdf(@PathVariable Long id) {
     QuoteResponse quote = quoteService.detail(id);

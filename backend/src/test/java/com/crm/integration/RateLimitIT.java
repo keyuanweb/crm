@@ -3,6 +3,7 @@ package com.crm.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crm.support.FixedClockTestSupport;
@@ -50,6 +51,11 @@ import org.springframework.test.web.servlet.ResultMatcher;
  * {@code @RateLimit}，而 C3/C4 里带限流的<b>全都是公开端点</b>（邮件追踪走注解、表单提交走服务侧委托，两者本来都不需要权限） ⇒ 此时写「403
  * 且无配额键」是**空断言**（无论如何都成立）。该用例随 P0 标注一起落在 C5。 ⚠️ <b>订正</b>：本句原文写「C3 里带限流的只有两个公开端点」（留痕：原文见 git 历史），C4
  * 之后这个数字变成「三个限流入口、 但仍全是公开端点」—— 判据（403 且无配额键）一个字不改，落点也不变，变的只是"为什么现在还写不了它"的事实描述。
+ *
+ * <p>⚠️ <b>2026-09-17（C5 实做）</b>：上面那段与它后面的订正<b>原文逐字保留</b>（它是 C4 时点的真实状态）；C5 的 T034 给 {@code
+ * ExportController#create}（{@code POST /api/v1/exports}，{@code export:create} + {@code
+ * export-generate}）挂上了 {@code @RateLimit}，于是本类终于有了一个**同时**带权限码与限流的端点， T13 就落在那里（见 {@link
+ * #permissionIsCheckedBeforeTheQuotaIsConsumed}）。判据不变，仍然是「403 且不消耗配额」。
  */
 class RateLimitIT extends FixedClockTestSupport {
 
@@ -336,5 +342,103 @@ class RateLimitIT extends FixedClockTestSupport {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
         .andReturn();
+  }
+
+  // ===== T13：权限先于限流 —— 未授权者得 403，且不消耗配额 =====
+
+  /**
+   * 未持权限码的调用者在切面层就被拒，<b>不占用配额</b>。
+   *
+   * <p><b>为什么必须是这个端点</b>：{@code ExportController#create}（{@code POST /api/v1/exports}）是本批唯一
+   * <b>同时</b>带 {@code @RequirePermission("export:create")} 与 {@code @RateLimit(export-generate)}
+   * 的端点。 而 SALES_REP 刻意<b>不</b>持有 {@code export:create}（原因见 {@code
+   * PermissionEnforcementIT}：商机/工单两条导出没有 范围过滤，是整表导出）—— 于是它正好充当「未授权调用者」：权限码与限流都接在这条路上，
+   * 两层的先后才成为可观测事实。
+   *
+   * <p><b>钉住的是哪条契约</b>：{@code PermissionAspect} 的 {@code @Order(10)} 在 {@code RateLimitAspect} 的
+   * {@code @Order(20)} 之前 ⇒ <b>权限先判定</b>。若顺序反了（或有人把 {@code @Order} 摘掉、两者并列）， 未授权者会先被计数：他能靠刷 403
+   * 把某个**已授权同事**的配额打满（键是 {@code user:<id>}，而 403 的调用者有自己的 id ⇒ 打满的是他自己的桶）—— 更直接的后果是「403
+   * 也消耗配额」这件事本身没有判据。本用例就是它的判据。
+   *
+   * <p><b>三个断言缺一不可</b>：
+   *
+   * <ol>
+   *   <li>403 + {@code PERMISSION_DENIED} —— 证明这个调用<b>真的走到了切面</b>（不是路径写错、不是 404/400）；
+   *   <li>403 之后 {@code redis.snapshot()} 里<b>一个 {@code rl:} 键都没有</b> —— 未授权调用不建键；
+   *   <li>ADMIN 调通之后桶里是 <b>1</b>，此后再打两次 403，桶<b>仍是 1</b> —— 阴性对照 ② 只在「桶本来就是空的」
+   *       时才成立，这一条才排除了「计数写到了别处」。
+   * </ol>
+   *
+   * <p>ADMIN 那一次同时是<b>正对照</b>：它证明这条路径上的限流是活的（键真的落到了 {@code
+   * rl:export-generate:user:<adminId>}），否则整条用例会在「限流根本没接线」的世界里照绿。
+   */
+  @Test
+  @DisplayName("T13：无 export:create 的角色调用导出端点得 403 PERMISSION_DENIED，且不产生/不累加任何 rl: 键")
+  void permissionIsCheckedBeforeTheQuotaIsConsumed() throws Exception {
+    String admin = loginAndGetToken();
+    String rep = createUserWithoutExportCreate();
+
+    // ① 未授权者：403（且是权限拒绝，不是别的）
+    mockMvc
+        .perform(createExport(rep))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
+
+    // ② 未授权调用不建键 —— 权限先于限流
+    assertThat(redis.snapshot().keySet())
+        .as("未授权调用者不该在任何配额桶上留痕；出现 rl: 键说明限流切面跑在了权限切面之前")
+        .noneMatch(key -> key.startsWith("rl:"));
+
+    // ③ 正对照：ADMIN 有 export:create ⇒ 调通，且配额真的落在 user 维度上
+    mockMvc.perform(createExport(admin)).andExpect(status().isOk());
+    String adminKey =
+        redis.snapshot().keySet().stream()
+            .filter(key -> key.startsWith("rl:export-generate:user:"))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("没接线时这个键不存在 —— ADMIN 这一半就是它的正对照"));
+    assertThat(redis.snapshot()).containsEntry(adminKey, 1L);
+
+    // ④ 再打两次 403，桶的值不动 —— 阴性对照 ② 的补强（排除「计数写到了别处」）
+    mockMvc.perform(createExport(rep)).andExpect(status().isForbidden());
+    mockMvc.perform(createExport(rep)).andExpect(status().isForbidden());
+    assertThat(redis.snapshot()).as("未授权调用不得消耗配额：桶值必须仍是 1").containsEntry(adminKey, 1L);
+    assertThat(redis.snapshot().keySet().stream().filter(key -> key.startsWith("rl:")).count())
+        .as("配额桶总共只该有 ADMIN 那一个；多出来就说明 403 的调用者也在建键/计数")
+        .isEqualTo(1L);
+  }
+
+  private static final String PROBE_PASSWORD = "Passw0rd!";
+
+  /**
+   * 建一个**不持** {@code export:create} 的 SALES_REP 并返回其令牌。
+   *
+   * <p>用「新建用户 + 登录」而不是拿种子里某个角色：SALES_REP 的权限集合由种子/V75 决定，本用例要的正是 <b>该角色确实没有 export:create</b>
+   * 这一事实（{@code PermissionEnforcementIT} 已单独钉过），此处沿用同一角色以共享那条结论。
+   */
+  private String createUserWithoutExportCreate() throws Exception {
+    String admin = loginAndGetToken();
+    String username = "ratelimitrep";
+    mockMvc
+        .perform(
+            post("/api/v1/users")
+                .header("Authorization", bearer(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"username\":\""
+                        + username
+                        + "\",\"password\":\""
+                        + PROBE_PASSWORD
+                        + "\",\"displayName\":\"限流探针\",\"role\":\"SALES_REP\"}"))
+        .andExpect(status().isCreated());
+    return loginAndGetToken(username, PROBE_PASSWORD);
+  }
+
+  /** 建导出任务（{@code export:create} + {@code export-generate} 的那个端点）。 */
+  private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder createExport(
+      String token) {
+    return post("/api/v1/exports")
+        .header("Authorization", bearer(token))
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("{\"exportType\":\"CUSTOMER\"}");
   }
 }

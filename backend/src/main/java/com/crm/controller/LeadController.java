@@ -7,6 +7,8 @@ import com.crm.dto.lead.ConvertRequest;
 import com.crm.dto.lead.LeadDetailResponse;
 import com.crm.dto.lead.LeadRequest;
 import com.crm.dto.lead.LeadResponse;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.CustomFieldFilterSupport;
 import com.crm.service.LeadExcelService;
@@ -165,6 +167,11 @@ public class LeadController {
 
   @GetMapping("/export")
   @RequirePermission("lead:export")
+  @RateLimit(
+      scope = "export-generate",
+      limit = 10,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "按当前筛选条件导出线索（FR-L11）")
   public ResponseEntity<byte[]> exportLeads(
       @RequestParam(required = false) String keyword,
@@ -182,6 +189,11 @@ public class LeadController {
   }
 
   @GetMapping("/template")
+  @RateLimit(
+      scope = "export-download",
+      limit = 30,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "下载线索导入模板（FR-L11）")
   public ResponseEntity<byte[]> importTemplate() {
     return ResponseEntity.ok()

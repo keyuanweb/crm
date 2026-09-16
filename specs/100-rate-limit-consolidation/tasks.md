@@ -183,6 +183,7 @@
 - [ ] T033 **P0 匿名 IP 三处**标注：`CustomerPortalController#ticketStatus`（`public-ticket-status` 10/60s）·
       `CustomerPortalController#submitTicket`（`public-ticket-submit` 5/60s）·
       `EmailUnsubscribeController#unsubscribe`（`public-unsubscribe` 10/60s）—— 均 `by = IP`
+      —— ⚠️ **实做：三处已落地**（2026-09-17，C5）；**方法名逐字对得上**（本行是本阶段唯一没写错名字的行）
 - [ ] T034 **P0 导出 13 处**标注：**generate 8**（`CustomerController#exportExcel` · `LeadController#exportExcel` ·
       `QuoteController#exportPdf` · `ReportController#exportReport` · `ComplianceExportController#export` ·
       `ExportController#create` · `ScheduledExportController#create` · `ScheduledExportController#executeNow`）
@@ -190,23 +191,74 @@
       `ContactController#importTemplate` · `ExportController#download` · `ContractAttachmentController#download`）
       → `export-download` **30/60s**；**均 `by = USER`**
       ⚠️ 判定依据是「**响应类型 + 是否走 Excel/PDF 引擎**」，**不是 URI 前缀、也不是方法名里有没有 `export`**
+      —— ⚠️ **实做：13 处已落地；但本行 13 个方法名里有 6 个是立项期未实测的占位名**，
+      照抄会挂到不存在的方法上。**原文逐字保留**（见上），真实方法名对照见 §实做订正 22：
+      `#exportExcel`→`#exportCustomers`（客户）· `#exportExcel`→`#exportLeads`（线索）· `#exportPdf`→`#pdf`（报价单）·
+      `#exportReport`→`#export`（报表）· `#export`→`#executeExport`（合规导出）·
+      `#create`→`#createScheduledExport`（定时导出）。**其余 7 个逐字正确**（`ExportController#create` / `#download` ·
+      `ScheduledExportController#executeNow` · 三个 `#importTemplate` · `ContractAttachmentController#download`）。
+      ⚠️ 配额三元组与分组**未变**：8 × `export-generate` 10/60s、5 × `export-download` 30/60s，均 `by = USER`
 - [ ] T035 **P0 开放 API 三处**标注：`OpenPlatformController` 两个 GET → `open-api-read` **60/60s**；
       `#openCreateLead` → `open-api-write` **30/60s**；**均 `by = API_KEY`**
       ⚠️ 该类的 javadoc 明写三个 `/open/**` **刻意不加 `@RequirePermission`**（挂码会把全部 API Key 调用方打成 403）
       ⇒ 附注释说明「限流挂在这里是安全的，因为它**不依赖**权限码」
+      —— ⚠️ **实做：三处已落地**（C5；两个 GET 的真实方法名是 `#openCustomers` / `#openLeads`），
+      注释与类 javadoc 的 ⚠️ 段都写了「不依赖权限码」这层理由，并点明**分桶按 `keyId` 而非创建者 `userId`**
 - [ ] T036 新建 `backend/src/test/java/com/crm/security/RateLimitCoverageTest.java`：
       **字节码扫描、不启 Spring**（复用 `support/RequirePermissionScanTestSupport` 的 `MetadataReader` 手法）；
       枚举 `com/crm` 下全部**控制器端点方法**，每个必须有 `@RateLimit` 或在**豁免白名单**里
+      —— ⚠️ **实做：已建，4 例全绿**；扫描只查 `@RequestMapping` 一种注解（`getAnnotatedMethods` **沿元注解上溯**，
+      六个 `@XxxMapping` 都以它为元注解 ⇒ 查它就等于查到全部端点，且拿到**合并后**的 `path` / `method`，已实测）。
+      ⚠️ 实测补充：`getReturnTypeName()` 是**擦除后**的名字（`ResponseEntity<ByteArrayResource>` 与
+      `ResponseEntity<Void>` 同读作 `ResponseEntity`）⇒ **「是不是文件字节」无法从返回类型直接判**，
+      台账改用「返回类型不是 `ApiResponse`」作侧面判据
 - [ ] T037 豁免白名单：**粒度必须是「类#方法」**（**不是 URI 前缀**）；**每条必须带非空理由**（**无理由判失败**）；
       初始四类 = ① 服务内限流的 3 处（`EmailTrackController` 两个 + `FormController#submit`）·
       ② FR-029 的逐条豁免（`/actuator/health*` / `/error` / `OPTIONS /**` / swagger 三路径 / `/ws/**` / 已认证的常规读接口）·
       ③ 登录的 2 层锁定（`AuthService` 两个 record*）· ④ 2FA 两处（`MfaStateStore`）
+      —— ⚠️ **实做：改两级结构，判断（粒度 + 非空理由）未变**（全文与理由见 §实做订正 23 与 `spec.md` FR-031 的 ⚠️ 块）：
+      **显式条目 23 条**（含 P1 待接入 4 条过渡条目 + 少数派 `ResponseEntity` 常规读 13 条 + export 族 CRUD 2 条 +
+      服务内限流 1 条 + 登录 1 条 + 2FA 2 条）+ **具名规则 2 条**（已认证常规读 121 / 写 203，各带非空理由且断言**命中数 > 0**）。
+      ⚠️ **① 的 `EmailTrackController` 两个不需要条目**（C2 已把注解挂在 handler 上 ⇒ 它们是已标注端点，
+      抄进白名单会成**陈旧条目**）；**③④ 的锚是端点而不是 `AuthService` / `MfaStateStore` 的方法**
+      （台账枚举的是控制器端点，服务层方法不在扫描面上）⇒ 落成 `AuthController#login` 1 条 + 2FA 2 条。
+      ⚠️ **实做补上原文没有的第三条硬判据**：条目必须**指向真实端点**且**尚未被注解覆盖**（悬空 / 陈旧判红）——
+      它是 P1 那 4 条过渡条目的**到期机制**。另：`/actuator/**`、`/error`、`OPTIONS /**`、swagger、`/ws/**`
+      **根本不在扫描面上**（它们不是控制器端点）⇒ 无需条目，原文把它们列进白名单是**口径混用**
 - [ ] T038 T11 **自检**必须带：先断言「扫描确实扫到了 ≥ N 个端点」
       （照 `RequirePermissionCatalogTest` 的先例）—— 否则扫描 pattern 写错时「零违规」是**假绿**
+      —— ⚠️ **实做读数（2026-09-17，取自本阶段门禁跑与定向复跑）**：**N = 368**、`MIN_ENDPOINTS = 330`（约 10% 余量）；
+      分桶 `{@RateLimit=21, 已认证常规写接口=203, 已认证常规读接口=121, 显式条目=23}`（21+203+121+23 = 368 ✓）。
+      另补原文未写的第二半：**已知答案集**——21 个已标注端点必须全部出现在扫描结果里（下界断言只盖得住「扫漏」，
+      盖不住「扫到了但没认出来」）。⚠️ 368 是**临时探针**量出来的（探针用完即删）⇒ 实做把分桶读数**打印**在自检里
+      （surefire 收进 `TEST-*.xml` 的 `system-out`），让「重新取值」变成跑一条命令而不是再造一次探针
 - [ ] T039 门禁：`mvn -B verify`；⚠️ **单独复跑 `FormIT` / `LandingPageIT`**；⚠️ 注意 T033 起
       `LandingPageIT` 打的 `GET /public/lp/{id}` 会走到**有 IP 限流**的端点 ⇒ 若变红先查是否**漏了独立 XFF**
+      —— ⚠️ **实做读数（2026-09-17 00:14→00:17，全量 `mvn -B -o verify`，exit 0 / BUILD SUCCESS）**：
+      surefire `Tests run: 732, Failures: 0, Errors: 0, Skipped: 0`（C4 为 728，+4 = `RateLimitCoverageTest` 的 4 例）；
+      failsafe `Tests run: 333, Failures: 0, Errors: 0, Skipped: 0`（C4 为 332，+1 = T13）
+      ⇒ **失败集合为空**，比判据（**⊆ 4 例已批准偏差**）更严，那 4 例本次**亦全绿**；
+      `RateLimitIT` **8/8**（7 → 8）、`RateLimitCoverageTest` **4/4**（新）、`FormIT` **1/1**、`LandingPageIT` **2/2**
+      —— 后两条**零改动、零改断言**是验收的一部分；
+      ⚠️ **本行那句「变红」预警没有发生，原因是它本阶段打不到**：`GET /public/lp/{id}` 在 C5 仍是 P1 待接入
+      （`public-read` 属 C6 = T041）⇒ 该路径上**没有** IP 限流，独立 XFF 的要求本阶段尚不适用于它（C6 起适用）；
+      spotless `Spotless.Java is keeping 794 files clean`（C4 为 793，+1 = 新增的 `RateLimitCoverageTest`）；
+      `jacoco:check` 打印 **`All coverage checks have been met.`**；`backend/target/jacoco.exec` **存在**（76,177,451 B）；
+      BUNDLE INSTRUCTION = **48147/59146 = 0.8140**（阈值 0.73 未改；C4 为 48144/59144 = 0.8140 ——
+      分子分母各 +2，是**新增的台账测试**带来的）。
+      ⚠️ 读数出自本次门禁跑的**那一棵 Java 工区**，其后**只改 markdown 工件**（`backend/` 一个字节未动）
+      ⇒ 对本提交仍然成立。可核锚点：下列 14 个 Java 文件的 `git hash-object` 输出**排序后** `sha1sum`
+      = `e2afefd6c5d7cabb49246bc49e794eb789c90065`（主代码 12 个 `controller/*.java`：
+      `ComplianceExportController` · `ContactController` · `ContractAttachmentController` · `CustomerController` ·
+      `CustomerPortalController` · `EmailUnsubscribeController` · `ExportController` · `LeadController` ·
+      `OpenPlatformController` · `QuoteController` · `ReportController` · `ScheduledExportController`；
+      测试 2 个：`integration/RateLimitIT.java` · `security/RateLimitCoverageTest.java`；
+      均在 `backend/src/{main,test}/java/com/crm/` 下）
 - [ ] T040 冒烟（**只读**）：对 `/api/v1/open/**` 的 GET（**只读、需 API Key**）连打至超限，观察 429 + `Retry-After` +
       统一 `ApiResponse` 信封；**不写库**；⚠️ 8081 上若跑的是**改动前的旧实例**则**看不到限流** ⇒ 按 `quickstart.md` §4 起隔离实例并写明端口
+      —— ⚠️ **实做：后移到 C6**（见 §实做订正 24）。8081 上跑的正是**改动前**的旧实例（本会话未重启它，仓规也禁止），
+      而隔离实例的收尾（`DROP` / `REVOKE` / `FLUSHDB`）与 `falsification-evidence.md` 的**冒烟记录**（T048）
+      本是同一步 ⇒ 两处合成一次起停，避免「C5 起一次、C6 再起一次」。**判据一个字不改**
 
 ## 阶段 F P1 接入、文档订正与数字收口（提交 C6 = `docs(100): P1 接入、文档订正与数字收口` = 交付）
 
@@ -216,6 +268,9 @@
 - [ ] T042 **P1 导入三处** `scope=import-excel` **5/60s**，`by = USER`：
       `CustomerController#importExcel` · `LeadController#importExcel` · `ContactController#importContacts`
       （⚠️ 漏掉它会形成明显的不对称：能导出受限、能导入不受限）
+      —— ⚠️ **本行前两个方法名与 T034 是同一个毛病**（立项期未实测的占位名）。**实做前先按真实名挂**：
+      `CustomerController#importCustomers` · `LeadController#importLeads`（`ContactController#importContacts` **逐字正确**）；
+      原文逐字保留在上一行，对照见 §实做订正 22
 - [ ] T043 `CRM_FEATURE_COMPARISON.md` **2.9 速率限制行**订正：**原文逐字保留 + 带日期 ⚠️** ——
       「不是**仅 1 处**，是 4 宿主类 / 6 处计数点、零共享件」；
       「**『登录无限流』为假**：登录是三层（017 验证码**始终要求** + 用户名 5 次 + IP 10 次，各 15 分钟）；
@@ -388,6 +443,8 @@
     **③ 全绿** + ② 的**测试侧**（已零命中）。**①② 的完整判据随 T031 在 C4 复跑**，届时二者都必须
     零命中。此处如实登记，免得交付时把「C3 跑过 ①②」当成既成事实。
 
+> **C4 实做期登记的偏差（5 条，随 C4 提交一并入库）**：
+
 17. **T026 的形态成立（保留签名与调用点、只换方法体），但它多出一个计划里没写的构造参数**：
     删掉私有 `FormService#clientIp(request)` 之后，服务自己必须拿到解析器（既算限流键、又填
     `client_ip` 快照列）⇒ 构造器从 **4 参变 6 参**（+`RateLimiter`、+`ClientIpResolver`）。
@@ -447,16 +504,56 @@
       `RATE_WINDOW_MS = 60_000L`，语句留在常量的 javadoc 里）与 `EmailTrackController` 两个端点的
       `limit = 60` / `windowSeconds = 60` —— **配额与窗口逐字未变**，只有单位（毫秒→秒）与算法（见 ⑥）。
 
+> **C5 实做期登记的偏差（3 条，随 C5 提交一并入库）**：
+
+22. **T034 的 13 个端点方法名有 6 个是**立项期占位名**（照抄会挂到不存在的方法上），T042 还有 2 个同款**：
+    立项时这些名字是按「路由 + 语义」**推测**的，没有逐条打开文件核对（本批的「行号/名字只作定位辅助、
+    **权威锚点是符号名**」那条规则说的正是这种情形）。**真实对照**（客户 / 线索 / 报价单 / 报表 / 合规导出 / 定时导出）：
+    `#exportExcel`→`#exportCustomers` · `#exportExcel`→`#exportLeads` · `#exportPdf`→`#pdf` ·
+    `#exportReport`→`#export` · `#export`→`#executeExport` · `#create`→`#createScheduledExport`；
+    T042 待改的两个：`#importExcel`→`#importCustomers`（客户）· `#importExcel`→`#importLeads`（线索）。
+    **13 个里 7 个逐字正确**（`ExportController#create` / `#download` · `ScheduledExportController#executeNow` ·
+    三个 `#importTemplate` · `ContractAttachmentController#download`）⇒ 错的**全部集中在「方法名里带 export」
+    这一族**——凡是**没有**照字面写 `export` 的（`pdf` / `#export` / `executeExport` / `importCustomers`）都错了，
+    说明推测的依据是「方法名应该长成什么样」而不是端点实际叫什么。
+    ⚠️ **判据一个字不改**：挂载的端点、配额三元组（8 × 10/60s + 5 × 30/60s）、维度（`USER`）逐条不变，
+    变的只是「哪个方法」。⚠️ **实做把 21 个真实方法名写进 `KNOWN_ANNOTATED`**（台账的**正对照**：
+    扫描结果里必须能找到它们）⇒ 这 6 个名字日后被改名会**立刻判红**，不必再靠人的记忆。
+    原文（含 6 个错名）在 T034 行**逐字保留**、仍可 grep。
+23. **FR-031 的「逐条豁免」不可行 ⇒ 改为「显式条目 + 具名规则」两级结构**（判断未变，见 `spec.md` FR-031 的 ⚠️ 块与 T037 行）：
+    实做清点全仓 **368** 个端点，其中「已认证常规读接口」**121**、「已认证常规写接口」**203** ⇒ 逐条手写=324 行，
+    理由栏必然退化成一百多行同样的字，正是 FR-031 自己要防的「随手加一行」。落点：**显式条目 23 条**
+    （`EXEMPT`，每条非空理由）+ **具名规则 2 条**（`RULES`，每条非空理由 **∧ 命中数 > 0**）。
+    ⚠️ 三处与原文不同、都已在 spec.md 与 T037 行就地写明：① **`EmailTrackController` 两个不需要条目**
+    （C2 把注解挂到了 handler 上 ⇒ 已标注；照原文抄会成**陈旧条目**）；② **③④ 的锚是端点**
+    （`AuthController#login` 1 条 + 2FA 2 条），`AuthService#record*` / `MfaStateStore` 的方法**不在扫描面上**
+    （台账枚举的是控制器端点）；③ **实做补上第三条硬判据**——条目必须**指向真实端点**且**尚未被注解覆盖**
+    （悬空 / 陈旧判红）。③ 不是锦上添花：它是 P1 那 4 条**过渡条目**的**到期机制**（C6 标注后不删就红），
+    也是本批唯一一条**会自己过期**的断言。
+    ⚠️ 另一处口径混用已登记：原文白名单里的 `/actuator/**` · `/error` · `OPTIONS /**` · swagger 三路径 · `/ws/**`
+    **根本不是控制器端点**、不在扫描面上 ⇒ 无需条目（它们是「FR-029 故意不纳入」的对象，与「豁免白名单」是两回事；
+    并成一条会让白名单看起来在管它们）。
+    另：规则里**看不见「响应是不是文件字节」**——`MetadataReader.getReturnTypeName()` 是**擦除后**的名字
+    （`ResponseEntity<ByteArrayResource>` 与 `ResponseEntity<Void>` 同读作 `ResponseEntity`，已实测）⇒
+    改用「返回类型不是 `ApiResponse`」作侧面判据把文件型端点（下载 / 模板 / 附件流）一律要求显式条目，
+    这批 13 个导出里 9 个正是这种形状。
+24. **T040（只读冒烟）由 C5 后移到 C6**：它要的是**跑着新代码**的实例，而 8081 上的是**改动前**的旧实例
+    （本会话未重启、仓规也禁止重启可能归并行会话所有的 8081）；换实例就得起隔离实例（临时端口 + 独立 schema +
+    另一个 Redis db），而**隔离实例的收尾**（`DROP` / `REVOKE` / `FLUSHDB`）与 `falsification-evidence.md` 的
+    **冒烟记录**（T048）本来是同一步 ⇒ 合成一次起停。**判据一个字不改**（429 + `Retry-After` + 统一信封、
+    只读、不写库、写明端口）；本阶段的端到端证据是 `RateLimitIT` 的 **T1/T2/T13/T14**（真实 `DispatcherServlet`
+    + 切面 + 异常处理器 + 响应头，只差「真 Tomcat 与真 Redis」这一层）。
+
 > 以下待交付时如实填：
 
-22. **事实 ⑬ 那颗雷的语义变化必须显式登记**：切 Redis 后，`FormIT` / `LandingPageIT` 在**默认基类**下
+25. **事实 ⑬ 那颗雷的语义变化必须显式登记**：切 Redis 后，`FormIT` / `LandingPageIT` 在**默认基类**下
     限流**变成 no-op**。**这不是弄丢护栏** —— 那个内存桶今天**不是护栏而是跨用例共享状态**，
     且它对限流是**零用例**的（`rateBuckets` / `RATE_LIMIT` / `提交过于频繁` 在 `src/test` **0 命中**）。
     但**必须写进留痕**，免得后人以为「IT 里限流一直生效」。
-23. **定向破坏里若出现「预期仍绿」的条目**（D11 最可能），**如实记为已知空档**，**不假装有护栏**。
+26. **定向破坏里若出现「预期仍绿」的条目**（D11 最可能），**如实记为已知空档**，**不假装有护栏**。
     ⚠️ 造破坏时先写「它该改变哪条可观察行为」，跑完核对**那条行为确实变了** —— 没变就是**空操作**，
     别把绿记成结论；看到红先读**是不是判据本身**（`TS6133` 一类是**手段**的红，不是**目的**的红）。
-24. （预留）其余偏差在交付时逐条补记。
+27. （预留）其余偏差在交付时逐条补记。
 
 ---
 

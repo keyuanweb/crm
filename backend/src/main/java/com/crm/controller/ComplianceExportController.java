@@ -6,6 +6,8 @@
 package com.crm.controller;
 
 import com.crm.common.ApiResponse;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.ComplianceExportService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +35,11 @@ public class ComplianceExportController {
    */
   @PostMapping
   @RequirePermission("export:compliance")
+  @RateLimit(
+      scope = "export-generate",
+      limit = 10,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "执行合规导出")
   public ApiResponse<Map<String, String>> executeExport(
       @RequestParam String entityType,

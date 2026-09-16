@@ -9,6 +9,8 @@ import com.crm.dto.open.DeliveryResponse;
 import com.crm.dto.open.WebhookRequest;
 import com.crm.dto.open.WebhookResponse;
 import com.crm.security.ApiKeyAuthFilter.ApiKeyPrincipal;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.ApiKeyService;
 import com.crm.service.CustomerService;
@@ -41,6 +43,13 @@ import org.springframework.web.bind.annotation.RestController;
  * ApiKeyAuthFilter} 建立的主体 {@code ApiKeyPrincipal}（{@code X-API-Key} 头），不是 JWT 的 {@code
  * SecurityUtil.currentPrincipal()}——而 {@code PermissionAspect} 只认后者。挂上权限码的后果不是"更安全"， 而是**把全部 API
  * Key 调用方打成 403**（切面拿不到角色，直接判拒）。它们的鉴权在自己的 {@code requireScope} 里， 按 Key 的 scope 逐个校验，这层不该被权限码覆盖。
+ *
+ * <p>⚠️ <b>2026-09-17（100-rate-limit-consolidation）</b>：{@code /open/**} 三个端点此前<b>零限制</b>——机器客户端
+ * 可以无限打。现按 <b>API_KEY</b> 维度分桶：两个 GET 走 {@code open-api-read}（60/60s），POST 走 {@code
+ * open-api-write}（30/60s）。<b>维度必须是 keyId 不是 userId</b>——API Key 主体的 {@code userId} 是密钥创建者，
+ * 同一个管理员建的两个密钥会共用一个桶，等于给"多密钥分流"设计的机制失效。 ⚠️ 这里能挂限流，恰恰因为限流<b>不依赖权限码</b>（它读的是 {@code
+ * ApiKeyPrincipal}，不是 {@code PermissionAspect} 认的 JWT 主体）——与上面那条"不加
+ * {@code @RequirePermission}"的理由不冲突，两者是两套独立的主体解析。
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -135,6 +144,11 @@ public class OpenPlatformController {
   // ===== 开放端点（X-API-Key 鉴权） =====
 
   @GetMapping("/open/customers")
+  @RateLimit(
+      scope = "open-api-read",
+      limit = 60,
+      windowSeconds = 60,
+      by = RateLimitDimension.API_KEY)
   @Operation(summary = "开放：客户只读列表（X-API-Key）")
   public ApiResponse<PageResult<?>> openCustomers(
       Authentication authentication,
@@ -146,6 +160,11 @@ public class OpenPlatformController {
   }
 
   @GetMapping("/open/leads")
+  @RateLimit(
+      scope = "open-api-read",
+      limit = 60,
+      windowSeconds = 60,
+      by = RateLimitDimension.API_KEY)
   @Operation(summary = "开放：线索只读列表（X-API-Key）")
   public ApiResponse<PageResult<?>> openLeads(
       Authentication authentication,
@@ -157,6 +176,14 @@ public class OpenPlatformController {
 
   @PostMapping("/open/leads")
   @ResponseStatus(HttpStatus.CREATED)
+  // ⚠️ 限流挂在这里是安全的，恰恰因为它**不依赖权限码**：本端点的主体是 ApiKeyPrincipal，而
+  // RateLimitAspect 按 ApiKeyAuthFilter.ApiKeyPrincipal.keyId() 分桶，不看 PermissionAspect 认的 JWT 主体
+  // （正因如此本类刻意不给 /open/** 挂 @RequirePermission，见类注释）。
+  @RateLimit(
+      scope = "open-api-write",
+      limit = 30,
+      windowSeconds = 60,
+      by = RateLimitDimension.API_KEY)
   @Operation(summary = "开放：创建线索（需 lead:write）")
   public ApiResponse<?> openCreateLead(
       Authentication authentication, @Valid @RequestBody LeadRequest request) {

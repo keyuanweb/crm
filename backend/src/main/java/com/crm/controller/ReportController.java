@@ -7,6 +7,8 @@ import com.crm.dto.report.ReportResult;
 import com.crm.dto.report.ReportRow;
 import com.crm.entity.ReportTemplate;
 import com.crm.repository.ReportTemplateMapper;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.security.SecurityUtil;
 import com.crm.service.ReportService;
@@ -72,6 +74,11 @@ public class ReportController {
 
   @GetMapping("/export")
   @RequirePermission("report:view")
+  @RateLimit(
+      scope = "export-generate",
+      limit = 10,
+      windowSeconds = 60,
+      by = RateLimitDimension.USER)
   @Operation(summary = "导出报表为 Excel（xlsx）")
   public ResponseEntity<ByteArrayResource> export(
       @RequestParam String dimension,
