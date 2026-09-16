@@ -57,6 +57,13 @@ pnpm run test:e2e
 1. 启动后端与 `pnpm dev`，以 `admin` / `admin123` 登录
 2. 逐个访问下列 14 个路由：`/quotas`、`/quotas/create`、`/quotas/:id/breakdown`、`/quotas/:id/achievement`、`/quotas/:id/versions`、`/quotas/comparison`、`/data-retention`、`/data-retention/create`、`/data-retention/:id/edit`、`/data-retention/:id/executions`、`/data-retention/compliance-export`、`/exports/scheduled`、`/exports/scheduled/create`、`/exports/scheduled/:id/executions`
 
+> ⚠️ **2026-09-16（099）订正**：上句 14 个路由里的 **`/quotas/create` 已不存在** —— 该路由与
+> `QuotaCreatePage.tsx`（126 行的独立创建页）已由 **099** 删除，创建配额改成 **`/quotas` 列表页内的
+> `FormModal` 弹窗**（点工具栏「创建配额」打开，`lg` 档 800px）。**上句原文逐字保留、不删改**（写下时它是事实）；
+> 走这条路径的人请改为：访问 `/quotas` → 点工具栏**「创建配额」**→ 弹窗打开（标题同为「创建配额」、宽 800px）、
+> 6 个字段（年份 / 季度 / 团队 ID / 销售 ID / 配额金额（万元）/ 期间）与文案在、**金额与期间两条必填拦得住**。
+> 其余 13 个路由不受 099 影响。本清单由 083 建立，**它不随 099 重写**，故只在此处留一行订正。
+
 **期望**：全部正常加载数据。
 **改造前**：全部 401 或空表。打开开发者工具的 Network 面板，确认请求头是 `Authorization: Bearer <真实令牌>` 而非 `Bearer null`。
 

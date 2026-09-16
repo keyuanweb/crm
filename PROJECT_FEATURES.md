@@ -6,18 +6,18 @@
 
 ## 一、规模速览
 
-| 维度 | 实测值（2026-09-16，**含 096 与 097**——同日的两次交付与本次重测） | 依据 |
+| 维度 | 实测值（2026-09-16，**含 096 与 097**——同日的两次交付与本次重测；⚠️ **同日第三次重测（由 099 执行）**见下方 ⚠️ 段，改变了 5 行） | 依据 |
 |---|---|---|
 | 后端 REST Controller | **66** | `backend/src/main/java/**/*Controller.java` |
 | 数据库表 | **86** | `db/migration/*.sql` 中 `CREATE TABLE` 去重（**注意用 `src/main/resources`，`target/classes` 会让计数翻倍**） |
 | Flyway 迁移 | **89 个（V1–V90，缺 V72）** | `backend/src/main/resources/db/migration` |
 | 后端测试类 | **182 个含用例的类**（`src/test` 共 188 个 `.java`） | `grep -rlE "@Test\|@ParameterizedTest" backend/src/test/java` |
-| 前端页面组件 | **101 个非测试 tsx**（含测试共 176） | `frontend/src/pages` 下 `*.tsx` 且非 `*.test.tsx` |
-| 前端路由定义 | **88 个 `<Route>`** | `frontend/src/App.tsx` 的 `<Route` 89 处 − `<Routes>` 1 处 |
+| 前端页面组件 | **100 个非测试 tsx**（含测试共 176） | `frontend/src/pages` 下 `*.tsx` 且非 `*.test.tsx` |
+| 前端路由定义 | **87 个 `<Route>`** | `frontend/src/App.tsx` 的 `<Route` 88 处 − `<Routes>` 1 处 |
 | 前端 service | **56 个 `*Service.ts`**（+`apiClient.ts`；`services/` 非测试 `.ts` 共 60） | `frontend/src/services` |
-| 前端单测 / E2E | **91 / 7** | `*.test.ts(x)`、`frontend/e2e/*.spec.ts` |
-| i18n 资源 | zh-CN 3453 行 / en 3426 行 | `frontend/src/i18n`（⚠️ **行数不等 ≠ 键集不等**：现值相差 **27** 行，根因已查明 —— **098 只在 `zh-CN.ts` 一侧写了说明注释**：098 对本表两文件是**纯新增、删除 0 行**，`zh-CN.ts` **+60 行（其中 30 行是注释）**、`en.ts` **+31 行（注释 0 行）**（`git diff --numstat 7356eb8 HEAD -- src/i18n/*.ts`）。**键集双向一致性由 `pnpm i18n:check` 判定**，不以行数为准；098 交付实测 **2963 / 2963 键**） |
-| Spec 模块 | **97 个（001–098，缺 069）** | `specs/NNN-*` |
+| 前端单测 / E2E | **92 / 7** | `*.test.ts(x)`、`frontend/e2e/*.spec.ts` |
+| i18n 资源 | zh-CN 3452 行 / en 3425 行 | `frontend/src/i18n`（⚠️ **行数不等 ≠ 键集不等**：现值相差 **27** 行，根因已查明 —— **098 只在 `zh-CN.ts` 一侧写了说明注释**：098 对本表两文件是**纯新增、删除 0 行**，`zh-CN.ts` **+60 行（其中 30 行是注释）**、`en.ts` **+31 行（注释 0 行）**（`git diff --numstat 7356eb8 HEAD -- src/i18n/*.ts`）。**键集双向一致性由 `pnpm i18n:check` 判定**，不以行数为准；098 交付实测 **2963 / 2963 键**。⚠️ **2026-09-16 第三次重测（由 099 执行）**：099 删掉配额创建页后**两侧各减 1 行**（死键 `pages.quotaCreate.btnBack`），故 **3453/3426 → 3452/3425**、键 **2963/2963 → 2962/2962**（`git diff --numstat 63ea0e7 HEAD -- src/i18n/*.ts` 两文件均 `0 1`）；**行数差仍是 27**（099 是两侧同删，不改变那个差）。**旧值逐字在上句与本行内可 grep 到**） |
+| Spec 模块 | **98 个（001–099，缺 069）** | `specs/NNN-*` |
 
 > ⚠️ **本次重测相对上一版的变动（逐行列出，不静默改数）**：数据库表 **85 → 86**（+`user_recovery_code`，082）；
 > Flyway **87（V1–V88）→ 88（V1–V89）**（+`V89__two_factor_auth.sql`，082）；
@@ -61,6 +61,40 @@
 > 补上后六处一致（现值**均为 V1~V90 / 89 个**）。
 >
 > 复算命令即上表「依据」列，逐行可跑；迁移数：`ls backend/src/main/resources/db/migration/*.sql | wc -l` → **89**。
+
+> ⚠️ **2026-09-16 第三次重测（由 099 执行；上表已按本次读数改）——为什么改的是 5 行**
+>
+> 099 是**纯前端**批次：把「创建配额」从独立路由页 `/quotas/create`（`QuotaCreatePage.tsx`，126 行）
+> 改成 `/quotas` 列表页内的 `FormModal` 弹窗（`lg` 档 800px），**同批删除**旧页面与旧路由。
+> 无迁移、无端点、无 DTO、无权限码、**`backend/` 一个文件都没动**（`git diff --stat 63ea0e7 HEAD`
+> 里没有 `backend/` 路径）⇒ 上表只有前端那 5 行会动，按**上表自己的「依据」列**逐行复测：
+>
+> | 行 | 旧值（逐字见下方留痕） | 新值 | 变动来源 |
+> |---|---|---|---|
+> | 前端页面组件 | 101 个非测试 tsx | **100** | 删掉 `src/pages/quotas/QuotaCreatePage.tsx`；同批新增的 `QuotaListPage.form.test.tsx` **也是 `pages/` 下的 tsx**，故「含测试共」**仍是 176**（一进一出） |
+> | 前端路由定义 | 88 个 `<Route>`（`<Route` 89 处 − 1） | **87 个**（`<Route` 88 处 − 1） | 删掉 `<Route path="quotas/create" .../>` 那一行（`App.tsx` 本批 `2 deletions` = lazy import 行 + 这条路由） |
+> | 前端单测 / E2E | 91 / 7 | **92 / 7** | 099 的 `QuotaListPage.form.test.tsx`（本项唯一的行为层证据） |
+> | i18n 资源 | zh-CN 3453 行 / en 3426 行、键 2963 | **3452 / 3425 行、键 2962** | 删死键 `pages.quotaCreate.btnBack`，**两侧各减 1 行**（`git diff --numstat 63ea0e7 HEAD -- src/i18n/*.ts` 均为 `0 1`）；**行数差仍是 27** |
+> | Spec 模块 | 97（001–098） | **98（001–099）** | 099 自己的目录（**它不给自己豁免**，同 097 的处置） |
+>
+> **未变的 5 行**：Controller 66、数据库表 86、Flyway 89（V1–V90）、后端测试类 182/188、service 56/60。
+> （**E2E 的 7 也没变**——但它是该行的后半格，前半格 91 → 92 变了，故整行算已改，不重复计入未变的 5 行；
+> 这与 097 那次「改 5 行 / 未变 5 行」的分法同一口径，只是这次变的是另外 5 行。）
+>
+> **两处口径要说清**：① 「前端路由定义」是**本文件自己的**计数（数 `App.tsx` 里的 `<Route`），
+> 与 `pnpm i18n:check` 打印的「路由 **58** 条」**不是一个东西**——后者要求**单引号且同行有 `name:`**，
+> 而删掉的那条是**双引号、无 `name:`**，所以 **58 不动**（099 的 `research.md` §3 据此逐门禁核过）。
+> 同一个「删了一条路由」在两处一个变、一个不变，**不是矛盾，是两把尺子**。
+> ② 「前端页面组件」的**非测试**数减 1、**含测试共**不变——两个数分别对应上表「依据」列的两半，
+> 只看其中一个会以为另一个也该动。
+>
+> **旧值逐字留痕（仍可在本段与本文件表头 grep 到，不是静默改写）**：
+> `**101 个非测试 tsx**（含测试共 176）`、`**88 个 <Route>**`、`**91 / 7**`、
+> `zh-CN 3453 行 / en 3426 行`、`**97 个（001–098，缺 069）**`、`2963 / 2963 键`。
+>
+> 复算命令即上表「依据」列，逐行可跑：`find frontend/src/pages -name '*.tsx' ! -name '*.test.tsx' | wc -l` → **100**；
+> `grep -c '<Route' frontend/src/App.tsx` → **88**（再减 `<Routes>` 1 处）；`find frontend/src -name '*.test.ts*' | wc -l` → **92**；
+> `ls -d specs/[0-9]* | wc -l` → **98**。
 
 ## 二、技术栈
 
@@ -241,6 +275,7 @@
 4. **DashboardPage hooks 违规**：三个 `useMemo` 已上移至 early return 之前，错误的 React 渲染问题消除，被 skip 的错误态测试恢复为通过（该文件 eslint 0 problems）。
 5. **文档索引滞后**：见第八节。
 6. **配额列表页占位数据**：新增 `GET /api/v1/sales-quota/summary` 年度汇总端点，三张 KPI 卡接入真实数据；新增 `QuotaCreatePage` 与 `/quotas/create` 路由，「创建配额」按钮接通跳转。
+   ⚠️ **2026-09-16 订正（由 099 执行）**：上句**原文逐字保留、不删改**（写下时（2026-09-11）它是事实）。**其中「`QuotaCreatePage` 与 `/quotas/create` 路由」这一半已不再成立** —— 099 把创建配额改成 **`/quotas` 列表页内的 `FormModal` 弹窗**（点工具栏「创建配额」打开，`lg` 档 800px），并**同批删除**了 `frontend/src/pages/quotas/QuotaCreatePage.tsx`（126 行）与 `App.tsx` 里那条 `<Route>`。**同句的前半（summary 端点 + 三张 KPI 卡接真实数据）仍然成立、一字未动**；「创建配额」按钮也仍在、只是 onClick 由 `navigate` 改成开弹窗。⇒ **本条的处置是「部分过时」，不是「已废弃」**。099 的形制：纯前端、无端点、无迁移；行为层证据见 `specs/099-quota-create-modal/`。
 7. **数据保留编辑入口失效**：新增 `DataRetentionPolicyEditPage` 与 `/data-retention/:id/edit` 路由，编辑链接不再落到 404。
 
 **已修复（2026-09-15，由 093 交付）**
