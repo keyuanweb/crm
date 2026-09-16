@@ -64,3 +64,103 @@ e67f663e5dbed90a76959f6c650e7aa5efc3d60d
 本仓 `backend/src/main/java/**` 的 `.java` 是 **CRLF**；
 而 `backend/src/main/resources/db/migration/*.sql` 是 **LF**（V82~V85 实测皆然）。
 `V89__two_factor_auth.sql` 按既有迁移的 **LF** 落库 —— 与邻居一致，不是疏漏。
+
+---
+
+## §B FR-M14「非 2FA 响应逐字节不变」的两条守卫（第 2 步，2026-09-16）
+
+**被守护的断言**（两条，缺一不可）：
+`AuthResponseSerializationTest.normalLoginSerializesByteIdentically`（surefire，自建 ObjectMapper）
+与 `LoginResponseShapeIT.normalLoginResponseShapeIsUnchanged`（failsafe，真上下文 + Spring 装配的 ObjectMapper）。
+
+**为什么是两条而不是一条**：本批给 `AuthResponse` 加了三个可空字段，FR-M14 靠
+`spring.jackson.default-property-inclusion: non_null`（`application.yml`）让 `null` 不出现在 JSON 里才成立。
+这里有两个**独立**的失效路径，各自的可见面不同：
+
+| 失效路径 | 谁看得见 |
+|---|---|
+| 给新字段加默认值 / 写成 `Boolean.FALSE` / 新增第 4 个非空字段 | 两条都看得见（见破坏 A） |
+| `application.yml` 那条 `non_null` 被改成 `always` | **只有 IT 看得见**（见破坏 B） |
+
+破坏 B 是**专门用来证伪"单测够用"这个想法**的 —— 它同时给出「单测仍绿」与「IT 转红」两个观测，
+从而证明两条断言确实互补，而不是同一条断言写了两遍。
+
+**基准**（`sha1`）：
+```
+db4f7416880ba0960a28de5d461b639892c0a3f7  backend/src/main/java/com/crm/dto/auth/AuthResponse.java
+9592b53d342e26e9e325116be6ace09aecca5406  backend/src/main/resources/application.yml
+```
+
+### 破坏 A：给 `mfaRequired` 加 Lombok 默认值
+
+**破坏**：`private Boolean mfaRequired;` → `private Boolean mfaRequired = Boolean.FALSE;`（其余一字不动）。
+
+**观测（逐字）**：
+
+`surefire` —— 2 of 3 转红：
+```
+Tests run: 3, Failures: 2, Errors: 0, Skipped: 0 <<< FAILURE! -- in com.crm.dto.auth.AuthResponseSerializationTest
+org.opentest4j.AssertionFailedError: 登录响应形状变了 …… ==> expected: <{"accessToken":"access-abc","refreshToken":
+"refresh-xyz","user":{…}}> but was: <{"accessToken":"access-abc","refreshToken":"refresh-xyz","user":{…},
+"mfaRequired":false}>
+com.crm.dto.auth.AuthResponseSerializationTest.newFieldsAreNullOnNormalPath ……
+AssertionFailedError: mfaRequired 必须是 null —— 写成 Boolean.FALSE 会多出一个键 ==> expected: <null> but was: <false>
+```
+
+`failsafe` —— 2 of 2 转红：
+```
+Tests run: 2, Failures: 2, Errors: 0, Skipped: 0 <<< FAILURE! -- in com.crm.integration.LoginResponseShapeIT
+AssertionFailedError: 登录响应的 data 键集/顺序变了 …… ==> expected: <[accessToken, refreshToken, user]>
+but was: <[accessToken, refreshToken, user, mfaRequired]>
+```
+
+**还原**：改回无默认值 → `sha1sum` 输出与基准一致（逐字节复现）。
+
+### 破坏 B：把 yml 的 `non_null` 改成 `always`（**本条是"证伪单测够用"的那一条**）
+
+**破坏**：`default-property-inclusion: non_null` → `always`（其余一字不动）。`AuthResponse.java` **不动**。
+
+**观测（逐字）**：
+
+`surefire` —— **仍然全绿**，这是**预期**结果，也正是本条破坏的价值所在：
+```
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+```
+⇒ 实测证实：**单测看不见 yml**。它的 ObjectMapper 是自建的（只镜像了那一条配置），
+所以"改 yml"这件事在它眼里从未发生。若只有它一条守卫，这次破坏会**全仓绿**地溜过去。
+
+`failsafe` —— 2 of 2 转红。**首次运行时只有 1 条断言报出来**（逐字）：
+```
+Tests run: 2, Failures: 2, Errors: 0, Skipped: 0 <<< FAILURE! -- in com.crm.integration.LoginResponseShapeIT
+AssertionFailedError: 成功响应的顶层键应恰为 success/data …… ==> expected: <[data, success]>
+but was: <[success, data, error]>
+```
+
+⚠️ **如实记一处与预期的偏差，以及它的处置**：上面这条转红的是**信封**断言
+（`ApiResponse` 顶层多出 `"error":null`），**不是** `data` 键集那条。原因是 `assertEquals` 在第一条
+失败处即中止，`data` 那条**根本没跑到**。⇒ 首次破坏**只证明了**"IT 能看见 yml 的变化"，
+**没有**单独证明 `data` 键集断言对 `always` 敏感；当时那一点只是**推断**（`always` 下三个 `null`
+字段会出现，键集必然变）。
+
+**处置 —— 把推断变成观测**：把该用例的 5 条断言改用 JUnit 的 `assertAll` 包起来
+（`all` 会跑完全部再汇总），**重做同一次破坏**。第二次的逐字结果：
+```
+org.opentest4j.MultipleFailuresError: 登录响应形状（未启用 2FA 的账号） (4 failures)
+  AssertionFailedError: 成功响应的顶层键应恰为 success/data …… ==> expected: <[success, data]>
+      but was: <[success, data, error]>
+  AssertionFailedError: 登录响应的 data 键集/顺序变了 …… ==> expected: <[accessToken, refreshToken, user]>
+      but was: <[accessToken, refreshToken, user, mfaRequired, mfaToken, expiresIn]>
+  AssertionFailedError: 非 2FA 登录响应里不得出现任何 mfa 标识；命中处：…"expiresIn":null},"error":null}…
+  AssertionFailedError: expiresIn 只在 mfaRequired 分支出现；命中处：…"expiresIn":null},"error":null}…
+```
+⇒ `data` 那条**确实**对 `always` 敏感，实测键集为 `[accessToken, refreshToken, user, mfaRequired,
+mfaToken, expiresIn]`，与推断逐字一致。
+
+**顺带修掉的第二个问题**：第一次的失败信息把**整个响应体**（admin 的 55 个菜单 + 140+ 个权限码，
+约 4KB）打进了消息里，失败报告基本不可读。已改为只回显命中处 ±40 字符（`excerpt(...)`）。
+
+**还原**：改回 `non_null` → `sha1sum` 输出与基准一致（逐字节复现）。
+`assertAll` 与 `excerpt` 是**还原之后**才落的，属本批正式改动，不在破坏范围内。
+
+**两条破坏都未提交**，破坏期间工作区只含本批自己的改动。

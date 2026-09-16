@@ -146,6 +146,24 @@ public enum ErrorCode {
   MAIL_EMAIL_DUPLICATE(409, "MAIL_EMAIL_DUPLICATE", "邮箱已存在"),
   MAIL_ACCOUNT_NOT_FOUND(404, "MAIL_ACCOUNT_NOT_FOUND", "邮件账户不存在"),
   MAIL_RECORD_NOT_FOUND(404, "MAIL_RECORD_NOT_FOUND", "同步记录不存在"),
+  // 双因素认证（082-two-factor-auth）
+  //
+  // ⚠️ 这里**没有** MFA_REQUIRED：立项契约把它列为 HTTP 200 的「错误码」，但本枚举是**错误**枚举，
+  // GlobalExceptionHandler 会把每一项渲染成 ApiResponse.fail，而 HTTP 200 的「需要二次验证」永远
+  // 不会被抛 ⇒ 它是一条永不可达的死枚举项，且一旦被误用会把一个成功响应渲染成失败信封。
+  // 「需要二次验证」由响应体字段 AuthResponse.mfaRequired 表达，不由错误码表达。
+  MFA_TICKET_INVALID(401, "MFA_TICKET_INVALID", "二次验证票据无效或已过期，请重新登录"),
+  MFA_CODE_INVALID(401, "MFA_CODE_INVALID", "动态码错误"),
+  RECOVERY_CODE_INVALID(401, "RECOVERY_CODE_INVALID", "恢复码无效或已使用"),
+  // 全仓首个 429（本项引入；此前本枚举里没有任何限流码）
+  MFA_LOCKED(429, "MFA_LOCKED", "二次验证失败次数过多，账号已临时锁定"),
+  MFA_NOT_ENABLED(400, "MFA_NOT_ENABLED", "账号未启用双因素认证，该操作不适用"),
+  MFA_ALREADY_ENABLED(400, "MFA_ALREADY_ENABLED", "账号已启用双因素认证，不可重复启用"),
+  MFA_SECRET_MISSING(500, "MFA_SECRET_MISSING", "服务端未配置双因素认证密钥，功能不可用"),
+  // fail closed 的可观测出口：Redis 不可用时拒绝而非降级为单因素（FR-M02 的边界情况）。
+  // 若没有这个码，Redis 故障会被误报成 MFA_TICKET_INVALID（票据问题）或 MFA_SECRET_MISSING（配置问题），
+  // 两者都把故障归错了因。
+  MFA_STORE_UNAVAILABLE(503, "MFA_STORE_UNAVAILABLE", "认证状态存储不可用，请稍后重试"),
   INTERNAL_ERROR(500, "INTERNAL_ERROR", "服务器内部错误");
 
   private final int status;
