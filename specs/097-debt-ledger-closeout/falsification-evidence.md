@@ -263,6 +263,28 @@ $ git status --porcelain        # 删除前 3 条 = 删除后 3 条（且 3 条�
 ⇒ **条目数无增减**：`.bak` 从未被跟踪、又被 `.gitignore:45` 覆盖，删它**不产生任何提交**。
 `App.tsx.bak` 的全部凭据就是本节的读数——**它已不存在于任何地方，包括 git 历史**。
 
+> ⚠️ **交付后清理（2026-09-16 追加；上面全部读数与结论**原文逐字保留**）**：
+> 上面**作为反面样本**保留的那个游离 blob `f3e8c6013f169b2f44ace54276a8eea06a957d43` **已被删除**
+> （`rm .git/objects/f3/e8c601…`；它是 **loose** 对象，不在任何 pack 里）。**删除不可逆**。
+>
+> ⇒ **本节那两条读数从此不可复现**：`git cat-file -e f3e8c601…` 现在 **exit 1**、
+> `ls .git/objects/f3/…` 现在报 **No such file or directory**、`git fsck --unreachable` 里**不再出现**。
+> **上面写的是删除当时的事实、照旧有效，但读者无法再复算它** —— 这一点必须写明，
+> 否则本节会被读成「可复现的证据」。
+>
+> **结论不受影响**：`--find-object` 才是**判可达性**的判据、`cat-file -e` 会**假阳性**，
+> 这条普适结论**与某个具体对象在不在无关**。
+>
+> **删前已核**（三条同时成立才动手）：任何 ref / reflog / index 都**不可达**
+> （`git rev-list --objects --all --reflog --indexed-objects` **0 命中**）、`fsck` 判 **unreachable**、
+> 删后 `cat-file -e` 转 **exit 1**（这同时证明它**不在 pack 里**）。
+> 同期 `git fsck` 报出的**其他** dangling 对象（他人的 commit / tree / blob）**一个都没动**；
+> 删后 `git status --porcelain` **仍为空**、`git fsck --connectivity-only` **无 connectivity 报错**。
+>
+> ⚠️ **顺带订正本节上面的一处推理**：「mtime 是**今天**」**不足以**证明该对象是**本次调研**写进去的 ——
+> 本仓有 **590** 个 loose 对象都是今天落盘的（工区当天建立/检出所致）。
+> 真正的判据是**「不在任何 ref 可达集里 + 内容确为 `.bak` 的 sha」**这两条；mtime 只是**同向的旁证**。
+
 ---
 
 ## §F ② 的**可核替代**（无断言可观测转红，故改用读者可自证）
