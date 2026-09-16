@@ -258,6 +258,9 @@
 ## §Z 未验证 / 未涉及（**如实写在前面，不沉默**）
 
 - **手工冒烟**：待定（需用户放行 8081 上的后端）。
+  ⚠️ **2026-09-16 当日订正：用户当日放行，冒烟已跑完**——但**未用 8081**，改用**隔离实例**
+  （18096 + `crm_096_smoke` + Redis db 5），理由是本仓规「不得擅自重启可能归并行会话所有的共享后端」。
+  读数、覆盖项与**未覆盖项**见 §J。**原文保留于此。**
 - **断点分支：未涉及**。`src/test/setup.ts` 把 `matchMedia` **恒桩成 `matches: false`** ⇒ 断点分支
   默认不执行。本项三个新/改用例（评论、记录面、审批归属）判的都是**渲染与不渲染**，
   与视口宽度无关，没有任何几何或断点类断言，故**没有**在测试文件内覆盖 `matchMedia`。
@@ -273,3 +276,87 @@
   - 结论：**`V90` 的内容一致性目前只能靠人工复核与真库冒烟**。这也是 §Z 首条「手工冒烟」
     不只是走形式的原因之一（真库冒烟会在 MySQL 上真正执行 `V90`）。
   本项**不声称** `V90` 已被自动化验证——它没有。
+  ⚠️ **2026-09-16 当日补记：这一条的「真库冒烟」那一半已被 §J 兑现**——`V90` 在 MySQL 8.0.46 上
+  **真正执行过**，且「迁移声明 / H2 镜像 / 真库结果」三方各 17 行**逐条相等**。
+  **但自动化侧仍如本条所述**：测试套件里 `flyway.enabled: false` 一字未改，`V90` 在 CI 侧依旧
+  不执行，`SchemaParityIT` 依旧是那一条弱检查。**本条原文保留。**
+
+---
+
+## §J 手工冒烟（隔离实例，2026-09-16 用户放行后当日实跑）
+
+### J.0 环境与隔离（**先写这一节：本项是否碰了共享资源**）
+
+| 项 | 值 |
+|---|---|
+| 隔离实例 | `SERVER_PORT=18096`、`DB_NAME=crm_096_smoke`、`SPRING_DATA_REDIS_DATABASE=5` |
+| 数据库 | 真 **MySQL 8.0.46**（WSL），库 `crm_096_smoke` 由 root 现建、只授给 `crm_user@localhost` |
+| Flyway | **在隔离库上从零跑完 V1–V90**：`Successfully applied 89 migrations to schema crm_096_smoke, now at version v90`；其中 `Migrating schema … to version "90 - comment and custom object record codes"` |
+| 未碰的共享资源 | 8081（跑前 `netstat` 显示**无进程监听**，全程未起）、5173、共享库 `crm_db`、Redis db 0 |
+| 收尾 | 隔离库 `DROP` + 授权 `REVOKE` + `FLUSHDB`（db 5：6 键 → 0）；端口 18096 已释放；进程 8132 已终止；临时令牌文件已删 |
+
+⚠️ **一处环境事实（与本项代码无关，但下次会再撞上）**：经 Git Bash 的 `curl --data` 提交**含中文**
+的 JSON 体时，后端判 `400 BAD_REQUEST 请求体格式错误`（终端编码把中文发成了 GBK 字节）；
+改用 **ASCII 载荷**后一切正常。冒烟夹具因此一律用 ASCII 命名。
+
+### J.1 分角色令牌打真端点（`quickstart.md` §3 的矩阵，逐格实跑）
+
+夹具（全部经真端点创建）：隔离库的 `DataInitializer` 种子 `admin/admin123`（ADMIN）；
+另建 5 个冒烟用户（`SALES` / `SUPPORT` / `SALES_REP` / `ANALYST` / `VIEWER`，复用同一 bcrypt 哈希、
+`data_scope=ALL`，**只存在于隔离库**）；自定义对象 `EQ_096_SMOKE`（id 1）及其记录（id 1）；
+评论挂在 `entityType=TICKET`（`CommentService.checkEntityVisible` 对非 CUSTOMER/LEAD/OPPORTUNITY
+走 `default -> true`，故**评论面的观测不被数据范围层污染**——这正是能把两层分开看的前提）。
+
+| 角色 | `GET /comments` | `POST /comments` | `DELETE /comments/{id}` | `GET /objects/{id}/records` | `POST …/records` |
+|---|---|---|---|---|---|
+| （无令牌） | **401** | — | — | — | — |
+| ADMIN | 200 | 200 | **200**（非作者，服务层的 ADMIN 例外） | 200 | 201 |
+| SALES | 200 | 200 | **200**（作者本人） | 200 | 201 |
+| SUPPORT | 200 | 200 | **403 `FORBIDDEN`** | **403 `PERMISSION_DENIED`** | **403 `PERMISSION_DENIED`** |
+| SALES_REP | **403 `PERMISSION_DENIED`** | 403 `PERMISSION_DENIED` | 403 `PERMISSION_DENIED` | **403 `PERMISSION_DENIED`** | 403 `PERMISSION_DENIED` |
+| ANALYST | **403 `PERMISSION_DENIED`** | 403 `PERMISSION_DENIED` | 403 `PERMISSION_DENIED` | **403 `PERMISSION_DENIED`** | 403 `PERMISSION_DENIED` |
+| VIEWER | **403 `PERMISSION_DENIED`** | 403 `PERMISSION_DENIED` | 403 `PERMISSION_DENIED` | **403 `PERMISSION_DENIED`** | 403 `PERMISSION_DENIED` |
+
+**这张表逐格与 `quickstart.md` §3 的预期一致**，且给出了三条只有真端点才能给的证据：
+
+1. **两层 403 在同一个端点、同一个对象上分开出现**（这是最硬的一条）：
+   删除**同一条 SALES 写的评论**，`SUPPORT` 拿到 **`FORBIDDEN`**（码放行、归属拒绝），
+   而 `SALES_REP` 拿到 **`PERMISSION_DENIED`**（码拒绝）。**只断言 HTTP 403 看不出这个区别**。
+2. **改门前后「不扩权」的可核证据**：`SALES_REP`（081 新增的一线销售角色）与 `ANALYST`
+   （持有 `custom_object:*` 定义面码与「自定义对象」菜单）**在两个族上都被挡**——
+   它们改造前就被 `hasAnyRole` 的角色字面量挡着（`SALES_REP ≠ 'SALES'`）。
+3. **SUPPORT 的「半开」形态与判据① 逐字吻合**：评论面全通（原类级门放行它）、记录面全挡
+   （原方法级门没放行它）。
+
+### J.2 「7 个码在角色页上勾得出来」——用**页面所消费的同一对 API** 验证
+
+| 调用 | 读数 |
+|---|---|
+| `GET /api/v1/roles/permission-defs`（ADMIN） | 暴露 **145** 条码/组条目，本项 **7 个码全部在列**（`comment:read/create/delete`、`custom_object_record:read/create/update/delete`） |
+| `GET /api/v1/roles`（ADMIN） | `ADMIN` 81 码含本项 **7**；`SALES` 58 码含 **7**；`SUPPORT` 36 码含 **3**（评论族）；`SALES_REP` 48 码含 **0**；`ANALYST` 11 码含 **0**；`VIEWER` 6 码含 **0** |
+
+⇒ 与 `V90` 落库的 17 行（`comment:*` × {ADMIN,SALES,SUPPORT} = 9；`custom_object_record:*` × {ADMIN,SALES} = 8）
+**逐条吻合**。本项对「锁死」的兑现是**新增可勾选性**，不是权限本身。
+
+### J.3 `V90` 三方一致性（**本项原先最大的空白，在此补上**）
+
+同一批数据在三个地方各算一遍，**三方逐条相等**：
+
+| 来源 | 行数 |
+|---|---|
+| `V90__comment_and_custom_object_record_codes.sql` 的 INSERT 声明 | **17** |
+| `schema-h2.sql` 的 V90 镜像段声明 | **17** |
+| **真 MySQL 8.0.46 上 `V90` 实际执行后的 `role_permission`** | **17** |
+
+**三方 == 三方**（脚本比对，非目测）。这**不是**在说 `SchemaParityIT` 那条弱检查变强了——
+那条检查仍然只证明「镜像被改动过」；它证明的是**这一次的镜像内容与 `V90` 一致**，
+而这一点此前只能靠人工复核。
+
+### J.4 本次冒烟**没有覆盖**的（不得读成「全验了」）
+
+- **浏览器 UI 一律未跑**：未起 5173、未开浏览器。故「角色页上勾得出来」是用**页面所消费的
+  同一对 API** 验证的（J.2），**不是**在页面上点出来的——勾选框的渲染、禁用态、保存交互**均未验证**。
+- **审批归属判据**不在本矩阵里：它**不是权限码**，证据是前端的 `ApprovalCenterPage.test.tsx`（§I）。
+- **未跑前端 e2e**，未做视觉验证。
+- 冒烟用户与夹具数据**只在隔离库内存在**，收尾已随库一起删除；**不代表任何真实环境状态**。
+
