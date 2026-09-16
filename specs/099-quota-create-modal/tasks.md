@@ -35,7 +35,7 @@
 - [ ] T017 **删** `App.tsx` 里该页的 `lazy` import 与 `<Route path="quotas/create" ...>`（FR-012）
 - [ ] T018 i18n：**复用** `pages.quotaCreate.*` 的 16 键（值一字不改）；**同批删死键 `btnBack`**（`zh-CN.ts` 与 `en.ts` **两侧都删**）（FR-014/FR-015）
 - [ ] T019 e2e `module-page-auth.spec.ts`：`FORM_PAGES` **摘掉 `'/quotas/create'`**；`:143-145` 以它为「纯表单页」例子的注释**原文保留 + 带日期 ⚠️ 订正**（FR-017）
-- [ ] T020 复跑门禁：`i18n:check`（**2962** 两侧相等、路由仍 58 / 清单 56）、`ui:check`（文件 271 / `Form.Item` 298 / 冻结 54 / `R2` 55）、`zh:check`（文件 268 / 命中与台账不变）、`menu:check`（56）、`perms:check`（68）、`typecheck`、`lint`、`build`
+- [ ] T020 复跑门禁：`i18n:check`（**2962** 两侧相等、路由仍 58 / 清单 56）、`ui:check`（文件 271 / `Form.Item` 303（⚠️ **实做订正 2026-09-16**：立项期推算写的 `304 → 298` **有误**，提交 2 后实跑为 **303**；理由见 `falsification-evidence.md` §0） / 冻结 54 / `R2` 55）、`zh:check`（文件 268 / 命中与台账不变）、`menu:check`（56）、`perms:check`（68）、`typecheck`、`lint`、`build`
 
 ## 阶段 C 行为层用例（提交 3）
 

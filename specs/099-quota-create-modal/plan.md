@@ -62,7 +62,7 @@
 | `check-menu` | 从后端 `RoleConstants.MENU_TREE` 重生成后逐字节比对 | **不变（56）**——`/quotas/create` 不在 `MENU_TREE` |
 | `check-perms` | 68 码 + `PERMS.` 引用核对 | **不变（68）**——该页无 `PERMS.` 引用，`permissions.ts` 无 `quota:*` |
 | `check-zh` | `ZH_ALLOWED` 双向校验，`App.tsx` count **55** | **不变（55）**——那行没有中文字面量 |
-| `check-ui` | 文件数/`Form.Item` 数**只印不判**；`MIN_CANDIDATES` 各规则远高于下限 | 只印的数变：**272→271**、**304→298** |
+| `check-ui` | 文件数/`Form.Item` 数**只印不判**；`MIN_CANDIDATES` 各规则远高于下限 | 只印的数变：**272→271**、**304→303**（⚠️ **实做订正 2026-09-16**：立项期推算写的 `304 → 298` **有误**，提交 2 后实跑为 **303**；理由见 `falsification-evidence.md` §0） |
 | `check-zh` | 文件数**只印不判** | 只印的数变：**269→268** |
 
 ⚠️ **反例（不许碰）**：`App.tsx` 的 `{ path: '/quotas', name: '销售配额' }` 一删，

@@ -74,7 +74,7 @@ if (after !== undefined && /[A-Za-z0-9_.]/.test(after)) { … continue }   // �
 | `check-menu.mjs` | `:16` 从后端 `RoleConstants.java` 的 `MENU_TREE` **现场重生成**再逐字节比对（`:37-40`） | **56 不变** | `/quotas/create` 不在 `MENU_TREE`；只有动 Java 才需要 `pnpm menu:gen` |
 | `check-perms.mjs` | `:238` 数 `permissions.ts` 的条目 = **68**；`:265-284` 核对 `PERMS.xxx` 引用 | **68 不变** | 该页全文**无** `PERMS.` 引用；`permissions.ts` 里**没有 `quota:*` 任何码**（见 §5.1） |
 | `check-zh.mjs` | `:190-241` 的 `ZH_ALLOWED` 4 条，其中 `App.tsx` **count 55**；`:325-340` 第三分支双向校验 | **55 不变** | 那行**没有中文字面量**；文件数只**印**不判（**269→268**） |
-| `check-ui.mjs` | `:82` 文件数、`:536-546` `Form.Item` 计数**都只印不判**；`:750-768` `MIN_CANDIDATES`（R4/R5 的下限是 **1**，实跑候选 148/149） | 只印的数变：**272→271**、**304→298** | 删掉的那页含 **6 个 `Form.Item`**，全部合规；规则候选远高于下限 |
+| `check-ui.mjs` | `:82` 文件数、`:536-546` `Form.Item` 计数**都只印不判**；`:750-768` `MIN_CANDIDATES`（R4/R5 的下限是 **1**，实跑候选 148/149） | 只印的数变：**272→271**、**304→303**（⚠️ **实做订正 2026-09-16**：立项期推算写的 `304 → 298` **有误**，提交 2 后实跑为 **303**；理由见 `falsification-evidence.md` §0） | 删掉的那页含 **7 个 `<Form.Item>` 开标签**（6 个字段 + **1 个包按钮的**），全部合规；规则候选远高于下限 |
 
 ⚠️ **反例（本项最该防的误伤）**：`App.tsx` 里 `{ path: '/quotas', name: '销售配额' }` 那条**必须留**——
 删它会让 `check-i18n` 的 `orphanKeys`（`:178-180`，清单项在路由里找不到）与 `check-zh` 的第三分支（`App.tsx` 命中 55→54）**同时转红**。

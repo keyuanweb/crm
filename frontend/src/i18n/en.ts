@@ -3140,7 +3140,6 @@ const en = {
     },
     quotaCreate: {
       title: 'Create Quota',
-      btnBack: 'Back',
       formYear: 'Year',
       msgYearRequired: 'Please enter the year',
       formQuarter: 'Quarter',

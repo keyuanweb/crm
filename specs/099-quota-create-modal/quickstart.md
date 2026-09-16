@@ -25,7 +25,7 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm i18n:check && pnpm menu:check
 | `i18n:check` | **exit 0**；`zh-CN` 与 `en` **键数相等**且 = **2962**（删 `btnBack` 后）；**路由仍 58 条 / 清单仍 56 项** |
 | `menu:check` | **exit 0**；**56 项不变**（本项不动菜单与后端） |
 | `perms:check` | **exit 0**；**68 码 / 8 文件 9 处不变**（本项不加权限码） |
-| `ui:check` | **exit 0**；**冻结台账 54 不得增长**；`R2` 候选**仍 55**（用原语 ⇒ 候选池不变）；文件数 **271**、`Form.Item` **298**（**以实跑为准**） |
+| `ui:check` | **exit 0**；**冻结台账 54 不得增长**；`R2` 候选**仍 55**（用原语 ⇒ 候选池不变）；文件数 **271**、`Form.Item` **303**（⚠️ **实做订正 2026-09-16**：立项期推算写的 `304 → 298` **有误**，提交 2 后实跑为 **303**；理由见 `falsification-evidence.md` §0）（**以实跑为准**） |
 | `zh:check` | **exit 0**；命中 **0 未登记**、台账 **266 处 / 4 条不变**；文件数 **268**（只印不判） |
 | `test:coverage` | **exit 0**；四项覆盖率对 **33.6 / 47.2 / 21.4** 均高于且**未改阈值**；**不与上次的小数位比** |
 | `typecheck` / `lint` / `build` | **exit 0**；⚠️ `build` **不证明**「按钮指向的路由存在」（见 §3 的 D5） |
@@ -77,8 +77,12 @@ cd frontend && pnpm exec playwright test e2e/module-page-auth.spec.ts
 
 ```bash
 cd /e/code/crm
-# ① 旧路由与旧页面在源码与 e2e 里零命中
-grep -rn "quotas/create" frontend/src frontend/e2e && echo "❌ 仍有命中" || echo "✓ 零命中"
+# ①a 旧路由的**活引用**零命中（判据只认**代码位置**：导航目标 / 路由定义 / 页面导入 / 元素使用）
+grep -rnE "navigate\('/quotas/create'|path=\"quotas/create\"|import\('\./pages/quotas/QuotaCreatePage'\)|<QuotaCreatePage" \
+  frontend/src frontend/e2e && echo "❌ 仍有活引用" || echo "✓ 活引用零命中"
+# ①b 而**注释里的历史提及是允许且预期的**（订正不静默要求旧值仍可 grep 到）——
+#     本条**不是**判据，是「命中都在注释里」的核对：期望恰好 2 个文件、逐条确认落在注释内
+grep -rn "quotas/create" frontend/src frontend/e2e
 # ② 旧文件已不存在
 test -f frontend/src/pages/quotas/QuotaCreatePage.tsx && echo "❌ 文件还在" || echo "✓ 已删除"
 # ③ 列表页里只剩「对比」那一条 navigate

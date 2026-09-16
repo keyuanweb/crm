@@ -104,7 +104,6 @@ const QuotaBreakdownPage = lazy(() => import('./pages/quotas/QuotaBreakdownPage'
 const QuotaAchievementPage = lazy(() => import('./pages/quotas/QuotaAchievementPage'))
 const QuotaVersionPage = lazy(() => import('./pages/quotas/QuotaVersionPage'))
 const QuotaComparisonPage = lazy(() => import('./pages/quotas/QuotaComparisonPage'))
-const QuotaCreatePage = lazy(() => import('./pages/quotas/QuotaCreatePage'))
 const ScheduledExportListPage = lazy(() => import('./pages/exports/ScheduledExportListPage'))
 const ScheduledExportCreatePage = lazy(() => import('./pages/exports/ScheduledExportCreatePage'))
 const ScheduledExportExecutionHistoryPage = lazy(() => import('./pages/exports/ScheduledExportExecutionHistoryPage'))
@@ -876,7 +875,6 @@ export default function App() {
         <Route path="quotas/:id/achievement" element={<QuotaAchievementPage />} />
         <Route path="quotas/:id/versions" element={<QuotaVersionPage />} />
         <Route path="quotas/comparison" element={<QuotaComparisonPage />} />
-        <Route path="quotas/create" element={<QuotaCreatePage />} />
         <Route path="exports/scheduled" element={<ScheduledExportListPage />} />
         <Route path="exports/scheduled/create" element={<ScheduledExportCreatePage />} />
         <Route path="exports/scheduled/:id/executions" element={<ScheduledExportExecutionHistoryPage />} />

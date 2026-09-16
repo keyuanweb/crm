@@ -142,6 +142,9 @@ async function probe(page: Page, path: string, opts: ProbeOptions = {}) {
 
   // 说明：纯表单页（/quotas/create 等）加载时不发模块请求，"没有 401"对它而言是空真，
   // 故这里只提示、不断言 —— 断言会逼着人去造一个假请求来满足它。
+  // ⚠️ 2026-09-16（099）订正：上句举的例子 `/quotas/create` **已不再是纯表单页** —— 该路由与
+  // `QuotaCreatePage.tsx` 已由 099 删除（创建配额改成 `/quotas` 列表页内的 `FormModal` 弹窗）。
+  // **上句原文逐字保留、不删改**（写下时它是事实）；现存的纯表单页见下方 `FORM_PAGES`。
   if (moduleCalls.length === 0) console.log('  注意：该页加载时未发出模块接口请求（纯表单页）');
 
   // 断言 3：页面不能是白屏。
@@ -247,8 +250,11 @@ test.describe('模块页面鉴权（FR-G17、SC-G04）', () => {
   ];
 
   // 纯表单页：加载时不发模块请求，只走 probe 的通用断言（"没有 401"对它们是空真）
+  // ⚠️ 2026-09-16（099）：`'/quotas/create'` 已从本清单**摘除** —— 该路由由 099 删除（创建配额改成
+  // `/quotas` 列表页内的弹窗）。**摘它的理由是空真**：删路由后 `goto('/quotas/create')` 会落到
+  // `NotFoundPage`，而 probe 的通用断言（无 401、非白屏、非空渲染）在 404 页上**照样成立** ⇒
+  // 这条用例会**一直绿**，留着就是拿空真当证据。
   const FORM_PAGES = [
-    '/quotas/create',
     '/data-retention/create',
     '/data-retention/compliance-export',
     '/exports/scheduled/create',

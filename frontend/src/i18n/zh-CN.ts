@@ -3165,7 +3165,6 @@ const zhCN = {
     },
     quotaCreate: {
       title: '创建配额',
-      btnBack: '返回',
       formYear: '年份',
       msgYearRequired: '请输入年份',
       formQuarter: '季度',
