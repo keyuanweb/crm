@@ -470,3 +470,389 @@ retryCount = 3        httpStatus = 200
 ② Maven 的增量编译判定 "Nothing to compile - all classes are up to date"，改动**根本没被编进去**
 （那份 `.class` 被判为比源码新）。故诊断类改动要生效，必须**先 `spotless:apply`**、
 并**删掉对应的陈旧 `target/test-classes/**.class`** 强制重编，否则会拿着上一轮的结论继续推理。
+
+---
+
+## §E 测试替身与 `MfaStateStore`（第 6 步，2026-09-16）
+
+**本步新增 26 条用例**：`MfaStateStoreTest` 15、`InMemoryRedisTestSupportTest` 11
+（surefire 628 → **654**，与「基线 + 本项 N」对得上；failsafe **291** 不变）。
+全量 `mvn -B verify` 退出码 **0**、`Tests run: 654 / 291` 各自 0 失败、
+`All coverage checks have been met.`、`BUILD SUCCESS`。
+
+### ⚠️ 先说明本步的破坏是**重做过的**，以及为什么
+
+第 6 步存储侧的破坏最初是在**修订之前**的字节上观测的。此后 `lockRemainingSeconds`
+因毫秒/秒精度缺陷被改（见破坏 E7 下方的「本条是实测推出来的」）。按仓规
+**「改完定向破坏必须重做」**，故本文件记录的全部观测都是在**提交态字节**上重做的 ——
+不是把旧结论抄一遍，而是在当前这份源码上重新看它们转红。
+（这也是本节所有 `sha1` 基准都取自提交态、而 §D 里那条基准需要事后订正的原因。）
+
+**破坏基准**（破坏前先记，逐字节还原后 `sha1sum -c` 必须全 `OK`）：
+
+```
+59a1a1acc5588f7257c194c828019f3f551d0d67 *src/main/java/com/crm/service/MfaStateStore.java
+bfceb806553f90862b657bd8b48c13a8bca5bd32 *src/test/java/com/crm/service/MfaStateStoreTest.java
+```
+
+替身侧（`InMemoryRedisTestSupport` 与它自己的用例）：
+
+```
+68faafe5bb7ddcd9e32711349858c869042f4eef *src/test/java/com/crm/support/InMemoryRedisTestSupport.java
+e4e32c77b2c23e386777b60438832bd4001eab7d *src/test/java/com/crm/support/InMemoryRedisTestSupportTest.java
+```
+
+共 **14 次破坏**（存储侧 8、替身侧 6），**每次单独观测、每次逐字节还原**，
+全部 `sha1sum -c` 输出 `OK`；破坏期间**未提交**；结束后 `git status --porcelain` 为空，
+两类 26/26 复跑全绿。
+
+### 破坏 E1：`consumeTicket` 换成 `get` + `delete`（TOCTOU）
+
+**被守护的断言**：`MfaStateStoreTest.consumeTicketUsesTheAtomicPrimitiveOnly`。
+
+**为什么需要单独守护**：这是**本批唯一能钉住原子性的地方** ——
+`getAndDelete`（`GETDEL`）与 `get`+`delete` 在单线程下可观测行为**完全相同**，
+所以 §开头那条免责说的正是这件事：**任何 IT 都区分不出正解与劣解**。
+劣解的后果是「一张票据 ⇒ 一个会话」在并发下失效。
+
+**破坏**：`raw = redisTemplate.opsForValue().getAndDelete(ticketKey(ticket));`
+→ `raw = redisTemplate.opsForValue().get(ticketKey(ticket)); redisTemplate.delete(ticketKey(ticket));`
+
+**观测（逐字，15 条里恰好 1 条转红）**：
+```
+Wanted but not invoked: valueOperations.getAndDelete("auth:2fa-ticket:T"); ...
+However, there was exactly 1 interaction with this mock:
+valueOperations.get("auth:2fa-ticket:T"); -> at com.crm.service.MfaStateStore.consumeTicket(MfaStateStore.java:138)
+```
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E2：`markTimeStepUsed` 换成 `get` + `set`（防重放变竞态）
+
+**被守护的断言**：`markTimeStepUsedUsesSetIfAbsentWithTheRetention`（调用形状）
+与 `markTimeStepUsedFailsClosedOnAmbiguity`（`null` ⇒ 按已占用处理）。
+
+**为什么需要单独守护**：同 E1，`SET NX` 与 `get`+`set` 在单线程下不可区分；
+劣解让「同一个动态码用两次」成为可能 —— 正是 FR-M08 要防的。
+
+**破坏**：`first = ...setIfAbsent(usedKey(...), "1", retention);`
+→ 先 `get`，非空则 `first = Boolean.FALSE`，否则 `set(...)` 后 `first = Boolean.TRUE`。
+
+**观测（逐字，15 条里 2 条转红）**：
+```
+Tests run: 15, Failures: 2 -- in com.crm.service.MfaStateStoreTest
+MfaStateStoreTest.markTimeStepUsedFailsClosedOnAmbiguity
+  AssertionFailedError: expected: <false> but was: <true>
+MfaStateStoreTest.markTimeStepUsedUsesSetIfAbsentWithTheRetention
+  NeverWantedButInvoked:
+  valueOperations.get(<any string>);
+  Never wanted here: -> at MfaStateStoreTest.markTimeStepUsedUsesSetIfAbsentWithTheRetention(MfaStateStoreTest.java:134)
+  But invoked here: -> at com.crm.service.MfaStateStore.markTimeStepUsed(MfaStateStore.java:245) with arguments: [auth:2fa-used:7:59650800]
+```
+⇒ 两条各自命中一处：一条钉**原语形状**，一条钉**歧义时的 fail-closed 方向**。
+**这两条不重复**，故两条都留着。
+
+**一处编译事故（如实记）**：这条破坏第一次是写成三元表达式
+（`... get(k) != null ? Boolean.FALSE : set(k, "1", retention)`）的，
+而 `ValueOperations.set(K,V,Duration)` 返回 **`void`** ⇒ 三元里没有可用的值、**根本编译不过**。
+最终写成上面那个 if/else。记下来是因为它说明：**"把原子原语换回两次调用"这件事在 Java 里
+不是一处签名兼容的替换**，改写时容易顺手改出另一个语义。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E3：`recordFailure` 只在**第 1 次**失败时 `expire`（锁窗起点错位）
+
+**被守护的断言**：`lockWindowStartsAtTheFailureReachingTheThreshold`。
+
+**为什么需要单独守护**：仓内既有的计数惯例（`AuthService` 的 `auth:fail:`）是
+**每次失败都续一整窗**；照抄过来，锁定窗口的**起点**就从"达到阈值那次"移到"第 1 次失败"，
+等于把 5 次尝试压缩进一个已经在倒计时的窗口里 —— 用户实际能试的时间远少于 15 分钟。
+这条差别**只体现在"第几次失败时才 expire"**，没有任何可观测的返回值能区分。
+
+**破坏**：`if (count != null && count == maxAttempts)` → `if (count != null && count == 1)`。
+
+**观测（逐字，15 条里 1 条转红）**：
+```
+Tests run: 15, Failures: 1 -- in com.crm.service.MfaStateStoreTest
+MfaStateStoreTest.lockWindowStartsAtTheFailureReachingTheThreshold
+  NeverWantedButInvoked:
+  redisTemplate.expire(<any string>, <any java.time.Duration>);
+  Never wanted here: -> at org.springframework.data.redis.core.RedisOperations.expire(RedisOperations.java:327)
+  But invoked here: -> at com.crm.service.MfaStateStore.recordFailure(MfaStateStore.java:175) with arguments: [auth:2fa-fail:7, PT15M]
+```
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E3b：**计划预期两条转红，实测只有一条** —— 补一次可达第二条的破坏
+
+计划的表里这一行写着「换成只在第 1 次失败时 expire ⇒ 预期给
+`lockWindowStartsAtTheFailureReachingTheThreshold` **和** `failuresBeyondTheThresholdDoNotExtendTheLock` 标红」。
+**实测只红了前者。** 原因不是断言写错，而是**那次破坏根本没有覆盖后者的失效方向**：
+`count == 1` 依然只 `expire` 一次，"阈值之后不再续窗"这条**仍然是成立的**
+（`failuresBeyondTheThresholdDoNotExtendTheLock` 判的是 `times(1)`）。
+
+⇒ 若就此收工，第二条断言就是**一条没有被任何破坏触及过的护栏**（它可能永远绿着，
+包括在一个把它变成空操作的改动下）。故补一次针对它的破坏：
+
+**破坏**：`recordFailure` 里去掉条件、**每次失败都 `expire`**（即照抄 `AuthService` 的惯例）。
+
+**观测（逐字，15 条里 2 条转红）**：
+```
+Tests run: 15, Failures: 2 -- in com.crm.service.MfaStateStoreTest
+MfaStateStoreTest.lockWindowStartsAtTheFailureReachingTheThreshold
+  NeverWantedButInvoked: redisTemplate.expire(<any string>, <any java.time.Duration>); ...
+  But invoked here: -> at com.crm.service.MfaStateStore.recordFailure(MfaStateStore.java:174) with arguments: [auth:2fa-fail:7, PT15M]
+MfaStateStoreTest.failuresBeyondTheThresholdDoNotExtendTheLock
+  TooManyActualInvocations:
+  redisTemplate.expire("auth:2fa-fail:7", PT15M);
+  Wanted 1 time: ... But was 6 times:
+  -> at com.crm.service.MfaStateStore.recordFailure(MfaStateStore.java:174)  (×6)
+```
+⇒ 两条断言**各自被观测到一次转红**，归属干净。这条是本文件**自己加的破坏**（计划的表里没有）：
+不加上它，计划里那一格就是一句**没被验证过的预期**。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E4：把「计数已满但 TTL ≤ 0」读成「没锁」（永久锁定洞）
+
+**被守护的断言**：`aFullCounterWithoutATtlIsReArmedInsteadOfLockingForever`。
+
+**为什么需要单独守护**：仓内的 `increment` + `expire` 是**两次**调用，中间断掉就会留下
+一个"计数满着、但没有过期时间"的键，而 `INCR` 会一直让它满着。把这种键读成"没锁"
+⇒ 那个人的 2FA **永久**不可用（键在 Redis 里，重启进程也没用），
+且症状是"这个人怎么试都不行"，排查方向会整个跑偏。
+补窗的代价是一个 TTL，收益是从"永久"变回"15 分钟"。
+
+**破坏**：`if (ttlMillis == null || ttlMillis <= 0) { expire + warn + return lockWindow }`
+→ `if (ttlMillis == null || ttlMillis <= 0) { return 0; }`。
+
+**观测（逐字，15 条里 1 条转红）**：
+```
+Tests run: 15, Failures: 1 -- in com.crm.service.MfaStateStoreTest
+MfaStateStoreTest.aFullCounterWithoutATtlIsReArmedInsteadOfLockingForever
+  AssertionFailedError: 应报「已锁」，而不是「没锁」 ==> expected: <900> but was: <0>
+    at com.crm.service.MfaStateStoreTest.aFullCounterWithoutATtlIsReArmedInsteadOfLockingForever(MfaStateStoreTest.java:241)
+```
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E4b：返回值改成向下取整（另一侧的精度方向）
+
+**被守护的断言**：`aWindowInItsLastSecondIsStillReportedAsLocked`。
+
+**为什么需要单独守护**：同一次 `getExpire` 读出的毫秒值，**两个用途要求的精度相反** ——
+"要不要补窗"问的是「键上到底有没有 TTL」，"还锁不锁着"问的是「还剩多久」。
+直接 `ttlMillis / 1000` 会把"还剩 400ms"报成 `0`，而调用方（`MfaVerificationService`）
+判的是 `> 0` ⇒ **还锁着的人被放行一次尝试**。故返回必须向上取整。
+E4 与 E4b 是**同一条读的两个相反失效方向**，各自需要一次破坏 ——
+一次只坏一侧的观测证不了另一侧（同 §D 的 D4/D4b）。
+
+**破坏**：`return (ttlMillis + 999) / 1000;` → `return ttlMillis / 1000;`
+
+**观测（逐字，15 条里 1 条转红）**：
+```
+Tests run: 15, Failures: 1 -- in com.crm.service.MfaStateStoreTest
+MfaStateStoreTest.aWindowInItsLastSecondIsStillReportedAsLocked
+  AssertionFailedError: 还剩 400ms 也是「锁着」——报 0 会让调用方放行一次尝试 ==> expected: <1> but was: <0>
+    at com.crm.service.MfaStateStoreTest.aWindowInItsLastSecondIsStillReportedAsLocked(MfaStateStoreTest.java:223)
+```
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E5a：`findTicketUserId` 的 `catch` 改成 `return Optional.empty()`（静默 fail-open）
+
+**被守护的断言**：`everyMethodFailsCloseWhenTheStoreIsDown`。
+
+**为什么需要单独守护**：这一行就是**"静默降级为单因素"**。`catch { return Optional.empty(); }`
+读起来像"没有票据"，语义是**跳过二次验证**；此时用户正常登录、审计没有异常、
+监控没有报错 —— 响应里**看不出来**。全仓只有这一个类能写错，而它写错的代价是
+Redis 一抖、**全体已启用 2FA 的账号变回单因素**。
+
+**破坏**：`catch (Exception ex) { throw unavailable("读取二次验证票据", ex); }`
+→ `catch (Exception ex) { log.warn(...); return Optional.empty(); }`。
+
+**观测（逐字，15 条里 1 条转红）**：
+```
+Tests run: 15, Failures: 1 -- in com.crm.service.MfaStateStoreTest
+MfaStateStoreTest.everyMethodFailsCloseWhenTheStoreIsDown
+  AssertionFailedError: Expected com.crm.common.BusinessException to be thrown, but nothing was thrown.
+    at com.crm.service.MfaStateStoreTest.assertUnavailable(MfaStateStoreTest.java:280)
+    at com.crm.service.MfaStateStoreTest.everyMethodFailsCloseWhenTheStoreIsDown(MfaStateStoreTest.java:266)
+```
+⇒ `MfaStateStoreTest.java:266` 是**逐个方法**写的断言列表里 `findTicketUserId` 那一行
+（类 javadoc 说明了为什么不只挑一个代表：漏掉的那一处不会让别的用例转红）。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E5b：`consumeTicket` 的 `catch` 改成 `return false`（另一个方向的静默 fail-open）
+
+**被守护的断言**：同上，`everyMethodFailsCloseWhenTheStoreIsDown`。
+
+**为什么需要单独守护**：E5a 与 E5b 落在**同一个用例的不同行**上，方向也相反 ——
+`Optional.empty()` 是"没有票据"，`false` 是"票据无效"，两者都**看起来像正常业务结果**
+（用户会看到 `MFA_TICKET_INVALID`，而不是"服务不可用"）。所以这不是同一条断言的重复执行，
+而是同一道防线上**两个不同的入口**。
+
+**破坏**：`catch (Exception ex) { throw unavailable("消费二次验证票据", ex); }`
+→ `catch (Exception ex) { log.warn(...); return false; }`。
+
+**观测（逐字，15 条里 1 条转红）**：
+```
+Tests run: 15, Failures: 1 -- in com.crm.service.MfaStateStoreTest
+MfaStateStoreTest.everyMethodFailsCloseWhenTheStoreIsDown
+  AssertionFailedError: Expected com.crm.common.BusinessException to be thrown, but nothing was thrown.
+    at com.crm.service.MfaStateStoreTest.assertUnavailable(MfaStateStoreTest.java:280)
+    at com.crm.service.MfaStateStoreTest.everyMethodFailsCloseWhenTheStoreIsDown(MfaStateStoreTest.java:267)
+```
+⇒ 行号从 `:266` 变成 `:267`，**这就是两次观测的区分点**（同一个用例、下一行）。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 替身侧为什么也要有自己的破坏
+
+`InMemoryRedisTestSupport` 的定位是「让 IT 能真跑通 Redis 路径」，
+于是它一旦有偏差，结果是**别处的 IT 因为错误的原因变绿** —— 那比一条失败的用例糟得多，
+因为它不报错，只让人相信一条不成立的结论。它的 11 条用例是**唯一的**纠错装置，
+故同样逐条做破坏。下面 6 次，破坏基准见本节开头的替身侧 sha1 块。
+
+### 破坏 E6：`live()` 不再检查过期（TTL 变成装饰）
+
+**被守护的断言**：`aKeyDisappearsExactlyWhenItsTtlElapses` 等 —— 实测 **11 条里 5 条转红**。
+
+**为什么需要单独守护**：这是替身最核心的保真度。TTL 若不真的过期，
+「票据 300 秒后失效」「锁定 900 秒后自动恢复」「保留期取短了会提前解禁」这三类断言
+**全部变成恒真的空断言**，而它们全都依赖替身真的会删掉过期项。
+
+**破坏**：`if (entry.expiresAtMillis() != null && now() >= entry.expiresAtMillis())` 的条件前加 `false &&`。
+
+**观测（逐字，5 条转红；取第一条的原文）**：
+```
+Tests run: 11, Failures: 5 -- in com.crm.support.InMemoryRedisTestSupportTest
+  deleteReportsWhetherTheKeyWasThere
+  aKeyDisappearsExactlyWhenItsTtlElapses
+  incrementKeepsAnExistingTtl
+  setIfAbsentKeepsTheFirstValueAndHonoursRetention
+  expiredKeysAreNotInTheSnapshot
+
+aKeyDisappearsExactlyWhenItsTtlElapses
+  AssertionFailedError: 到期即不可读——否则『票据 TTL』『锁定 900 秒』这类断言全是假的 ==> expected: <null> but was: <v>
+```
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E7：`getExpire` 把 `-2`（键不存在）报成 `-1`（有键无 TTL）
+
+**被守护的断言**：`getExpireDistinguishesMissingFromNoTtl`。
+
+**为什么需要单独守护**：`MfaStateStore.lockRemainingSeconds` 正是靠这个区分判断
+"计数已满但窗口丢了"要不要补窗。替身若一律返回 `-1`，
+那条"永久锁定洞"的用例就**永远看不到补窗分支** —— 而它在真 Redis 上会走到。
+
+**破坏**：`if (entry == null) { return -2L; }` → `if (entry == null) { return -1L; }`。
+
+**观测（逐字，11 条里 1 条转红）**：
+```
+Tests run: 11, Failures: 1 -- in com.crm.support.InMemoryRedisTestSupportTest
+InMemoryRedisTestSupportTest.getExpireDistinguishesMissingFromNoTtl
+  AssertionFailedError: 键不存在 ==> expected: <-2> but was: <-1>
+```
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E8：`INCR` 清掉键上已有的 TTL
+
+**被守护的断言**：`incrementKeepsAnExistingTtl`。
+
+**为什么需要单独守护**：真 Redis 的 `INCR` **明确不修改 TTL**。
+而 `AuthService` 的失败计数正是 `increment` + **另一次** `expire`（两次调用，不原子）；
+替身若在 `INCR` 时把 TTL 清掉，那"两次调用之间"的窗口在替身里**永远不存在**，
+于是这个惯用法留下的洞在被测路径上**不可观测**。
+
+**破坏**：`values.put(key, new Entry(base + delta, current == null ? null : current.expiresAtMillis()));`
+→ `values.put(key, new Entry(base + delta, null));`
+
+**观测（逐字，11 条里 1 条转红）**：
+```
+Tests run: 11, Failures: 1 -- in com.crm.support.InMemoryRedisTestSupportTest
+InMemoryRedisTestSupportTest.incrementKeepsAnExistingTtl
+  AssertionFailedError: 真 Redis 的 INCR 不修改 TTL；替身若在这里续期或清 TTL，『increment 后紧跟 expire』那种写法就不会被发现有问题 ==> expected: <900> but was: <-1>
+```
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E9a：`delete` 无条件返回 `true`
+
+**被守护的断言**：`deleteReportsWhetherTheKeyWasThere`。
+
+**为什么需要单独守护**：真 Redis 的 `DEL` 报的是"是否真的删掉了一个键"。
+无条件 `true` 会让"删一个已经不在了的键"看起来成功 —— 将来任何**用返回值判断
+"这次是我清掉的吗"**的代码（清理/竞争检测）都会因此写错，且现场看不出来。
+
+**破坏**：`return present;` → `return true;`（`present` 计算保留，故是个"只坏返回值"的破坏）。
+
+**观测（逐字，11 条里 1 条转红）**：
+```
+Tests run: 11, Failures: 1 -- in com.crm.support.InMemoryRedisTestSupportTest
+InMemoryRedisTestSupportTest.deleteReportsWhetherTheKeyWasThere
+  AssertionFailedError: 已经不在了 ==> expected: <false> but was: <true>
+```
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E9b：`expire` 对不存在的键返回 `true`
+
+**被守护的断言**：`expireReportsFalseForAMissingKey`。
+
+**为什么需要单独守护**：与 E9a 同源但**另一个方法**（本类此前正是无条件返回 `true` 的）。
+真 Redis 对不存在的键返回 0/false；无条件成功会让"给一个不存在的键补 TTL"看起来成功了 ——
+而 `lockRemainingSeconds` 的补窗路径**正是**给一个可能不存在的键补 TTL。
+一次只坏一个方法的返回值，两条断言各得一次观测（同 E4/E4b 的理由）。
+
+**破坏**：`if (live(key) == null) { return false; }` → `return true;`。
+
+**观测（逐字，11 条里 1 条转红）**：
+```
+Tests run: 11, Failures: 1 -- in com.crm.support.InMemoryRedisTestSupportTest
+InMemoryRedisTestSupportTest.expireReportsFalseForAMissingKey
+  AssertionFailedError: expected: <false> but was: <true>
+```
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 E10：故障注入不再按前缀过滤（放之四海皆抛）
+
+**被守护的断言**：`failureInjectionIsScopedToThePrefix`。
+
+**为什么需要单独守护**：**这条替身性质直接决定了 `MfaFailClosedIT` 的断言有没有意义**。
+`MfaFailClosedIT` 要在**同一次故障注入、同一份替身**里同时断言
+「2FA 键全抛 ⇒ 503」与「非 2FA 键照常 ⇒ 200」。若注入其实不分前缀，那么后一半
+**一定失败**（而不是"因为隔离性成立而通过"）—— 换句话说，
+误报的方向不是"假绿"而是"用例炸"，但**同一种误报也可能反向发生**：
+一个把前缀当成 `""` 的注入会让所有键一起挂，于是"非 2FA 不受影响"这条
+在**一个本来就不该受影响的替身上**被验证，等于没验证。
+两种情况都必须让这条断言自己先红。
+
+**破坏**：`guard` 里去掉 `key.startsWith(prefix)` 判断，命中任一前缀即抛。
+
+**观测（逐字，11 条里 1 条 ERROR —— 异常直接抛出测试方法，故计 ERROR 而非 FAILURE）**：
+```
+Tests run: 11, Failures: 0, Errors: 1 -- in com.crm.support.InMemoryRedisTestSupportTest
+InMemoryRedisTestSupportTest.failureInjectionIsScopedToThePrefix
+  org.springframework.data.redis.RedisConnectionFailureException: 注入的故障：键 auth:fail:1 命中前缀 auth:2fa-
+    at com.crm.support.InMemoryRedisTestSupport.guard(InMemoryRedisTestSupport.java:299)
+    at com.crm.support.InMemoryRedisTestSupport.lambda$4(InMemoryRedisTestSupport.java:156)
+    at org.mockito.internal.stubbing.StubbedInvocationMatcher.answer(StubbedInvocationMatcher.java:42)
+```
+⇒ 注意键名 `auth:fail:1`（**非** 2FA 的键）**命中了 2FA 的前缀** ——
+这正是被守护的那条性质，红色证据同时也是它的反例说明。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 本节两处**如实记**的观察
+
+1. **计划预期与实测不一致之处已在 E3b 写明**：E3 那条破坏只触及两条断言中的一条，
+   补了一次 E3b 才让第二条有可达的证伪者。**计划的表不等于已验证的结论**。
+2. **`everyMethodFailsCloseWhenTheStoreIsDown` 被两次破坏各命中一次（E5a/E5b）**：
+   同一个用例、相邻的两行。这两次观测**不构成"该断言被重复验证"**，
+   而是同一条防线上的两个入口各被打开过一次 —— 见各条的逐字行号（`:266` / `:267`）。
+
