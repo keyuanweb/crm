@@ -39,6 +39,9 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>写操作改挂动作码，读操作挂 {@code ticket:read}（理由见 {@code RoleConstants} 工单组注释：工单
  * 没有数据范围过滤，读留空等于对全体登录用户公开）。{@code POST /{id}/transition} 挂的是 {@code ticket:update}——状态流转就是改工单，字典里的
  * {@code ticket:approve} 在本模块没有对应动作。
+ *
+ * <p><b>097：该码的台账</b>——全仓 22 个未接线码的逐条性质与理由记在 {@code com.crm.security.UnwiredPermissionCodeTest} 的
+ * {@code LEDGER}（{@code ticket:approve} 记在 B 类 「全仓没有对应操作」）。集合增或减该测试都红。
  */
 @RestController
 @RequestMapping("/api/v1/tickets")

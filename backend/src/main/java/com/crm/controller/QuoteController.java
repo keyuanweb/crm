@@ -53,6 +53,9 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>另注：{@code quote:delete} 在字典里存在、V46/V75 也授给了 ADMIN / SALES_MANAGER / SALES_REP， 但本
  * Controller（以及仓库其它位置）没有任何删除报价单的端点，该码至今无人引用。
+ *
+ * <p><b>097：该码的台账</b>——全仓 22 个未接线码的逐条性质与理由记在 {@code com.crm.security.UnwiredPermissionCodeTest} 的
+ * {@code LEDGER}（本码记在 B 类「全仓没有对应操作」）。 集合增或减该测试都红：多一个 = 又造了一个没人用的码，少一个 = 接线了却没更新台账。
  */
 @RestController
 @RequestMapping("/api/v1/quotes")

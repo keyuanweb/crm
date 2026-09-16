@@ -330,6 +330,8 @@ public final class RoleConstants {
               // 至今没有任何端点校验它：FollowUpController 只有列表/新增/编辑三个动作，没有删除。
               // 与 quote:delete / ticket:approve 同一形态——保留是为了不动已发布的权限语义，
               // 但它在角色页上是可以勾的（见 1.5 报告）。
+              // 097：全仓**22 个**未接线码的台账（本码与其余 21 条的逐条性质与理由）在
+              // com.crm.security.UnwiredPermissionCodeTest 的 LEDGER——集合增或减该测试都红。
               perm("follow_up:delete", "删除跟进")),
           // 1.5：FieldVisitController 的 cancel 等写操作标的是 visit:manage。
           permGroup("外勤拜访", perm("visit:manage", "外勤拜访管理")),
