@@ -16,8 +16,8 @@
 | 前端路由定义 | **88 个 `<Route>`** | `frontend/src/App.tsx` 的 `<Route` 89 处 − `<Routes>` 1 处 |
 | 前端 service | **56 个 `*Service.ts`**（+`apiClient.ts`；`services/` 非测试 `.ts` 共 60） | `frontend/src/services` |
 | 前端单测 / E2E | **91 / 7** | `*.test.ts(x)`、`frontend/e2e/*.spec.ts` |
-| i18n 资源 | zh-CN 3393 行 / en 3395 行 | `frontend/src/i18n`（⚠️ **行数不等 ≠ 键集不等**：两语行数相差 2 行是排版差异，**键集双向一致性由 `pnpm i18n:check` 判定**，不以行数为准） |
-| Spec 模块 | **96 个（001–097，缺 069）** | `specs/NNN-*` |
+| i18n 资源 | zh-CN 3453 行 / en 3426 行 | `frontend/src/i18n`（⚠️ **行数不等 ≠ 键集不等**：现值相差 **27** 行，根因已查明 —— **098 只在 `zh-CN.ts` 一侧写了说明注释**：098 对本表两文件是**纯新增、删除 0 行**，`zh-CN.ts` **+60 行（其中 30 行是注释）**、`en.ts` **+31 行（注释 0 行）**（`git diff --numstat 7356eb8 HEAD -- src/i18n/*.ts`）。**键集双向一致性由 `pnpm i18n:check` 判定**，不以行数为准；098 交付实测 **2963 / 2963 键**） |
+| Spec 模块 | **97 个（001–098，缺 069）** | `specs/NNN-*` |
 
 > ⚠️ **本次重测相对上一版的变动（逐行列出，不静默改数）**：数据库表 **85 → 86**（+`user_recovery_code`，082）；
 > Flyway **87（V1–V88）→ 88（V1–V89）**（+`V89__two_factor_auth.sql`，082）；

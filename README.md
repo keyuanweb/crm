@@ -160,7 +160,7 @@ crm/
 │   ├── tests/                 # 单元测试
 │   ├── e2e/                   # 端到端测试
 │   └── package.json
-├── specs/                      # Spec Kit 设计文档（94 个功能模块，001~095，缺 069）
+├── specs/                      # Spec Kit 设计文档（97 个功能模块，001~098，缺 069）
 ├── .specify/                   # Spec Kit 配置与模板
 ├── docker-compose.yml          # Docker 编排
 ├── Dockerfile                  # 后端镜像（多阶段构建）
