@@ -1110,3 +1110,271 @@ IT 钉**可观测后果**（`countRemaining` 从 10 变 20，两批并存）。
    `-DspotlessFiles='.*RecoveryCodeService.*\.java'`，避免全仓 apply 动到并行会话的文件）再复跑，
    `spotless:check` 退出码 **0**。记下来是因为它会让"测试结果已经拿到、构建却是 FAILURE"看起来自相矛盾
    —— 而在这个仓库里 `spotless` 位于 `verify` 相位的**测试之后**，两者本来就会一起出现在同一份日志里。
+
+---
+
+## §G 注册生命周期与端点（第 8 步，2026-09-16）
+
+**本步新增用例 33 条**：`MfaQrCodeServiceTest` 6（surefire）、`MfaServiceTest` 18（surefire）、
+`MfaLifecycleIT` 9（failsafe）—— surefire 671 → **695**、failsafe 297 → **306**，
+与「基线 + 本项 N」对得上（24 + 9，逐条可数）。
+
+**门禁**（五份文件逐字节还原之后，在**冻结的提交态字节**上完整跑一次 `mvn -B verify`）：
+surefire **695 / 0**、failsafe **306 / 0**、`All coverage checks have been met.`、
+`BUILD SUCCESS`（退出码 **0**）。
+
+### ⚠️ 先说三件**在开发中真的发生过**的事故
+
+这一节与 §C 同源：**是失败先把我的假设证伪，才有的这些断言/实现**。它们比破坏观测更有价值，
+因为破坏是我设计的，事故是环境给的。
+
+#### 事故 1：`getSqlSegment()` 只返回 WHERE —— 断言"改了哪几列"必须读 `getSqlSet()`
+
+第 8 步的第一版用例用 `wrapper.getSqlSegment()` 断言 SET 里出现了 `totp_secret_encrypted`，
+实测拿到的是 `(id = #{ew.paramNameValuePairs.MPGENVAL2})` —— **`getSqlSegment()` 只给 WHERE 那一段**，
+SET 子句在 `Update` 接口的 `getSqlSet()` 上。三处断言当场全红。
+若当初"顺手"把断言改成 `contains("id")` 让它变绿，那么**"写没写那一列"这条性质就再没有护栏**了 ——
+而它正是 §G 破坏 G1 要钉的东西（也说明这类"测试写错了、实现没错"的红，修测试是唯一正确的方向）。
+两段都是惰性求值，故 `capturedUpdate()` 辅助方法先 `getSqlSet()` 再 `getSqlSegment()`。
+
+#### 事故 2：zxing 对空内容抛的是 `IllegalArgumentException`，不是 `WriterException`
+
+`pngDataUrl` 只 `catch (WriterException)`；而 `QRCodeWriter.encode("")` 抛的是
+`IllegalArgumentException("Found empty contents")`（见下面破坏 G5 的逐字栈）。
+它**绕过**了那个 catch 直接冒到调用方，消息里也看不出这是"本服务拼错了 URL"还是"用户输入的"。
+故在入口显式拦成本服务自己的 `IllegalStateException`。这条守卫是被一条真实红逼出来的，不是预防性代码。
+
+#### 事故 3：`FixedClockTestSupport` 写好了、也提交了，但**从未被执行过** —— 第一次被继承时 9 条用例 9 个 error
+
+`MfaLifecycleIT` 是本批第一个 `extends FixedClockTestSupport` 的类，随后 9 条用例全部：
+
+```
+Caused by: org.springframework.beans.factory.NoSuchBeanDefinitionException:
+No qualifying bean of type 'com.crm.support.MutableClock' available:
+expected at least 1 bean which qualifies as autowire candidate.
+Dependency annotations: {@org.springframework.beans.factory.annotation.Autowired(required=true)}
+```
+
+根因是测试基建的**机制**，不是被测代码（被测代码一行没错）：
+
+- `javap -p -c` 反编译 spring-test 6.1.1 的
+  `AnnotationConfigContextLoaderUtils.detectDefaultConfigurationClasses`，字节码里**只有**
+  `Class.getDeclaredClasses()` 一次调用，**没有任何 `getSuperclass()` 递归**；
+  它自己的日志文案亦为「…does not declare any static, non-private, non-final, nested classes
+  annotated with @Configuration」。⇒ **嵌在抽象父类里的 `@TestConfiguration` 不会被自动探测**。
+- 另一侧的 `SpringBootTestContextBootstrapper` 反编译确认：`containsNonTestComponent` 只要**任一**
+  候选类上直接有 `@TestConfiguration` 就返回 `false`，于是 `merge(找到的 @SpringBootConfiguration, 候选)` 照常执行
+  —— 即"显式点名一个 `@TestConfiguration`"这条路是通的。
+
+修法：在基类上写 `@ContextConfiguration(classes = FixedClockTestSupport.FrozenClockConfig.class)`
+（`@ContextConfiguration` 的查找是 `TYPE_HIERARCHY` 语义，写在抽象基类上子类能继承到），
+嵌套类留在原处。修完 9/9 绿。**这条教训与 `InMemoryRedisTestSupport` 同样适用于第 9 步的
+`AuthMfaIT` / `MfaFailClosedIT`，故已写进 `FixedClockTestSupport` 的 javadoc（"四个必须写明的坑"第 4 条）**。
+
+### 破坏基准
+
+破坏前先记，逐条还原后 `sha1sum -c` 必须全 `OK`：
+
+```
+f3d639b53541c4a3a118e15bcb783f4a0c3b85a0 *src/main/java/com/crm/service/MfaService.java
+b43440a60965cfb315f3d3986eac3e652abbbcd4 *src/main/java/com/crm/service/MfaQrCodeService.java
+ee51890ead287cadef3e94e526c2e0e73a34f3f3 *src/test/java/com/crm/service/MfaServiceTest.java
+21e2ad123fd15a260e5b76d17b9fe6ac58f1e19e *src/test/java/com/crm/service/MfaQrCodeServiceTest.java
+a83996644c54f46272e91b688334789005c04395 *src/test/java/com/crm/integration/MfaLifecycleIT.java
+```
+
+共 **5 次破坏**（G1–G5）**每次单独观测、每次逐字节还原**，全部 `sha1sum -c` 输出 `OK`；破坏期间**未提交**。
+
+⚠️ **如实记：G1 做过两次。** 第一次观测之后、G2 之前，我给 `MfaLifecycleIT` 补了 `version` 守卫
+（理由见 G2），`MfaLifecycleIT.java` 的 sha1 因此变了 —— 于是**在最终基准上把 G1 重做了一遍**，
+下面记的是重做那一次的输出。附带说明：`MfaService.java` 在两个基准上 sha1 相同，
+G1 的破坏点没有被那次补守卫动过。
+
+### 破坏 G1：`clearTwoFactor` 漏掉密钥列（"没启用但密钥还留着"）
+
+**被守护的断言**：`MfaServiceTest.disableClearsAllThreeColumns` 与
+`MfaLifecycleIT.assertSecretColumnIsCleared` —— **两层各抓一次**，这正是本批刻意保留两条断言的理由。
+
+**破坏**：从 `clearTwoFactor` 的 SET 里删掉 `.set(User::getTotpSecretEncrypted, null)` 一行。
+
+**surefire**：`Tests run: 24, Failures: 1`（`MfaQrCodeServiceTest` 仍 6/6 —— 与二维码无关，符合预期）
+
+```
+com.crm.service.MfaServiceTest.disableClearsAllThreeColumns -- Time elapsed: 0.021 s <<< FAILURE!
+java.lang.AssertionError:
+
+Expecting actual:
+  "two_factor_enabled=#{ew.paramNameValuePairs.MPGENVAL1},two_factor_enabled_at=#{ew.paramNameValuePairs.MPGENVAL2}"
+to contain:
+  "totp_secret_encrypted"
+	at com.crm.service.MfaServiceTest.disableClearsAllThreeColumns(MfaServiceTest.java:338)
+```
+
+**failsafe**：`Tests run: 9, Failures: 3`（`fullLifecycle:79`、`adminResetClearsEverythingAndIsAudited:174`、
+`recoveryCodeDisablesAndIsConsumedOnce:134`）
+
+```
+org.opentest4j.AssertionFailedError:
+
+expected: null
+ but was: "J3V7OUIPK0KC17bc:Uier0AvJbPZb8qMaFqxcohZnhhvef7tLLFcuAsifbNFvQ+EJMZ3xYJ77u2A2CAWO"
+	at com.crm.integration.MfaLifecycleIT.assertSecretColumnIsCleared(MfaLifecycleIT.java:219)
+```
+
+失败信息里那一串是**真实的密文**（`b64(iv):b64(ct||tag)`）—— 它同时证明了"残留的确实是一把能用的密钥"
+而不是某种占位空串。**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 G2：把 `enable` 的定向 update 回退成 `updateById(entity)`（**085 回归，本批最高风险项**）
+
+**被守护的断言**：`MfaServiceTest` 的 `verify(userMapper, never()).updateById(any())`（调用形状），
+以及本步**新补的** `MfaLifecycleIT` 里两处 `version` 前后值比较（可观测行为）。
+
+**破坏**：把 `enable` 里那段
+
+```java
+userMapper.update(null, new LambdaUpdateWrapper<User>()
+    .eq(User::getId, userId).set(User::getTwoFactorEnabled, true).set(User::getTwoFactorEnabledAt, now));
+```
+
+换成"造一个实体、`updateById`"。写入的**两列与取值完全相同** —— 差别只在乐观锁插件会不会
+`SET version = version + 1`、以及会不会整行回写。
+
+**surefire**：`Tests run: 24, Failures: 1`
+
+```
+Wanted but not invoked:
+userMapper.update(
+    isNull(),
+    <Capturing argument: LambdaUpdateWrapper>
+);
+-> at com.crm.service.MfaServiceTest.capturedUpdate(MfaServiceTest.java:474)
+
+However, there were exactly 2 interactions with this mock:
+userMapper.selectById(42L);
+-> at com.crm.service.MfaService.requireUser(MfaService.java:200)
+
+userMapper.updateById(
+    com.crm.entity.User@ab327c
+);
+-> at com.crm.service.MfaService.enable(MfaService.java:136)
+```
+
+**failsafe**：`Tests run: 9, Failures: 4`
+
+```
+com.crm.integration.MfaLifecycleIT.fullLifecycle -- Time elapsed: 0.247 s <<< FAILURE!
+org.opentest4j.AssertionFailedError:
+
+expected: 0
+ but was: 1
+	at com.crm.integration.MfaLifecycleIT.fullLifecycle(MfaLifecycleIT.java:95)
+```
+
+⚠️ **4 红里只有 2 红是直接证据**，另外 2 红是**同一根因的下游症状**，如实记下以免被当成独立证据：
+`canReEnableAfterDisabling:174` 报 `Expecting value to be true but was false`、
+`recoveryCodeDisablesAndIsConsumedOnce:157` 报 `expected: RECOVERY_CODE_INVALID but was: MFA_NOT_ENABLED`
+—— 两者的机制相同：`updateById` 带乐观锁生成 `WHERE id = ? AND version = ?`，
+而实体是新造的（`version = 0`），于是**第二次 `enable` 在 `version` 已变成 1 之后静默地一行都没改**，
+账号实际上没被启用。这条症状比"管理员将来遇到 409"更早、更直白地暴露了同一处错误。
+
+⚠️ **这也解释了为什么本步要补 `version` 守卫**：破坏 G2 第一次观测时，
+surefire **1 红**而 failsafe **9/9 全绿** —— 调用形状断言看得见"调了哪个方法"，
+看不见"写进去之后那行数据变成了什么"。补守卫后两层各自独立转红。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 G3：`setup` 顺手把 `two_factor_enabled` 也写进去（FR-M04 的边界）
+
+**被守护的断言**：`MfaServiceTest.setupWritesOnlyTheSecretColumnAndStaysDisabled` 与
+`MfaLifecycleIT.fullLifecycle` 的 `assertThat(...getTwoFactorEnabled()).isFalse()`。
+
+**破坏**：在 `writeSecret` 的 SET 里加 `.set(User::getTwoFactorEnabled, true)`。
+
+**surefire**：`Tests run: 24, Failures: 1`
+
+```
+com.crm.service.MfaServiceTest.setupWritesOnlyTheSecretColumnAndStaysDisabled -- ... <<< FAILURE!
+java.lang.AssertionError:
+
+Expecting actual:
+  "two_factor_enabled=#{ew.paramNameValuePairs.MPGENVAL1},totp_secret_encrypted=#{ew.paramNameValuePairs.MPGENVAL2}"
+not to contain:
+  "two_factor_enabled"
+	at com.crm.service.MfaServiceTest.setupWritesOnlyTheSecretColumnAndStaysDisabled(MfaServiceTest.java:146)
+```
+
+**failsafe**：`Tests run: 9, Failures: 1, Errors: 7`：
+
+```
+com.crm.integration.MfaLifecycleIT.adminResetDoesNotTouchThePassword -- ... <<< ERROR!
+com.crm.common.BusinessException: 账号已启用双因素认证，不可重复启用
+	at com.crm.service.MfaService.enable(MfaService.java:122)
+```
+
+⚠️ 那 7 个 error 是**级联**（用例的第二步 `enable` 被 `MFA_ALREADY_ENABLED` 拒掉），
+只有 `fullLifecycle:74` 的 `twoFactorEnabled isFalse` 是本条性质自己的断言。再次如实记。
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 G4：二维码渲染成**全白图**（把"图能不能被扫出内容"从声称变成实测）
+
+**被守护的断言**：`MfaQrCodeServiceTest.pngDecodesBackToTheExactContent`
+（用 zxing 自己的 `QRCodeReader` 把 PNG 解回文本，与拼进去的那串逐字比）。
+
+**破坏**：把像素循环从 `image.setRGB(x, y, matrix.get(x, y) ? 0x000000 : 0xFFFFFF)`
+改成恒写白 `image.setRGB(x, y, 0xFFFFFF)` —— 一张合规的、200×200 的、纯白的 PNG。
+
+**surefire**：`Tests run: 24, Failures: 1, Errors: 1`
+
+```
+MfaQrCodeServiceTest.pngDecodesBackToTheExactContent -- ... <<< ERROR!
+com.google.zxing.NotFoundException
+
+MfaQrCodeServiceTest.pngDataUrlIsAnInlinePng:84 -- ... <<< FAILURE!
+java.lang.AssertionError:
+Expecting actual:
+  "data:image/png;base64,iVBORw0KGgo…（与下面完全相同的串）"
+not to be equal to:
+  "data:image/png;base64,iVBORw0KGgo…（同一个串）"
+```
+
+⚠️ **这条破坏的要点是"哪几条断言没红"**：`pngDataUrlIsAnInlinePng` 里
+「`data:image/png;base64,` 前缀」「PNG 魔数」「边长 200×200」三条**在全白图上全部通过**，
+该用例里唯一红的是第 84 行那条"两张不同内容的图不能逐字相同"。
+这正是 `MfaQrCodeServiceTest` 类 javadoc 里那句话的实证：
+**只断魔数与边长的用例，在一张全白图上同样全绿** —— 而全白图意味着**每个用户都扫不上码**，
+且失败现场（"App 说二维码无效"）离"像素画反了"很远。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 G5：删掉 `pngDataUrl` 的空内容守卫（第三方异常直接冒到调用方）
+
+**被守护的断言**：`MfaQrCodeServiceTest.emptyContentIsRejectedWithOurOwnException`。
+
+**破坏**：删掉 `if (content == null || content.isEmpty()) { throw new IllegalStateException(...); }` 整块。
+
+**surefire**：`Tests run: 24, Failures: 1`
+
+```
+com.crm.service.MfaQrCodeServiceTest.emptyContentIsRejectedWithOurOwnException -- ... <<< FAILURE!
+java.lang.AssertionError:
+
+Expecting actual throwable to be an instance of:
+  java.lang.IllegalStateException
+but was:
+  java.lang.IllegalArgumentException: Found empty contents
+	at com.google.zxing.qrcode.QRCodeWriter.encode(QRCodeWriter.java:55)
+	at com.crm.service.MfaQrCodeService.pngDataUrl(MfaQrCodeService.java:89)
+	at com.crm.service.MfaQrCodeServiceTest.lambda$0(MfaQrCodeServiceTest.java:119)
+```
+
+**还原**：`sha1sum -c` 输出 `OK`；随后复跑 `Tests run: 24, Failures: 0, Errors: 0` / `BUILD SUCCESS`。
+
+### 本节两处**如实记**的观察
+
+1. **G2 是本批唯一一条"先有声称、后有护栏"的破坏**（第一次观测单测红 / IT 全绿），
+   而它守护的恰好是计划风险表里排第一的 085 回归。这说明"最高风险项在行为层没有观测点"
+   这件事本身不会被任何一次全绿发现 —— 只能靠**主动去问"集成测试能不能看见它"**。
+2. **两次"看起来像并行会话改了我的文件"的假警报**（IDE / m2e 的陈旧 `spotless:check` 快照）：
+   其 diff 的 `-` 侧是**改守卫之前**的旧草稿内容，而 `Edit` 报的"文件已在磁盘上被修改"来自
+   我先前那次限定范围的 `spotless:apply` 重排 javadoc。**判据是 `grep` 磁盘实际内容 + `sha1sum`**，
+   不是诊断面板；整仓 `mvn -B spotless:check` 当时退出码为 **0**，即当时并不存在真实的格式违规。
