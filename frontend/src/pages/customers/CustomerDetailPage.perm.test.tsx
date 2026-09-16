@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import CustomerDetailPage from './CustomerDetailPage'
 import { useAuthStore } from '../../store/authStore'
@@ -26,6 +26,11 @@ vi.mock('../../services/userService', () => ({
 }))
 vi.mock('../../hooks/useCustomers', () => ({
   useCustomerDetail: vi.fn(),
+}))
+vi.mock('../../services/commentService', () => ({
+  fetchComments: vi.fn(),
+  createComment: vi.fn(),
+  deleteComment: vi.fn(),
 }))
 
 /**
@@ -117,5 +122,113 @@ describe('CustomerDetailPage 共享按钮的两闸门（086）', () => {
 
     expect(screen.getAllByText('Acme 科技').length).toBeGreaterThan(0)
     expect(shareButton()).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * 096 权限收口 · `CommentSection`（渲染在客户详情页里）的**两个码 ∧ 归属**测试。
+ *
+ * <p>本组件 096 之前是**整页零判权**：发布输入区无条件渲染、删除链接只判
+ * `role === 'ADMIN' || 作者本人`。后端当时是**类级** `@PreAuthorize("hasAnyRole('ADMIN','SALES','SUPPORT')")`
+ * ⇒ 非这三者的用户看得见按钮、点下去必然 403。096 建了 `comment:create` / `comment:delete`
+ * 两码并撤掉类级门（补授范围 = 那道门原先放行的集合，逐字不变），本文件据此钉住三件事：
+ *
+ * <ol>
+ *   <li>两个码**各自独立**（第 5 例：只持 delete 的人没有发布区）；
+ *   <li>删除的判据是 **码 ∧ 归属**，那半个 ADMIN 例外不能删——第 1 例（是 ADMIN 但不是作者）
+ *       与第 3 例（有码但不是作者）合起来把它钉死：删掉例外则第 1 例红，只留归属则第 4 例红
+ *       （第 4 例的作者正是本人，无码时**改造前看得见**删除按钮）；
+ *   <li>负向用例用非 ADMIN：`hasPerm` 对 ADMIN 直通，拿管理员测不出「看不见」。
+ * </ol>
+ */
+const otherComment = {
+  id: 11,
+  entityType: 'CUSTOMER',
+  entityId: 1,
+  content: '别家的留言',
+  authorId: 99, // 非本人
+  authorName: '别人',
+  createdAt: '2026-09-16T09:00:00',
+}
+const myComment = { ...otherComment, id: 12, content: '我自己的留言', authorId: 2, authorName: '销售一' }
+
+const salesComments = (codes: string[]): UserInfo => ({ ...salesNoPerm, permissions: codes })
+const submitButton = () => screen.queryByText('pages.commentSection.btnSubmit')
+const deleteLink = () => screen.queryByText('pages.commentSection.btnDelete')
+
+/**
+ * 在某条评论**所在的那一行**里找控件。
+ *
+ * <p>CommentSection 的一条评论是 `<div><Space>头像/作者/时间/删除</Space><div>正文</div></div>`
+ * （`CommentSection.tsx`），删除链接与正文同父。用行级断言而不是「页面上有几个删除链接」，
+ * 是为了让断言说的是**哪一条评论**可删——否则「恰好剩 1 个」既可能是「他人的不可删」，
+ * 也可能是「本人的那个没渲染」，两种情形分不开。
+ */
+function inRowOf(content: string, text: string) {
+  const row = screen.getByText(content).parentElement as HTMLElement
+  return within(row).queryByText(text)
+}
+
+/** 评论区用例：`useCustomerDetail` 给一条客户，评论取数给**一条本人 + 一条他人**。 */
+async function renderComments(user: UserInfo) {
+  useAuthStore.setState({ user })
+  const { fetchComments } = await import('../../services/commentService')
+  vi.mocked(fetchComments).mockResolvedValue({
+    items: [myComment, otherComment],
+    total: 2,
+    page: 1,
+    pageSize: 50,
+  } as never)
+
+  await renderPage(user, 2) // ownerId 2 === 本人，排除「共享」按钮的干扰
+  // 反空洞守卫：两条评论都渲染出来了，后面的否定断言才有意义。
+  await screen.findByText('我自己的留言')
+  await screen.findByText('别家的留言')
+}
+
+describe('CommentSection 发布与删除的两个码（096）', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  it('① ADMIN：发布区可见，且**他人**的评论也能删（数据归属的 ADMIN 例外）', async () => {
+    await renderComments(adminUser)
+
+    expect(submitButton()).toBeInTheDocument()
+    // 逐行断言：本人与他人的那两条**各自**都有删除链接
+    expect(inRowOf('我自己的留言', 'pages.commentSection.btnDelete')).toBeInTheDocument()
+    expect(inRowOf('别家的留言', 'pages.commentSection.btnDelete')).toBeInTheDocument()
+  })
+
+  it('② 持 comment:create + comment:delete 且是评论作者：发布区可见，自己的那条可删', async () => {
+    await renderComments(salesComments(['comment:create', 'comment:delete']))
+
+    expect(submitButton()).toBeInTheDocument()
+    expect(deleteLink()).toBeInTheDocument()
+    expect(inRowOf('我自己的留言', 'pages.commentSection.btnDelete')).toBeInTheDocument()
+  })
+
+  it('③ 有码但**不是**作者：他人的那条不可删（归属闸门保留）', async () => {
+    await renderComments(salesComments(['comment:create', 'comment:delete']))
+
+    // 逐行断言把「谁的评论」钉死：不是"页面上只剩一个删除链接"这种间接证据。
+    expect(inRowOf('我自己的留言', 'pages.commentSection.btnDelete')).toBeInTheDocument()
+    expect(inRowOf('别家的留言', 'pages.commentSection.btnDelete')).not.toBeInTheDocument()
+  })
+
+  it('④ **无码**但是作者：发布区与删除都不可见（改造前作者看得见这个必然 403 的删除）', async () => {
+    await renderComments(salesNoPerm)
+
+    expect(screen.getByText('我自己的留言')).toBeInTheDocument()
+    expect(submitButton()).not.toBeInTheDocument()
+    expect(deleteLink()).not.toBeInTheDocument()
+  })
+
+  it('⑤ 只持 comment:delete（是作者）：删除可见、发布区不可见（两码各自独立）', async () => {
+    await renderComments(salesComments(['comment:delete']))
+
+    expect(deleteLink()).toBeInTheDocument()
+    expect(submitButton()).not.toBeInTheDocument()
   })
 })

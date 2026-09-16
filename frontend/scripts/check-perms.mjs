@@ -93,8 +93,11 @@ const ALLOWED = [
     file: 'src/pages/stats/DashboardPage.tsx',
     count: 1,
     reason:
-      '**不可收口**：`StatsController` 的销售目标端点无权限注解，闸门是方法体内联的「userId 为空 ⇒ 仅管理员」。' +
-      '后端先加码才能收口，见 research.md 不可收口清单',
+      '**数据范围判定，不是权限判断**（096 订正，不再是「不可收口」）：`StatsController.setSalesTarget` ' +
+      '的闸门是方法体内联的「全局目标仅 ADMIN、个人目标仅本人」，与角色码无关；' +
+      '`kpi:view` 归 ADMIN+ANALYST ⇒ 挂它反而给 ANALYST 露出**必然 403** 的按钮。' +
+      '⇒ **不该设码**。086 清单该行原写「后端先加码」，096 已订正其判据' +
+      '（见 specs/086-frontend-button-gating/research.md §2 的 2026-09-16 ⚠️ 块）',
   },
 ]
 
