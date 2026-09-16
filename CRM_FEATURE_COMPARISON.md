@@ -27,6 +27,17 @@
 > **同样属「快照后失效」，非本报告写错**（v3.0 快照为 09-14，093 交付于 09-15）。
 > **分值一分未动**（3.35 / 显示值 3.4 不变）：当初把该判定改 ⚠️ 时**声明过不扣分**，如今改回 ✅ **亦不加分**，双向对称；
 > v2.0 本就记「成交预测、客户分析已存在」，093 是把该判定**做真**、**恢复到 v2.0 所记状态**，故**不构成能力增量** —— 详见第三节取舍规则 ⚠️ 条。
+>
+> ⚠️ **追加（2026-09-16，第四轮局部刷新）**：**2.9 的审计日志行**与**五的 P1 第 15 条** —— 把「**无登录/认证事件审计**」收窄为「**无登录事件审计**」。
+> 属**「快照后新增能力」**：`AuthService` **仍**不写审计（登录事件确仍缺），但 **082 起 2FA 域已有 4 类审计事件**（`MFA_ENABLE`／`MFA_DISABLE`／`MFA_RESET`／`MFA_VERIFY_FAILED`）；**哈希链与日志导出仍缺**。
+> 同批另一处**性质不同**，是**「当日即错」**的读数订正（**不是过期**）：**2.9 的数据权限行**、**五的 P1 第 11 条**、**6.2 第 5 行**、**附录「四种口径陷阱」第 4 条** ——
+> 报告记「13 处/9 个文件（新增 `OrderController`/`LeadController`/`ContactController`/`KnowledgeArticleController`）」，**实测 17 处/6 个文件**，
+> 且那 4 个 Controller **从未有过调用**（命中全是 javadoc 里的 `{@code resolveVisibleOwnerIds}`，注释内容恰恰在说「本 Controller 没有数据范围过滤」）；
+> **已在该行落盘时的提交 `37945cf^` 上复现，两次读数完全一致 ⇒ 无能力回退**。
+> **上述各处判定与第三节分值均不变**（审计仍 ⚠️、数据权限仍 ⚠️「判据修正」；「调用点扩展」「仍非全局拦截」「工单不在其内」等方向性结论均仍成立）。
+> **未做什么**：**八的留痕表不动** —— 它是 v2.0 当时的更正记录、**不是现行判定**（现行判定看 2.9），改了就是伪造历史。
+> **其余 ⚠️ 条目已通核一遍**（业务能力缺失型：订单、电子签署、工作流自动化、审批流引擎、数据保留策略、全局搜索、区域管理、预测 rollup 等），
+> 082/088/093/094/095 均**不触及**其判据 ⇒ **不过期，原样保留**。
 
 ---
 
@@ -238,13 +249,13 @@
 | 认证 | 全部产品 | JWT + refresh token + `tokenVersion` 强制失效 + 图形验证码（**可开关，但 yml 默认关闭**） | ✅ | `AuthService`、`JwtUtil`；`application.yml` 的 `crm.captcha.enabled` 默认 `${CAPTCHA_ENABLED:false}` |
 | RBAC 角色权限 | 全部产品 | 角色-菜单-权限点 + `@RequirePermission`（**268 个注解点、115 个被校验的码**，字典 137 条） | ✅ **↑大幅增强** | `PermissionAspect`、`RoleController`。v2.0 记「63 处、17 个权限点」 |
 | **按钮级权限** | 全部产品 | 集中登记的 `PERMS.*` 常量（**63 个码**）+ `usePerms` / `PermissionGuard`；**48/101 页接入（47.5%）** | **❌ → ✅ 已闭合** | `frontend/src/constants/permissions.ts`、`hooks/usePerms.ts`、`components/PermissionGuard.tsx`；两道机器护栏：`check-perms.mjs` + 后端 `FrontendPermissionCodeAlignmentTest`。**注意不是 100%**：086 有一份「不可收口清单」（见第六节），那些端点后端尚无码可挂 |
-| 数据权限（行级） | Salesforce Sharing | 4 档 SELF/DEPT/DEPT_AND_CHILD/ALL + 客户共享 + 可见归属人缓存 | ⚠️ **判据修正** | 调用点从 v2.0 的 9 处增至**13 处/9 个文件**（新增 `OrderController`/`LeadController`/`ContactController`/`KnowledgeArticleController`），`EntityAccessService` 成为共享判定类。**但 v2.0「生效于 Ticket」是错的**：`TicketService`/`TicketController` 对 `resolveVisibleOwnerIds`/`DataPermissionService`/`EntityAccessService` **零引用**，工单列表不受数据权限约束。仍非全局拦截器 |
+| 数据权限（行级） | Salesforce Sharing | 4 档 SELF/DEPT/DEPT_AND_CHILD/ALL + 客户共享 + 可见归属人缓存 | ⚠️ **判据修正** | 调用点从 v2.0 的 9 处增至**13 处/9 个文件**（新增 `OrderController`/`LeadController`/`ContactController`/`KnowledgeArticleController`），`EntityAccessService` 成为共享判定类。**但 v2.0「生效于 Ticket」是错的**：`TicketService`/`TicketController` 对 `resolveVisibleOwnerIds`/`DataPermissionService`/`EntityAccessService` **零引用**，工单列表不受数据权限约束。仍非全局拦截器。<br>**⚠️ 2026-09-16 订正——读数与点名**：**原文（逐字保留，两列）** —— 判定列原文「⚠️ **判据修正**」；证据列原文「调用点从 v2.0 的 9 处增至**13 处/9 个文件**（新增 `OrderController`/`LeadController`/`ContactController`/`KnowledgeArticleController`），`EntityAccessService` 成为共享判定类」。**实测（2026-09-16；并在报告落盘时的提交 `37945cf^` 上复现，两次读数完全一致 ⇒ 无能力回退）**：真实调用点为 **17 处 / 6 个文件** —— `FollowUpService` 9、`CommentService` 3、`CustomerService` 2，`ContactService`／`LeadService`／`ExportExecutor` 各 1。**报告点名的 4 个 Controller 从未有过调用**：它们的命中全是 javadoc 里的 `{@code resolveVisibleOwnerIds}`（而注释内容恰恰在说「本 Controller 没有数据范围过滤」），且 `git log -S "dataPermissionService" -- backend/src/main/java/com/crm/controller/` **空输出**（该小写变量在 controller 目录下从未出现）；这 4 个文件里该符号的唯一提交是 `75eb510`（权限接线批，加的是说明"为何不设过滤"的注释）。⇒ 本行**不是"过期"，而是"当日即错"**（与第六节差异表第 4 行同类）。**判定与分值均不变**：工单零引用仍成立、仍非全局拦截器，「调用点扩展」的方向（9 → 17）也仍成立；错的只是那个读数与 4 个文件的点名。**复跑命令**（用多个 `-e` 以免单元格里出现竖线）：`git grep -n -i -e resolveVisibleOwnerIds -e "[Dd]ataPermissionService\." -e "[Ee]ntityAccessService\." 37945cf^ -- 'backend/src/main/java'`，再剔除注释行与定义类自身 |
 | 字段级权限（FLS） | Salesforce/SAP 硬指标 | `field_permission`（HIDDEN/READ_ONLY/EDITABLE） | ❌ **仍缺**（作用域仍限自定义字段；**「值泄漏」子项已撤销**，见下） | 仅被 `CustomFieldService` 调用，只作用于自定义字段；内置字段与 API 出参未过滤。<br>**⚠️ 2026-09-16 订正——撤销「值泄漏」**：**原文（逐字保留，两列）** —— 判定列原文「❌ **仍缺（且确认有值泄漏）**」；证据列原文「仅被 `CustomFieldService` 调用，只作用于自定义字段；内置字段与 API 出参未过滤。**读路径 `readValuesBatch` 绕过权限计算**，HIDDEN 字段的**值**随 `CustomerResponse` 外泄」。其中后半句**已不成立** —— 修补是 `008cbb9`（**2026-09-15 12:33**，晚于本报告 09-14 快照）。今日实测**两条公开读路径都过滤**：详情 `readValues` → `dropHidden`（`CustomFieldService.java:269`）、列表 `readValuesBatch` → `hiddenFieldIds(currentRoleCode(), …)`（`:303`）；两个 `*Raw` 均为 `private`，其 javadoc 自述「**仅供保存路径比对既有值**，不得直接对外返回」。**导出同受约束**（`ExportExecutor.writeCustomFields` 走的正是 `readValuesBatch`）。**有护栏**：`FieldPermissionIT`（详情 + 列表两段，SALES × LEAD 真穿过过滤分支）、`CustomFieldServiceTest.readValuesBatchDropsHiddenField`。<br>**仍成立的一半（这才是"仍缺"的理由）**：`V64__field_permission.sql` 的 `field_id BIGINT` 指向 `CustomField.id`、表内**无内置列名** ⇒ 内置字段（客户名/金额等）与 API 出参**确未过滤**。<br>**分值不动**：本条属**判定修正**，非能力增量 |
 | SSO（SAML/OIDC） | 企业采购硬指标 | — | ❌ | 无 |
 | 双因素认证（2FA/MFA） | 企业采购硬指标 | TOTP 动态码（RFC 6238，30 秒/6 位/±1 步容差）+ 10 条一次性恢复码 + 自助绑定与关闭 + 管理员重置（`user:manage`） | ✅ **（082 已落地，2026-09-16）** | `TotpGenerator`/`MfaService`/`MfaVerificationService`/`MfaStateStore` 等；`user` 加 4 列 + `user_recovery_code` 表（**V89**）。**密钥以 AES-256-GCM 密文落库**、恢复码只存哈希（salt+sha256）、动态码**按时间步防重放**、5 次失败锁定 15 分钟、**Redis 不可用时 503 拒绝登录而非降级为单因素**（fail closed）。**局限（不得读作"企业级 MFA"）**：**按用户可选启用**，规格 US5 的**强制绑定策略未实现**（只留 `MfaChallengeService` 钩子），无短信/邮件找回，无 WebAuthn。<br>**原文（2026-09-15 版，逐字保留）**：「`specs/082-two-factor-auth/` 有完整冻结规格（TOTP），**`main/java` 里 `totp`/`mfa` 零命中——仍是 0 实施**」——该句**已作废**，且本项的实测证据另有一层：**「规格冻结」不等于「已实施」，而本仓库曾把它登记成 ✅**（见 `specs/README.md` 的后记） |
 | IP 白名单 / 登录风控 | Salesforce/Dynamics | 失败计数（per-username 5 次 / per-IP 10 次，15 分钟窗口）+ 登录风控；**无 IP 白名单** | **❌ → ⚠️ 判据修正** | `AuthService` 的 Redis 版 `auth:fail:*` / `auth:ip-fail:*` 与 `isIpBlocked` 链路真实存在，v2.0 记作 ❌ 是**看漏**（详见第六节） |
 | 速率限制 | 全部产品 | **仅 `EmailTrackController` 有内存桶限流**（60 次/分钟/IP，非 Filter） | ❌ | 登录、开放 API、导出等**均无限流** |
-| 审计日志 | 全部产品 | `audit_log` + 多 Service 主动写入 + 查询页 | ⚠️ | **本次实测确认三项仍缺**：无登录/认证事件审计（`AuthService` 不调 `AuditService`）、无哈希链（`prev_hash` 零命中）、无日志导出 |
+| 审计日志 | 全部产品 | `audit_log` + 多 Service 主动写入 + 查询页 | ⚠️ | **本次实测确认三项仍缺**：无登录/认证事件审计（`AuthService` 不调 `AuditService`）、无哈希链（`prev_hash` 零命中）、无日志导出<br>**⚠️ 2026-09-16 订正——第①项的措辞**：**原文（逐字保留，两列）** —— 判定列原文「⚠️」；证据列原文「**本次实测确认三项仍缺**：无登录/认证事件审计（`AuthService` 不调 `AuditService`）、无哈希链（`prev_hash` 零命中）、无日志导出」。**同日实测**：①**「无认证事件审计」过宽，应收窄为「无登录事件审计」** —— `AuthService` **仍**零引用 `AuditService`（登录成功/失败均不落审计行，复跑仍 0 命中），但 **082 起认证域已有 4 类审计事件**：`MFA_ENABLE`／`MFA_DISABLE`／`MFA_RESET`（`MfaService` 三处 `auditService.record`）与 `MFA_VERIFY_FAILED`（`MfaVerificationService.failVerification`，该路径无登录主体故走 `recordAsSystem`）。这与 2.7 的仪表盘同类：**属「快照后新增能力」，是报告过期、不是写错**（v3.0 快照 09-14，082 交付于 09-15/16）。②③**无哈希链、无日志导出仍成立**（同日复跑：`prev_hash` 全仓 0 文件命中；`AuditLogController` 无导出端点）。⇒ 三项中**一项收窄、两项原样**。**判定 ⚠️ 与分值均不变**：本域仍非「可防篡改的合规审计」，且新增的 4 类事件里**仍不含最该有的登录事件** |
 | 数据保留策略 | GDPR/个保法 | `data_retention_policy` 覆盖 9 类实体 + 每日调度 + 执行历史 | ⚠️ | **实现为"置 `deleted=1` 软删除"**，非归档/冷存储；无匿名化、无硬删除 |
 | 合规导出（GDPR 可携带权） | GDPR | 按 userId 导出 6 类实体 CSV/XLSX | ⚠️ | **仅"可携带权"**；无"被遗忘权"删除流、无同意管理、无 DSR 跟踪、导出文件无加密 |
 | 数据加密 | AES-256 / TDE | JWT 签名；`MaskingUtil` 脱敏；**082 起 TOTP 密钥单字段 AES-256-GCM 列级加密** | ❌ **（判定不变）** | **除 2FA 密钥外，数据库字段仍明文存储**，无 TDE、无 KMS、无密钥轮换/托管（`MfaSecretEncryptionService` 的密钥来自环境变量 `MFA_SECRET_KEY`，缺失即调用时失败）。**这是一处单字段的例外，不是"加密能力已具备"** |
@@ -348,11 +359,11 @@
 | 8 | **AI 能力空白** | P1 | 仍缺（八项零变化） |
 | 9 | **无区域管理（Territory）** | P1 | 仍缺 |
 | 10 | **无预测 rollup 与提交** | P1 | 仍缺 |
-| 11 | **数据权限靠手动调用而非全局拦截** | P1 | 部分改善：调用点 9 → 13 处/9 文件，`EntityAccessService` 成共享判定类；**但新发现工单不在其内**，且仍无全局拦截 |
+| 11 | **数据权限靠手动调用而非全局拦截** | P1 | 部分改善：调用点 9 → 13 处/9 文件，`EntityAccessService` 成共享判定类；**但新发现工单不在其内**，且仍无全局拦截。<br>**⚠️ 2026-09-16**：其中「13 处/9 文件」**当日即错** —— 实测（并在 `37945cf^` 复现）为 **17 处/6 文件**（判据见 2.9 该行 ⚠️）。**「部分改善」的结论不变**（9 → 17 仍是扩展；仍是手动调用、仍无全局拦截、工单仍不在其内）。**原文（逐字保留）**：「部分改善：调用点 9 → 13 处/9 文件，`EntityAccessService` 成共享判定类；**但新发现工单不在其内**，且仍无全局拦截」 |
 | 12 | ~~无看板拖拽（Kanban）~~ | P1 | **✅ 已闭合** |
 | 13 | **订单无行项目** | P1 | 仍缺（也是订阅计费的前置） |
 | 14 | **无旅程编排 / 短信 / ESP 连接器** | P1 | 仍缺 |
-| 15 | **审计日志无防篡改、无认证事件审计** | P1 | 仍缺（本次实测：无 `prev_hash` 列、`AuthService` 不写审计） |
+| 15 | **审计日志无防篡改、无认证事件审计** | P1 | 仍缺（本次实测：无 `prev_hash` 列、`AuthService` 不写审计）<br>**⚠️ 2026-09-16**：**标题里的「无认证事件审计」过宽**，应收窄为「**无登录事件审计**」—— 082 起 2FA 域已有 4 类审计事件（`MFA_ENABLE`／`MFA_DISABLE`／`MFA_RESET`／`MFA_VERIFY_FAILED`），而 `AuthService` **仍**不写审计。**「无防篡改」仍成立**（`prev_hash` 0 命中）。**原文（逐字保留）**：「仍缺（本次实测：无 `prev_hash` 列、`AuthService` 不写审计）」—— 该句两项**都仍成立**，过宽的只是标题措辞。**条目仍为 P1、判定与分值不变** |
 | 16 | ★ **前端 i18n 的串级残留** | — | 页级已闭合，**11 个文件仍有中文字面量**（最重 `LoginPage.tsx` 13 处），建议作日常清扫 |
 | 17 | ★ **机器门禁在 CI 里从不触发** | — | 仓库无 remote、无 `gh`，CI 永不运行——**4 道前端护栏与后端护栏目前只在本地有意义**；建议补 remote 或明确记录该边界 |
 
@@ -389,7 +400,7 @@
 | 2 | 无 IP 白名单 / **登录风控 ❌** | `AuthService` 有完整的 Redis 失败计数（per-username 5 / per-IP 10，15 分钟窗口）+ `isIpBlocked` 链路 → 应为 ⚠️ | **v2.0 看漏**（当时即错） |
 | 3 | 国际化 ⚠️（83 页仅 53 接入） | 96/101 接入，页级已闭合 | **已成文后同日过时**（i18n 提交 `acc5355` 落在报告落盘之后、同日晚间） |
 | 4 | 仪表盘 ✅（含成交预测、客户分析） | 前端**从未渲染**成交预测；客户分析只剩两个 KPI 数；同比是写死的 | **v2.0 高估**（当时即错）<br>**⚠️ 2026-09-16**：本行是 **v2.0→v3.0 当日**的差异留痕，**原样不改**；该差异**已由 093（2026-09-15）消除**（判据见 2.7 该行 ⚠️） |
-| 5 | 数据权限"全库仅 9 处手动调用" | 13 处 / 9 个文件（新增 4 个 Controller 也在调用） | 数量过时（方向未变） |
+| 5 | 数据权限"全库仅 9 处手动调用" | 13 处 / 9 个文件（新增 4 个 Controller 也在调用） | 数量过时（方向未变）<br>**⚠️ 2026-09-16**：本行是 v2.0→v3.0 当日留痕，**原样不改**；但其中「13 处/9 个文件（新增 4 个 Controller 也在调用）」经复现为**实测 17 处/6 文件**，且那 4 个 Controller **从未有过调用**（判据见 2.9 该行 ⚠️）。**「方向未变」的结论仍成立**（9 → 17 仍是扩展） |
 | 6 | §3 的「加权均值」 | 无权重声明、且从其自身各行不可复现（4 列不符） | **v2.0 内部缺陷**，本版订正为等权算术平均并给精确值 |
 | 7 | 2.10「最接近 ML 的一处」等行 | 八项判定与行数全部未变（`SuggestionService`/`WorkflowEngine`/`ApprovalEngineService` 行数与 v2.0 记录字面一致） | 确认无需修正 |
 
@@ -500,7 +511,7 @@
 1. Javadoc 里的 `{@code @RequirePermission(...)}` 会虚增注解计数（未锚定 276 vs 锚定 268）；`@PreAuthorize` 更严重（44 vs 真实 6）。
 2. `<Route` 字符串会被 `<Routes>` 污染（89 vs 真实 88），换行写法又会让正则漏计（`[ />]` 得 86）。
 3. `target/classes/db/migration` 会让迁移计数翻倍（87 → 174）。
-4. **注释里的符号引用会被当成真实调用**：`RoleConstants` 里 2 处 `resolveVisibleOwnerIds` 是注释，若计入会把"13 处调用点"报成 15 处；Controller "带闸门"的宽松计数得 60，实测只有 58。
+4. **注释里的符号引用会被当成真实调用**：`RoleConstants` 里 2 处 `resolveVisibleOwnerIds` 是注释，若计入会把"13 处调用点"报成 15 处；Controller "带闸门"的宽松计数得 60，实测只有 58。<br>**⚠️ 2026-09-16**：本条**写对了陷阱，却没把它的全部形态用到本报告自己身上** —— 数据权限那行的读数恰恰栽在同一陷阱的 **javadoc 变体**（4 个 Controller 的 `{@code resolveVisibleOwnerIds}`，见 2.9 该行 ⚠️）。本条举例的 `//` 形态只覆盖了 `RoleConstants` 那 2 处，**没有覆盖以 `*` 开头的 javadoc 行**；而报告当时给出的读数「13 处/9 个文件」与实测「17 处/6 文件」不符，被点名的那 4 个 Controller 从未有过调用。**原文（逐字保留）**：「注释里的符号引用会被当成真实调用：`RoleConstants` 里 2 处 `resolveVisibleOwnerIds` 是注释，若计入会把"13 处调用点"报成 15 处；Controller "带闸门"的宽松计数得 60，实测只有 58。」**教训**：**写完"排除注释"的例外规则之后，必须逐种注释形态各验一遍**（`//`、`*` / `/**`、HTML 注释），否则规则只挡住了它举例的那一种 —— 这正是"用模式表达『我扫到了什么』而非『存在什么』"的形态
 
 **边界（必须说明的）**：
 - 本次**未运行** `mvn verify` 与前端测试套件，故后端的 148/167 测试类通过情况、前端覆盖率与阈值均**引自规格记录而非本次实测**（`specs/089`/`090`/`091` 记录：前端 68.55/73.68/36.58 @ 83 文件，阈值 statements 33.6 / branches 47.2 / functions 21.4 / lines 33.6；后端 0.8009 ≥ 0.73）。**"已闭合"的判定全部基于源码与配置证据，不含运行期证据。**
