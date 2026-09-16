@@ -411,6 +411,26 @@ const R5_ALLOWED = [
  * 也就是说"placeholder 必须走 `t()`"这条规则**从第一天起就需要白名单**，
  * 这是 088 的 plan 把它列为 error 时没有预见的（起草时估的是 8 处、且未区分性质）。
  * 真正是缺陷的只有 2 处 aria-label，见下。
+ *
+ * <p>⚠️ **2026-09-16 订正（097）：上面那两个数（11 / 9）已不成立，实测是 10 / 8。**
+ * **原文逐字保留在上、不改写**——它是写下时的真实读数。差 1 的**根因已查明：不是算错，是漂移**。
+ * `src/pages/products/ProductListPage.tsx` 那条的理由自己就写着「条目由 **2** 处收成 **1** 处」：
+ * 2026-09-13 的 T035 复核把 `Currency` 改走了 `t()`（改用新键 `pages.product.list.priceCurrencyPlaceholder`），
+ * 于是**命中 11 → 10、其中不该翻译的 9 → 8**，而**块头的这两个聚合数没有跟着回改**（该条目改了自己，块头没改）。
+ * **两处真缺陷没变**（`App.tsx` 与 `LoginPage.tsx` 的 aria-label，见下），`2 + 8 = 10` 对得上。
+ *
+ * <p>**读者可自证**（`R6_ALLOWED` 才是当前的事实，别采信本注释里的数）——
+ * 以下两条命令的输出即为「条目数」与「count 合计」：
+ *
+ * <p>`awk '/^const R6_ALLOWED = \[/,/^\]/' scripts/check-ui.mjs | grep -c "file:"` ⇒ **8**
+ *
+ * <p>`awk '/^const R6_ALLOWED = \[/,/^\]/' scripts/check-ui.mjs | grep -o "count: [0-9]*" | awk '{s+=$2} END{print s}'` ⇒ **10**
+ *
+ * <p>⚠️ **三个数互相不是一回事，别混**：`R6_ALLOWED` 的**条目数 = 8**（8 个文件）、
+ * **count 合计 = 10**（10 处命中，与 `CANDIDATE_READINGS.R6 = 10` 一致）、
+ * `MIN_CANDIDATES.R6 = 1`（**反假绿**的下限，不是台账大小）。
+ * **机器守的是 count 与命中**：块头注释里的数**没有任何断言看着它**——这正是它能悄悄漂移的原因，
+ * 故本处**只能订正 + 留下复算命令**，不声称此处有护栏。
  */
 const R6_ALLOWED = [
   {
