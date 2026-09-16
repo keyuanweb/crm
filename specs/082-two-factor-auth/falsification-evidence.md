@@ -1843,3 +1843,227 @@ surefire **695 / 0**、failsafe **323 / 0**、`BUILD SUCCESS`。
    本步所有破坏都是直接调 `failsafe:integration-test` / `surefire:test` goal
    （绕过 `verify` 生命周期），故 `spotless:check` 在破坏期间从未参与，格式违规不影响观测；
    **还原之后**的完整 `mvn -B verify` 里 `spotless:check` 通过（退出码 0）。
+
+## §I 前端（第 10 步，2026-09-16）
+
+### 破坏基准
+
+被改的三个产品文件，破坏前先存副本（`/tmp/fe082/`），每次还原后 `sha1sum -c` 逐字节对账：
+
+```
+a695337ebc2a200c6ccc801bd327b986ae6f86d9 *src/pages/LoginPage.tsx
+15f2b128b7d45cb8dc788a89b207903b9f903868 *src/pages/personal/PersonalCenterPage.tsx
+ffb6bc4c56e1d0d963b21e7ba35323b04837c9ac *src/pages/users/UserManagementPage.tsx
+```
+
+**本步的破坏对象与 §A–§H 不同**：前端没有事务、没有并发、没有 Redis，能被写坏的只有**判据与分流**
+——即"某条分支写错时会静默走到另一条、而两条都不会报错"。这正是本批最危险的那类缺陷在前端的形态：
+后端的静默降级是"2FA 账号变单因素"，前端的静默降级是"用户以为自己登录成功了 / 以为自己没开 2FA"。
+
+定向运行口径：`npx vitest run <文件>`（**不加 `--maxWorkers`**，vitest 1.6 单给该参数会直接崩）。
+破坏全部只动**产品文件**，一个字都没动测试；唯一一处测试改动是 I1 暴露出的缺口（见 I1）。
+
+| # | 破坏 | 应红的断言 | 实测读数 |
+|---|---|---|---|
+| I1 | `isMfaChallenge(res)` → `res.mfaRequired === true`（丢掉"票据非空"那一半） | LoginPage.mfa 的票据守卫 | **8/8 全绿（缺口）** ⇒ 补用例后 1 红 |
+| I2 | 删掉 `if (!hasTokens(res))` 早退，直接 `completeLogin(res)` | `{}` 响应要如实报错 | **2 红**（`{}` 与 `mfaRequired` 无票据） |
+| I3 | 删掉 `MFA_TICKET_INVALID` 分支（一律留在原地） | 票据失效退回密码视图 | **1 红**（恰好那一条） |
+| I4 | 恢复码分支同时传 `code` | `not.toHaveProperty('code')` | **1 红**（恰好那一条） |
+| I5 | `mfaStatus === null` 画成"未启用" | 状态未知不许谎报 | **2 红**（状态未知 + 启用向导） |
+| I6 | 去掉恢复码页 OK 的 `disabled: !recoveryAck` | 未勾选时「完成」必须 disabled | **1 红**（`toBeDisabled`） |
+| I7 | 启用向导的 `<Form>` 去掉 `preserve={false}` | 弹窗重开不残留 | **1 红**（`toHaveValue`） |
+| I8 | 「重置 2FA」动作去掉 `can[PERMS.userManage]` | 无码 SUPPORT 四处全不可见 | **1 红**（perm 测试第 ② 例） |
+| I9 | `onResetMfa` 的 `catch` 改成静默吞掉 | 失败必须把后端文案报出来 | **1 红**（恰好那一条） |
+
+### 破坏 I1：**计划表里没有的一条，而它第一次跑就不转红**
+
+破坏：把 `if (isMfaChallenge(res))` 换成 `if (res.mfaRequired === true)`，并把 `res.mfaToken` /
+`res.expiresIn` 补上 `?? null` / `?? 0`（否则是 `TS2322`，但那不影响 vitest —— 这里补是为了
+让破坏本身是一段**类型合法、看起来合理**的代码，而不是一段一看就编译不过的乱码）。
+
+读数：**`Tests 8 passed (8)`**。也就是说当时那 8 条用例没有一条能区分
+「`mfaRequired === true`」与「`mfaRequired === true && typeof mfaToken === 'string' && mfaToken !== ''`」。
+
+这不是"破坏做错了"，是**断言缺了一半**：原有第 8 条用例只钉住了"两种都没有"（`{}`），
+而 `isMfaChallenge` 的另一个合取支——**票据必须非空**——没有任何探针。
+
+⇒ 补一条用例（`只带 mfaRequired、没有票据时按契约外形状处理，不切到提交不动的验证视图`），
+它钉的是一条**真实可发生**的故障路径：少了那一半，`{mfaRequired: true}` 会切到二次验证视图，
+而那里的提交入口第一行就是 `if (!mfaToken) return` —— **用户会停在一个按提交毫无反应、
+既不报错也不知道该回上一步的页面上**。补完后同一次破坏下：
+
+```
+FAIL src/pages/LoginPage.mfa.test.tsx > … > 只带 mfaRequired、没有票据时按契约外形状处理…
+     → Unable to find role="alert"
+Tests  1 failed | 8 passed (9)
+```
+
+还原后 `9 passed (9)`。
+
+> 留痕口径：**这条用例是为这次破坏补的**，不是事后追认。它在破坏态下先红、还原后转绿，
+> 两次读数都记在这里；文件数/用例数的净增也据实记入 §I.11。
+
+### 破坏 I2：本批头部风险的**唯一**行为层探针，以及一次"断言顺序造成的假读数"
+
+破坏：把 `onFinish` 里 `if (!hasTokens(res)) { …报错…return }` 整段删掉，直接 `completeLogin(res)`。
+
+读数：
+
+```
+FAIL … 响应既无令牌也无票据时如实报错，不写令牌
+FAIL … 只带 mfaRequired、没有票据时按契约外形状处理，不切到提交不动的验证视图
+     → Unable to find role="alert"   （两条都是这个）
+Tests  2 failed | 7 passed (9)
+```
+
+两条都停在"找不到 alert"，即**都走了成功分支**。但它们第 2、3 条断言（`localStorage` 为 null、
+仍在密码视图）**没被执行到**——`expect` 在第一条就抛了。于是"`setTokens(undefined, undefined)`
+会在磁盘上写下字符串 `"undefined"`"这句话，在这一步**并没有被直接观测到**，只是被推断。
+
+这个缺口用一个一次性探针补掉了（`src/pages/__scratch_i2.test.tsx`，破坏态下渲染 LoginPage、
+提交 `{}` 响应、读磁盘，跑完即删、删后 `git status` 确认无残留）：
+
+```
+PROBE accessToken= "undefined" refreshToken= "undefined" pathname= /
+```
+
+⚠️ **这个探针第一次跑时给出的读数是错的**：它在 `waitFor` 的**首次同步回调**里读了
+`accessToken`（那一刻 `login` 的 promise 还没落，值当然是 `null`），在 `waitFor` 之后读
+`refreshToken`（那时已经写完了，值才是 `"undefined"`），于是我第一次看到的是
+`accessToken= null / refreshToken= "undefined"` 这样一对**自相矛盾**的读数。
+⇒ 两次读数必须**取在同一瞬间**；这条记在这里，因为"两个值分别取自不同时刻然后并列陈述"
+是一种能骗过自己的取证方式（它看起来完全像一次正常的观测）。
+
+破坏态下磁盘上确实是字符串 `"undefined"`，且 `pathname` 是 `/` —— 即 401 拦截器的
+`pathname !== '/login'` 豁免**不适用**，`isAuthenticated()` 恒真、外壳渲染、`fetchMe()` 401、
+拦截器硬跳 `/login`：**静默重定向环**的每一环都在。这条链的最后一环（拦截器）由既有代码守住，
+本次只观测到它的入口条件。
+
+### 破坏 I3 / I4：错误码分流与"二选一"的字段
+
+- **I3**：删掉 `if (extractErrorCode(err) === 'MFA_TICKET_INVALID')` 整段 ⇒ **恰好 1 红**，
+  就是"票据失效时退回密码视图"那一条（红在 `Unable to find a label with the text of: login.username`，
+  即页面上**还留着**那个死票据的验证视图）。⇒ "靠错误码而不是文案分流"这个决定有牙齿。
+- **I4**：把恢复码分支写成 `{ code, recoveryCode }` 两个字段都传 ⇒ **恰好 1 红**，
+  就是 `not.toHaveProperty('code')` 那一条。⇒ "后端按传了什么选分支"这件事被钉住了。
+
+### 破坏 I5：一条破坏、两条红，而第二条红**不是**副作用
+
+破坏：把 `mfaStatus === null` 那一支的「状态未知 + 重试」换成「未启用」的 `Tag`。
+
+```
+FAIL … 状态查询失败时显示"状态未知"并可重试，不谎报为"未启用"
+FAIL … 启用向导：扫码 → 输码 → 展示恢复码；未确认抄下前不能关掉弹窗
+Tests  2 failed | 6 passed (8)
+```
+
+第二条红值得单记：启用向导那条用例在**开头**用 `mfaDisabled` 作为"画面已就绪"的判据
+（`await waitFor(... 找到 mfaDisabled ...)`），而破坏之后 `mfaDisabled` **恰好也被**"状态未知"
+那一支渲染出来了 —— 于是那条用例的**前置等待**得到了满足、后续断言拿到的却是另一支的画面。
+⇒ 用**状态标签的文案**当"页面已加载"的判据，在标签本身分岔时会失真。本次不去改它
+（这条用例的其余断言仍然有效，而改动它会牵动 I5 之外的东西），但**如实记在这里**：
+它给的是"多一点红"，不会给假绿，所以留在原地比顺手改掉更安全。
+
+### 破坏 I6 / I7：一次性恢复码的两个"不能丢"
+
+- **I6**（去掉恢复码页 OK 的 `disabled: !recoveryAck`）⇒ 恰好 1 红（`expect(element).toBeDisabled()`）。
+- **I7**（启用向导 `<Form>` 去掉 `preserve={false}`）⇒ 恰好 1 红（`expect(element).toHaveValue()`，
+  即关掉再打开时上一次输的 `999999` 还在）。
+
+两条各自独立：I6 守"别在没抄下来的时候让用户关掉弹窗"，I7 守"别把上一次的输入带进下一次"。
+这两个都是**恢复码不可恢复**这一性质的延伸——明文只在 `enable`/`regenerate` 那一次响应里存在。
+
+### 破坏 I8 / I9：管理端重置入口
+
+- **I8**：把「重置 2FA」动作的 `can[PERMS.userManage] ? … : null` 改成无条件渲染 ⇒
+  `src/pages/users/` 三个文件里**只有 `UserManagementPage.perm.test.tsx` 的第 ② 例红**
+  （`1 failed | 7 passed (8)`）。第 ① ③ 例照旧绿——这正是该用例结构上必须写两条方向的原因：
+  正向例（ADMIN / 持码者可⻅）在"无判据"时**也**会绿。
+- **I9**：`onResetMfa` 的 `catch` 改成吞掉 ⇒ `UserManagementPage.mfa.test.tsx` 恰好 1 红
+  （`Unable to find an element with the text: 无用户管理权限`）。这条守的是"拆除 2FA 是那位
+  丢了手机的员工唯一的出口，它的失败必须响"。
+
+### 本节四处**如实记**的观察
+
+1. **计划表里 9 条破坏一条都没有**：§验证 那张表全是后端的（原子性、fail-closed、085 回归）。
+   前端这一半是**按"哪条分支写错会静默走另一条"现推的**，所以它是本文件里唯一一处
+   "破坏清单不是来自计划、而是来自代码"的小节 —— 也因此 I1 那种"第一次跑就不转红"更可能出现
+   （计划表里的破坏至少被计划作者想过一遍）。
+2. **一次不转红，处理方式是补探针、不是降低要求**（I1）。§H 的 H6 是同一处置，H9 是相反处置
+   （性质在 MockMvc 里不可观测 ⇒ 记录而不补）。判据是同一句：**先分清"断言缺了"还是"性质不可观测"**。
+3. **假读数的两种形态在本步都出现了**：I2 的探针（同一份数据读在两个时刻）与 I5 的"用分岔的
+   文案当前置判据"。两者都**不产生假绿**，但都会让一次真实的破坏看起来比实际更红/更矛盾。
+4. **本步的 9 次破坏全部只改产品文件**，测试一行未动（唯一一次测试改动是 I1 补用例，
+   已单独记录其前后两次读数）。还原判据一律 `sha1sum -c`，输出 `OK`，且每次都在
+   下一次破坏**之前**跑（避免"还原失败 + 下一次破坏"叠加成一次说不清的读数）。
+5. **前端的"静默"与后端的"静默"方向相反但同源**：后端 §H 的静默降级是**安全属性被削弱而无人知晓**；
+   前端 I2 的静默降级是**故障被伪装成成功**（用户进了首页又被弹回登录页，中间没有任何一条报错）。
+   两者都只有行为层用例能抓，且都必须在**"看起来成功了"**的那一侧写断言。
+
+### §I.10 三处对已批准计划的偏离（逐条留痕）
+
+1. **`types/user.ts` 不加 `twoFactorEnabled?`**（计划第 10 步原文要求加）。
+   实测依据：`UserResponse` 与 `dto/auth/UserInfo` 里**都没有**这个字段
+   （`grep -rn "twoFactorEnabled\|two_factor" backend/src/main/java/com/crm/dto/` 零命中），
+   加上去就是一个恒 `undefined` 的死类型——与 D15 拒绝 `mfaSetupRequired` 是同一条理由。
+   2FA 状态的唯一真源是 `GET /api/v1/auth/2fa/status`（`fetchMfaStatus()`）。
+   **连带后果如实记**：管理员列表**不显示** 2FA 状态列（列表数据里没有这个信息），
+   因此 `onResetMfa` 刻意**不** `reload()`（刷了也看不到任何变化，只多一次请求）。
+2. **「重置 2FA」用 `Popconfirm` 而不是计划里写的 `Modal`**。该动作**没有参数**
+   （目标由路径给出、操作人由 JWT 给出），Modal 里会是一个空表单；按仓内
+   "收集输入用 Modal（`openReset` 模板）、单次确认用 Popconfirm（`toggle` 模板）"的分工，
+   Popconfirm 才对——这与"重置密码"（要输新密码）的区别正在这里。
+3. **`ui:check` 的 R5 白名单：`LoginPage.tsx` 的 `count` 由 3 改为 5**。
+   ⚠️ **这一条与计划的验收判据冲突，如实记**：计划写的是"`ui:check` 冻结台账 **不得增长**（基线 54）"，
+   而本项把它推到了 **56**。新增的两处是二次验证那一步的 `code` / `recoveryCode`：
+   它们与同屏的 `username` / `password` / `captchaCode` 一样**刻意不带 `label`**（靠前缀图标 +
+   placeholder 标识），且两者互斥、同一时刻只挂载一个。规则本身给的两条出路是"修掉，或更新
+   白名单的 `count` 与理由"——我选了后者，理由已写进那条目，并**明确写了这个理由不外溢**
+   （个人中心那两个 2FA 弹窗是带 `label` 的）。
+   **被否掉的做法**：给这两个字段补 `label` 可以不动台账（判据严格满足），但那会让
+   "密码三步走"的最后一屏出现前两屏都没有的表头。⇒ 这是一个**判据与版式一致性之间的取舍**，
+   我选了版式一致性、并把代价（台账 54 → 56）写在这里，不藏在白名单的 `count` 里。
+   另：同一次改动顺手把 R6 条目里 `LoginPage.tsx` 的 `第 274 行` 这处**引用订正**成锚字符串
+   （082 改了同一个文件，行号已失效；`aria-label="验证码图片"` 现在在 `LoginPage.tsx:438`，
+   与二次验证无关）——属本节自己引入的行号腐坏的清理，非新增债务。
+
+### §I.11 门禁读数与净增对账
+
+`cd frontend && pnpm typecheck && pnpm lint && pnpm i18n:check && pnpm menu:check && pnpm perms:check && pnpm ui:check && pnpm test:coverage`
+—— **整条链退出码 0**，逐项读数：
+
+| 门禁 | 读数 |
+|---|---|
+| `typecheck` | 无输出（`tsc --noEmit` 通过） |
+| `lint` | `eslint .` 通过 |
+| `i18n:check` | `zh-CN 2935 键 / en 2935 键`；菜单路由与清单双向对齐（路由 58 / 清单 56 / 粗粒度别名 3） |
+| `menu:check` | `56 个菜单项`，与 `RoleConstants.MENU_TREE` 一致 |
+| `perms:check` | `63 个权限码`；8 个文件含已登记 ADMIN 判断共 9 处 |
+| `ui:check` | 扫描 272 个产品文件（126 tsx）、304 个 `Form.Item`；`白名单内冻结的既存债 56 处，未新增违规` |
+| `test:coverage` | **89 文件 / 448 用例全通过**；statements **70.44** / branches **75.4** / functions **39.09** / lines **70.44** |
+
+覆盖率四项与阈值 **33.6 / 47.2 / 21.4** 比：全部远高于，**阈值未动**。
+
+**净增对账**（判据是"基线 + 本项 N"，不是"比上次大"）：
+
+```
+文件   86 → 89   （+3 = LoginPage.mfa / PersonalCenterPage.mfa / UserManagementPage.mfa）
+用例  429 → 448  （+19 = 9 + 8 + 2；其中 LoginPage 的 9 含 §I 里为 I1 补的那一条）
+```
+
+工区核过无第二个写入者（`git status` 的 17 条与本批改动一一对应；覆盖率的三个新文件全是本批新增）。
+
+### §I.12 本步**没有**验证的事
+
+1. **服务层 `mfaService.ts` 的五个函数零直接用例**：`PersonalCenterPage.mfa.test.tsx` 是把
+   整个模块 `vi.mock` 掉的，因此"`setupMfa` 永远送 `{}` 而不送 `undefined`"
+   （`POST /auth/2fa/setup` 的请求体可选，送 `undefined` 会让 axios 不带 body）这类**调用形状**
+   在本步没有任何探针。它是一条**卫生性**约定而非安全判据（两种送法后端都接受），
+   所以没有为它补破坏；但"它没有被验证"这件事必须写出来，免得下一位评审把
+   `PersonalCenterPage` 的绿读成"服务层也被测了"。
+2. **`extractErrorCode` 自身**（`apiClient.ts`）只被 I3**间接**覆盖：I3 破坏的是调用点。
+   把 `extractErrorCode` 改成恒返回 `undefined` 会得到与 I3 相同的红，故未重复做。
+3. **真实的浏览器行为**一律未验证：jsdom 没有布局引擎，二次验证视图的版式、二维码在真机上
+   能否被认证器 App 扫出来、以及 `descriptions` 断点档位下的观感，都不在本步的读数范围内。
+   这些与 `quickstart.md` 的手工冒烟同属**待用户放行**的部分（前置条件：`8081/5173/3306/6379`
+   当前无监听，且**不得**擅自重启可能归并行会话所有的共享后端）。
