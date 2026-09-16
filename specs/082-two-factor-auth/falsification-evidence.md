@@ -164,3 +164,103 @@ mfaToken, expiresIn]`，与推断逐字一致。
 `assertAll` 与 `excerpt` 是**还原之后**才落的，属本批正式改动，不在破坏范围内。
 
 **两条破坏都未提交**，破坏期间工作区只含本批自己的改动。
+
+---
+
+## §C TOTP 与 AES-GCM 纯逻辑（第 4 步，2026-09-16）
+
+**被守护的断言**：`TotpGeneratorTest`（RFC 6238 附录 B 六条 + RFC 4226 附录 D 十条官方向量）
+与 `AesGcmCipherTest`（篡改必须被发现 / IV 长度 / 新 IV）。
+
+**为什么门禁抓不住它们**：`pom.xml` 的 JaCoCo 配置排除了 `com/crm/common/**`，
+所以**删掉这两个测试文件，`mvn -B verify` 仍然 BUILD SUCCESS、覆盖率一格不掉**。
+两个类的 javadoc 都写明了这件事（照 `OutboundUrlValidatorTest` 的先例）。
+
+**基准**（`sha1`）：
+```
+e90bef16df30dd7659d9766a0c50e0b31c09a7c3  backend/src/main/java/com/crm/common/TotpGenerator.java
+0a837ad658037ed3017f756c77bbf9d779d5bb14  backend/src/main/java/com/crm/common/AesGcmCipher.java
+```
+
+### ⚠️ 先说一件**在开发中真的发生过**的事故 —— 断言当场证伪了我的实现
+
+`decodeSecret` 的第一版把"拒绝非 Base32 字符"**托付给了 `commons-codec` 的 `Base32.decode`**，
+并在 javadoc 里写下了"非 Base32 字符仍然抛 `IllegalArgumentException`"。
+
+`decodeSecretRejectsNonBase32` 直接把这句话证伪了 —— 首次运行 39 例里红 2 例：
+```
+Tests run: 39, Failures: 2, Errors: 0, Skipped: 0
+[ERROR] TotpGeneratorTest.decodeSecretRejectsNonBase32:142
+    Expected java.lang.IllegalArgumentException to be thrown, but nothing was thrown.
+```
+原因是 **commons-codec 的 `Base32` 默认静默丢弃字母表之外的字符**：
+`decode("JBSW-Y3DP")` 跳过 `-` 解出 5 个字节、`decode("JBSWY3DP!")` 同理，都不报错。
+
+**为什么这条值得单独记**：它正是本方法声称要防的那种失败形态 ——
+密钥被静默换成另一把，调用方拿到一个**形状完全正常的字节数组**，表现为"用户的码永远不对"，
+没有任何线索指向"你抄错了一个字符"。而第一版实现把这道防线交给了外部库的默认行为，
+**读代码看不出来**（`decode` 抛异常这件事看起来天经地义），只有断言能看出来。
+处置：在 `decodeSecret` 里加了一道**自己写的**字母表校验（`[A-Z2-7]+`），
+并把字母表**抄成字面量而不是从 `Base32` 反射**——从被怀疑的对象那里取判据，这道校验就与自己要防的东西同源。
+
+### 破坏 C1：动态截断丢掉最高位抹零（`& 0x7F` → `& 0xFF`）
+
+**破坏**：`TotpGenerator.codeAt` 的 `((hash[offset] & 0x7F) << 24)` 改成 `& 0xFF`，其余一字不动。
+
+**观测（逐字，8 of 39 转红）**：
+```
+Tests run: 29, Failures: 8, Errors: 0, Skipped: 0 <<< FAILURE! -- in com.crm.common.TotpGeneratorTest
+AssertionFailedError: counter=0 ==> expected: <755224> but was: <-728424>
+AssertionFailedError: counter=1 ==> expected: <287082> but was: <-196566>
+AssertionFailedError: T=59    ==> expected: <94287082> but was: <-53196566>
+AssertionFailedError: T=1111111111 ==> expected: <14050471> but was: <-33433177>
+```
+失败形态正是**符号扩展**（`hash[offset]` 为负时把符号位带进左移）。还原：`sha1sum -c` 输出 `OK`。
+
+⚠️ **如实记一个细节**：`0x7F` → `0xFF` 只让 16 条官方向量里的 8 条转红（RFC 6238 的 6 条里红 4 条、
+RFC 4226 的 10 条里红 6 条）——只有最高位恰好为 1 的那些被影响。
+⇒ **只挑一条向量来"证明"实现正确是不够的**，那 8 条绿的会让人以为没事。
+这组向量必须保留完整的 16 条。
+
+### 破坏 C2：IV 从 12 字节改成 16 字节
+
+**破坏**：`AesGcmCipher.IV_BYTES = 12` → `16`，其余一字不动。
+
+**观测（逐字，1 of 10 转红）**：
+```
+AssertionFailedError: IV 必须是 96 位 ==> expected: <12> but was: <16>
+```
+⚠️ **16 字节的 IV 对 GCM 是完全合法的**（GCM 接受任意长度，非 96 位只是走额外的 GHASH 派生路径），
+所以往返、篡改、新 IV 那 9 条**全绿**——**只有形状断言看得见这件事**。
+即"必须 96 位"这条要求**只由这一条断言承载**。
+
+**顺带观测到的一个事实**：正因为 IV 被钉成 12 字节，
+**把 GCM 直接换成 CBC/CTR 的破坏做不出来**——那些模式要求 16 字节 IV，
+`IvParameterSpec(12 字节)` 会当场抛 `InvalidAlgorithmParameterException`。
+所以"换成非 AEAD 模式"这个改动在这个类里是**窄**的（会在初始化处就失败），
+真正需要防的是下面 C3 那种"保留 GCM 但把失败吞掉"的写法。
+
+### 破坏 C3：认证失败时 fail-open（`throw` → `return input`）——**本条是这三条里最要紧的**
+
+**破坏**：`AesGcmCipher.run` 的 catch 分支由
+`throw new IllegalStateException(...)` 改成 `return input;`（即"吞掉 `AEADBadTagException`，把原文还回去"），
+其余一字不动。这正是该类 javadoc 里点名要防的写法。
+
+**观测（逐字，3 of 10 转红）**：
+```
+Tests run: 10, Failures: 3, Errors: 0, Skipped: 0 <<< FAILURE! -- in com.crm.common.AesGcmCipherTest
+AesGcmCipherTest.tamperedCiphertextIsRejected
+  AssertionFailedError: 密文第 0 位被翻转后仍解密成功 —— 认证标签没起作用
+  ==> Expected java.lang.IllegalStateException to be thrown, but nothing was thrown.
+AesGcmCipherTest.tamperedIvIsRejected  ==> Expected ... but nothing was thrown.
+AesGcmCipherTest.wrongKeyIsRejected    ==> Expected ... but nothing was thrown.
+```
+⇒ 转红的**恰好是三条真实性断言**，而 `roundTrips` / `payloadShapeIsIvColonCiphertext` /
+`encryptUsesFreshIvEachTime` / `ciphertextDoesNotContainPlaintext` **全绿**。
+这实测证实了 `AesGcmCipherTest` 类 javadoc 里那句话：**集成测试里那列的断言（"不含明文、能解回来"）
+在认证被摘掉之后照样全绿** —— 所以这三条断言不是冗余，它们是"篡改必须被发现"的唯一防线。
+
+**还原**：`sha1sum -c` 输出 `OK`，两个基准值逐字节复现。
+
+**三次破坏都未提交**，破坏期间工作区只含本批自己的改动。
+`TotpGenerator` 的字母表校正是**还原之后**才落的正式改动，不在破坏范围内。

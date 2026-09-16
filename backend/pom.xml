@@ -139,6 +139,13 @@
       <version>${jjwt.version}</version>
       <scope>runtime</scope>
     </dependency>
+    <dependency>
+      <!-- 082：TOTP 密钥的 Base32 编解码（RFC 4648）直接依赖 commons-codec 的 Base32，
+           而不是自己写一份 Base32。显式声明在这里、**不写版本**（由 Spring Boot BOM 管）：
+           此前它只是经 poi 传递到编译路径上的，POI 一升级或一移除，鉴权路径上就会静默少一个类型。 -->
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+    </dependency>
 
     <!-- Test -->
     <dependency>
