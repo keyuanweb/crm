@@ -13,7 +13,7 @@
 
 | # | 清单行 | 086 的判据 | 本项复核 | 处置 |
 |---|---|---|---|---|
-| 1 | `approval/ApprovalCenterPage` 通过/驳回/转交 | 「三个端点零注解、类上也无 `@PreAuthorize`。判权在 `checkApprover(task)`——按**任务分配人**放行，与角色码无关。挂任何码都会与后端判据不一致」 | 086 **对后端判据的描述完全正确**，但推出的「要收口需要什么」是**错的**——它建议「把审批权从任务分配改成角色码」，那是**削弱** | **改前端**（按归属渲染），后端一行不改 |
+| 1 | `approval/ApprovalCenterPage` 通过/驳回/转交 | 「三个端点零注解、类上也无 `@PreAuthorize`。判权在 `checkApprover(task)`——按**任务分配人**放行，与角色码无关。挂任何码都会与后端判据不一致」 | 086 **对后端判据的描述完全正确**，但推出的「要收口需要什么」是**错的**——它建议「把审批权从任务分配改成角色码」，那是**削弱** | **改前端**（按归属渲染），后端一行不改——⚠️ **注意严重性**：这**不是**「当下可观察的假按钮」（列表端点本就按 `approverId` 过滤），而是**判据没有显式表达**，见 §3 的 2026-09-16 订正 |
 | 2 | `exports/ExportCenterPage` 下载 | 「无注解。硬挂 `export:create` 会把『任何登录用户都能下载』变成『仅 SALES/SUPPORT/ADMIN 可见』，而后端仍放行 → **真切断**」 | 「硬挂号会真切断」**正确**；但把结论写成「后端先给 `:67` 加码」是**判据用错**——后端**已有**真实数据范围判定，**不该**加码 | **订正判据**（不该设码） |
 | 3 | `custom-object/CustomObjectRecordPage` 删除记录 | 「只有 `@PreAuthorize("hasAnyRole('ADMIN','SALES')")`，5 个记录端点全无码，字典无 `custom_object_record:*` 族。挂 `custom_object:delete` 会**双向错**」 | **完全正确**，且本项实测发现它比原文更严重——**记录面根本没有数据范围过滤**（§2） | **建码族**（本项做） |
 | 4 | `components/CommentSection` 删除评论 | 「类级 `@PreAuthorize("hasAnyRole('ADMIN','SALES','SUPPORT')")`，字典无 `comment:*`。类注释已书面裁决，单独立项」 | **完全正确** | **建码族**（本项做） |
@@ -154,8 +154,24 @@ if (!task.getApproverId().equals(current)) { throw new BusinessException(ErrorCo
 - **对 ADMIN 也不通融**：没有 `isAdmin` 例外（与 `CommentService.delete` 有意不同）。
 - 挂 `approval:approve` ⇒ 有码者可审批**任何**任务 ⇒ 从「分给你才能审」退到「有码就能审」= **削弱**。
 
-**真正的缺陷在前端**：`ApprovalCenterPage` 三个操作链接的渲染条件只有 `row.status === 'PENDING'`，
-**整页零判权**。⇒ 非被分配人看到一个必然 403 的按钮。**改前端即可，后端一行不改。**
+**前端那处的真实性质**：`ApprovalCenterPage` 三个操作链接的渲染条件只有 `row.status === 'PENDING'`，
+**整页零判权**——真正决定放行的规则（归属）没有出现在渲染条件里。**改前端即可，后端一行不改。**
+
+> ⚠️ **2026-09-16 订正（本节的断言，原文逐字保留如下）**：
+> 「⇒ 非被分配人看到一个必然 403 的按钮。」
+>
+> **为什么原文不实（实测推翻）**：`ApprovalEngineService.todos(userId)` / `done(userId)` 的查询条件是
+> `eq(ApprovalTask::getApproverId, userId)`（`ApprovalEngineService.java:266-283`），而
+> `ApprovalCenterPage` 的两个 tab 打的正是 `/approvals/todos`、`/approvals/done`
+> （`frontend/src/services/approvalService.ts:38-46`）⇒ 该列表**只含本人的任务**，
+> 非被分配人的行**不会出现在数据里**，也就点不到按钮。**这不是「当下可观察的假按钮」。**
+>
+> **变的是什么、不变的是什么**：改法不变（仍只改前端、仍不引入权限码），**理由变了**——从
+> 「修一个可观察缺陷」改为「**把靠取数隐式成立的判据显式写进渲染条件**」：页面渲染规则与
+> `checkApprover` 同源，不再依赖「列表端点恰好按 approverId 过滤」这一隐式性质（列表端点一改、
+> 或这一列被复用到别处，就会露出恒 403 的按钮）。
+> **一个直接后果**：`quickstart.md` D9 的用例必须**桩住取数**返回一条 `approverId != 我` 的 PENDING
+> 任务，否则它打不中——在今天的后端行为下，"只判 status" 与 "判归属" 走的是同一批数据。
 
 > `approval:approve` 是**死码**（字典有、零端点校验）。本项**不**碰它——把它接到端点上是上述削弱，
 > 属**明确不做**。

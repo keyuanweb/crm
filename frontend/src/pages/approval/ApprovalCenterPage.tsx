@@ -25,6 +25,7 @@ import {
 } from '../../services/approvalService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { fetchUsers } from '../../services/userService'
+import { useAuthStore } from '../../store/authStore'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
 import type { ApprovalDetail, ApprovalTask } from '../../types/approval'
 
@@ -57,6 +58,23 @@ export default function ApprovalCenterPage() {
   const [saving, setSaving] = useState(false)
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
   const [form] = Form.useForm<{ comment?: string; toUserId?: number }>()
+  const user = useAuthStore((s) => s.user)
+
+  /**
+   * 三个操作链接（通过/驳回/转交）能否渲染：业务状态 ∧ **任务归属**。
+   *
+   * <p>逐字镜像后端 `ApprovalEngineService.checkApprover`（`approverId` 为 null ⇒ FORBIDDEN；
+   * `approverId != 当前用户` ⇒ FORBIDDEN，**对 ADMIN 也不通融**）与 `requirePendingTask`
+   * （非 `PENDING` ⇒ BAD_REQUEST）。**不引入权限码**：`approval:approve` 是死码，且挂码等于
+   * 「有码者可审**任何**任务」，比归属判定**松**——那是削弱而非收窄。
+   *
+   * <p><b>为什么今天才把归属写进渲染条件</b>：两个列表端点（`/approvals/todos`、`/approvals/done`）
+   * 本身就按 `approverId` 过滤，所以「只判 status」目前**恰好**等价于「是我的任务」——
+   * 判据是靠**取数**隐式成立的，页面从没把它表达出来。列表端点一改、或这一列被复用到别处，
+   * 就会露出恒 403 的按钮。写出这条判据 = 让渲染规则与真正决定放行的规则**同源**。
+   */
+  const canAct = (row: ApprovalTask) =>
+    row.status === 'PENDING' && row.approverId != null && row.approverId === user?.id
 
   const loadUsers = async () => {
     try {
@@ -154,7 +172,7 @@ export default function ApprovalCenterPage() {
       width: 200,
       render: (_, row) => (
         <Space size="small">
-          {row.status === 'PENDING' ? (
+          {canAct(row) ? (
             <>
               <a onClick={() => void openAction(row, 'approve')}>{t('pages.approval.list.approve')}</a>
               <a style={{ color: '#ff4d4f' }} onClick={() => void openAction(row, 'reject')}>

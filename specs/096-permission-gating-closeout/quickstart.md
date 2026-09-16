@@ -47,7 +47,7 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm i18n:check && pnpm menu:check
 | D6 | `SchemaParityIT`：迁移须被镜像 | 加 `V90` 但**不**加进 `MIRRORED_MIGRATIONS` | 该 IT |
 | D7 | `SchemaParityIT`：无 DDL 迁移须有段头 | 加进集合但**不**在 `schema-h2.sql` 落段头 | 该 IT |
 | D8 | `CustomerDetailPage.perm.test.tsx`（评论删除） | 删掉 `canDelete` 的**码**判据、只留归属判断 | 无码作者仍能看见删除 ⇒ 该用例 |
-| D9 | `ApprovalCenterPage` 归属用例 | 渲染条件改回 `row.status === 'PENDING'` | 非被分配人又看见按钮 ⇒ 该用例 |
+| D9 | `ApprovalCenterPage` 归属用例 | 渲染条件改回 `row.status === 'PENDING'` | 非被分配人又看见按钮 ⇒ 该用例。⚠️ 用例**必须桩住取数**（mock `fetchApprovalTodos` 返回一条 `approverId != 我` 的 PENDING 任务）：真端点是按 `approverId` 过滤的（`ApprovalEngineService.todos`），不桩的话这条断言在今天的行为下**打不出红**——见 `spec.md` US3 的 2026-09-16 订正 |
 
 **可选补做**（若 T016 登记了记录面的码）：把 `CustomObjectRecordPage` 的 `usePerms` 判据去掉，
 删除链接恒渲染 ⇒ 该用例转红。
