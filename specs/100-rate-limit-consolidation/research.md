@@ -240,6 +240,15 @@ XFF 信任由 `crm.rate-limit.trust-forwarded-for`（默认 `true`）显式化�
 - **`AuthService.resolveClientIp` 保留签名**（`public static`，`AuthController` 与
   `AuthServiceTest` 都在用）⇒ 只换方法体 ⇒ **那两个调用点零改动继续绿**。
 
+> ⚠️ **2026-09-16 C4 实做订正（「1 份」的落点是两个入口，且带一处刻意的不一致）**：
+> 「3 份 → 1 份」在实做里落成 `ClientIpResolver` 的**两个入口** —— 实例 `resolve(request, fallback)`
+> （读 `crm.rate-limit.trust-forwarded-for`）与静态 `firstForwardedFor(request)`（只解析、不做信任决策）。
+> 原因：`AuthService.resolveClientIp` 是 `public static`、在 Spring 容器外被调用，**读不到**那个开关
+> ⇒ 它只能走静态入口。**代价如实登记**：把 `trust-forwarded-for` 设成 `false` 的部署里，
+> **登录失败锁定的 IP 分桶仍看 XFF**（与限流侧不一致）—— 登录的两层锁定按用户裁决本批不动，故不假装统一。
+> 另：`FormService` 走的是**实例**入口（它的 IP 既作限流键、又填 `client_ip` 快照列），
+> 因此那一列的取值也随该开关走。逐条见 `tasks.md` §实做订正 17、19。
+
 **⚠️ XFF 残余风险的口径（这一条最初推理错了，务必按下面写）**：
 本项新增的限流面**大部分**在已认证路径（导出按 `userId`、`/open/**` 按 `keyId`），伪造 XFF 打不穿它们；
 **但本项同时给 `/api/v1/public/**` 的多个匿名端点加了 IP 桶，而那些端点只能按 IP 分桶**

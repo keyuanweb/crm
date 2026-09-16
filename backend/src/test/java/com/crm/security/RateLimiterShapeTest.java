@@ -192,4 +192,43 @@ class RateLimiterShapeTest {
 
     verify(stub).record("rl:export-generate:ip:unknown", 10, 60L);
   }
+
+  /**
+   * {@link RateLimiter#checkIp} 的<b>调用形状</b>（100-rate-limit-consolidation C4）：服务侧（{@code
+   * FormService}）用的就是这个入口，键族固定 {@code rl:<scope>:ip:<ip>}。
+   *
+   * <p>为什么它不经过 {@link RateLimitIdentity}：调用方<b>已经</b>自己解析好了 IP（服务拿的是字符串，不是 {@code
+   * HttpServletRequest}）⇒ 这里要钉住的正是「它<b>不</b>再自作主张去看安全上下文」。⚠️ 反过来说，这个入口<b>只接受 IP
+   * 身份</b>：若给它加一个「任意身份串」的通用重载，就会绕开机器主体按 {@code keyId} 分桶的那条顺序（见 {@link
+   * #machineSubjectsAreBucketedByKeyId}）。
+   */
+  @Test
+  @DisplayName("checkIp ⇒ 键为 rl:<scope>:ip:<ip>，配额三元组逐字交给 store")
+  void checkIpHandsTheIpKeyAndQuotaToTheStoreVerbatim() {
+    RateLimitStore stub = startingStore();
+    setUp(stub, null);
+    // 故意塞一个已认证身份：checkIp 只认调用方给的 IP，不得被安全上下文影响（否则两条路径会悄悄合流）。
+    authenticateHuman(42L);
+
+    limiter.checkIp("public-form-submit", 3, 60L, "203.0.113.7");
+
+    verify(stub).record("rl:public-form-submit:ip:203.0.113.7", 3, 60L);
+    verifyNoMoreInteractions(stub);
+  }
+
+  @Test
+  @DisplayName("checkIp 超限 ⇒ 抛 RateLimitExceededException 并携带剩余秒数")
+  void checkIpThrowsWhenOverTheLimit() {
+    RateLimitStore stub = mock(RateLimitStore.class);
+    when(stub.record(anyString(), anyInt(), anyLong())).thenReturn(9L);
+    setUp(stub, null);
+
+    RateLimitExceededException ex =
+        assertThrows(
+            RateLimitExceededException.class,
+            () -> limiter.checkIp("public-form-submit", 3, 60L, "203.0.113.7"));
+
+    assertEquals(9L, ex.getRetryAfterSeconds());
+    assertEquals(ErrorCode.RATE_LIMITED, ex.getErrorCode());
+  }
 }

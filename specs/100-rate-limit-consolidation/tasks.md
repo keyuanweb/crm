@@ -132,19 +132,45 @@
 - [ ] T026 `FormService`：`checkRateLimit(String ip)` **保留签名与调用点、只换方法体为委托**；
       **3 / 60s 逐字不变**；`request == null → "unknown"` 字面量**逐字保留**；
       删 `rateBuckets` / `cleanupRateBuckets` / `clientIp`
+      —— ⚠️ **实做：构造器多出两个参数**（`RateLimiter` + `ClientIpResolver`，删掉私有 `clientIp` 后
+      服务必须自己拿到解析器），且走的是**实例**入口（读 `trust-forwarded-for`）——见 §实做订正 17
 - [ ] T027 **400 → 429**：`checkRateLimit` 的拒绝路径改抛 `RateLimitExceededException`；
       ⚠️ 附 javadoc **引 `specs/036-online-forms/contracts/online-forms.md:44` 与 `tasks.md:50`**
       说明「**契约是对的，改的是实现**」（085 判例）；**036 的工件一个字符不改**
+      —— ⚠️ **实做补出一条计划外用例 T15**（本行就是它要证的订正）：原破坏台账 **D7 点不出会红的用例**
+      ⇒ 补 T15（建 ENABLED 表单 → 3 次 200 → 第 4 次 429 + `RATE_LIMITED` + 计数落键）——见 §实做订正 20
 - [ ] T028 `AuthService.resolveClientIp`：**保留签名**（`public static`）、方法体改 **1 行委托** 给 `ClientIpResolver`
       ⇒ `AuthController` 与 `AuthServiceTest` **零改动继续绿**
+      —— ⚠️ **实做：委托走的是静态入口**（`static` 方法读不到 `trust-forwarded-for`）⇒ 登录锁定的 IP 分桶
+      **不再**受该开关管辖，与限流侧**刻意不一致且已登记**——见 §实做订正 19
 - [ ] T029 **删** `EmailTrackController#clientIp` 与 `FormService#clientIp` 两份私有副本
       —— ⚠️ **必须与 T028 同批**（否则三份并存，「收敛」没发生）
       —— ⚠️ **实做：前半（`EmailTrackController#clientIp`）已随 C3 落地**（C3 删掉 `checkRateLimit` 后它已无调用点），
       **本行只剩 `FormService#clientIp`**；T029 要防的「三份并存」中间态并未出现（见 §实做订正 12）
+      —— ⚠️ **实做：随 C4 落地**（`FormService#clientIp` 已删，其调用点改走 `ClientIpResolver`）
 - [ ] T030 门禁：`mvn -B verify`；⚠️ 再次**单独复跑** `FormIT` 与 `LandingPageIT`；
       ⚠️ 若这两条变红**不许改断言** —— 要么是接线错了、要么是限流真在拦，必须**查清原因**
+      —— ⚠️ **实做读数（2026-09-16 23:54→23:56，全量 `mvn -B -o verify`，**exit 0 / BUILD SUCCESS**）**：
+      surefire `Tests run: 728, Failures: 0, Errors: 0, Skipped: 0`（C3 为 724，+4 = 本阶段两个单测类各 +2）；
+      failsafe `Tests run: 332, Failures: 0, Errors: 0, Skipped: 0`（C3 为 331，+1 = T15）
+      ⇒ **失败集合为空**，比判据（**⊆ 4 例已批准偏差**）更严，那 4 例本次**亦全绿**；
+      `RateLimitIT` **7/7**（6 → 7）、`FormIT` **1/1**、`LandingPageIT` **2/2**、`EmailIT` 3/3
+      —— 后两条**零改动、零改断言**是验收的一部分（本次未动任何断言）；
+      spotless `Spotless.Java is keeping 793 files clean`（与 C3 同数：**C4 零新增文件**）；
+      `jacoco:check` 打印 **`All coverage checks have been met.`**；`backend/target/jacoco.exec` **存在**（71.9 MB）；
+      BUNDLE INSTRUCTION = **48144/59144 = 0.8140**（阈值 0.73 未改；C3 为 48150/59198 = 0.8134 ——
+      分子分母同时略降，是**删掉的私有实现比新增的委托代码多**）。
+      ⚠️ 读数出自本次门禁跑的**那一棵 Java 工区**，其后**只改 markdown 工件**（`backend/` 一个字节未动）
+      ⇒ 对本提交仍然成立。可核锚点：下列 7 个 Java 文件的 `git hash-object` 输出**排序后** `sha1sum`
+      = `3f0b0dd078215ea44a45e48d5fc5a0b7ea233b68`（主代码 `security/RateLimiter.java`、
+      `security/ClientIpResolver.java`、`service/AuthService.java`、`service/FormService.java`；
+      测试 `integration/RateLimitIT.java`、`security/RateLimiterShapeTest.java`、
+      `service/FormServiceTest.java`；均在 `backend/src/{main,test}/java/com/crm/` 下）。
 - [ ] T031 `quickstart.md` §5 的判据 ④ 实跑：`X-Forwarded-For` 在 `ClientIpResolver` 之外**零命中**
       —— ⚠️ **本行还兼 ①② 的完整判据**（它们跨到 C4，见 §实做订正 16）；「零命中」一律**排除注释行**
+      —— ⚠️ **实跑读数与判据 ① 的口径缺口见 §实做订正 21**（① 的 `grep -v ClientIpResolver` 会把
+      `AuthService` 那行委托**一起滤掉**，而原「期望」里点名的正是它；另：期望里的
+      `ApiKeyAuthFilter`/`JwtAuthFilter` 用途**在全仓根本不存在**，实跑 0 命中）
 
 ## 阶段 E 零限流路径接入与覆盖台账（提交 C5 = `feat(100): 零限流路径接入与覆盖台账`）
 
@@ -362,16 +388,75 @@
     **③ 全绿** + ② 的**测试侧**（已零命中）。**①② 的完整判据随 T031 在 C4 复跑**，届时二者都必须
     零命中。此处如实登记，免得交付时把「C3 跑过 ①②」当成既成事实。
 
+17. **T026 的形态成立（保留签名与调用点、只换方法体），但它多出一个计划里没写的构造参数**：
+    删掉私有 `FormService#clientIp(request)` 之后，服务自己必须拿到解析器（既算限流键、又填
+    `client_ip` 快照列）⇒ 构造器从 **4 参变 6 参**（+`RateLimiter`、+`ClientIpResolver`）。
+    三处细节：
+    - 走的是**实例**入口 `ipResolver.resolve(request, fallback)`（因此**读**
+      `crm.rate-limit.trust-forwarded-for`），**不是** `AuthService` 用的静态入口 ⇒ 与本端点限流侧
+      口径一致；代价是 `client_ip` 快照列也随该开关走（`false` 时记 `remoteAddr`），已写进 `submit` 的 javadoc。
+    - `request == null → "unknown"` 的字面量**逐字保留**（改写成三元表达式的一支，值未变）；
+      `remoteAddr` 为空时也退化成 `"unknown"` —— 改造前那条路径是 `request.getRemoteAddr()` 返 null
+      ⇒ `rateBuckets.computeIfAbsent(null, …)` 在 `ConcurrentHashMap` 上**直接 NPE**（即 500），
+      现在是共用 `unknown` 桶。**行为变好**，落进留痕。
+    - 附带：`FormServiceTest` 的构造调用随之改（计划未列），且**用真的 `ClientIpResolver` 而不是 mock**
+      —— 桩掉它就把「服务把请求交给它解析」这条被测行为抽掉了（新增 2 例：委托形状逐字核对 +
+      XFF 首段落进 `checkIp` 与 `client_ip` 快照列）。
+    ⚠️ 类 javadoc 里那句「内存频控」按「订正不静默」**原文逐字保留** + 带日期 ⚠️ 块，并在块里
+    **点名旧字段** `rateBuckets` / `cleanupRateBuckets` —— 否则这两个名字在 `FormService` 里会**静默消失**
+    （判据 ② 的「旧值仍能被 grep 到」将只剩 `EmailTrackController` 那一处）。
+18. **新增 `RateLimiter.checkIp(scope, limit, windowSeconds, ip)`**（计划只写了「换方法体为委托」，
+    **没定委托到哪个签名**）：`RateLimitKeys` 是**包私有**的 ⇒ 服务层无法自己拼键，必须经 `RateLimiter`。
+    ⚠️ 它**只接受 IP 身份**、**不提供**「任意身份串」的通用重载 —— 那会绕开 `RateLimitIdentity` 的判定顺序
+    （「机器主体按 `keyId` 分桶」正是靠那条顺序保证）。其 javadoc 明写「端点自己就是被限流单元时**用注解**」，
+    免得它长成第二条默认路径。覆盖：`RateLimiterShapeTest` 加 **2 例**（键名 `rl:<scope>:ip:<ip>` 与配额三元组
+    逐字交给 store、只交一次；超限抛且携带剩余秒数）。该用例还**故意先塞一个已认证身份**再调 `checkIp`，
+    钉住「它不看安全上下文」。
+19. **「3 份 `clientIp` 收敛成 1 份」的落点是 `ClientIpResolver` 的<b>两个</b>入口**（静态
+    `firstForwardedFor` + 实例 `resolve`），而计划里只说了「一份」。原因：`AuthService.resolveClientIp` 是
+    `public static`、被 `AuthController:80` 与 `AuthServiceTest` 直接调用，**保留签名**才能在 Spring 容器
+    之外复用同一份解析 ⇒ 它只能走静态入口，而静态入口**读不到** `trust-forwarded-for`。
+    ⇒ **已知且刻意的口径不一致**：把该开关设成 `false` 的部署里，**登录失败锁定的 IP 分桶仍看 XFF**
+    （限流侧不看）。按用户裁决登录的两层锁定本批不动 ⇒ 如实登记在方法的 javadoc 里，**不假装已统一**。
+    另：静态入口顺带把 `,` 这类退化输入从 **AIOOBE** 改成回退 fallback（净收益，写进了 javadoc）；
+    `AuthService` 的**签名与语义逐字不变**，故 `AuthController` 与 `AuthServiceTest` 零改动继续绿（6 例全绿）。
+20. **T15（计划外新增，落在 C4）—— 一条「点不出名字的破坏」补出的用例**：破坏台账 `D7`（把
+    `FormService` 的 429 改回 400）原本写「T 系列里的契约用例」，实做时逐条点名发现**没有一条会因此变红**
+    （T1–T4/T12/T14 全打邮件追踪端点，T13 已移 C5）⇒ 这正是「**破坏跑全绿 = 护栏只盖住判据的一半**」。
+    故补一条行为层用例：建 ENABLED 表单 → 同 IP 提交 **3 次断 200**（负对照）→ 第 4 次断 **429** +
+    `error.code=RATE_LIMITED` + `redis.snapshot()` 含 `rl:public-form-submit:ip:<ip>` = **4**（正对照）。
+    它同时钉住「**表单与邮件追踪不共桶**」（两个 scope 各自独立）。`RateLimitIT` 因此 **6 例 → 7 例**。
+    ⚠️ 本类现在同时覆盖**两种形态**（注解 / 服务侧委托）是**有意的**：形态不同 ⇒ 失效方式不同，
+    「哪条会被破坏打红」必须都能点名。⚠️ T15 里的 `.doesNotContain("提交过于频繁")` 与判据 ③ 已许可的
+    `.doesNotContain("TOO_MANY_REQUESTS")` 是**同一类负断言**（见 21）。
+21. **quickstart §5 判据 ①④ 实跑读数 + 两处口径登记**（① 的过滤器边界、② 的测试侧许可）：
+    - 判据 ① 的 `| grep -v ClientIpResolver` **会把 `AuthService` 那一行委托一起滤掉** —— 方法名
+      `resolveClientIp` 含子串 `ClientIpResolver`，而原「期望」句里点名的**恰恰是它**。⇒ 实跑命中只剩
+      **两行注释**（`AuthService` 保留的原文 javadoc 与它的 ⚠️ 块），**不是**漏改：判据实质
+      （`ClientIpResolver` 之外**没有可执行的解析副本**）成立。**未过滤**的原始读数：全仓主代码
+      `X-Forwarded-For` 命中 **7 处** = **1 处可执行**（`ClientIpResolver:77`）+ **6 处注释**
+      （`EmailTrackController` 1、`RateLimitDimension` 1、`ClientIpResolver` 2、`AuthService` 2）。
+    - 期望句还写「+ `ApiKeyAuthFilter`/`JwtAuthFilter` 的无关用途」—— **这两处用途在全仓根本不存在**
+      （未过滤读数里 0 命中）。立项时以为认证过滤器会解析 XFF，实测**除 `ClientIpResolver` 外可执行命中为零**，
+      即判据比立项设想**更强**。已就地登记，**判据一个字不改**。
+    - 判据 ② 的**测试侧**实跑只剩 T15 的**负断言**一行（见 20）⇒ 与 ③ 同族的「负断言 = 正向证据」
+      许可同样适用于 ②。另：② 那句「证明这两条路径此前【零用例】」是**改造前**那棵树的读数，
+      本批之后（新用例自带负断言）**不再能复现** —— 如实说明，免得后人读成「判据失效」。
+      **主代码侧已零命中**（排除注释行后 ①② 双双满足），旧字段名仍可在类 javadoc 的 ⚠️ 块里 grep 到。
+    - 判据 ④ 实跑：`FormService` 的 `RATE_LIMIT = 3` / `RATE_WINDOW_SECONDS = 60L`（改造前是
+      `RATE_WINDOW_MS = 60_000L`，语句留在常量的 javadoc 里）与 `EmailTrackController` 两个端点的
+      `limit = 60` / `windowSeconds = 60` —— **配额与窗口逐字未变**，只有单位（毫秒→秒）与算法（见 ⑥）。
+
 > 以下待交付时如实填：
 
-17. **事实 ⑬ 那颗雷的语义变化必须显式登记**：切 Redis 后，`FormIT` / `LandingPageIT` 在**默认基类**下
+22. **事实 ⑬ 那颗雷的语义变化必须显式登记**：切 Redis 后，`FormIT` / `LandingPageIT` 在**默认基类**下
     限流**变成 no-op**。**这不是弄丢护栏** —— 那个内存桶今天**不是护栏而是跨用例共享状态**，
     且它对限流是**零用例**的（`rateBuckets` / `RATE_LIMIT` / `提交过于频繁` 在 `src/test` **0 命中**）。
     但**必须写进留痕**，免得后人以为「IT 里限流一直生效」。
-18. **定向破坏里若出现「预期仍绿」的条目**（D11 最可能），**如实记为已知空档**，**不假装有护栏**。
+23. **定向破坏里若出现「预期仍绿」的条目**（D11 最可能），**如实记为已知空档**，**不假装有护栏**。
     ⚠️ 造破坏时先写「它该改变哪条可观察行为」，跑完核对**那条行为确实变了** —— 没变就是**空操作**，
     别把绿记成结论；看到红先读**是不是判据本身**（`TS6133` 一类是**手段**的红，不是**目的**的红）。
-19. （预留）其余偏差在交付时逐条补记。
+24. （预留）其余偏差在交付时逐条补记。
 
 ---
 

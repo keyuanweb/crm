@@ -13,50 +13,67 @@ import com.crm.entity.Lead;
 import com.crm.repository.FormMapper;
 import com.crm.repository.FormSubmissionMapper;
 import com.crm.repository.LeadMapper;
+import com.crm.security.ClientIpResolver;
+import com.crm.security.RateLimiter;
 import com.crm.security.SecurityUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-/** 在线表单服务（036-online-forms，FR-001~006）：表单 CRUD + 发布 + 公开匿名提交（字段校验/防重复/内存频控/建线索 + 快照）。 */
+/**
+ * 在线表单服务（036-online-forms，FR-001~006）：表单 CRUD + 发布 + 公开匿名提交（字段校验/防重复/内存频控/建线索 + 快照）。
+ *
+ * <p>⚠️ <b>2026-09-16（100-rate-limit-consolidation）</b>：上面那句里的「<b>内存频控</b>」<b>原文逐字保留</b>， 但它
+ * <b>今天已不成立</b> —— 频控已从本类的私有内存桶（字段 {@code rateBuckets}（{@code Map<String, Deque<Long>>}，一张 IP →
+ * 最近提交时间戳的表）+ 它的清理逻辑 {@code cleanupRateBuckets}） 改为委托共享限流件（Redis 固定窗口）。保留原文是因为它记录了本类改造前的形态； 新形态见
+ * {@link #checkRateLimit(String)}，配额与窗口（3 次 / 60 秒）逐字未变 —— 只有<b>窗口算法</b>从滑动窗口变成固定窗口（本批第 ⑥
+ * 处对外可观测变更，见 plan.md）。 ⚠️ 旧字段名在这里<b>只作为留痕出现</b>（可执行位置零命中，见 quickstart §5 判据 ②）。
+ */
 @Service
 public class FormService {
 
   private static final Logger log = LoggerFactory.getLogger(FormService.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final int RATE_LIMIT = 3;
-  private static final long RATE_WINDOW_MS = 60_000L;
 
-  /** IP → 最近提交时间戳队列（内存频控，防爬）。 */
-  private final Map<String, Deque<Long>> rateBuckets = new ConcurrentHashMap<>();
+  /** 公开提交的配额：**3 次 / 60 秒**（100-rate-limit-consolidation 改造前的数字，逐字未变）。 */
+  private static final int RATE_LIMIT = 3;
+
+  /**
+   * 与改造前的 {@code RATE_WINDOW_MS = 60_000L} 同一个窗口（值未变，只把单位从毫秒改成秒 —— 共享件的 {@code windowSeconds}
+   * 以秒为单位）。
+   */
+  private static final long RATE_WINDOW_SECONDS = 60L;
 
   private final FormMapper formMapper;
   private final FormSubmissionMapper submissionMapper;
   private final LeadMapper leadMapper;
   private final AuditService auditService;
+  private final RateLimiter rateLimiter;
+  private final ClientIpResolver ipResolver;
 
   public FormService(
       FormMapper formMapper,
       FormSubmissionMapper submissionMapper,
       LeadMapper leadMapper,
-      AuditService auditService) {
+      AuditService auditService,
+      RateLimiter rateLimiter,
+      ClientIpResolver ipResolver) {
     this.formMapper = formMapper;
     this.submissionMapper = submissionMapper;
     this.leadMapper = leadMapper;
     this.auditService = auditService;
+    this.rateLimiter = rateLimiter;
+    this.ipResolver = ipResolver;
   }
 
   public List<FormResponse> list() {
@@ -136,7 +153,16 @@ public class FormService {
         pageSize);
   }
 
-  /** 公开提交：匿名（需表单启用）。返回 { submissionId, leadId, message }。 */
+  /**
+   * 公开提交：匿名（需表单启用）。返回 { submissionId, leadId, message }。
+   *
+   * <p>⚠️ <b>2026-09-16（100-rate-limit-consolidation）</b>：改造前这里调私有 {@code
+   * FormService#clientIp(request)}（三份逐字副本之一，已随本批删除）⇒ 现在统一走 {@link ClientIpResolver} 的<b>实例</b>入口
+   * （因此**读** {@code crm.rate-limit.trust-forwarded-for}，与本端点限流侧的口径一致）。 「{@code request == null} ⇒
+   * {@code "unknown"}」这个退化字面量是改造前就有的，<b>逐字保留</b>：单测与内部调用会传 {@code null}。 另：{@code client_ip}
+   * 快照列与限流分桶现在取<b>同一个值</b>（改造前也是），故 {@code trust-forwarded-for=false} 时该列记的是 {@code remoteAddr} ——
+   * 这是那个开关的应有含义，已登记。
+   */
   @Transactional
   public Map<String, Object> submit(
       Long formId, Map<String, Object> payload, HttpServletRequest request) {
@@ -144,7 +170,12 @@ public class FormService {
     if (!"ENABLED".equals(form.getStatus())) {
       throw new BusinessException(ErrorCode.BAD_REQUEST, "表单已停用");
     }
-    String ip = request == null ? "unknown" : clientIp(request);
+    String ip =
+        request == null
+            ? "unknown"
+            : ipResolver.resolve(
+                request,
+                StringUtils.hasText(request.getRemoteAddr()) ? request.getRemoteAddr() : "unknown");
     checkRateLimit(ip);
 
     List<Map<String, Object>> fields = parseFields(form.getFields());
@@ -231,46 +262,25 @@ public class FormService {
     return parseFields(form.getFields());
   }
 
+  /**
+   * 公开提交的 IP 频控：**3 次 / 60 秒**（改造前的数字，逐字不变），委托给共享限流件。
+   *
+   * <p><b>⚠️ 拒绝状态码由 400 订正为 429</b>（100-rate-limit-consolidation）：改造前这里抛 {@code
+   * BusinessException(ErrorCode.BAD_REQUEST, "提交过于频繁，请稍后再试")} ⇒ **400**，而 036 的冻结契约 {@code
+   * specs/036-online-forms/contracts/online-forms.md:44} 与 {@code
+   * specs/036-online-forms/tasks.md:50} 都承诺 **429**（前者逐字：「**429**: 频控（同 IP 1 分钟超 3 次）。」）。 ⇒
+   * 这是**实现向冻结契约靠拢**，不是行为破坏；照 085 的判例（见 {@code GlobalExceptionHandler} 里那段注释）， <b>契约一个字符不改，改的是实现</b>
+   * —— <b>036 的任何工件本批都未改动</b>。 收敛后抛的是 {@link com.crm.common.RateLimitExceededException}（{@code
+   * ErrorCode.RATE_LIMITED}，429 + {@code Retry-After}）。
+   *
+   * <p><b>为什么它留在服务里、而不是把配额挂到 {@code FormController#submit} 的注解上</b>（C3 对邮件追踪用的是注解， 两处形态**刻意不同**）：①
+   * 被限流单元是<b>服务方法</b>（本方法在字段校验之前就跑），注解会把「服务自持配额」 这层语义挪到 controller；② 本方法拿的是**已解析好的 IP 字符串**，而注解只能从
+   * {@code HttpServletRequest} 现取； ③ 调用点必须保留 {@code request == null → "unknown"}
+   * 这个**退化字面量**（单测与内部调用会传 {@code null}）， 注解形态无处安放它。 ⇒ 端点侧的覆盖台账把 {@code FormController#submit}
+   * 列入**带理由的豁免**（不是漏标）。
+   */
   private void checkRateLimit(String ip) {
-    long now = System.currentTimeMillis();
-    Deque<Long> queue = rateBuckets.computeIfAbsent(ip, k -> new ArrayDeque<>());
-    synchronized (queue) {
-      while (!queue.isEmpty() && now - queue.peekFirst() > RATE_WINDOW_MS) {
-        queue.pollFirst();
-      }
-      if (queue.size() >= RATE_LIMIT) {
-        throw new BusinessException(ErrorCode.BAD_REQUEST, "提交过于频繁，请稍后再试");
-      }
-      queue.addLast(now);
-    }
-    cleanupRateBuckets();
-  }
-
-  /** 定期清理过期频控桶，防止内存泄漏。 */
-  private void cleanupRateBuckets() {
-    long now = System.currentTimeMillis();
-    if (rateBuckets.size() > 1000) {
-      rateBuckets
-          .entrySet()
-          .removeIf(
-              e -> {
-                Deque<Long> q = e.getValue();
-                synchronized (q) {
-                  while (!q.isEmpty() && now - q.peekFirst() > RATE_WINDOW_MS) {
-                    q.pollFirst();
-                  }
-                  return q.isEmpty();
-                }
-              });
-    }
-  }
-
-  private String clientIp(HttpServletRequest request) {
-    String forwarded = request.getHeader("X-Forwarded-For");
-    if (StringUtils.hasText(forwarded)) {
-      return forwarded.split(",")[0].trim();
-    }
-    return request.getRemoteAddr();
+    rateLimiter.checkIp("public-form-submit", RATE_LIMIT, RATE_WINDOW_SECONDS, ip);
   }
 
   private void validate(FormRequest req) {

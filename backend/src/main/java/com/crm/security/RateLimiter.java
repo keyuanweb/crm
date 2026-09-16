@@ -38,4 +38,21 @@ public class RateLimiter {
       throw new RateLimitExceededException(retryAfterSeconds);
     }
   }
+
+  /**
+   * 显式 IP 的重载：调用方<b>已经</b>自行解析好身份（服务内部拿着 IP 字符串，而不是 {@link HttpServletRequest}）。
+   *
+   * <p><b>只给「被限流单元是服务方法」的场景用</b>（{@code FormService#submit} 在字段校验之前限流， 且它必须保留 {@code request ==
+   * null → "unknown"} 这个退化字面量）。<b>端点自己就是被限流单元时用 {@link RateLimit} 注解</b>， 别在这里手写配额 ——
+   * 写在注解上的配额才进得了覆盖台账（{@code RateLimitCoverageTest}）。
+   *
+   * <p>⚠️ 它<b>只接受 IP 身份</b>（键族固定为 {@code rl:<scope>:ip:<ip>}），不提供「任意身份串」的通用重载： 那会绕开 {@link
+   * RateLimitIdentity} 的判定顺序，而「机器主体按 {@code keyId} 分桶、不按创建者 id」正是靠那条顺序保证的。
+   */
+  public void checkIp(String scope, int limit, long windowSeconds, String ip) {
+    long retryAfterSeconds = store.record(RateLimitKeys.ip(scope, ip), limit, windowSeconds);
+    if (retryAfterSeconds > 0) {
+      throw new RateLimitExceededException(retryAfterSeconds);
+    }
+  }
 }

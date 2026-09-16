@@ -43,12 +43,17 @@
 
 ### 四、测试优先与质量门禁（不可协商）
 - [x] **新增 14 组用例**（T1–T14），其中 **T1–T4 / T12–T14 是 HTTP 层行为层证据**（本项唯一的真回归证据）。
+      ⚠️ **2026-09-16 C4 实做期补登 T15**（表单提交的 400→429 与计数落键）⇒ 实为 **15 组**。原因：
+      定向破坏 **D7**（把 `FormService` 的 429 改回 400）原写「T 系列里的契约用例」，而**当时点不出
+      任何一条会变红的用例** —— 一条点不出名字的破坏等于没有护栏。T15 就是那条护栏（见下表与 §实做订正 20）。
 - [x] ⚠️ **章程说「测试先于实现」（红→绿）**：**如实说明边界**——本项实际顺序仍是**先实现、后补用例**
       （沿用 087/088/092/095–099 的既有做法），**不得**据此声称走过 spec-first；
       定向破坏留痕证明的是**护栏有牙齿**，**不是**「红先出现」。
 - [x] 测试金字塔：**新增 1 个 IT 类**（`RateLimitIT`）+ **4 个纯单测类**（不启 Spring 的 3 个 + 1 个装替身的）；
       **不新增 e2e**（本项零前端改动）。
 - [x] **覆盖率**：新组件落 `com/crm/security/**`（**在 jacoco 分母里**）⇒ T1–T13 必须真覆盖到各分支，不许挤压既有 `0.73` 余量。
+      （⚠️ 2026-09-16：上句的 `T1–T13` 为立项期序号，C4 实做后本项用例共 **T1–T15**（T13 的落点后移到 C5，
+      T15 为 C4 新增）；区间端点变了、**要求一字未变**。）
 
 ### 五、简洁、可维护与可观测（不可协商）
 - [x] **YAGNI**：不引入任何新依赖（**不加** Bucket4j/Resilience4j；**不加** `@ConfigurationProperties`，全仓 0 个）；
@@ -409,7 +414,7 @@ backend/src/main/java/com/crm/
 backend/src/main/resources/application.yml        # 改：crm.rate-limit.enabled / trust-forwarded-for（含「为什么是这个默认值」注释）
 
 backend/src/test/java/com/crm/
-├── integration/RateLimitIT.java                  # 【新】T1–T4、T12、T14（⚠️ T13 已移 C5，见验证节订正块）
+├── integration/RateLimitIT.java                  # 【新】T1–T4、T12、T14（⚠️ T13 已移 C5，见验证节订正块；T15 由 C4 追加，见上表）
 ├── security/RateLimitStoreTest.java              # 【新】T5（读时补窗）
 ├── security/RateLimiterShapeTest.java            # 【新】T6（调用形状，裸 mock）
 ├── security/RateLimitIdentityTest.java           # 【新】T7、T8
@@ -488,6 +493,7 @@ specs/README.md · README.md · specs/roadmap.md · PROJECT_FEATURES.md   # 立�
 | T12 | **登录没有被重复限流** | `integration/RateLimitIT.java` | MockMvc | 连续失败登录应得 `INVALID_CREDENTIALS`(401) 而非 `RATE_LIMITED`(429) ⇒ **钉住用户裁决**，防后人顺手给 login 挂注解叠加 |
 | T13 | 未授权者得 403 且不消耗配额 | 同上 | MockMvc + 无 `export:*` 的角色 | 断言全 403 且 `redis.snapshot()` **无**该键 ⇒ 钉住「权限先于限流」 |
 | T14 | `Retry-After` 在窗口内 | 同上 | MockMvc | 头缺失、或值 > 窗口秒数 |
+| T15 | **表单提交的 400→429 订正可被证伪**（C4 实做期追加，原表 14 行） | 同上 | MockMvc + 替身 + 冻结时钟（建 ENABLED 表单 → 同 IP 提交 3 次 200 → 第 4 次） | 拒绝码退回 **400**（D7）、或计数没落到 `rl:public-form-submit:ip:<ip>`（服务侧委托没接线）、或与邮件追踪**共桶**（两个 scope 合并） |
 
 ⚠️ **豁免白名单的粒度必须是「类#方法」而不是 URI 前缀**：`/public/**` 内部风险差一个量级
 （且 `/public/track/**` 两条**已有限流**），用前缀会让白名单变成「一放一大片」—— 那正是台账要防的东西。
@@ -551,7 +557,7 @@ ls backend/target/jacoco.exec         # 必须存在（不存在 = jacoco 被静
 | D4 | 删掉「首次才设 TTL」 | T3 的「键没 TTL ⇒ 永远 429」那半 |
 | D5 | 删掉「读时补窗」 | T5 ⇒ 永久 429 |
 | D6 | 开放 API 分桶改用 `currentUserId()` | T7 ⇒ 两密钥分桶 |
-| D7 | `FormService` 的 429 改回 400 | T 系列里的契约用例 |
+| D7 | `FormService` 的 429 改回 400 | **T15**（原写「T 系列里的契约用例」—— ⚠️ 2026-09-16 C4 实做期发现**当时点不出名字**，故补出 T15；见 §实做订正 20） |
 | D8 | 阈值改成 1 | **负对照**（前 N 次断 200）⇒ 证明「只断 429」是弱断言 |
 | D9 | fail-open 改成 fail-close（catch 后 rethrow） | T4 |
 | D10 | 给 `login` 挂上 `@RateLimit` | T12 ⇒ 钉住裁决 |

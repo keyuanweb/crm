@@ -174,6 +174,27 @@ mvn -B test -Dtest=RateLimitCoverageTest
 > 机制说明：本项的全部「零命中」类判据都受这条约束影响（§6 那五条 grep 的「期望非零」是**反向**要求，
 > 不受影响）。
 
+> ⚠️ **2026-09-16 C4 实做订正 ①④ 的判据口径与两处登记**（① 的「期望」句**原文保留在上方**）：
+>
+> **① 的过滤器边界会自伤**：`| grep -v ClientIpResolver` 把 **`AuthService` 那一行委托也滤掉了** ——
+> 方法名 `resolveClientIp` 含子串 `ClientIpResolver`，而上句「期望」点名的**恰恰是它**。
+> ⇒ 实跑命中只剩**两行注释**（`AuthService` 保留的原文 javadoc 与它的 ⚠️ 块），**不是**漏改；
+> 判据实质（`ClientIpResolver` 之外**没有可执行的解析副本**）成立。**未过滤**的原始读数：
+> 全仓主代码 `X-Forwarded-For` 命中 **7 处** = **1 处可执行**（`ClientIpResolver:77`，`getHeader`）
+> + **6 处注释**（`EmailTrackController` 1、`RateLimitDimension` 1、`ClientIpResolver` 2、`AuthService` 2）。
+> ⚠️ 期望句里的「+ `ApiKeyAuthFilter`/`JwtAuthFilter` 的无关用途」**在全仓根本不存在**（0 命中）：
+> 立项时以为认证过滤器会解析 XFF，实测**除 `ClientIpResolver` 外可执行命中为零** —— 判据比立项设想
+> **更强**，**判据一个字不改**，只把这两处口径就地登记（与上面那条「过滤器边界要自证」同族）。
+>
+> **② 的测试侧许可扩一条**：实跑只剩 `RateLimitIT` 里 T15 的 `.doesNotContain("提交过于频繁")` 一行 ——
+> 它与 ③ 已许可的 `.doesNotContain("TOO_MANY_REQUESTS")` 是**同一类负断言**（「旧值已消失」的正向证据），
+> 同样**不算残留**。另：② 那句「证明这两条路径此前【零用例】」是**改造前**那棵树的读数，
+> 本批之后**不再能复现**（新用例自带负断言），如实说明，免得后人读成判据失效。
+>
+> **④ 实跑**：`FormService` 的 `RATE_LIMIT = 3` / `RATE_WINDOW_SECONDS = 60L`（改造前 `RATE_WINDOW_MS = 60_000L`
+> 逐字留在该常量的 javadoc 里）与 `EmailTrackController` 两处 `limit = 60` / `windowSeconds = 60`
+> ⇒ **配额与窗口逐字未变**，只有单位（毫秒→秒）与窗口算法（见 plan.md 第 ⑥ 处变更）。
+
 ## 6 订正不静默自查（交付时必跑）
 
 **判据：旧值必须仍能被 `grep` 到**（零命中 = 静默改写）。

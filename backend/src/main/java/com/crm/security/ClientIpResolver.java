@@ -50,21 +50,37 @@ public class ClientIpResolver {
    * @param fallback 无（可信的）转发头时的回退值
    */
   public String resolve(HttpServletRequest request, String fallback) {
-    if (request == null) {
+    if (request == null || !trustForwardedFor) {
       return fallback;
     }
-    if (!trustForwardedFor) {
-      return fallback;
+    String first = firstForwardedFor(request);
+    return first == null ? fallback : first;
+  }
+
+  /**
+   * <b>只解析、不做信任决策</b>：取 {@code X-Forwarded-For} 的首段并去空白；缺失、为空、退化输入一律返回 {@code null} （调用方自行决定回退成什么）。
+   *
+   * <p>它是本类与 {@code AuthService.resolveClientIp} 的<b>共用解析器</b>：后者是 {@code static}、在 Spring
+   * 容器之外被调用，读不到 {@link #trustForwardedFor}，因此<b>只能</b>用这个静态入口。
+   *
+   * <p>⚠️ <b>它不读 {@code crm.rate-limit.trust-forwarded-for}</b>，这是<b>刻意的、有代价的</b>选择： {@link
+   * #resolve} 是该开关的读取点，而 {@code AuthService} 的登录失败锁定<b>不再</b>受它管辖（该开关只收敛限流侧的 IP 解析）。 后果如实登记：把
+   * {@code trust-forwarded-for} 设成 {@code false} 的部署里，<b>登录锁定的分桶仍看 XFF</b>，
+   * 与限流侧的口径不一致——改造前登录就一直是这个行为，本批只是没把它一起收进来 （登录的两层锁定按用户裁决不动，改它会动 017 的既有语义）。
+   *
+   * @return 可用的首段；无可用值时为 {@code null}（<b>不返回空串</b>——空串会让所有畸形请求共用一个空键桶）
+   */
+  public static String firstForwardedFor(HttpServletRequest request) {
+    if (request == null) {
+      return null;
     }
     String forwarded = request.getHeader("X-Forwarded-For");
-    if (forwarded != null && !forwarded.isBlank()) {
-      // 不用 split(",")：对 "," 这类输入它会切出长度 0 的数组并让 [0] 抛 AIOOBE（见类 javadoc）。
-      int comma = forwarded.indexOf(',');
-      String first = (comma < 0 ? forwarded : forwarded.substring(0, comma)).trim();
-      if (!first.isBlank()) {
-        return first;
-      }
+    if (forwarded == null || forwarded.isBlank()) {
+      return null;
     }
-    return fallback;
+    // 不用 split(",")：对 "," 这类输入它会切出长度 0 的数组并让 [0] 抛 AIOOBE（见类 javadoc）。
+    int comma = forwarded.indexOf(',');
+    String first = (comma < 0 ? forwarded : forwarded.substring(0, comma)).trim();
+    return first.isBlank() ? null : first;
   }
 }

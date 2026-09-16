@@ -16,11 +16,16 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultMatcher;
 
 /**
- * 共享限流件走**真实 HTTP**（100-rate-limit-consolidation，T1–T4 / T12 / T14）。
+ * 共享限流件走**真实 HTTP**（100-rate-limit-consolidation，T1–T4 / T12 / T14 / T15）。
  *
  * <p>被测对象是 C3 收敛后的公开邮件追踪端点：配额 <b>60 次 / 60 秒、按 IP</b>（改造前的数字，逐字未变）。 「端点 + DispatcherServlet + 切面 +
  * 异常处理器 + 响应头」这一整条链是本类唯一能覆盖的东西—— 组件单测（{@code RateLimitStoreTest}/{@code
  * RateLimiterShapeTest}）验的是调用形状， 与「接上线了没有」是两个问题。
+ *
+ * <p>⚠️ <b>T15（C4 追加）测的是<b>另一种形态</b>：公开表单提交</b>。它不是注解形态，而是 {@code FormService#submit} 在服务内部委托同一个
+ * {@code RateLimiter}（见该类 {@code checkRateLimit} 的 javadoc：被限流单元是服务方法、配额写在本类常量上、必须保留 {@code request
+ * == null → "unknown"} 这个退化字面量，三条理由）。本类同时覆盖两种形态是<b>有意的</b>：形态不同 ⇒ 失效方式不同（注解那条断在切面/顺序上，
+ * 委托这条断在服务有没有真的调过去），"哪一条被破坏会红"必须都能点名。
  *
  * <p><b>⚠️ 本类必须装 {@link InMemoryRedisTestSupport}，这不是可选项</b>：父类默认的 {@code RedisTemplate} 是裸
  * mock，{@code opsForValue().increment()} 恒返回 {@code null} ⇒ 走 fail-open ⇒ <b>限流是 no-op</b>。那种状态下「连打
@@ -42,8 +47,9 @@ import org.springframework.test.web.servlet.ResultMatcher;
  * 共用同一个 {@code Clock}，否则「业务认为过了 61 秒」 与「替身认为 TTL 还没到」会各说各话。
  *
  * <p>⚠️ <b>T13（未授权者得 403 且不消耗配额）不在本类</b>：它需要的端点必须<b>同时</b>带 {@code @RequirePermission} 与
- * {@code @RateLimit}，而 C3 里带限流的只有两个公开端点（它们本来就不需要权限） ⇒ 此时写「403 且无配额键」是**空断言**（无论如何都成立）。该用例随 P0
- * 标注一起落在 C5。
+ * {@code @RateLimit}，而 C3/C4 里带限流的<b>全都是公开端点</b>（邮件追踪走注解、表单提交走服务侧委托，两者本来都不需要权限） ⇒ 此时写「403
+ * 且无配额键」是**空断言**（无论如何都成立）。该用例随 P0 标注一起落在 C5。 ⚠️ <b>订正</b>：本句原文写「C3 里带限流的只有两个公开端点」（留痕：原文见 git 历史），C4
+ * 之后这个数字变成「三个限流入口、 但仍全是公开端点」—— 判据（403 且无配额键）一个字不改，落点也不变，变的只是"为什么现在还写不了它"的事实描述。
  */
 class RateLimitIT extends FixedClockTestSupport {
 
@@ -52,6 +58,9 @@ class RateLimitIT extends FixedClockTestSupport {
 
   /** 与 {@code EmailTrackController} 上的 {@code @RateLimit} 逐字一致（改造前的数字）。 */
   private static final int LIMIT = 60;
+
+  /** 与 {@code FormService} 的 {@code RATE_LIMIT} 逐字一致（改造前的数字）。 */
+  private static final int FORM_LIMIT = 3;
 
   private static final long WINDOW_SECONDS = 60L;
 
@@ -203,6 +212,72 @@ class RateLimitIT extends FixedClockTestSupport {
     redis.failOnKeyPrefix("rl:");
 
     mockMvc.perform(tracked(OPEN, ip)).andExpect(status().isOk());
+  }
+
+  // ===== T15：表单提交（服务侧委托形态）—— 400→429 订正的证伪判据 =====
+
+  /**
+   * 公开表单提交的频控：<b>3 次 / 60 秒</b>（改造前的数字，逐字未变），拒绝码由 <b>400 订正为 429</b>。
+   *
+   * <p><b>为什么必须有这一条</b>：本批把 {@code FormService} 的 400「提交过于频繁」改成 429 是一次<b>对外可观测变更</b> （虽然它是「实现向 036
+   * 冻结契约靠拢」），而定向破坏台账里的 D7（<b>把它改回 400</b>）当时<b>点不出任何一条会变红的用例</b> —— 一条点不出名字的破坏等于没有护栏。本用例就是那条护栏。
+   *
+   * <p>形态与上面几条<b>刻意不同</b>（不是不一致）：这里的被限流单元是<b>服务方法</b> （{@code
+   * FormService#submit}，在字段校验之前就跑），配额写在服务侧常量上，IP 由 {@code ClientIpResolver} 解析后 交给同一个 {@code
+   * RateLimiter}。故本用例同时钉两件事：① HTTP 层是 429 + 统一信封（与 T1 同理）； ② 计数落在<b>同一个键族</b> {@code
+   * rl:<scope>:ip:<ip>} 上（scope 是 {@code public-form-submit}，<b>不与</b>邮件追踪共桶——
+   * 合并会让邮件客户端加载像素的自然高频挤掉表单提交的配额）。
+   */
+  @Test
+  @DisplayName("T15：表单提交第 4 次得 429 + RATE_LIMITED（前 3 次 200），计数落在 rl:public-form-submit:ip:<ip>")
+  void formSubmitIsRateLimitedWithTheCorrectedStatus() throws Exception {
+    String ip = "203.0.113.13";
+    long formId = createEnabledForm();
+
+    for (int i = 1; i <= FORM_LIMIT; i++) {
+      mockMvc.perform(formSubmit(formId, "138000000" + i + "0", ip)).andExpect(status().isOk());
+    }
+
+    MvcResult denied = mockMvc.perform(formSubmit(formId, "13800000040", ip)).andReturn();
+
+    assertThat(denied.getResponse().getStatus())
+        .as("✗ 若这里是 400，说明 400→429 的订正被改回去了（或 036 契约要求的 429 从未生效）")
+        .isEqualTo(429);
+    assertThat(denied.getResponse().getContentAsString(StandardCharsets.UTF_8))
+        .contains("\"code\":\"RATE_LIMITED\"")
+        .doesNotContain("提交过于频繁");
+    assertThat(redis.snapshot())
+        .as("没接线时这个键根本不存在 —— 服务侧委托形态的核心判据")
+        .containsEntry("rl:public-form-submit:ip:" + ip, (long) FORM_LIMIT + 1);
+  }
+
+  /** 建一个 ENABLED 表单（照 {@code FormIT.createForm}），拿到它的 id。 */
+  private long createEnabledForm() throws Exception {
+    String resp =
+        mockMvc
+            .perform(
+                post("/api/v1/forms")
+                    .header("Authorization", bearer(loginAndGetToken()))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"name\":\"限流表单\",\"fields\":[{\"field\":\"name\",\"label\":\"姓名\",\"type\":\"TEXT\",\"required\":true},{\"field\":\"phone\",\"label\":\"手机\",\"type\":\"TEL\",\"required\":true}],\"source\":\"WEBSITE\",\"status\":\"ENABLED\"}"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return objectMapper.readTree(resp).path("data").path("id").asLong();
+  }
+
+  /**
+   * 一次公开提交。⚠️ 每次换一个 phone：{@code FormService} 的防重复（同 phone 已有线索 ⇒ 409）在限流<b>之后</b>才跑， 故前 {@code
+   * FORM_LIMIT} 次必须真的提交成功，否则负对照断的不是 200。
+   */
+  private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
+      formSubmit(long formId, String phone, String ip) {
+    return post("/api/v1/public/forms/" + formId + "/submit")
+        .header("X-Forwarded-For", ip)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("{\"name\":\"限流测试\",\"phone\":\"" + phone + "\"}");
   }
 
   // ===== T12：钉住用户裁决 —— 登录**不**走本组件 =====

@@ -11,6 +11,7 @@ import com.crm.dto.auth.RefreshRequest;
 import com.crm.dto.auth.UserInfo;
 import com.crm.entity.User;
 import com.crm.repository.UserMapper;
+import com.crm.security.ClientIpResolver;
 import com.crm.security.JwtUtil;
 import com.crm.security.UserStateCache;
 import io.jsonwebtoken.Claims;
@@ -198,17 +199,26 @@ public class AuthService {
     }
   }
 
-  /** 提取客户端 IP：X-Forwarded-For 首个地址优先（代理场景），回退 remoteAddr。 */
+  /**
+   * 提取客户端 IP：X-Forwarded-For 首个地址优先（代理场景），回退 remoteAddr。
+   *
+   * <p>⚠️ <b>2026-09-16（100-rate-limit-consolidation）</b>：方法体已换成对 {@link
+   * ClientIpResolver#firstForwardedFor} 的 1 行委托 —— 改造前本方法与 {@code
+   * EmailTrackController#clientIp}、{@code FormService#clientIp}
+   * 是<b>三份逐字副本</b>，现收敛成一份。**签名与语义逐字不变**（本方法是 {@code public static}，被 {@code AuthController}
+   * 与测试直接调用，保留签名才能做到那两处零改动）， 唯一的差异是畸形输入：旧体写 {@code forwarded.split(",")[0].trim()}，对 {@code
+   * X-Forwarded-For: ","} 会抛 {@link ArrayIndexOutOfBoundsException}（{@code split} 丢弃末尾空段 ⇒ 长度 0
+   * 的数组）； 新体对三种退化输入一律回退 {@code fallback}。这是**净收益**，不是行为破坏。
+   *
+   * <p>⚠️ <b>已知且刻意的口径不一致</b>：本方法走的是 {@code ClientIpResolver} 的<b>静态</b>入口，因此<b>不读</b> {@code
+   * crm.rate-limit.trust-forwarded-for}（那个开关只有限流侧的 {@code RateLimitIdentity} 会读）。 后果：把该开关设成 {@code
+   * false} 的部署里，<b>登录失败锁定的 IP 分桶仍看 XFF</b>，与限流侧口径不同。
+   * 按用户裁决登录的两层锁定本批不动（语义是「锁到解锁为止」而非「窗口内容量」），故不把它一起收进来 —— 这是**如实登记的已知不一致**，不是漏改。
+   */
   public static String resolveClientIp(
       jakarta.servlet.http.HttpServletRequest request, String fallback) {
-    String forwarded = request.getHeader("X-Forwarded-For");
-    if (forwarded != null && !forwarded.isBlank()) {
-      String first = forwarded.split(",")[0].trim();
-      if (!first.isBlank()) {
-        return first;
-      }
-    }
-    return fallback;
+    String first = ClientIpResolver.firstForwardedFor(request);
+    return first == null ? fallback : first;
   }
 
   public AuthResponse refresh(RefreshRequest request) {

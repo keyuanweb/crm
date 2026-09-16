@@ -280,6 +280,9 @@
 - **FR-033** 新增 `integration/RateLimitIT`（MockMvc）与四个 surefire 单测
   （`RateLimitStoreTest` / `RateLimiterShapeTest` / `RateLimitIdentityTest` / `ClientIpResolverTest`），
   共 **T1–T14**，逐条见 `plan.md` 的用例表。**硬规则**：HTTP 层用例**必须**做满三件事
+  ——⚠️ **2026-09-16 C4 实做期补登**：上句「共 T1–T14」<b>原文保留</b>，实为 **T1–T15**
+  （T13 的落点后移到 C5；**T15 新增**：表单提交 400→429 的证伪判据 —— 原破坏台账 D7「把它改回 400」
+  **点不出任何会变红的用例**，属「没有护栏」，故补出 T15；详见 `plan.md` 用例表与 §实做订正 20）。
   ——① 装功能替身 `InMemoryRedisTestSupport`；② **正对照**断言计数**真的落到存储**
   （`redis.snapshot()` 含该键，**没接线时该键不存在 ⇒ 红**，这是核心）；③ **负对照**断言未达阈值时 200。
   组件单测可用裸 mock 验**调用形状**，**不得**用它验**行为**（形状与行为不可互相替代）。
