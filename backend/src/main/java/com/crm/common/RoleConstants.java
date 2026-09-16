@@ -293,6 +293,26 @@ public final class RoleConstants {
               perm("knowledge:delete", "删除文章")),
           // 1.5：AnnouncementController 的 create/update 标的是 announcement:manage。
           permGroup("公告管理", perm("announcement:manage", "公告管理")),
+          // 096：评论（037-announcements 的协作面）。此前 CommentController 是**类级**
+          // hasAnyRole('ADMIN','SALES','SUPPORT')，字典里一个 comment:* 码都没有 ⇒ 这三条端点的访问范围
+          // 写死在角色名里，管理员既看不见、也改不了（该类的 javadoc 自述为「一处已知的、待裁决的锁死」：
+          // 「要么给评论建码族并明确授予名单，要么把这些角色从协作场景里排除，二选一」——096 选前者）。
+          // 建码后按 V81 判据① 补授 ADMIN + SALES + SUPPORT（= 那道类级门**原先放行的集合**，
+          // 一个不多一个不少）⇒ 零扩权、零收窄。⚠️ 注意 hasAnyRole 匹配的是**角色 code**：
+          // SALES_REP / SALES_MANAGER / SUPPORT_AGENT / SUPPORT_MANAGER 都**不等于** 'SALES'/'SUPPORT'，
+          // 故它们改造前后**都**进不来——本项新增的只是「可勾选性」，不是权限本身。
+          // 评论**没有菜单**（它挂在客户/线索/商机/工单的详情页里，见 MENU_TREE），
+          // 故本组的授予范围**不能**按「菜单承诺」推导（V81 判据② 在此不适用），只能走判据①。
+          permGroup(
+              "评论协作",
+              // 读码：覆盖 GET /api/v1/comments。CommentService.checkEntityVisible 保证的是
+              // 「**看得见**就能评」，且 TICKET 一类直通、ADMIN 直接 return ⇒ 它不是范围过滤，
+              // 故这条读必须设码；撤门而不设码 = 任何登录用户都能读走全部评论。
+              perm("comment:read", "查看评论"),
+              perm("comment:create", "发表评论"),
+              // 删除**另有**服务层判据：CommentService.delete 只允许「作者或 ADMIN」。
+              // 本码是它**之前**的闸门，两者是 ∧ 关系——有码 ≠ 能删任何人的评论。
+              perm("comment:delete", "删除评论")),
           permGroup(
               "任务管理",
               perm("task:create", "创建任务"),
@@ -399,12 +419,31 @@ public final class RoleConstants {
               "自定义对象",
               // 084：读码。CustomObjectController.page 是**配置面**（全量对象定义列表），类级 hasRole('ADMIN')
               // 撤除后必须设码；授予范围 = 持有「自定义对象」菜单的角色（ADMIN、ANALYST）。
-              // 注意 /{id}/records*（对象**记录**的增删改查）**不设码**——那是业务面，靠菜单 + 数据范围，
-              // 且改造前就是 hasAnyRole('ADMIN','SALES')，不在 084 范围内。
+              //
+              // ⚠️ 2026-09-16 订正（096）——下面这段**原文逐字保留**，其结论已作废：
+              // 【原文】「注意 /{id}/records*（对象**记录**的增删改查）**不设码**——那是业务面，靠菜单 + 数据范围，
+              // 且改造前就是 hasAnyRole('ADMIN','SALES')，不在 084 范围内。」
+              // 【订正】该判断的**两个依据都不成立**：① 「数据范围」——实测 CustomObjectRecordService
+              // 全类**没有任何范围过滤调用**（`SecurityUtil` 仅出现在 `record.setCreatedBy(...)` 一处，
+              // 无 resolveVisibleOwnerIds / DataPermissionService / EntityAccessService）；
+              // ② 「菜单」——菜单只决定**前端可见性**，**不是服务端闸门**（那正是 084 自己的前提）。
+              // ⇒ 记录面是权限模型里唯一一处「**既无范围保护、又不可配置**」的写面（5 个端点含 3 个写）。
+              // 096 已为它建下述四码并挂到端点上；补授走 V81 判据①——范围 = 原 hasAnyRole('ADMIN','SALES')
+              // 放行的集合，一个不多一个不少 ⇒ 零扩权、零收窄，管理员从此可勾选。
               perm("custom_object:read", "查看自定义对象"),
               perm("custom_object:create", "创建自定义对象"),
               perm("custom_object:update", "编辑自定义对象"),
-              perm("custom_object:delete", "删除自定义对象")),
+              perm("custom_object:delete", "删除自定义对象"),
+              // 096：对象**记录**（业务数据）面的四个码。与上面的定义面码**刻意分开**，因为受众不同——
+              // 定义面是配置（ADMIN/ANALYST），记录面是业务（原门放行 ADMIN/SALES）；复用定义面码会
+              // **双向错**：ANALYST 有定义面码却被角色门挡住（露出必然 403 的按钮），
+              // SALES 被门放行却无定义面码（按钮消失 = 真收窄）。
+              // 读码覆盖 `GET /{id}/records`（列表）与 `GET /{id}/records/{recordId}`（详情）两个端点——
+              // 同一个动作，共用一码（照 opportunity:read 等既有做法）。
+              perm("custom_object_record:read", "查看对象记录"),
+              perm("custom_object_record:create", "创建对象记录"),
+              perm("custom_object_record:update", "编辑对象记录"),
+              perm("custom_object_record:delete", "删除对象记录")),
           // 1.5 批 3：开放平台的 API Key 与 Webhook 管理（/platform/**，改造前整类是 hasRole('ADMIN')）。
           // 「开放平台」菜单在种子里无人持有，故本码也不授任何人——范围与改造前一致。
           // ⚠️ /open/**（X-API-Key 鉴权的开放端点）**不加码**：走的是 ApiKeyAuthFilter 的
