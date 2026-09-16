@@ -856,3 +856,257 @@ InMemoryRedisTestSupportTest.failureInjectionIsScopedToThePrefix
    同一个用例、相邻的两行。这两次观测**不构成"该断言被重复验证"**，
    而是同一条防线上的两个入口各被打开过一次 —— 见各条的逐字行号（`:266` / `:267`）。
 
+
+---
+
+## §F 恢复码 `RecoveryCodeService`（第 7 步，2026-09-16）
+
+**本步新增 23 条用例**：`RecoveryCodeServiceTest` 17（surefire）、`RecoveryCodeServiceIT` 6（failsafe）
+—— surefire 654 → **671**、failsafe 291 → **297**，与「基线 + 本项 N」对得上。
+
+**门禁**（三份文件逐字节还原之后，在**冻结的提交态字节**上完整跑一次 `mvn -B verify`）：
+surefire **671 / 0**、failsafe **297 / 0**、`All coverage checks have been met.`、
+`BUILD SUCCESS`（退出码 **0**）。
+
+⚠️ **如实记：这次门禁是跑了两次才绿的。** 第一次复跑（同样在提交态字节上、工作区干净）
+surefire **671 / 0**，而 failsafe **297 里 1 条失败**，失败的正是 §D 已记录的那条既知间歇失败
+`WebhookRedirectIT.legitimateRedirectIsFollowedHopByHop`；紧接着的第二次复跑即 **297 / 0**。
+本批没有碰 webhook／投递／异步调度的任何代码，**该间歇失败不在 082 的改动面内**；
+处理方式与 §D 一致：**如实记、不修**（它值得单独立项）。
+
+### 先说清楚本步为什么**必须**有"调用形状"断言 —— 而这一点在同一节里被**实测**证明了
+
+第 7 步要守的安全性质是 SC-M05「并发下同一个恢复码只能被消费一次」。实现它的唯一手段是**条件 UPDATE**
+（`SET used=1, used_at=? WHERE id=? AND used=0`，且要求影响行数恰为 1）；等价的劣解是
+「`selectOne` 查到未使用行 → 比对哈希 → `updateById`」——两步之间开着一个 TOCTOU 窗口。
+
+两者在**单线程**下的可观测行为**完全相同**，而 `MockMvc` 就是单线程的。所以
+**任何 IT 在结构上都区分不出这两者**。这句话不是免责声明：下面的破坏 F6 把它变成了实测结论 ——
+**单测恰好 1 条转红，而 `RecoveryCodeServiceIT` 6/6 全绿**。
+
+同理，`RecoveryCodeServiceIT` 的类 javadoc 也把"本类证明不了 SC-M05"写在开头，
+以免下一位评审以为 IT 覆盖了原子性。
+
+**破坏基准**（破坏前先记，逐字节还原后 `sha1sum -c` 必须全 `OK`）：
+
+```
+0670c8566dd65fdda5fd1ff4e7444926be689d1d *src/main/java/com/crm/service/RecoveryCodeService.java
+b5b2b1be19eb8134baad363e67cd01eefb9732a1 *src/test/java/com/crm/service/RecoveryCodeServiceTest.java
+906aa7992479d0f3b41d8c26ea784abee72c77b5 *src/test/java/com/crm/integration/RecoveryCodeServiceIT.java
+```
+
+共 **7 次破坏**（F1、F2、F2b、F3、F4、F5、F6。其中 **F2b 是把 F2 拆成两半后的补充**，
+理由见 F2 条目）**每次单独观测、每次逐字节还原**，全部 `sha1sum -c` 输出 `OK`；
+破坏期间**未提交**。
+
+### 破坏 F1：去掉条件 UPDATE 谓词里的 `used=0`
+
+**被守护的断言**：`RecoveryCodeServiceTest.consumeUsesConditionalUpdateWithUnusedPredicate`。
+
+**为什么需要单独守护**：`used=0` 既是判据也是守卫 —— 它是"并发下第二个请求的 UPDATE
+影响行数为 0"的唯一来源。删掉它，两个请求会**都**改到这一行、**都**拿到影响行数 1，
+于是同一个恢复码换出两个会话。这就是 SC-M05 的直接违反。
+
+**破坏**：删掉 `.eq(UserRecoveryCode::getUsed, false)` 整行。
+
+**观测（逐字，17 条里恰好 1 条转红）**：
+```
+[ERROR] Tests run: 17, Failures: 1, Errors: 0, Skipped: 0 -- in com.crm.service.RecoveryCodeServiceTest
+[ERROR]   RecoveryCodeServiceTest.consumeUsesConditionalUpdateWithUnusedPredicate:100
+  条件 UPDATE 缺少 used=0 谓词 —— 参数值里应同时出现 set 的 true 与谓词的 false，实际=[1234, 2026-09-16T10:00, true] ==> expected: <true> but was: <false>
+```
+⇒ 参数表里 `false` **消失**了，只剩 `[主键, used_at, true]`。断言用的是 `contains`（对内容、不对顺序），
+故它钉的是"谓词在不在"，不依赖 MP 往 `paramNameValuePairs` 里塞参数时的次序。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 F2：改回 `selectOne` + `updateById`（**本条归属不纯，故另补 F2b**）
+
+**被守护的断言**：同上一条 + `consumeAcceptsNormalizedInput` + `generatedCodeRoundTripsThroughConsume`。
+
+**破坏**：把条件 UPDATE 换成"读到的那行已经比对成功 ⇒ `mapper.updateById(row)`"，
+返回 `true`（即回到"先判断后写入"）。
+
+**观测（逐字，17 条里 3 条转红）**：
+```
+[ERROR] Tests run: 17, Failures: 3, Errors: 0, Skipped: 0 -- in com.crm.service.RecoveryCodeServiceTest
+[ERROR]   RecoveryCodeServiceTest.consumeAcceptsNormalizedInput:161 expected: <true> but was: <false>
+[ERROR]   RecoveryCodeServiceTest.consumeUsesConditionalUpdateWithUnusedPredicate:91 expected: <true> but was: <false>
+[ERROR]   RecoveryCodeServiceTest.generatedCodeRoundTripsThroughConsume:238 刚生成的码必须能用 ==> expected: <true> but was: <false>
+```
+
+**⚠️ 如实记：这条破坏的**归属不纯**，所以它证明力有限。** 三条红都是
+「该 `true` 而实 `false`」，而**这正是 mock 的默认行为造成的**：纯 Mockito 里
+`updateById` 没有打桩 ⇒ 返回 `0`，于是劣解在这套用例里"消费失败"。也就是说，
+**这 3 条红钉的是"这条路还能不能消费"，不是"用的是哪种写法"**。把 `updateById` 打桩成返回 1，
+它们就会全部回到绿 —— 而那恰恰是"劣解在单线程下不可观测"的本来面目。
+
+⇒ 真正钉住写法的是下一条 F2b，它**保留了正确的条件 UPDATE**、另外**多加一次整行回写**，
+所以只有"多余的那次调用"会被看到，与 mock 的返回值无关。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 F2b：保留条件 UPDATE，另加一次整行回写（**本条才钉住"写法"**）
+
+**被守护的断言**：`consumeUsesConditionalUpdateWithUnusedPredicate` 里的
+`verify(mapper, never()).updateById(any())`。
+
+**为什么需要单独守护**：`updateById` 会把**整行实体**写回去 —— 既绕开定向更新的语义
+（`WHERE` 不再约束"改哪一行"，等于回到先判断后写入），也和 085 那条"`user` 表的写入必须定向"
+是同一类风险的邻居。这条断言**只在"两种写法同时存在"时才可能红**，故 F2 抓不到它。
+
+**破坏**：在条件 UPDATE 之后追加 `mapper.updateById(row);`。
+
+**观测（逐字，17 条里恰好 1 条转红）**：
+```
+[ERROR] Tests run: 17, Failures: 1, Errors: 0, Skipped: 0 -- in com.crm.service.RecoveryCodeServiceTest
+org.mockito.exceptions.verification.NeverWantedButInvoked:
+
+userRecoveryCodeMapper.updateById(<any>);
+Never wanted here:
+-> at com.crm.service.RecoveryCodeServiceTest.consumeUsesConditionalUpdateWithUnusedPredicate(RecoveryCodeServiceTest.java:110)
+But invoked here:
+-> at com.crm.service.RecoveryCodeService.consume(RecoveryCodeService.java:149) with arguments: [com.crm.entity.UserRecoveryCode@6629643d]
+```
+
+**⚠️ 一处必须说明的行号现象**：这条 `RecoveryCodeService.java:149` 是**破坏态字节**上的行号，
+与提交态文件的行号**不重合**（同一破坏的两次观测里，另一次报的是 `:148` —— 两次注入点差一行）。
+这也正解释了为什么本文件里的引用一律**同时给出符号名**：`Mockito` 报的是"当时代码"的坐标，
+而源码一改，所有指向它的坐标同时失效。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 F3：存明文、比明文（**唯一一次两层各自抓到**）
+
+**被守护的断言**：单测 5 条（`regenerateRevokesThenInserts` 的 `库里不得出现明文`、
+`regenerateSaltsEachRowIndependently` 的盐形态、以及三条消费路径）+ IT 5 条。
+
+**为什么需要单独守护**：库里的形态是"暴露即定罪"的东西 —— 一旦落库是明文，任何一次库导出、
+备份、慢查询日志都会把 10 个"能换会话的字符串"摊开。而它**在单测与 IT 上都能被观测**，
+这是本步少见的、两层都有效的破坏（对比 F6）。
+
+**破坏**：`hashOf` 返回明文本身、`matches` 改成明文相等比较。
+
+**观测（逐字，单测 5 红 + IT 5 红）**：
+```
+[ERROR] Tests run: 17, Failures: 5, Errors: 0, Skipped: 0 -- in com.crm.service.RecoveryCodeServiceTest
+[ERROR]   RecoveryCodeServiceTest.consumeAcceptsNormalizedInput:161 expected: <true> but was: <false>
+[ERROR]   RecoveryCodeServiceTest.consumeUsesConditionalUpdateWithUnusedPredicate:91 expected: <true> but was: <false>
+[ERROR]   RecoveryCodeServiceTest.generatedCodeRoundTripsThroughConsume:239 刚生成的码必须能用 ==> expected: <true> but was: <false>
+[ERROR]   RecoveryCodeServiceTest.regenerateRevokesThenInserts:201 库里不得出现明文 ==> expected: <false> but was: <true>
+[ERROR]   RecoveryCodeServiceTest.regenerateSaltsEachRowIndependently:223 盐应为 16 字节 base64（24 字符） ==> expected: <24> but was: <-1>
+
+[ERROR] Tests run: 6, Failures: 5, Errors: 0, Skipped: 0 -- in com.crm.integration.RecoveryCodeServiceIT
+  codesAreScopedToTheirUser:117                        Expecting value to be true but was false
+  consumedCodeIsRejectedButTheNextOneStillWorks:44     Expecting value to be true but was false
+  normalizedInputIsAccepted:84                         Expecting value to be true but was false
+  regenerateRevokesThePreviousBatch:106                Expecting value to be true but was false
+  storedValueIsASaltedHashAndConsumptionIsPersisted:68 Expecting actual: ... (形态断言)
+```
+⇒ 注意 IT 那 5 条的行号（44/68/84/106/117）与**提交态**一致（本次破坏只动服务侧），
+而单测那 5 条的行号取自破坏态。两层各自独立抓到同一件事，**互不替代**。
+
+**⚠️ 如实记：这次观测**当场暴露了我自己的一处测试缺陷**（论点顺序写反）。
+第一次观测时 `regenerateSaltsEachRowIndependently` 的失败信息印的是
+`expected: <-1> but was: <24>` —— 而我写的是 `assertEquals(indexOf(':'), 24, ...)`，
+JUnit 的签名是 `assertEquals(expected, actual)`，于是 expected/actual 被印反了。
+这正是**仓规「改完定向破坏必须重做」**要防的那类事：修正论点顺序**改动了单测的字节**
+（`222`→`223`、`238`→`239` 两处行号位移即来自那次修正），所以 F3 **整条在最终字节上重跑过**，
+而不是把第一次的结论抄一遍。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 F4：盐写成常量（**计划表外的补充破坏**）
+
+**被守护的断言**：`regenerateSaltsEachRowIndependently`。
+
+**为什么需要单独守护**：盐的作用是**挡住预计算与跨行复用**。若盐是常量，
+拿库的人可以用一张彩虹表同时命中所有用户的所有码（每行不再需要单独穷举），
+而**明文码本身仍是随机的** —— 所以"哈希不同"这件事**证明不了盐**：
+必须比 `:` **之前的那一段盐**本身。这条破坏是我在写用例时意识到"比哈希是在证一个不成立的东西"
+之后补的（计划的破坏表里没有它）。
+
+**破坏**：`hashOf` 里改成 `byte[] salt = new byte[SALT_BYTES]`（全零、不复用 `random`）。
+
+**观测（逐字，17 条里恰好 1 条转红）**：
+```
+[ERROR] Tests run: 17, Failures: 1, Errors: 0, Skipped: 0 -- in com.crm.service.RecoveryCodeServiceTest
+[ERROR]   RecoveryCodeServiceTest.regenerateSaltsEachRowIndependently:224 两批之间盐也不应相同 ==> expected: not equal but was: <AAAAAAAAAAAAAAAAAAAAAA==>
+```
+⇒ 打印出来的正是全零 16 字节的 base64（`AAAAAAAAAAAAAAAAAAAAAA==`，与测试里那条
+"盐应为 16 字节 base64（24 字符）"的形态断言互相印证）。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 F5：`regenerate` 不再先 `revokeAll`（**两层各自独立抓到**）
+
+**被守护的断言**：单测 `regenerateRevokesThenInserts` 的 `verify(mapper).delete(any())`；
+IT `regenerateRevokesThePreviousBatch`。
+
+**为什么需要单独守护**：恢复码是**打印在纸上**的东西。换批而不作废旧批，等于那张纸**永久有效** ——
+用户以为"重新生成"收回了自己丢过的码，实际旧码一条没少，而且 `countRemaining` 会**虚高**
+（用户看到 20 个可用码，其中 10 个是他想要废掉的）。
+
+**破坏**：`regenerate` 里去掉 `revokeAll(userId);` 一行。
+
+**观测（逐字，单测 1 红 **且** IT 1 红）**：
+```
+[ERROR] Tests run: 17, Failures: 1, Errors: 0, Skipped: 0 -- in com.crm.service.RecoveryCodeServiceTest
+[ERROR]   RecoveryCodeServiceTest.regenerateRevokesThenInserts:208
+Wanted but not invoked:
+userRecoveryCodeMapper.delete(<any>);
+-> at com.crm.service.RecoveryCodeServiceTest.regenerateRevokesThenInserts(RecoveryCodeServiceTest.java:208)
+
+However, there were exactly 10 interactions with this mock:
+userRecoveryCodeMapper.insert(com.crm.entity.UserRecoveryCode@3fb450d7);
+-> at com.crm.service.RecoveryCodeService.regenerate(RecoveryCodeService.java:109)  (×10)
+
+[ERROR] Tests run: 6, Failures: 1, Errors: 0, Skipped: 0 -- in com.crm.integration.RecoveryCodeServiceIT
+[ERROR]   RecoveryCodeServiceIT.regenerateRevokesThePreviousBatch:102
+expected: 10
+ but was: 20
+```
+⇒ 两层抓的是同一件事的两面：单测钉**调用形状**（`delete` 根本没发生），
+IT 钉**可观测后果**（`countRemaining` 从 10 变 20，两批并存）。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 F6：不看影响行数、命中即 `true`（**单测 1 红而 IT 6/6 全绿**）
+
+**被守护的断言**：`consumeReturnsFalseWhenTheConditionalUpdateTouchesNoRow`。
+
+**为什么需要单独守护**：这是本步**最容易被顺手改错**的一行。命中比对之后改为"直接返回 `true`"
+（不读影响行数），在单线程下**完全等价**，但其语义已经变回了"先判断后写入"：
+并发下两个请求都命中、都返回 `true`，而只有一个真的改到了行。
+**本节开头那句"IT 结构上区分不出两者"，由这一条破坏单独作为证据。**
+
+**破坏**：`return rows == 1;` → `return true;`（命中即返回）。
+
+**观测（逐字，单测恰好 1 条转红，且**同一次运行的 IT 全绿**）**：
+```
+[ERROR] Tests run: 17, Failures: 1, Errors: 0, Skipped: 0 -- in com.crm.service.RecoveryCodeServiceTest
+[ERROR]   RecoveryCodeServiceTest.consumeReturnsFalseWhenTheConditionalUpdateTouchesNoRow:122
+  命中不等于消费成功：必须等 UPDATE 的影响行数说话，否则又成了先判断后写入 ==> expected: <false> but was: <true>
+
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0 -- in com.crm.integration.RecoveryCodeServiceIT
+```
+⇒ **同一份字节、同一次构建**：单测红、IT 全绿。这就是"原子性只能在调用形状断言里钉住"的实证，
+也是本步把"为什么必须断言 SQL 怎么被拼的"写进单测 javadoc 的直接原因。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 本节四处**如实记**的观察
+
+1. **F2 的归属不纯**（见其条目）：3 条红全部来自 mock 未打桩的默认返回值，
+   钉的是"能不能消费"而不是"怎么写"。**只有 F2b 钉写法**。计划的破坏表里写的是
+   「改回 `selectOne`+`updateById` 一条」，实测表明那一条**不足以**证明"写法被钉住"。
+2. **F4 是计划表外的破坏**：因为"哈希不同"**证不了盐**（明文随机就足以让哈希不同），
+   原计划里没有一条破坏能让"盐"这个断言转红 —— 补 F4 才使它有可达的证伪者。
+3. **F6 单测红 / IT 全绿**（见其条目）：本批最要紧的一处"测不到"，在此被观测而非被声称。
+4. **一处工具陷阱（与 §D 同源，但这次是行尾风格）**：F6 那次观测的构建**尾段 `spotless:check` 是失败的**，
+   违规报告对 `RecoveryCodeService.java` 给出 `@@ -1,279 +1,279 @@` —— **整个文件逐行同时出现 `-`/`+`**，
+   即行尾风格层面的差异（该次注入把文件的换行写成了另一种风格），与破坏的语义无关。
+   随后按仓规先 `spotless:apply`（**限定到本文件**
+   `-DspotlessFiles='.*RecoveryCodeService.*\.java'`，避免全仓 apply 动到并行会话的文件）再复跑，
+   `spotless:check` 退出码 **0**。记下来是因为它会让"测试结果已经拿到、构建却是 FAILURE"看起来自相矛盾
+   —— 而在这个仓库里 `spotless` 位于 `verify` 相位的**测试之后**，两者本来就会一起出现在同一份日志里。
