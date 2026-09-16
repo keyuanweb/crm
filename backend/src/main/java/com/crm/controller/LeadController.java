@@ -159,6 +159,9 @@ public class LeadController {
   @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   // 字典里没有 lead:import，导入语义即批量创建，故复用 lead:create（同 ContactController 的口径）。
   @RequirePermission("lead:create")
+  // P1（`import-excel` 5/60s，按 USER）：与 CustomerController#importCustomers 共用同一个 scope
+  // ——「导入」是一个行为，配额该按行为算，不该因为落在哪个 controller 上而分成两个桶。
+  @RateLimit(scope = "import-excel", limit = 5, windowSeconds = 60, by = RateLimitDimension.USER)
   @Operation(summary = "Excel 批量导入线索（FR-L11）")
   public ApiResponse<ImportResult> importLeads(@RequestParam("file") MultipartFile file)
       throws java.io.IOException {

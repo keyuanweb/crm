@@ -31,6 +31,11 @@ import org.springframework.web.bind.annotation.RestController;
  * <b>IP</b>（这两个端点匿名可达，没有更细的主体可用）。配额差异是有意的： {@code ticketStatus} 是<b>全仓唯一的匿名凭证校验端点</b>（工单号 +
  * 手机/邮箱双验证 ⇒ 枚举面），而 {@code submitTicket} 有<b>写副作用</b> （建单 + 写客户），故后者更紧。两个 <b>GET</b>（文章列表/详情）属
  * <b>P1</b> 的 {@code public-read} 组（同批的后续提交）。
+ *
+ * <p>⚠️ <b>2026-09-17（C6 = T041 实做）</b>：上段原文逐字保留（它是 C5 时点的真实状态）；两个 <b>GET</b> 已在 本次挂上 {@link
+ * RateLimit}（{@code scope = "public-read"}、60/60s、{@code by = IP}，与 {@code
+ * FormController#meta}、{@code LandingPageController#publicView} 共用同一个 scope）—— 四个端点同属「匿名 + 打 DB +
+ * 无写副作用」一组，风险一致、互不挤占。「同批的后续提交」指的就是本次。
  */
 @RestController
 @RequestMapping("/api/v1/public/portal")
@@ -44,6 +49,10 @@ public class CustomerPortalController {
   }
 
   @GetMapping("/articles")
+  // P1（`public-read` 60/60s，按 IP，C6 = T041）：两个只读 GET 与 FormController#meta、
+  // LandingPageController#publicView 共用同一个 scope —— 它们同属「匿名 + 打 DB + 无写副作用」
+  // 这一组，风险一致且互不挤占（列表与详情是同一类访问）。
+  @RateLimit(scope = "public-read", limit = 60, windowSeconds = 60, by = RateLimitDimension.IP)
   @Operation(summary = "知识库文章列表（公开，仅已发布）")
   public ApiResponse<PageResult<PortalArticleResponse>> articles(
       @RequestParam(required = false) String keyword,
@@ -53,6 +62,7 @@ public class CustomerPortalController {
   }
 
   @GetMapping("/articles/{id}")
+  @RateLimit(scope = "public-read", limit = 60, windowSeconds = 60, by = RateLimitDimension.IP)
   @Operation(summary = "知识库文章详情（公开，仅已发布）")
   public ApiResponse<PortalArticleResponse> article(@PathVariable Long id) {
     return ApiResponse.ok(portalService.article(id));

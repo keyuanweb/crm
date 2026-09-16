@@ -72,9 +72,12 @@ class RateLimitCoverageTest {
   /**
    * 需要逐条判断的豁免：{@code 类#方法 → 理由}（理由非空是硬要求）。
    *
-   * <p>分四组：① 限流在服务内部的端点；② 登录的 2 层失败计数（用户裁决：不加限流，语义不同）； ③ 2FA（全仓唯一 fail-close 边界）；④ P1 待接入（本批 C6
-   * 标注后，这些条目必须删除—— 否则 {@link #everyExemptionEntryIsLiveAndNotAnnotated} 会因「条目已被注解覆盖」判红）； ⑤ 返回
-   * {@code ResponseEntity} 而非 {@code ApiResponse} 的常规读接口（本仓少数派风格，见类注释末段）。
+   * <p>分四组：① 限流在服务内部的端点；② 登录的 2 层失败计数（用户裁决：不加限流，语义不同）； ③ 2FA（全仓唯一 fail-close 边界）；④ 返回 {@code
+   * ResponseEntity} 而非 {@code ApiResponse} 的常规读接口（本仓少数派风格，见类注释末段）， 以及「权限码属 export: 族但不产出文件」的任务管理动作。
+   *
+   * <p>⚠️ <b>2026-09-17（C6 = T041/T042）</b>：C5 曾有一个「④ P1 待接入」分组（四条匿名只读 + 三个导入）， 本批已把它们挂上 {@link
+   * RateLimit}，故按本表自身的规定删除——上面那段分组里已经看不到它了，这就是 {@link
+   * #everyExemptionEntryIsLiveAndNotAnnotated}「条目已被注解覆盖即判红」那条判据的**到期机制**真的跑过一次。
    */
   private static final Map<String, String> EXEMPT = exempt();
 
@@ -101,23 +104,7 @@ class RateLimitCoverageTest {
     map.put(
         "UserController#resetMfa", "管理员重置某用户的 2FA（082 FR-M10）：与上一条同属 MfaStateStore 的锁定语义，非请求速率。");
 
-    // ④ P1 待接入（C6 = T041 标注 public-read 60/60s 后，这四条必须从本表删除）
-    map.put(
-        "FormController#meta",
-        "**P1 待接入**（T041：scope=public-read 60/60s，by=IP，C6 标注）。匿名 + 打 DB，"
-            + "但无写副作用、非凭证端点 ⇒ 排在 P0 之后；本条是过渡态，C6 标注后必须删除。");
-    map.put(
-        "LandingPageController#publicView",
-        "**P1 待接入**（T041：scope=public-read 60/60s，by=IP，C6 标注）。落地页是爬虫与预取器都会打的路径，"
-            + "但同样无写副作用 ⇒ 排在 P0 之后；本条是过渡态，C6 标注后必须删除。");
-    map.put(
-        "CustomerPortalController#articles",
-        "**P1 待接入**（T041：scope=public-read 60/60s，by=IP，C6 标注）。匿名只读文章列表；" + "本条是过渡态，C6 标注后必须删除。");
-    map.put(
-        "CustomerPortalController#article",
-        "**P1 待接入**（T041：scope=public-read 60/60s，by=IP，C6 标注）。匿名只读文章详情；" + "本条是过渡态，C6 标注后必须删除。");
-
-    // ⑤ 返回 ResponseEntity 的常规读接口（非文件字节：数据保留策略 / 定时导出任务）
+    // ④ 返回 ResponseEntity 的常规读接口（非文件字节：数据保留策略 / 定时导出任务）
     map.put(
         "DataRetentionPolicyController#getAllPolicies",
         "常规读接口，但返回 ResponseEntity 而非 ApiResponse（本仓少数派风格，080 的写法）——"
@@ -131,7 +118,7 @@ class RateLimitCoverageTest {
     map.put("ScheduledExportController#getScheduledExport", "同上（任务详情，只读）。");
     map.put("ScheduledExportController#getExecutions", "同上（任务执行记录，只读）。");
 
-    // ⑤ 续：SalesQuotaController 整类是同一形状（只读查询 + 返回 ResponseEntity），逐条列出。
+    // ④ 续：SalesQuotaController 整类是同一形状（只读查询 + 返回 ResponseEntity），逐条列出。
     //    为什么值得逐条而不是放宽规则：规则一旦不要求 ApiResponse，本批 13 个导出里那 9 个「GET + 返回
     //    文件字节」的端点（模板/附件/导出流）以及将来同形状的新端点就会一并被自动放行 —— 那正是台账要防的。
     String readOnlyResponseEntity =
@@ -145,7 +132,7 @@ class RateLimitCoverageTest {
     map.put("SalesQuotaController#getTeamRanking", readOnlyResponseEntity);
     map.put("SalesQuotaController#getSummary", readOnlyResponseEntity);
 
-    // ⑥ 权限码属 export: 族、但不产出文件的任务管理动作（「码以 export: 开头即不自动豁免」这条的副作用）。
+    // ⑤ 权限码属 export: 族、但不产出文件的任务管理动作（「码以 export: 开头即不自动豁免」这条的副作用）。
     //    它们的成本与常规 CRUD 同级，故显式列在这里；真正跑导出的是 #createScheduledExport / #executeNow，
     //    那两条已挂 export-generate 注解。
     String exportFamilyCrud =
@@ -216,14 +203,27 @@ class RateLimitCoverageTest {
     map.put("EmailUnsubscribeController#unsubscribe", "public-unsubscribe");
     map.put("EmailTrackController#trackOpen", "public-email-track");
     map.put("EmailTrackController#trackClick", "public-email-track");
+    // C6 = T041（四个匿名只读共用 public-read 60/60s）
+    map.put("FormController#meta", "public-read");
+    map.put("LandingPageController#publicView", "public-read");
+    map.put("CustomerPortalController#articles", "public-read");
+    map.put("CustomerPortalController#article", "public-read");
+    // C6 = T042（三个导入共用 import-excel 5/60s）
+    map.put("CustomerController#importCustomers", "import-excel");
+    map.put("LeadController#importLeads", "import-excel");
+    map.put("ContactController#importContacts", "import-excel");
     return Map.copyOf(map);
   }
 
   /**
    * 端点总数下界（自检：扫描 pattern 写错时「零违规」会假绿；先例 {@code RequirePermissionCatalogTest}）。
    *
-   * <p>实做基线（2026-09-17，本仓 65 个控制器）：**368** 个端点 —— {@code @RateLimit} 21 · 显式条目 23 · 具名规则 324 （读 121
-   * / 写 203）。下界留约 10% 余量：真删掉几十个端点不会误报，而丢掉一整个包（控制器）会。
+   * <p>实做基线（2026-09-17，本仓 65 个控制器）：**368** 个端点 —— {@code @RateLimit} 28 · 显式条目 19 · 具名规则 321 （读 121
+   * / 写 200）。下界留约 10% 余量：真删掉几十个端点不会误报，而丢掉一整个包（控制器）会。
+   *
+   * <p>⚠️ <b>2026-09-17（C6 = T041/T042）</b>：C5 的读数是「{@code @RateLimit} 21 · 显式条目 23 · 具名规则 324（读
+   * 121 / 写 203）」，四条匿名只读从显式条目、三个导入从写规则各移入注解栏 ⇒ 28 / 19 / 321（读 121 / 写 200），**端点总数 368 不变**
+   * ——这正是「总数不变而分桶移动」的样子：核对时看的是分桶，不是总数。
    */
   private static final int MIN_ENDPOINTS = 330;
 
@@ -247,7 +247,9 @@ class RateLimitCoverageTest {
         });
     assertThat(missing).as("下列端点应有 @RateLimit（scope 见值）却不在扫描结果里：扫描漏了，或注解被删了").isEmpty();
 
-    // 台账的**基数读数**打出来（surefire 收进 target/surefire-reports/*-output.txt）。
+    // 台账的**基数读数**打出来（surefire 没配 redirectTestOutputToFile，故落在
+    // target/surefire-reports/TEST-com.crm.security.RateLimitCoverageTest.xml 的 <system-out> 里，
+    // 用 `grep -a -o "端点总数 = [^\"<]*"` 取；实测过，不是 *-output.txt）。
     // 为什么要有这一行：MIN_ENDPOINTS 与类注释里的分桶数字都是「某一时点的实测值」，端点数变化时
     // 需要重新取值 —— 没有这一行就只能事后补一个临时探针（本批就是这么量出 368 的），
     // 而探针用完即删 ⇒ 下一个人量不到。打印一行让「重新取值」变成跑一条命令。

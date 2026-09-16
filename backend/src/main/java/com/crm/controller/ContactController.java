@@ -58,6 +58,8 @@ public class ContactController {
   // 字典里没有 contact:import（客户/线索有，联系人没有），而导入的语义就是"批量创建"，
   // 故复用 contact:create 而不是新造一个码——多一个码就多一处要维护的授权。
   @RequirePermission("contact:create")
+  // P1（`import-excel` 5/60s，按 USER）：三个导入端点共用同一个 scope（见 LeadController#importLeads 的注释）。
+  @RateLimit(scope = "import-excel", limit = 5, windowSeconds = 60, by = RateLimitDimension.USER)
   @Operation(summary = "批量导入联系人（xlsx，按客户名称匹配）")
   public ApiResponse<ImportResult> importContacts(@RequestParam("file") MultipartFile file)
       throws Exception {

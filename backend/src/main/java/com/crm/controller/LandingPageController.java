@@ -6,6 +6,8 @@ import com.crm.dto.landing.LandingPagePublicResponse;
 import com.crm.dto.landing.LandingPageRequest;
 import com.crm.dto.landing.LandingPageResponse;
 import com.crm.dto.landing.UtmStatsResponse;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.LandingPageService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -89,6 +91,9 @@ public class LandingPageController {
   // ===== 公开渲染（无需登录） =====
 
   @GetMapping("/public/lp/{id}")
+  // P1（`public-read` 60/60s，按 IP）：落地页是爬虫、预取器与一切「分享出去就会被点开」的必经之路，
+  // 匿名 + 打 DB；但无写副作用 ⇒ 排在 P0 之后。**只读、无凭证 ⇒ 不是抗敌手的手段**（见 quickstart 的口径降级）。
+  @RateLimit(scope = "public-read", limit = 60, windowSeconds = 60, by = RateLimitDimension.IP)
   @Operation(summary = "落地页公开渲染（落地页 + 表单）")
   public ApiResponse<LandingPagePublicResponse> publicView(@PathVariable Long id) {
     return ApiResponse.ok(landingPageService.publicView(id));

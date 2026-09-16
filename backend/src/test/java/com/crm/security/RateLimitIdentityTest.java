@@ -87,6 +87,28 @@ class RateLimitIdentityTest {
     assertNotEquals("rl:open-api-read:user:1", first, "不得退化成按创建者分桶");
   }
 
+  /**
+   * 显式 {@code API_KEY} 维度同样必须按<b>密钥 id</b> 分桶（与 T7 是同一个主张，但打的是另一个分支）。
+   *
+   * <p>⚠️ <b>2026-09-17（C6 = D6 实测后补）</b>：C5 版本只有 T7 钉了这件事，而 T7 走的是 {@code AUTO} 分支； 生产端点上写的却是
+   * <b>显式的</b> {@code by = RateLimitDimension.API_KEY}（三个开放 API 端点全是）。C6 的 定向破坏 D6 把 API_KEY 分支改成读
+   * {@code currentUserId()}（= 按密钥创建者分桶）时，<b>T7 照绿</b>—— 只有下面那条「人类主体在 API_KEY 维度下退化成 IP」的间接判据变红（见
+   * {@code falsification-evidence.md} §F）。「改哪个分支、哪条用例会红」必须点得出来，故补上这条直接判据。
+   */
+  @Test
+  @DisplayName("显式 API_KEY：同一创建者的两个密钥互不共用配额（与 T7 同一个主张，打在 API_KEY 分支上）")
+  void theDeclaredApiKeyDimensionIsAlsoBucketedByKeyId() {
+    authenticateMachine(1L, 7L);
+    String first = keyOf(RateLimitDimension.API_KEY, requestFrom("10.0.0.9", null));
+    assertEquals("rl:open-api-read:key:7", first);
+
+    authenticateMachine(1L, 8L);
+    String second = keyOf(RateLimitDimension.API_KEY, requestFrom("10.0.0.9", null));
+    assertEquals("rl:open-api-read:key:8", second);
+
+    assertNotEquals(first, second, "同一个创建者的两个密钥共用一个桶 = 一个密钥能把其余的额度吃光");
+  }
+
   /** 机器主体却拿不到密钥 id（鉴权链被改动）⇒ 退化成 IP 桶，<b>不退化成不限流</b>。 */
   @Test
   @DisplayName("机器主体无密钥 id ⇒ 退化成 IP 分桶（不是不限流）")

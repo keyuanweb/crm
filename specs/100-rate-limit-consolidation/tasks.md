@@ -21,31 +21,31 @@
 
 ## 阶段 A 工件与登记（提交 C1 = `docs(100): 立项`）
 
-- [ ] T001 写 `spec.md` / `plan.md` / `research.md` / `quickstart.md` / `tasks.md` / `checklists/requirements.md`
+- [x] T001 写 `spec.md` / `plan.md` / `research.md` / `quickstart.md` / `tasks.md` / `checklists/requirements.md`
       （**6 件**；`falsification-evidence.md` 在 T048 交付时产出）
-- [ ] T002 `research.md` 必须装齐：① 与 `CRM_FEATURE_COMPARISON.md` 两行的关系；② 机制选型（注解 vs 过滤器的**顺序契约无护栏**证据）；
+- [x] T002 `research.md` 必须装齐：① 与 `CRM_FEATURE_COMPARISON.md` 两行的关系；② 机制选型（注解 vs 过滤器的**顺序契约无护栏**证据）；
       ③ 存储选型；④ **TTL 语义两范式对照表**（照 `MfaStateStore` 而非 `AuthService`）；⑤ **「读时补窗放行」与 `MfaStateStore` 刻意相反**的理由；
       ⑥ fail-open 的**边界**（catch 什么、**不** catch 什么）；⑦ **不用 Lua** 与不扩替身；⑧ 身份维度与 `keyId`；
       ⑨ 客户端 IP 收敛 + **XFF 残余风险的口径降级**；⑩ 包选型与 jacoco 分母；⑪ 错误码与 `MFA_LOCKED` 的分工；
       ⑫ **六处对外可观测的行为变更**（立项时是**五处**，⑥ 由 C3 实做期补登，见 §实做订正 14）；
       ⑬ 台账护栏；⑭ 与 036/016/017/055 的关系；⑮ **覆盖缺口与假绿通道**（含事实 ⑬ 那颗雷）
-- [ ] T003 `specs/README.md` 模块表加 **100 行**（**状态列如实写「⏳ 进行中」**，**不预勾**）
-- [ ] T004 `specs/README.md` 的**编号说明**纳入 100（**按文本锚定位，不按行号**）
-- [ ] T005 `specs/roadmap.md` 加 100 行（**勾选框留空、不预勾**）；`最后更新` 前置 100 立项条目
+- [x] T003 `specs/README.md` 模块表加 **100 行**（**状态列如实写「⏳ 进行中」**，**不预勾**）
+- [x] T004 `specs/README.md` 的**编号说明**纳入 100（**按文本锚定位，不按行号**）
+- [x] T005 `specs/roadmap.md` 加 100 行（**勾选框留空、不预勾**）；`最后更新` 前置 100 立项条目
       （旧值降级为「**上一条（原文保留）**」，逐字不改）；`## 当前进度` 由 **98 勾 / 0 未勾** 变 **98 勾 / 1 未勾**
       （实测复核：`grep -c '^- \[x\]' specs/roadmap.md` 与 `'- \[ \]'` 各计一次）
-- [ ] T006 ⚠️ **立项阶段不改 `README.md:163`**：照 099 先例（其 T007 实做订正）**前移到交付提交 T049**。
+- [x] T006 ⚠️ **立项阶段不改 `README.md:163`**：照 099 先例（其 T007 实做订正）**前移到交付提交 T049**。
       **理由**：它与 `PROJECT_FEATURES.md` 的 **Spec 模块行**是**同一类对外规模数字**，而后者必须**实跑取值**
       （新增类会动 java 文件数）⇒ 「一个数字住在好几个地方，要一起改」：只改 `README.md:163` 而把
       `PROJECT_FEATURES.md` 留到交付，等于用一次订正**造出两处新矛盾**。C1 只登记**本批自己的状态**
       （T003/T004/T005 三处，它们说的是「**立项了**」，与「模块总数」不是同一个数字）。
       ⚠️ 该前移**已在 `plan.md` §分步与提交「偏离二」登记**，并在**立项提交时向用户说明**
-- [ ] T007 ⚠️ **立项阶段不改 `roadmap.md` 第 6 行的「交付态断言」**：该句说的是**已交付**的编号面，
+- [x] T007 ⚠️ **立项阶段不改 `roadmap.md` 第 6 行的「交付态断言」**：该句说的是**已交付**的编号面，
       而 100 **尚未交付** —— 改成 `001–100` 等于把在办项写成已交付（**假话**）。
       照 **097/099 立项时**的同一处置：只前置一段带日期的 ⚠️ 块登记**随入列漂移的计数**
       （编号面判据 **98 → 99**；`## 当前进度` **98 勾 / 0 未勾 → 98 勾 / 1 未勾**），
       **旧值逐字保留**（`001–099` 仍在句中，可 grep 到）；交付时（T050）再改那句。**该偏离已在 `plan.md` 与 T045 登记。**
-- [ ] T008 `PROJECT_FEATURES.md` 的 **Spec 模块行**：立项阶段**不动**（它与后端规模行、i18n 行同属**对外规模数字**，
+- [x] T008 `PROJECT_FEATURES.md` 的 **Spec 模块行**：立项阶段**不动**（它与后端规模行、i18n 行同属**对外规模数字**，
       必须与 T049 的实测读数**同批改齐**；只改一处等于用一次订正造出两处新矛盾）—— **该前移已在 T049 登记**
 
 ## 阶段 B 共享限流件与通用 429 错误码（提交 C2 = `feat(100): 共享限流件与通用 429 错误码`）
@@ -54,101 +54,101 @@
 不改 `SecurityUtil` 的**既有成员**（只**新增** `currentApiKeyId()` —— 它在 C2 就要用上，见 §实做订正 5）。
 **本阶段结束时仓里同时存在两套限流**（旧的 2 处内存桶 + 新的共享件），**这是有意的**（可回退的中间态）。
 
-- [ ] T009 新建 `com/crm/security/RateLimit.java`：`@Target(METHOD)` + `@Retention(RUNTIME)`；
+- [x] T009 新建 `com/crm/security/RateLimit.java`：`@Target(METHOD)` + `@Retention(RUNTIME)`；
       `String scope(); int limit(); long windowSeconds(); RateLimitDimension by() default AUTO;`
       —— 形状与 javadoc 体例照 `security/RequirePermission.java`；**`scope` 必须是显式字符串**（不从 URI 推导，理由写进 javadoc）
-- [ ] T010 新建 `com/crm/security/RateLimitDimension.java`：`enum { AUTO, IP, USER, API_KEY }`
+- [x] T010 新建 `com/crm/security/RateLimitDimension.java`：`enum { AUTO, IP, USER, API_KEY }`
       + javadoc 写明 `AUTO` 的判定顺序（机器主体→`keyId` → 已认证→`userId` → 否则→IP）
-- [ ] T011 新建 `com/crm/security/RateLimitKeys.java`：键族 `rl:<scope>:<identity>`；
+- [x] T011 新建 `com/crm/security/RateLimitKeys.java`：键族 `rl:<scope>:<identity>`；
       **具名静态方法**（`user(scope, id)` / `apiKey(scope, keyId)` / `ip(scope, ip)`）**供调用形状断言逐字核对**
       （照 `MfaStateStore` 的 `failKey` 那组先例）；javadoc 写明「`rl:` 与 `auth:` **同级**，便于运维按前缀监控」
-- [ ] T012 新建 `com/crm/security/RateLimitIdentity.java`：**纯静态函数**（可脱 Spring 单测）；
+- [x] T012 新建 `com/crm/security/RateLimitIdentity.java`：**纯静态函数**（可脱 Spring 单测）；
       `AUTO` 判定顺序按 T010；显式 `USER`/`API_KEY` 而**主体缺失时回退 IP 并 `log.warn`**
       （候选取舍见 `research.md` §8）；机器主体判定**复用** `SecurityUtil.isMachineSubject()`；
       机器主体取 `SecurityUtil.currentApiKeyId()` —— **该方法在本次一并新增**（从
       `authentication.getDetails()` 的 `ApiKeyAuthFilter.ApiKeyPrincipal.keyId()` 取，⚠️ **密钥 id 不在 principal 里**，
       与 `currentUserId()` 并列、同 javadoc 体例）；**纯新增成员、零行为变更**，故不破本阶段的「纯新增」性质
-- [ ] T013 新建 `com/crm/security/ClientIpResolver.java`：语义**逐字取** `AuthService.resolveClientIp` 那一份
+- [x] T013 新建 `com/crm/security/ClientIpResolver.java`：语义**逐字取** `AuthService.resolveClientIp` 那一份
       （**更严**的那份：XFF 首段为空则回退 fallback）；配置项 `crm.rate-limit.trust-forwarded-for`；
       ⚠️ javadoc **必须**写明三件事：① 只在反向代理是唯一入口时成立；② 直连可伪造（**已知并登记为债务**）；
       ③ **它不是抗敌手措施**，公开端点上的定位是**误用与意外的阻尼**
-- [ ] T014 新建 `com/crm/security/RateLimitStore.java`（**立项期这一件写成 `RateLimiter`，实做拆成两个类**，见 §实做订正 4）：
+- [x] T014 新建 `com/crm/security/RateLimitStore.java`（**立项期这一件写成 `RateLimiter`，实做拆成两个类**，见 §实做订正 4）：
       依赖**只有** `RedisTemplate`（**不需要 `Clock`** —— 窗口是 Redis 自己的 TTL）；
       `increment` → **仅 `n == 1` 时 `expire`**（照 `MfaStateStore.recordFailure`，**不照** `AuthService.recordFailure`）；
       `count >= limit` 时读 `getExpire(key, MILLISECONDS)`，为 `-1`/`-2` 则**补回整窗 + `log.warn` + 放行**；
       返回值 = **剩余秒数**（`0` = 放行）；**fail-open 只 catch `RedisConnectionFailureException | DataAccessException`**、
       每条 `log.warn`、**不 catch 裸 `Exception`**、**不提供 `fail-open` 开关**；
       ⚠️ javadoc **必须**写明与 `MfaStateStore.lockRemainingSeconds` **刻意相反**的理由（引其类名与方法名）
-- [ ] T014a 新建 `com/crm/security/RateLimiter.java`（**组合层**，与 T014 的 store 分开）：依赖 `RateLimitStore` + `ClientIpResolver`；
+- [x] T014a 新建 `com/crm/security/RateLimiter.java`（**组合层**，与 T014 的 store 分开）：依赖 `RateLimitStore` + `ClientIpResolver`；
       身份 → 键 → 交给 store → **剩余秒数 > 0 时抛** `RateLimitExceededException`；
       **自己不碰 `SecurityContextHolder`**（那在 `RateLimitIdentity` 里），使两层各自可单测
-- [ ] T015 新建 `com/crm/security/RateLimitAspect.java`：`@Aspect @Component` + `@Before("@annotation(rateLimit)")`；
+- [x] T015 新建 `com/crm/security/RateLimitAspect.java`：`@Aspect @Component` + `@Before("@annotation(rateLimit)")`；
       **显式 `@Order`**，排在 `PermissionAspect` **之后**（权限先于限流 ⇒ 未授权者不消耗配额）；
       `crm.rate-limit.enabled=false` 时直接放行
-- [ ] T016 新建 `com/crm/common/RateLimitExceededException.java`：**`extends BusinessException`**
+- [x] T016 新建 `com/crm/common/RateLimitExceededException.java`：**`extends BusinessException`**
       （多重保障：万一没走到新处理器，父类的 `handleBusiness` 仍给正确 429，不会掉进 `Exception` catch-all 变 500）；
       携带**剩余秒数**供 `Retry-After` 用
-- [ ] T017 `com/crm/common/ErrorCode.java`：新增 `RATE_LIMITED(429, "RATE_LIMITED", "请求过于频繁，请稍后再试")`，
+- [x] T017 `com/crm/common/ErrorCode.java`：新增 `RATE_LIMITED(429, "RATE_LIMITED", "请求过于频繁，请稍后再试")`，
       **紧邻 `MFA_LOCKED` 放置**；⚠️ **不合并 `MFA_LOCKED`**（`AuthMfaIT` 逐字断言它，且两者窗口语义**相反**）；
       ⚠️ `:158` 那句「全仓首个 429（本项引入；此前本枚举里没有任何限流码）」**原文逐字保留 + 追加带日期 ⚠️**
       （说明此后新增了通用限流码、「首个」照旧指 082）
-- [ ] T018 `com/crm/exception/GlobalExceptionHandler.java`：**新增** `RateLimitExceededException` 处理器 → 429 +
+- [x] T018 `com/crm/exception/GlobalExceptionHandler.java`：**新增** `RateLimitExceededException` 处理器 → 429 +
       `Retry-After` 头；⚠️ **本次不删**旧的 `RateLimitedException` 处理器（C3 才删，见 T022）
-- [ ] T019 `com/crm/security/PermissionAspect.java`：**加 `@Order`**（本项起仓里有第二个切面，不早定则 C2–C6 全程受影响）；
+- [x] T019 `com/crm/security/PermissionAspect.java`：**加 `@Order`**（本项起仓里有第二个切面，不早定则 C2–C6 全程受影响）；
       附注释写明「权限先于限流」及其后果
-- [ ] T020 `application.yml`：新增 `crm.rate-limit.enabled`（默认 `true`）与 `crm.rate-limit.trust-forwarded-for`（默认 `true`），
+- [x] T020 `application.yml`：新增 `crm.rate-limit.enabled`（默认 `true`）与 `crm.rate-limit.trust-forwarded-for`（默认 `true`），
       照 `crm.outbound.allowed-hosts` 那种「**解释为什么是这个默认值**」的注释体例；
       ⚠️ **默认值只留一处真源**（有「代码默认 `true`、yml 里 `false`、yml 胜出」的前例）
-- [ ] T020a 单测 T5–T9 五组：`security/RateLimitStoreTest.java`（T5 读时补窗）·
+- [x] T020a 单测 T5–T9 五组：`security/RateLimitStoreTest.java`（T5 读时补窗）·
       `security/RateLimiterShapeTest.java`（T6 调用形状，**裸 mock**）· `security/RateLimitIdentityTest.java`（T7/T8）·
       `security/ClientIpResolverTest.java`（T9）· 复跑 T5 时造 `set(key, 99L)` 不设 TTL 的僵死键
-- [ ] T020b 门禁：`mvn -B spotless:apply` + `mvn -B verify`（**本阶段应零行为变更** ⇒ 既有用例集**与基线逐例相同**）
+- [x] T020b 门禁：`mvn -B spotless:apply` + `mvn -B verify`（**本阶段应零行为变更** ⇒ 既有用例集**与基线逐例相同**）
 
 ## 阶段 C 邮件追踪改用共享限流件（提交 C3 = `refactor(100): 邮件追踪改用共享限流件`）
 
 **⚠️ 本次单独暴露唯一的对外 code 字符串变更**（`TOO_MANY_REQUESTS` → `RATE_LIMITED`），**便于日后二分**。
 
-- [ ] T021 `EmailTrackController`：`checkRateLimit(HttpServletRequest)` **保留签名、只换方法体为委托**；
+- [x] T021 `EmailTrackController`：`checkRateLimit(HttpServletRequest)` **保留签名、只换方法体为委托**；
       **60 / 60s 逐字不变**；删 `rateBuckets` / `RATE_WINDOW_MS` / `RATE_LIMIT` / `clientIp` /
       `RateLimitedException`（**不留兼容壳**，它已无 throw 点）；
       订正 `:72` 那句**与实现相反**的注释（注释说「降级为 400」，实际是 429）——**原文逐字保留 + 带日期 ⚠️**
       ——⚠️ **实做改为「删掉该方法 + 两个端点各挂 `@RateLimit`」**，不是「保留签名换方法体」（见 §实做订正 11；
       **配额三元组与共用 scope 逐字不变**，`clientIp` 的删除因此也随本次落地，见 §实做订正 12）
-- [ ] T022 `GlobalExceptionHandler`：**删**旧 `RateLimitedException` 处理器（连带消失的是 `exception → controller` 的 **FQN 反向依赖**）
+- [x] T022 `GlobalExceptionHandler`：**删**旧 `RateLimitedException` 处理器（连带消失的是 `exception → controller` 的 **FQN 反向依赖**）
       ——⚠️ **必须与 T021 同批**（否则中间态编译不过）
-- [ ] T023 `integration/RateLimitIT.java`【新】：T1（超限 429 + code + `Retry-After`）· T2（**正对照：计数真写进存储**）·
+- [x] T023 `integration/RateLimitIT.java`【新】：T1（超限 429 + code + `Retry-After`）· T2（**正对照：计数真写进存储**）·
       T3（`advanceSeconds(61)` 后恢复放行）· T4（`redis.failOnKeyPrefix("rl:")` ⇒ fail-open 且 200）·
       T12（**登录未被重复限流**：连败得 401 而非 429）· T14（`Retry-After` ≤ 窗口）
       ——⚠️ **本行原有 T13，实做时移出本阶段**（**落点后移到 C5**，见 §实做订正 10 与 `plan.md` 的 T13 订正块；
       C3 里带限流的只有两个**公开**端点 ⇒ 写「未授权者 403 且无配额键」是**空断言**）。**原描述（留痕）**：
       「· T13（未授权者 403 且**不消耗配额**）」
       ——⚠️ **每条必须做满三件事**（装替身 + 正对照 + 负对照），且**必须显式给独立的 `X-Forwarded-For`**
-- [ ] T024 门禁：`mvn -B verify`；⚠️ **单独复跑** `mvn -B verify -Dit.test='FormIT,LandingPageIT'` 确认**仍绿**（零改动是验收的一部分）
-- [ ] T025 `quickstart.md` §5 的判据 ①②③ 实跑：`rateBuckets` / `RateLimitedException` / `TOO_MANY_REQUESTS` 零命中
+- [x] T024 门禁：`mvn -B verify`；⚠️ **单独复跑** `mvn -B verify -Dit.test='FormIT,LandingPageIT'` 确认**仍绿**（零改动是验收的一部分）
+- [x] T025 `quickstart.md` §5 的判据 ①②③ 实跑：`rateBuckets` / `RateLimitedException` / `TOO_MANY_REQUESTS` 零命中
       —— ⚠️ **实做：口径加了「排除注释行」，且只有 ③ 能在本阶段满足、①② 跨到 C4**（见 §实做订正 15、16）
 
 ## 阶段 D 表单提交改用共享限流件并订正 429 契约（提交 C4 = `refactor(100): 表单提交改用共享限流件并订正 429 契约`）
 
-- [ ] T026 `FormService`：`checkRateLimit(String ip)` **保留签名与调用点、只换方法体为委托**；
+- [x] T026 `FormService`：`checkRateLimit(String ip)` **保留签名与调用点、只换方法体为委托**；
       **3 / 60s 逐字不变**；`request == null → "unknown"` 字面量**逐字保留**；
       删 `rateBuckets` / `cleanupRateBuckets` / `clientIp`
       —— ⚠️ **实做：构造器多出两个参数**（`RateLimiter` + `ClientIpResolver`，删掉私有 `clientIp` 后
       服务必须自己拿到解析器），且走的是**实例**入口（读 `trust-forwarded-for`）——见 §实做订正 17
-- [ ] T027 **400 → 429**：`checkRateLimit` 的拒绝路径改抛 `RateLimitExceededException`；
+- [x] T027 **400 → 429**：`checkRateLimit` 的拒绝路径改抛 `RateLimitExceededException`；
       ⚠️ 附 javadoc **引 `specs/036-online-forms/contracts/online-forms.md:44` 与 `tasks.md:50`**
       说明「**契约是对的，改的是实现**」（085 判例）；**036 的工件一个字符不改**
       —— ⚠️ **实做补出一条计划外用例 T15**（本行就是它要证的订正）：原破坏台账 **D7 点不出会红的用例**
       ⇒ 补 T15（建 ENABLED 表单 → 3 次 200 → 第 4 次 429 + `RATE_LIMITED` + 计数落键）——见 §实做订正 20
-- [ ] T028 `AuthService.resolveClientIp`：**保留签名**（`public static`）、方法体改 **1 行委托** 给 `ClientIpResolver`
+- [x] T028 `AuthService.resolveClientIp`：**保留签名**（`public static`）、方法体改 **1 行委托** 给 `ClientIpResolver`
       ⇒ `AuthController` 与 `AuthServiceTest` **零改动继续绿**
       —— ⚠️ **实做：委托走的是静态入口**（`static` 方法读不到 `trust-forwarded-for`）⇒ 登录锁定的 IP 分桶
       **不再**受该开关管辖，与限流侧**刻意不一致且已登记**——见 §实做订正 19
-- [ ] T029 **删** `EmailTrackController#clientIp` 与 `FormService#clientIp` 两份私有副本
+- [x] T029 **删** `EmailTrackController#clientIp` 与 `FormService#clientIp` 两份私有副本
       —— ⚠️ **必须与 T028 同批**（否则三份并存，「收敛」没发生）
       —— ⚠️ **实做：前半（`EmailTrackController#clientIp`）已随 C3 落地**（C3 删掉 `checkRateLimit` 后它已无调用点），
       **本行只剩 `FormService#clientIp`**；T029 要防的「三份并存」中间态并未出现（见 §实做订正 12）
       —— ⚠️ **实做：随 C4 落地**（`FormService#clientIp` 已删，其调用点改走 `ClientIpResolver`）
-- [ ] T030 门禁：`mvn -B verify`；⚠️ 再次**单独复跑** `FormIT` 与 `LandingPageIT`；
+- [x] T030 门禁：`mvn -B verify`；⚠️ 再次**单独复跑** `FormIT` 与 `LandingPageIT`；
       ⚠️ 若这两条变红**不许改断言** —— 要么是接线错了、要么是限流真在拦，必须**查清原因**
       —— ⚠️ **实做读数（2026-09-16 23:54→23:56，全量 `mvn -B -o verify`，**exit 0 / BUILD SUCCESS**）**：
       surefire `Tests run: 728, Failures: 0, Errors: 0, Skipped: 0`（C3 为 724，+4 = 本阶段两个单测类各 +2）；
@@ -166,7 +166,7 @@
       `security/ClientIpResolver.java`、`service/AuthService.java`、`service/FormService.java`；
       测试 `integration/RateLimitIT.java`、`security/RateLimiterShapeTest.java`、
       `service/FormServiceTest.java`；均在 `backend/src/{main,test}/java/com/crm/` 下）。
-- [ ] T031 `quickstart.md` §5 的判据 ④ 实跑：`X-Forwarded-For` 在 `ClientIpResolver` 之外**零命中**
+- [x] T031 `quickstart.md` §5 的判据 ④ 实跑：`X-Forwarded-For` 在 `ClientIpResolver` 之外**零命中**
       —— ⚠️ **本行还兼 ①② 的完整判据**（它们跨到 C4，见 §实做订正 16）；「零命中」一律**排除注释行**
       —— ⚠️ **实跑读数与判据 ① 的口径缺口见 §实做订正 21**（① 的 `grep -v ClientIpResolver` 会把
       `AuthService` 那行委托**一起滤掉**，而原「期望」里点名的正是它；另：期望里的
@@ -176,15 +176,15 @@
 
 **⚠️ 本阶段的 P0 标注与台账测试必须同批**（否则中间提交是一堆**没有护栏的标注**）。
 
-- [ ] T032 ⚠️ **已前移到 T012（C2）**：`SecurityUtil.currentApiKeyId()` 是 `RateLimitIdentity` 在
+- [x] T032 ⚠️ **已前移到 T012（C2）**：`SecurityUtil.currentApiKeyId()` 是 `RateLimitIdentity` 在
       C2 的必要依赖（机器主体按 `keyId` 分桶），故与共享件同批交付、**不在本阶段**。此处保留行号占位，
       内容见 T012。**原描述（留痕）**：`SecurityUtil` 新增 `currentApiKeyId()`：从 `authentication.getDetails()` 取
       `ApiKeyAuthFilter.ApiKeyPrincipal.keyId()`（⚠️ **密钥 id 不在 principal 里**）；与 `currentUserId()` 并列，同 javadoc 体例
-- [ ] T033 **P0 匿名 IP 三处**标注：`CustomerPortalController#ticketStatus`（`public-ticket-status` 10/60s）·
+- [x] T033 **P0 匿名 IP 三处**标注：`CustomerPortalController#ticketStatus`（`public-ticket-status` 10/60s）·
       `CustomerPortalController#submitTicket`（`public-ticket-submit` 5/60s）·
       `EmailUnsubscribeController#unsubscribe`（`public-unsubscribe` 10/60s）—— 均 `by = IP`
       —— ⚠️ **实做：三处已落地**（2026-09-17，C5）；**方法名逐字对得上**（本行是本阶段唯一没写错名字的行）
-- [ ] T034 **P0 导出 13 处**标注：**generate 8**（`CustomerController#exportExcel` · `LeadController#exportExcel` ·
+- [x] T034 **P0 导出 13 处**标注：**generate 8**（`CustomerController#exportExcel` · `LeadController#exportExcel` ·
       `QuoteController#exportPdf` · `ReportController#exportReport` · `ComplianceExportController#export` ·
       `ExportController#create` · `ScheduledExportController#create` · `ScheduledExportController#executeNow`）
       → `export-generate` **10/60s**；**download 5**（`CustomerController#importTemplate` · `LeadController#importTemplate` ·
@@ -198,13 +198,13 @@
       `#create`→`#createScheduledExport`（定时导出）。**其余 7 个逐字正确**（`ExportController#create` / `#download` ·
       `ScheduledExportController#executeNow` · 三个 `#importTemplate` · `ContractAttachmentController#download`）。
       ⚠️ 配额三元组与分组**未变**：8 × `export-generate` 10/60s、5 × `export-download` 30/60s，均 `by = USER`
-- [ ] T035 **P0 开放 API 三处**标注：`OpenPlatformController` 两个 GET → `open-api-read` **60/60s**；
+- [x] T035 **P0 开放 API 三处**标注：`OpenPlatformController` 两个 GET → `open-api-read` **60/60s**；
       `#openCreateLead` → `open-api-write` **30/60s**；**均 `by = API_KEY`**
       ⚠️ 该类的 javadoc 明写三个 `/open/**` **刻意不加 `@RequirePermission`**（挂码会把全部 API Key 调用方打成 403）
       ⇒ 附注释说明「限流挂在这里是安全的，因为它**不依赖**权限码」
       —— ⚠️ **实做：三处已落地**（C5；两个 GET 的真实方法名是 `#openCustomers` / `#openLeads`），
       注释与类 javadoc 的 ⚠️ 段都写了「不依赖权限码」这层理由，并点明**分桶按 `keyId` 而非创建者 `userId`**
-- [ ] T036 新建 `backend/src/test/java/com/crm/security/RateLimitCoverageTest.java`：
+- [x] T036 新建 `backend/src/test/java/com/crm/security/RateLimitCoverageTest.java`：
       **字节码扫描、不启 Spring**（复用 `support/RequirePermissionScanTestSupport` 的 `MetadataReader` 手法）；
       枚举 `com/crm` 下全部**控制器端点方法**，每个必须有 `@RateLimit` 或在**豁免白名单**里
       —— ⚠️ **实做：已建，4 例全绿**；扫描只查 `@RequestMapping` 一种注解（`getAnnotatedMethods` **沿元注解上溯**，
@@ -212,7 +212,7 @@
       ⚠️ 实测补充：`getReturnTypeName()` 是**擦除后**的名字（`ResponseEntity<ByteArrayResource>` 与
       `ResponseEntity<Void>` 同读作 `ResponseEntity`）⇒ **「是不是文件字节」无法从返回类型直接判**，
       台账改用「返回类型不是 `ApiResponse`」作侧面判据
-- [ ] T037 豁免白名单：**粒度必须是「类#方法」**（**不是 URI 前缀**）；**每条必须带非空理由**（**无理由判失败**）；
+- [x] T037 豁免白名单：**粒度必须是「类#方法」**（**不是 URI 前缀**）；**每条必须带非空理由**（**无理由判失败**）；
       初始四类 = ① 服务内限流的 3 处（`EmailTrackController` 两个 + `FormController#submit`）·
       ② FR-029 的逐条豁免（`/actuator/health*` / `/error` / `OPTIONS /**` / swagger 三路径 / `/ws/**` / 已认证的常规读接口）·
       ③ 登录的 2 层锁定（`AuthService` 两个 record*）· ④ 2FA 两处（`MfaStateStore`）
@@ -225,14 +225,14 @@
       ⚠️ **实做补上原文没有的第三条硬判据**：条目必须**指向真实端点**且**尚未被注解覆盖**（悬空 / 陈旧判红）——
       它是 P1 那 4 条过渡条目的**到期机制**。另：`/actuator/**`、`/error`、`OPTIONS /**`、swagger、`/ws/**`
       **根本不在扫描面上**（它们不是控制器端点）⇒ 无需条目，原文把它们列进白名单是**口径混用**
-- [ ] T038 T11 **自检**必须带：先断言「扫描确实扫到了 ≥ N 个端点」
+- [x] T038 T11 **自检**必须带：先断言「扫描确实扫到了 ≥ N 个端点」
       （照 `RequirePermissionCatalogTest` 的先例）—— 否则扫描 pattern 写错时「零违规」是**假绿**
       —— ⚠️ **实做读数（2026-09-17，取自本阶段门禁跑与定向复跑）**：**N = 368**、`MIN_ENDPOINTS = 330`（约 10% 余量）；
       分桶 `{@RateLimit=21, 已认证常规写接口=203, 已认证常规读接口=121, 显式条目=23}`（21+203+121+23 = 368 ✓）。
       另补原文未写的第二半：**已知答案集**——21 个已标注端点必须全部出现在扫描结果里（下界断言只盖得住「扫漏」，
       盖不住「扫到了但没认出来」）。⚠️ 368 是**临时探针**量出来的（探针用完即删）⇒ 实做把分桶读数**打印**在自检里
       （surefire 收进 `TEST-*.xml` 的 `system-out`），让「重新取值」变成跑一条命令而不是再造一次探针
-- [ ] T039 门禁：`mvn -B verify`；⚠️ **单独复跑 `FormIT` / `LandingPageIT`**；⚠️ 注意 T033 起
+- [x] T039 门禁：`mvn -B verify`；⚠️ **单独复跑 `FormIT` / `LandingPageIT`**；⚠️ 注意 T033 起
       `LandingPageIT` 打的 `GET /public/lp/{id}` 会走到**有 IP 限流**的端点 ⇒ 若变红先查是否**漏了独立 XFF**
       —— ⚠️ **实做读数（2026-09-17 00:14→00:17，全量 `mvn -B -o verify`，exit 0 / BUILD SUCCESS）**：
       surefire `Tests run: 732, Failures: 0, Errors: 0, Skipped: 0`（C4 为 728，+4 = `RateLimitCoverageTest` 的 4 例）；
@@ -254,53 +254,56 @@
       `OpenPlatformController` · `QuoteController` · `ReportController` · `ScheduledExportController`；
       测试 2 个：`integration/RateLimitIT.java` · `security/RateLimitCoverageTest.java`；
       均在 `backend/src/{main,test}/java/com/crm/` 下）
-- [ ] T040 冒烟（**只读**）：对 `/api/v1/open/**` 的 GET（**只读、需 API Key**）连打至超限，观察 429 + `Retry-After` +
+- [x] T040 冒烟（**只读**）：对 `/api/v1/open/**` 的 GET（**只读、需 API Key**）连打至超限，观察 429 + `Retry-After` +
       统一 `ApiResponse` 信封；**不写库**；⚠️ 8081 上若跑的是**改动前的旧实例**则**看不到限流** ⇒ 按 `quickstart.md` §4 起隔离实例并写明端口
       —— ⚠️ **实做：后移到 C6**（见 §实做订正 24）。8081 上跑的正是**改动前**的旧实例（本会话未重启它，仓规也禁止），
       而隔离实例的收尾（`DROP` / `REVOKE` / `FLUSHDB`）与 `falsification-evidence.md` 的**冒烟记录**（T048）
       本是同一步 ⇒ 两处合成一次起停，避免「C5 起一次、C6 再起一次」。**判据一个字不改**
+      —— ⚠️ **另一处实做：打的端点由 `/api/v1/open/**`（需 API Key）换成 `/api/v1/public/forms/{id}/meta`**
+      （P1 的 `public-read` 组）。判据（只读、零副作用、连打至超限、429 + `Retry-After` + 统一信封、写明端口）
+      **逐条满足**；换的理由是**隔离实例里没有 API Key 数据**（见 §实做订正 27）。**判据一个字不改**
 
 ## 阶段 F P1 接入、文档订正与数字收口（提交 C6 = `docs(100): P1 接入、文档订正与数字收口` = 交付）
 
-- [ ] T041 **P1 匿名只读四处**共用 `scope=public-read` **60/60s**，`by = IP`：
+- [x] T041 **P1 匿名只读四处**共用 `scope=public-read` **60/60s**，`by = IP`：
       `FormController#meta` · `LandingPageController#publicView` · `CustomerPortalController#articles` ·
       `CustomerPortalController#article`
-- [ ] T042 **P1 导入三处** `scope=import-excel` **5/60s**，`by = USER`：
+- [x] T042 **P1 导入三处** `scope=import-excel` **5/60s**，`by = USER`：
       `CustomerController#importExcel` · `LeadController#importExcel` · `ContactController#importContacts`
       （⚠️ 漏掉它会形成明显的不对称：能导出受限、能导入不受限）
       —— ⚠️ **本行前两个方法名与 T034 是同一个毛病**（立项期未实测的占位名）。**实做前先按真实名挂**：
       `CustomerController#importCustomers` · `LeadController#importLeads`（`ContactController#importContacts` **逐字正确**）；
       原文逐字保留在上一行，对照见 §实做订正 22
-- [ ] T043 `CRM_FEATURE_COMPARISON.md` **2.9 速率限制行**订正：**原文逐字保留 + 带日期 ⚠️** ——
+- [x] T043 `CRM_FEATURE_COMPARISON.md` **2.9 速率限制行**订正：**原文逐字保留 + 带日期 ⚠️** ——
       「不是**仅 1 处**，是 4 宿主类 / 6 处计数点、零共享件」；
       「**『登录无限流』为假**：登录是三层（017 验证码**始终要求** + 用户名 5 次 + IP 10 次，各 15 分钟）；
       准确表述是『**缺统一收口件**』」；**判定列与分值照旧不动**（订正留痕不改分）
-- [ ] T044 `CRM_FEATURE_COMPARISON.md` **P0 第 5 条**订正：**原文逐字保留 + 带日期 ⚠️** ——
+- [x] T044 `CRM_FEATURE_COMPARISON.md` **P0 第 5 条**订正：**原文逐字保留 + 带日期 ⚠️** ——
       写明**采纳其意图**（单一实现 + 全端点覆盖 + 台账护栏）、**不采纳其字面机制**（Security 链过滤器），
       理由取事实 ①②③（其中②= **顺序契约无护栏**、③= **全部导出非流式** ⇒ 过滤器的唯一结构性优势不存在）；
       ⚠️ **改完做竖线自证**：该行是表格行，改动后**列数必须与表头一致**
-- [ ] T045 `config/SecurityConfig.java` 加注释：说明**为什么本项不走过滤器**
+- [x] T045 `config/SecurityConfig.java` 加注释：说明**为什么本项不走过滤器**
       （一句话给结论 + 指向 `RateLimitAspect`），避免后人「补一个过滤器更统一」的重复讨论
-- [ ] T046 债务台账（`specs/roadmap.md` 遗留惯例）加**三条**：① **XFF 首值无条件信任**
+- [x] T046 债务台账（`specs/roadmap.md` 遗留惯例）加**三条**：① **XFF 首值无条件信任**
       （附理由、修复动作、**口径降级**：公开端点限流是「误用与意外的阻尼」**不是抗敌手**）·
       ② **固定窗口的 2× 边界突发** · ③ **`INCR` + `EXPIRE` 非原子**（修它需 Lua，且**必须同步扩 `InMemoryRedisTestSupport`**）
-- [ ] T047 定向破坏 **D1–D11** 逐条做、逐条**观测到转红 /（D11）观测到仍绿**，逐条还原；
+- [x] T047 定向破坏 **D1–D11** 逐条做、逐条**观测到转红 /（D11）观测到仍绿**，逐条还原；
       结果填入 `falsification-evidence.md` §A–§K。⚠️ **D3 与 D4 必须分开做**（打的是 T3 的不同两半）
-- [ ] T048 写 `falsification-evidence.md`：**定向破坏的逐字留痕**（含还原判据）+ 门禁实跑读数 + 冒烟记录 +
+- [x] T048 写 `falsification-evidence.md`：**定向破坏的逐字留痕**（含还原判据）+ 门禁实跑读数 + 冒烟记录 +
       可核判据实跑 + 订正不静默自查命中数 + **四条如实登记的边界**（见 T051）
-- [ ] T049 `PROJECT_FEATURES.md`：**Spec 模块行** 98 → **99（001–100，缺 069）**；
+- [x] T049 `PROJECT_FEATURES.md`：**Spec 模块行** 98 → **99（001–100，缺 069）**；
       **后端规模行**（java 文件数等）按**实跑**改写；**与 T006 的欠账 / T007 同批改齐**（**不推算**）；
       **`README.md:163`** 的 `98 个功能模块，001~099，缺 069` → **`99 个功能模块，001~100，缺 069`**
       （**旧值逐字保留 + 带日期 ⚠️**；判据 `ls -d specs/[0-9]* | wc -l` = **99**）—— **T006 前移到此，同批改**
-- [ ] T050 `specs/README.md` / `specs/roadmap.md` 的状态列改**交付态**（`✅ 已交付`）（**勾选在交付时**）；
+- [x] T050 `specs/README.md` / `specs/roadmap.md` 的状态列改**交付态**（`✅ 已交付`）（**勾选在交付时**）；
       `roadmap.md` 第 6 行的交付态断言 98 → **99**（T007 的欠账在此还）；100 行补【交付后记】
-- [ ] T051 `tasks.md` 全部勾选（**交付时才勾**）+「实做订正」小节（如实记录与本计划的偏差，见下）
-- [ ] T052 数字落点一致自查（**逐处点名，不写「若干处」**）：
+- [x] T051 `tasks.md` 全部勾选（**交付时才勾**）+「实做订正」小节（如实记录与本计划的偏差，见下）
+- [x] T052 数字落点一致自查（**逐处点名，不写「若干处」**）：
       **Spec 模块数** = `ls -d specs/[0-9]* | wc -l` = `README.md:163` = `PROJECT_FEATURES.md` 的 Spec 模块行 =
       `specs/roadmap.md` 第 6 行的编号面判据 = `specs/README.md` 编号说明；
       **用例/测试文件数** = `mvn -B verify` 的实跑打印 = `PROJECT_FEATURES.md` 的后端测试行
-- [ ] T053 订正不静默自查（`quickstart.md` §6 五条命令）实跑，**逐条确认非零**，命中数填入 `falsification-evidence.md`
-- [ ] T054 `git status --porcelain specs/036* specs/055*` 必须为**空**（**契约是对的，改的是实现**；两个上游工件一字不动）
+- [x] T053 订正不静默自查（`quickstart.md` §6 五条命令）实跑，**逐条确认非零**，命中数填入 `falsification-evidence.md`
+- [x] T054 `git status --porcelain specs/036* specs/055*` 必须为**空**（**契约是对的，改的是实现**；两个上游工件一字不动）
 
 ---
 
@@ -546,14 +549,47 @@
 
 > 以下待交付时如实填：
 
-25. **事实 ⑬ 那颗雷的语义变化必须显式登记**：切 Redis 后，`FormIT` / `LandingPageIT` 在**默认基类**下
-    限流**变成 no-op**。**这不是弄丢护栏** —— 那个内存桶今天**不是护栏而是跨用例共享状态**，
-    且它对限流是**零用例**的（`rateBuckets` / `RATE_LIMIT` / `提交过于频繁` 在 `src/test` **0 命中**）。
-    但**必须写进留痕**，免得后人以为「IT 里限流一直生效」。
-26. **定向破坏里若出现「预期仍绿」的条目**（D11 最可能），**如实记为已知空档**，**不假装有护栏**。
+25. **事实 ⑬ 那颗雷的语义变化必须显式登记**（**已登记 —— 本条即为登记，判据句原文逐字保留于此**）：切 Redis 后，
+    `FormIT` / `LandingPageIT` 在**默认基类**下限流**变成 no-op**（`AbstractIntegrationTest` 的
+    `@MockBean RedisTemplate` 是裸 mock ⇒ `increment` 返回 `null` ⇒ fail-open ⇒ 放行）。
+    **这不是弄丢护栏**：那个内存桶今天**不是护栏而是跨用例共享状态** —— 实测它的三次命中
+    （`FormIT:42,51` 2 次 + `LandingPageIT:66` 1 次）**全来自默认 `remoteAddr=127.0.0.1`**，
+    而 `RATE_LIMIT = 3` ⇒ **恰好 3/3**、第 4 次就 400「提交过于频繁」；且它对限流是**零用例**的
+    （`rateBuckets` / `RATE_LIMIT` / `提交过于频繁` 在**改造前**的 `src/test` **0 命中**）。
+    ⚠️ **交付树已实测**：这两类在默认基类下**仍全绿**（`FormIT` **1/1** · `LandingPageIT` **2/2**，见 §L）
+    ⇒「那颗雷在上下文层被拆掉」是**实跑结论、不是推断**。
+    ⚠️ **但它在装了替身的类里会立刻重现**（替身**类级安装、用例级清空**，而 MockMvc 的 `remoteAddr` 是
+    **上下文级常量**）⇒ 硬规则已写进 `quickstart.md` §2：**凡装替身且会打到限流端点的用例，
+    必须显式给一个独立的 `X-Forwarded-For`**，不得依赖默认 `remoteAddr`。
+26. （**原文逐字保留**：**定向破坏里若出现「预期仍绿」的条目**（D11 最可能），**如实记为已知空档**，**不假装有护栏**。）
+    **实跑结论：D11 是「红」、不是「绿」** ⇒ **没有「已知空档」要登记，也不假装有**：
+    摘掉 `PermissionAspect` 的 `@Order(10)` 之后 **T13 转红**（`falsification-evidence.md` §K 有逐字红名
+    与消息）⇒ `plan.md` 立项期那条「**顺序契约没有护栏**」的风险 **本批之后不再成立**（护栏就是 T13），
+    故**不登记为空档**。⚠️ 同时**不宣称**「顺序永不出错」：护栏盖的是**可观察后果**
+    （「未授权者不消耗配额」），**不是 `@Order` 这个注解本身** —— 换了机制但后果等价（例如权限与限流
+    互不影响的端点）仍会绿，这是**有意的判据粒度**，不是漏判。（原文那句「D11 最可能仍绿」的预判
+    **被实跑推翻**，如实记在此处，不改上文。）
+    ⚠️ 破坏台账里另有 **2 条第一次跑出过「该红的没红」**：**D3** 暴露 T3 当时是**空断言**、
+    **D6** 暴露 `API_KEY` 分支**没有直接判据** —— 两条都**就地补强判据后重跑才拿到红**，
+    逐字记在 §C / §F 与 §Q ①②。这正是「**破坏跑全绿 ≠ 破坏没打中**」的两次实例。
     ⚠️ 造破坏时先写「它该改变哪条可观察行为」，跑完核对**那条行为确实变了** —— 没变就是**空操作**，
     别把绿记成结论；看到红先读**是不是判据本身**（`TS6133` 一类是**手段**的红，不是**目的**的红）。
-27. （预留）其余偏差在交付时逐条补记。
+    （**这一段是原文、逐字保留**：D3/D6/D11 三次实跑都是照它做的。）
+27. （**原文逐字保留**：**（预留）其余偏差在交付时逐条补记。** —— **本条即该预留的落点**，另一处交付期现场见下一条 28。）
+    **补记之一：T040 的冒烟端点由 `/api/v1/open/**`（需 API Key）换成 `/api/v1/public/forms/{id}/meta`（P1 的 `public-read` 组）**：
+    判据（**只读、零副作用、连打至超限、429 + `Retry-After` + 统一 `ApiResponse` 信封、写明端口**）
+    **逐条满足**。换端点的唯一理由是**隔离实例里没有 API Key 数据**：要打 `/open/**` 必须先在隔离 schema 里
+    **播种**（用户 + API 密钥 + 权限码），那会把一次只读冒烟变成一次**写隔离库的播种**，而收益只是换一个 scope 名；
+    而 `public-read` 同样能验「**真 Tomcat + 真 Redis + 切面 + 异常处理器 + `Retry-After`**」整条链路，
+    且**它本身就是本批 P1 新增的限流面**（拿新加的限流面冒烟比拿旧的更有信息量）。
+    实跑读数见 `falsification-evidence.md` §M（**8099** / `crm_rl100` / Redis **db 5**）。
+28. **交付时观察到、与本批产物无关的一处工作区异常，如实记（不归因、不处置）**：本会话开始时 `git status`
+    列出 `M backend/src/main/java/com/crm/controller/AuthController.java`，但该文件现已**等于 `HEAD`**，
+    且 `b0fd7c4^..HEAD` 里**没有任何一次提交碰过它**（`git stash list` 只有一条 2026-09-13 的自动 stash，
+    内容是前端两个文件）。本批**没有任何产物依赖它**：D10 的备份哈希 == `HEAD` 的 blob ⇒ 还原没丢任何属于本项的东西。
+    登记理由：它是「**多会话共用同一工作区**」这条仓规的一个现场（同伴会话的未提交改动可能被 auto-stash 收走），
+    值得留痕；**本项不处置它**（不修改、不丢弃另一会话的工作）。
+    另两处已在别处如实记：覆盖率两次同树读数抖动（§L）与 §6 ⑤ 首次为 0 的处置（§Q ③），均**未静默**。
 
 ---
 
@@ -561,15 +597,15 @@
 
 | 项 | 值 |
 |---|---|
-| 提交数 / 末条提交主题 | （交付时填） |
-| `mvn -B verify`（surefire / failsafe） | （交付时填：失败集合 ⊆ 4 例已批准偏差 + 本批新增全绿） |
-| `jacoco:check` 结论行 | （交付时填：**必须**有 `All coverage checks have been met.`） |
-| 覆盖率（INSTRUCTION / BUNDLE） | （交付时填：≥ **0.73**，阈值未改） |
-| `ls backend/target/jacoco.exec` | （交付时填：**必须存在**） |
-| 新增测试文件 / 用例数 | （交付时填：5 个单测类 + 1 个 IT 类；T1–T14 全绿） |
-| 定向破坏 D1–D11 | （交付时填：逐条红/绿 + 还原判据） |
-| 只读冒烟 | （交付时填：端点、端口、读数；⚠️ 写清打的是哪个实例） |
-| 可核判据（`quickstart.md` §5） | （交付时填） |
-| 订正不静默自查（`quickstart.md` §6） | （交付时填：**逐条非零**） |
-| **六处**对外可观测变更的提交落点 | （交付时填：①②③④⑤⑥ 各在哪次提交；⑥ 为 2026-09-16 C3 实做期补登） |
+| 提交数 / 末条提交主题 | **6 次**；末条 = `docs(100): P1 接入、文档订正与数字收口`。**第 1 次 = `docs(100): 立项`**（纯文档、零代码，仓规惯例），其余 5 次与已批准计划的 C1–C5 逐字对应、只是**序号后移**（见 §实做订正 1）。⚠️ **本表不写任何提交哈希** —— 见末行 |
+| `mvn -B verify`（surefire / failsafe） | **退出码 0 / BUILD SUCCESS**；surefire **733**（F 0 / E 0 / S 0）· failsafe **333**（F 0 / E 0 / S 0）⇒ **失败集合 = ∅ ⊆ 4 例已批准偏差**（**那 4 例本次一例也没红**，比判据更严）；**本批新增 42 例全绿**。（命令：`cd backend && mvn -B -o verify`，**未传 `-DargLine`**） |
+| `jacoco:check` 结论行 | **`All coverage checks have been met.`** ✅ —— **这一行打印出来了**（本仓有「门禁空过、没搜到失败 ≈ 通过」的先例，故判据是「有这一行」而不是「没搜到红」） |
+| 覆盖率（INSTRUCTION / BUNDLE） | INSTRUCTION **0.8140**（48139/59139）**≥ 0.73**（阈值**未改**）· BRANCH **0.6288** · LINE **0.8306**。⚠️ **另一次同树实跑**（只差一段 javadoc 折行）读到 **0.8132 / 0.6286 / 0.8296** —— **差异原因未查明**，本表取**交付时那次**，**不声称哪次更准**（§L） |
+| `ls backend/target/jacoco.exec` | **存在**，**80,070,629** 字节，mtime **00:36:45**（属**本次** run 的产物、不是上次残留） |
+| 新增测试文件 / 用例数 | **6 个文件 / 42 例全绿** = **5 个单测类 + 1 个 IT 类**：`RateLimitIT` **8**（T1–T4、T12–T15）· `RateLimitStoreTest` **9**（T5 等）· `RateLimiterShapeTest` **7**（T6）· `RateLimitIdentityTest` **9**（T7/T8）· `ClientIpResolverTest` **5**（T9）· `RateLimitCoverageTest` **4**（T10/T11）（另有 `FormServiceTest` +2 例随 C4 改构造器而新增，见 §实做订正 17） |
+| 定向破坏 D1–D11 | **11 条全部观测到转红**（含 **D11** ⇒ **没有空档要登记**，见 §实做订正 26）。还原判据 = **`cp` 备份回写** + `git hash-object <file>` 与破坏前记录的哈希**相等**（§A–§K 逐条留痕）；⚠️ **全程禁用 `git checkout`**（会吞掉同文件里本项**有意未提交**的订正）。⚠️ 其中 **D3 / D6 第一次跑出「该红的没红」**，**就地加严判据后重跑**才拿到红（§Q ①②） |
+| 只读冒烟 | 端点 `GET /api/v1/public/forms/{id}/meta`（`public-read` 组，**P1 新加的限流面**）；**隔离实例**：端口 **8099** / schema `crm_rl100` / Redis **db 5**（**不是** 8081 —— 那上面跑的是**改动前**的旧实例，本会话未重启它）。读数：前 60 次 **200** → 第 61 次 **429** + `Retry-After: 53`（≤ 60）+ `{"success":false,"error":{"code":"RATE_LIMITED","message":"请求过于频繁，请稍后再试"}}`；Redis 里有 `rl:public-read:ip:203.0.113.7`、换 IP 不受影响、窗口到期恢复放行；收尾 `DROP DATABASE` / `REVOKE` / `FLUSHDB` 且**核对共享库未动**（§M）。⚠️ 打的端点与 T040 原写的 `/api/v1/open/**` 不同，理由见 §实做订正 27 |
+| 可核判据（`quickstart.md` §5） | ① 过滤后 **2 行（全是注释）** / 未过滤 **7 行 = 1 处可执行 + 6 处注释**；② 主代码 **0**、测试侧 **1 行**（已许可的负断言）；③ 主代码 **0** · 前端 **0**（测试侧 1 条已许可的负断言）；④ **3 / 60s** 与 **60 / 60s** 逐字未变（常量本体另核，见 §N）；⑤ `RateLimitCoverageTest` **4/4** 绿（§N） |
+| 订正不静默自查（`quickstart.md` §6） | **五条全部非零**：① **2** · ② **1** · ③ **README.md 2 / specs/README.md 0 / specs/roadmap.md 2** · ④ **1** · ⑤ **1**。**登记类文档定稿之后复跑，读数与首次逐字相同**；计数口径 = **匹配行数**（出现次数口径的读数一并记在 §O） |
+| **六处**对外可观测变更的提交落点 | **「第 N 次」= 本项第 N 次提交**（第 3 次 = `refactor(100): 邮件追踪改用共享限流件`；第 4 次 = `refactor(100): 表单提交改用共享限流件并订正 429 契约`）。**①** 邮件追踪 `error.code`：`TOO_MANY_REQUESTS` → `RATE_LIMITED` = **第 3 次**（**单独暴露**，便于日后二分）；**②** 表单提交 **400 → 429**（**订正**违反冻结契约的偏差，非行为破坏）= **第 4 次**；**③** 两处 message 文案统一 = **第 3 / 第 4 次**；**④** XFF 空段退化行为统一 = **第 3 次**（邮件追踪副本消失）+ **第 4 次**（三份归一份）⚠️ 实测该退化输入的**原行为是 `AIOOBE`（=500）而不是共用空串桶** —— 立项期的描述被实测推翻，见 §实做订正 9；**⑤** 新增 `Retry-After` 头 = **第 2 次**落地（异常处理器），**第 3 次**起可被请求观测到；**⑥** 窗口算法 **滑动 → 固定**（最坏 2× 边界突发）= **第 3 / 第 4 次**（两处内存桶各自被替换时） |
 | ⚠️ 本项**不把提交自己的哈希**写进任何被它携带的文件 | 遵守（只引用**提交主题/序号**） |

@@ -189,7 +189,16 @@ class RateLimitIT extends FixedClockTestSupport {
 
     assertThat(exhaust(OPEN, ip, OPEN_ALLOWS).getResponse().getStatus()).isEqualTo(429);
 
-    advanceSeconds(WINDOW_SECONDS + 1);
+    // ⚠️ 2026-09-17（C6 = D3 实测后补）：窗口**中途**必须再打一次，这是「首次才设窗」与「每次都续窗」
+    // 唯一的区分点。C5 版本的 T3 只在前一瞬打满、再一次性推 61 秒 ⇒ 两种实现给出同一个结果（都过期），
+    // 上面那句「①无条件续窗会在这里红」当时是**空断言**——C6 的定向破坏 D3 实测**全绿**才发现（见
+    // falsification-evidence.md §C）。补了这一次请求之后，续窗的实现会把 TTL 推到 t=90 ⇒ 61 秒时键还在。
+    advanceSeconds(30);
+    assertThat(mockMvc.perform(tracked(OPEN, ip)).andReturn().getResponse().getStatus())
+        .as("窗口中途仍在计数（固定窗口的既定语义：窗口内不再放行，但计数继续累加）")
+        .isEqualTo(429);
+
+    advanceSeconds(31);
 
     assertThat(redis.containsKey(keyFor(ip)))
         .as("键没有 TTL ⇒ 该主体永久 429，而重启进程救不了（键在 Redis 里）")

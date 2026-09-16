@@ -11,13 +11,13 @@
 | 后端 REST Controller | **66** | `backend/src/main/java/**/*Controller.java` |
 | 数据库表 | **86** | `db/migration/*.sql` 中 `CREATE TABLE` 去重（**注意用 `src/main/resources`，`target/classes` 会让计数翻倍**） |
 | Flyway 迁移 | **89 个（V1–V90，缺 V72）** | `backend/src/main/resources/db/migration` |
-| 后端测试类 | **182 个含用例的类**（`src/test` 共 188 个 `.java`） | `grep -rlE "@Test\|@ParameterizedTest" backend/src/test/java` |
+| 后端测试类 | **188 个含用例的类**（`src/test` 共 194 个 `.java`）⚠️ **2026-09-17 第四次重测（由 100 执行）：182/188 → 188/194**（+6 = 100 新增的 5 个单测类 + `RateLimitIT`）；**旧值逐字在本行内仍可 grep 到**（见下方 ⚠️ 段） | `grep -rlE "@Test\|@ParameterizedTest" backend/src/test/java` |
 | 前端页面组件 | **100 个非测试 tsx**（含测试共 176） | `frontend/src/pages` 下 `*.tsx` 且非 `*.test.tsx` |
 | 前端路由定义 | **87 个 `<Route>`** | `frontend/src/App.tsx` 的 `<Route` 88 处 − `<Routes>` 1 处 |
 | 前端 service | **56 个 `*Service.ts`**（+`apiClient.ts`；`services/` 非测试 `.ts` 共 60） | `frontend/src/services` |
 | 前端单测 / E2E | **92 / 7** | `*.test.ts(x)`、`frontend/e2e/*.spec.ts` |
 | i18n 资源 | zh-CN 3452 行 / en 3425 行 | `frontend/src/i18n`（⚠️ **行数不等 ≠ 键集不等**：现值相差 **27** 行，根因已查明 —— **098 只在 `zh-CN.ts` 一侧写了说明注释**：098 对本表两文件是**纯新增、删除 0 行**，`zh-CN.ts` **+60 行（其中 30 行是注释）**、`en.ts` **+31 行（注释 0 行）**（`git diff --numstat 7356eb8 HEAD -- src/i18n/*.ts`）。**键集双向一致性由 `pnpm i18n:check` 判定**，不以行数为准；098 交付实测 **2963 / 2963 键**。⚠️ **2026-09-16 第三次重测（由 099 执行）**：099 删掉配额创建页后**两侧各减 1 行**（死键 `pages.quotaCreate.btnBack`），故 **3453/3426 → 3452/3425**、键 **2963/2963 → 2962/2962**（`git diff --numstat 63ea0e7 HEAD -- src/i18n/*.ts` 两文件均 `0 1`）；**行数差仍是 27**（099 是两侧同删，不改变那个差）。**旧值逐字在上句与本行内可 grep 到**） |
-| Spec 模块 | **98 个（001–099，缺 069）** | `specs/NNN-*` |
+| Spec 模块 | **99 个（001–100，缺 069）**⚠️ **2026-09-17（由 100 执行）：98（001–099）→ 99（001–100，缺 069）**；**旧值逐字在本行内仍可 grep 到** | `specs/NNN-*` |
 
 > ⚠️ **本次重测相对上一版的变动（逐行列出，不静默改数）**：数据库表 **85 → 86**（+`user_recovery_code`，082）；
 > Flyway **87（V1–V88）→ 88（V1–V89）**（+`V89__two_factor_auth.sql`，082）；
@@ -95,6 +95,31 @@
 > 复算命令即上表「依据」列，逐行可跑：`find frontend/src/pages -name '*.tsx' ! -name '*.test.tsx' | wc -l` → **100**；
 > `grep -c '<Route' frontend/src/App.tsx` → **88**（再减 `<Routes>` 1 处）；`find frontend/src -name '*.test.ts*' | wc -l` → **92**；
 > `ls -d specs/[0-9]* | wc -l` → **98**。
+
+> ⚠️ **2026-09-17 第四次重测（由 100 = 100-rate-limit-consolidation 执行）——本次只动 2 行**
+>
+> **本项零前端改动**（`frontend/` 一个文件不动，见 100 的 SC-100-010）⇒ 与 099 那次相反，
+> **这次动的是后端两行**，前端 5 行与其余后端行**逐字未变**。按上表「依据」列逐行复测：
+>
+> | 行 | 旧值（逐字见下方留痕） | 新值 | 变动来源 |
+> |---|---|---|---|
+> | 后端测试类 | 182 含用例 / 188 个 `.java` | **188 / 194** | 100 新增 **5 个单测类**（`RateLimitStoreTest` · `RateLimiterShapeTest` · `RateLimitIdentityTest` · `ClientIpResolverTest` · `RateLimitCoverageTest`）+ **1 个 IT**（`RateLimitIT`） |
+> | Spec 模块 | 98（001–099） | **99（001–100，缺 069）** | 100 自己的目录（**同 097/099 的处置：它不给自己豁免**） |
+>
+> **未变的行（逐条点名，不写「若干行」）**：Controller **66**、数据库表 **86**、Flyway **89（V1–V90，缺 V72）**、
+> 前端页面组件 **100（含测试共 176）**、前端路由定义 **87**、前端 service **56（+`apiClient.ts`，非测试 60）**、
+> 前端单测/E2E **92 / 7**、i18n **zh-CN 3452 行 / en 3425 行（键 2962/2962，行数差 27）**。
+> 复算命令即上表「依据」列；本次实跑读数：`grep -rlE "@Test|@ParameterizedTest" backend/src/test/java | wc -l` → **188**；
+> `find backend/src/test/java -name '*.java' | wc -l` → **194**；`find backend/src/main/java -name '*Controller.java' | wc -l` → **66**；
+> `ls -d specs/[0-9]* | wc -l` → **99**；`find frontend/src -name '*.test.ts*' | wc -l` → **92**。
+>
+> ⚠️ **口径一处要说清（本表自己的计数 vs 命令的计数）**：「后端测试类」的两半是**两把尺子** ——
+> 前半（含用例的类）数的是**文件里出现过 `@Test`/`@ParameterizedTest`**，后半（`.java` 总数）数的是**文件数**；
+> 本项两者**同增 6**（新增的 6 个文件每一个都带用例）⇒ 两半一起动。
+> 若日后新增一个**没有用例**的测试类（纯 `@SpringBootTest` 基类、纯 fixture），**只有后半会动** —— 那时别把它读成漏改。
+>
+> **旧值逐字留痕（仍可在本段与本文件表头 grep 到，不是静默改写）**：
+> `**182 个含用例的类**（`src/test` 共 188 个 `.java`）`、`**98 个（001–099，缺 069）**`、`| Spec 模块 | 98（001–099） |`。
 
 ## 二、技术栈
 

@@ -35,10 +35,11 @@ import org.springframework.web.bind.annotation.RestController;
  *       indexOf(',')} 并一律回退到 {@code remoteAddr}。
  * </ol>
  *
- * <p>⚠️ <b>改造前这句注释是错的，这里如实订正</b>（原文：「IP 频控：1 分钟 ≤60 次；超限返回 429 语义 （此处直接降级为 400
- * 保持公开端点简单）」）：实现从来<b>没有</b>降级为 400 —— 私有异常由 {@code GlobalExceptionHandler} 里一个专用处理器渲染成 <b>429</b>，且
- * {@code error.code} 是硬编码的裸字符串 {@code "TOO_MANY_REQUESTS"}。收敛后该码变为 {@code ErrorCode.RATE_LIMITED}（同
- * 429）， 响应体走统一 {@code ApiResponse} 信封，并新增标准的 {@code Retry-After} 头。
+ * <p>⚠️ <b>改造前这句注释是错的，这里如实订正</b>。原文：<br>
+ * 「IP 频控：1 分钟 ≤60 次；超限返回 429 语义（此处直接降级为 400 保持公开端点简单）」<br>
+ * 实现从来<b>没有</b>降级为 400 —— 私有异常由 {@code GlobalExceptionHandler} 里一个专用处理器渲染成 <b>429</b>，且 {@code
+ * error.code} 是硬编码的裸字符串 {@code "TOO_MANY_REQUESTS"}。收敛后该码变为 {@code ErrorCode.RATE_LIMITED}（同 429），
+ * 响应体走统一 {@code ApiResponse} 信封，并新增标准的 {@code Retry-After} 头。
  * <b>这是本批唯一一处对外可见的字符串变更</b>，单独落在本次提交里以便日后二分。
  *
  * <p>⚠️ <b>两个端点共用同一个 scope {@code public-email-track}，且与表单提交的 {@code public-form-submit}

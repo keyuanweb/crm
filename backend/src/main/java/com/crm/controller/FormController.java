@@ -5,6 +5,8 @@ import com.crm.common.PageResult;
 import com.crm.dto.form.FormRequest;
 import com.crm.dto.form.FormResponse;
 import com.crm.dto.form.SubmissionResponse;
+import com.crm.security.RateLimit;
+import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.FormService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -92,6 +94,10 @@ public class FormController {
   }
 
   @GetMapping("/public/forms/{id}/meta")
+  // P1（`public-read` 60/60s，按 IP）：匿名 + 打 DB，但无写副作用、非凭证端点 ⇒ 排在 P0 之后。
+  // 与 `#submit` 分开成两个 scope：表单 meta 是「打开页面」的高频预取，提交是「提交一次」的低频写，
+  // 共用一个桶会让预取把提交的配额挤掉（反过来也一样）——与邮件追踪/表单提交分开是同一个理由。
+  @RateLimit(scope = "public-read", limit = 60, windowSeconds = 60, by = RateLimitDimension.IP)
   @Operation(summary = "公开表单元信息（字段/名称/提示）")
   public ApiResponse<Map<String, Object>> meta(@PathVariable Long id) {
     return ApiResponse.ok(

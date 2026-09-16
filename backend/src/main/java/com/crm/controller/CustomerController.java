@@ -132,6 +132,9 @@ public class CustomerController {
 
   @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @RequirePermission("customer:import")
+  // P1（`import-excel` 5/60s，按 USER）：multipart + Excel 解析，单次成本与导出同级且带写副作用；
+  // 维度取 USER 的理由同导出（「谁在导」而非「从哪导」，且本端点已认证）。
+  @RateLimit(scope = "import-excel", limit = 5, windowSeconds = 60, by = RateLimitDimension.USER)
   @Operation(summary = "Excel 批量导入客户")
   public ApiResponse<ImportResult> importCustomers(@RequestParam("file") MultipartFile file)
       throws java.io.IOException {

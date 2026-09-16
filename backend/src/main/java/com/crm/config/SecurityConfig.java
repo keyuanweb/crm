@@ -108,6 +108,22 @@ public class SecurityConfig {
         // 055：API Key 鉴权先于 JWT（/api/v1/open/** 走 X-API-Key）
         .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+    // ⚠️ 2026-09-17（100-rate-limit-consolidation）：限流**故意不在这里加过滤器**，在
+    // com.crm.security.RateLimitAspect（@Order(20)，排在 PermissionAspect 的 10 之后）。
+    // 三条理由，改之前请先读过：
+    //   ① **身份拿不到**：本类里注册的过滤器若要按用户/密钥分桶，必须插进鉴权链**之后**——而上面这
+    //      两个 addFilterBefore 的目标是鉴权过滤器本身，照抄形状再加一个会落在鉴权**之前**，
+    //      SecurityContextHolder 为空 ⇒ 所有已认证用户共用一个匿名桶，限流被静默降级成无效。
+    //      这条顺序契约没有任何用例看着（见 RateLimitIT 的 T13 钉的是切面之间的顺序，不是过滤器的）。
+    //   ② **响应同形**：切面在 DispatcherServlet 之内抛 RateLimitExceededException ⇒ 走
+    //      GlobalExceptionHandler 拿到统一的 ApiResponse 信封 + Retry-After；过滤器要么手写 JSON，
+    //      要么走本类上面那个 HttpStatusEntryPoint 的**空体** 401 那一套，两种都会让 429 与全仓其他
+    //      错误不同形。
+    //   ③ **配额是逐端点的数字**（导出 10/60s 与表单 3/60s 差 20 倍），而过滤器的自然形态是
+    //      「URI 前缀 → 配额」的集中表 —— 前缀在这里不成立（/api/v1/public/** 内部风险差一个量级）。
+    // 过滤器唯一的结构性优势（响应已提交时改不了状态码）本仓不存在：13 个导出全是
+    // XSSFWorkbook + ByteArrayOutputStream 先物化，非流式。详见 plan.md 的「结构决策」。
     return http.build();
   }
 }
