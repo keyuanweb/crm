@@ -281,13 +281,19 @@ describe('084：Shell 交互路径与窄屏形态', () => {
         await screen.findByText('pages.changePassword.title', {}, { timeout: SHELL_TIMEOUT }),
       ).toBeTruthy()
 
-      // 语言：切到 English 再切回中文（文案是字面量，不受 i18n 是否加载影响），
-      // 并以 localStorage 的持久化结果为证；结束时恢复中文，避免污染同文件其他用例。
+      // 语言：切到 English 再切回中文，并以 localStorage 的持久化结果为证；
+      // 结束时恢复中文，避免污染同文件其他用例。
+      //
+      // 098 订正（原文写的是「文案是字面量，不受 i18n 是否加载影响」，本行起已不成立）：
+      // 两个语言项由裸字面量 `'中文'` / `'English'` 改走**既有键** `app.zh` / `app.en`，
+      // 故这里改断**键名**（`src/test/setup.ts` 的 i18n mock 让 `t(key)` 原样返回 key）。
+      // 注意：这两键在 zh-CN 与 en 里**同值**（语言自称/endonym，故意不译），
+      // 所以**切到 en 之后**它照样显示「中文」——用例改为断键名不受此影响，断言的有效性不变。
       openUserMenu()
-      fireEvent.click(screen.getAllByText('English')[0])
+      fireEvent.click(screen.getAllByText('app.en')[0])
       await waitFor(() => expect(localStorage.getItem('app_lang')).toBe('en'))
       openUserMenu()
-      fireEvent.click(screen.getAllByText('中文')[0])
+      fireEvent.click(screen.getAllByText('app.zh')[0])
       await waitFor(() => expect(localStorage.getItem('app_lang')).toBe('zh-CN'))
 
       // 退出登录：带 refreshToken 时调登出接口，并跳走（Shell 消失 = 已离开登录态页面）
@@ -304,10 +310,14 @@ describe('084：Shell 交互路径与窄屏形态', () => {
     await nav()
     expect(sider()?.className).not.toContain('ant-layout-sider-collapsed')
 
-    fireEvent.click(screen.getByLabelText('折叠/展开菜单'))
+    // 098：折叠按钮的 aria-label 已改走 i18n 键 `app.toggleMenu`；此处断言的是**键名**
+    // （`src/test/setup.ts` 的 i18n mock 让 `t(key)` 原样返回 key，缺键会直接抛错）。
+    fireEvent.click(screen.getByLabelText('app.toggleMenu'))
     await waitFor(() => expect(sider()?.className).toContain('ant-layout-sider-collapsed'))
 
-    fireEvent.click(screen.getByLabelText('折叠/展开菜单'))
+    // 098：折叠按钮的 aria-label 已改走 i18n 键 `app.toggleMenu`；此处断言的是**键名**
+    // （`src/test/setup.ts` 的 i18n mock 让 `t(key)` 原样返回 key，缺键会直接抛错）。
+    fireEvent.click(screen.getByLabelText('app.toggleMenu'))
     await waitFor(() => expect(sider()?.className).not.toContain('ant-layout-sider-collapsed'))
   })
 })

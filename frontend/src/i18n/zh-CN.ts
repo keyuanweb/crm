@@ -7,6 +7,8 @@ const zhCN = {
     logout: '退出登录',
     changePassword: '修改密码',
     language: '语言',
+    // 098：顶栏折叠按钮的无障碍名。值**逐字复制**改动前的 `aria-label="折叠/展开菜单"`。
+    toggleMenu: '折叠/展开菜单',
     zh: '中文',
     en: 'English',
     personalCenter: '个人中心',

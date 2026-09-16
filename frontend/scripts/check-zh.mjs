@@ -186,16 +186,25 @@ const ZH_ALLOWED = [
   },
   {
     file: 'src/App.tsx',
-    count: 57,
+    count: 55,
     reason:
-      '**混合：53 处路由元数据（非欠账）+ 4 处界面真会显示的中文（欠账）。** ' +
+      '**混合：53 处路由元数据（非欠账）+ 2 处界面真会显示的中文（欠账）。** ' +
       '53 处是路由表里的 `name:` 字段——界面渲染走 `MENU_MANIFEST` + `menuLabel()`，' +
       '那些 `name:` **只被 `check-i18n.mjs` 的路由枚举正则消费**，故非欠账。' +
-      '⚠️ **另 4 处是真欠账，点名**（它们真的会显示在界面上）：' +
-      '`L417 渠道 ROI` 与 `L458 工作流日志`（经 `SUB_PAGE_AFTER_MENU_KEY` 在 `:542` 被 `aliasRoute.name` 渲染）' +
-      '——清零要给 route 加 `i18nKey` 并改 `:542` 的取词，属**结构调整**，与那 53 处同处一段代码，**留给下一批**；' +
-      '`L645 aria-label="折叠/展开菜单"` 与 `L665 label: \'中文\'` 由 **098 本批清零**（后者的键 `app.language.zh` ' +
-      '在两份资源里本就同值，**零新键**）⇒ 本批交付时这条 count 应为 **55**。',
+      '⚠️ **另 2 处是真欠账，点名**（它们真的会显示在界面上）：' +
+      '`渠道 ROI` 与 `工作流日志`（经 `SUB_PAGE_AFTER_MENU_KEY` 在 App.tsx 内被 `aliasRoute.name` 渲染）' +
+      '——清零要给 route 加 `i18nKey` 并改那处取词（修法范式见 `components/breadcrumbTrail.ts` 的 `i18nKey`），' +
+      '属**结构调整**，与那 53 处同处一段代码，**留给下一批**。' +
+      '⚠️ **2026-09-16 订正（098 提交 6；上面这段的原文已按本节第一句改写，仅保留结论，逐条订正如下）**：' +
+      '① 本条目原先写 count **57**（53 元数据 + 4 处欠账），其中 `aria-label="折叠/展开菜单"` 与 `label: \'中文\'` ' +
+      '两条已由 098 清零 ⇒ **57 → 55**（53 + 2）。' +
+      '② 原文写「后者的键是 `app.language.zh`」—— **错**。`app.language` 是同级那个**字符串**（『语言』这个标签），' +
+      '语言项是它的两个**兄弟键** `app.zh` / `app.en`。**实证**：先按错路径改时，' +
+      '`src/test/setup.ts` 的缺键抛错把 `App.render.test.tsx` 的 **7 个用例当场全打红**' +
+      '（`i18n 缺键: app.language.zh（zh-CN）`）——这条护栏确实有牙。零新键的说法成立，只是键名要写成 `app.zh`/`app.en`。' +
+      '③ 原文引的 `L417` / `L458` / `L645` / `L665` / `:542` 这些**行号已漂移**（同批在 App.tsx 里加了注释）' +
+      '⇒ 此后**一律改用锚字符串**：`aria-label="折叠/展开菜单"`、`label: \'中文\'`、`渠道 ROI`、`工作流日志`、' +
+      '`SUB_PAGE_AFTER_MENU_KEY`、`aliasRoute.name`。',
   },
   {
     file: 'src/components/breadcrumbTrail.ts',

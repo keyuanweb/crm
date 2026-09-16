@@ -7,6 +7,7 @@ const en = {
     logout: 'Logout',
     changePassword: 'Change Password',
     language: 'Language',
+    toggleMenu: 'Collapse/expand menu',
     zh: '中文',
     en: 'English',
     personalCenter: 'Personal Center',

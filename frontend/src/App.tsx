@@ -642,7 +642,7 @@ function Shell() {
                 type="text"
                 icon={siderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                 onClick={() => setSiderCollapsed((c) => !c)}
-                aria-label="折叠/展开菜单"
+                aria-label={t('app.toggleMenu')}
                 style={{ padding: 4 }}
               />
             )}
@@ -662,8 +662,13 @@ function Shell() {
                   { key: 'usage-map', icon: <CompassOutlined />, label: t('app.usageMap'), onClick: () => navigate('/usage-map') },
                   { key: 'password', icon: <KeyOutlined />, label: t('app.changePassword'), onClick: () => navigate('/account/password') },
                   { type: 'divider' },
-                  { key: 'lang-zh', icon: <GlobalOutlined />, label: '中文', onClick: () => void changeLanguage('zh-CN') },
-                  { key: 'lang-en', icon: <GlobalOutlined />, label: 'English', onClick: () => void changeLanguage('en') },
+                  // 098：语言项原本是裸中文/英文（`'中文'` / `'English'`）。改走**既有键**
+                  // `app.zh` / `app.en`（零新键）。⚠️ 键名**不是** `app.language.*` ——
+                  // `app.language` 是同级那个**字符串**（『语言』这个标签），语言项是它的两个**兄弟键**。
+                  // ⚠️ 两份资源里 `app.zh` / `app.en` **同值**——语言的自称（endonym）**故意不译**：
+                  // 切到英文时选项仍显示「中文」，这是**正确**的，不是漏翻。
+                  { key: 'lang-zh', icon: <GlobalOutlined />, label: t('app.zh'), onClick: () => void changeLanguage('zh-CN') },
+                  { key: 'lang-en', icon: <GlobalOutlined />, label: t('app.en'), onClick: () => void changeLanguage('en') },
                   { type: 'divider' },
                   { key: 'logout', icon: <LogoutOutlined />, label: t('app.logout'), danger: true, onClick: onLogout },
                 ],
