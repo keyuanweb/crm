@@ -2067,3 +2067,239 @@ Tests  2 failed | 6 passed (8)
    能否被认证器 App 扫出来、以及 `descriptions` 断点档位下的观感，都不在本步的读数范围内。
    这些与 `quickstart.md` 的手工冒烟同属**待用户放行**的部分（前置条件：`8081/5173/3306/6379`
    当前无监听，且**不得**擅自重启可能归并行会话所有的共享后端）。
+
+> ⚠️ **订正（2026-09-16，用户当日放行后追加）**：上面的"待用户放行"**当天即被放行**，
+> 手工冒烟已按下面的 **§J** 跑完（API 层 §a–§j 全绿）。但**"真实的浏览器行为"这一条仍然未验证** ——
+> §J 全程走 curl/HttpClient 的等价物，没有起 5173、也没有打开过浏览器。所以本条第 3 项
+> **只被订正掉一半**：`quickstart.md` 的手工冒烟做了，`PersonalCenterPage` / `LoginPage`
+> 的版式与真机扫码**没有**做。§J 的 §J.6 逐条列了没做的部分。
+
+---
+
+## §J 手工冒烟（`quickstart.md` §a–§j，2026-09-16，**用户放行后**）
+
+**性质**：本节不是"定向破坏"（没有改产品代码、没有红绿读数），而是本批唯一一次
+**真机、真 MySQL、真 Redis** 的路径验收。它与 §A–§I 的自动化证据**不重复**：
+自动化跑的是 H2 + Redis 替身，这里跑的是 MySQL 8.0.46 + 真 Redis。
+
+### J.0 前置、隔离方式与"跑了什么"
+
+**用户当日放行**（上一条约束"不得擅自重启可能归并行会话所有的共享后端"解除）。
+即便如此，**没有**使用 8081 / 5173，也**没有**碰过共享开发库 `crm_db`：
+
+| 项 | 取值 |
+|---|---|
+| 应用端口 | **18081**（变更用实例另起 18082 / 18083） |
+| 库 | **`crm_mfa_smoke`**（隔离，Flyway 从空库跑到 `v89`，88 条迁移 3.5s）<br>另有 `crm_mfa_nokey`（§J.2 的"缺密钥"实例） |
+| Redis | **db 5**（变更用实例 db 6）—— 共享的 db 0 全程只读（`DBSIZE` = 23，未动） |
+| 启动方式 | `target/classes` 直启（`mvn -B -q -DskipTests compile` 后的产物，即 HEAD 的代码）<br>+ `-classpath` 由 `dependency:build-classpath` 生成，**不经过 jar** |
+| 密钥 | `openssl rand -base64 32` → 44 字符 Base64、解码 32 字节 |
+| 账号 | 种子 `admin` / `admin123`（**订正 §四**：不是 quickstart 写的 `AdminPassw0rd!`） |
+
+**环境实况与计划立项时不同**：`3306` 与 `6379` 这次**有监听**（都由 PID 8960 一个转发进程
+暴露在 127.0.0.1，WSL 的 MySQL 是活的），`8081` / `5173` 仍然无监听。也就是说
+上一条约束的前提（"MySQL 保活没跑"）**本次不成立**，但隔离方式仍然照
+`manual-verification-via-isolated-instance` 的配方走 —— 理由是"不该往共享开发库里
+写 2FA 字段与恢复码"，而不是"共享库不可用"。
+
+**四个脚本**（落在仓外的 `E:\tmp\`，不进 git；`sha1sum` 留底以便复现）：
+
+```
+10121e7016a56e440efe56dc0ce1ead9f123536b  mfa-smoke-1.ps1   §a–§h
+d38958e6332bf2c93aa0949d455639d70b001e59  mfa-smoke-2.ps1   §i–§j + SC-M04 锁定
+e076799b8314afa299fd11ef06fb859108aef299  mfa-smoke-3.ps1   §k（计划外，见 J.2）
+9b33f47e5e58a46a408790436148d9256a3e35ad  mfa-smoke-4.ps1   §m（缺密钥实例）
+d3633f8de12f253f8185517fe9760f7e938c3d37  totp-lib.ps1      本地算码（自证后才用，见 J.3）
+```
+
+**两处环境适配，各有一个坑，记下来免得下一位重踩**：
+
+1. **`Invoke-RestMethod` 换成 `HttpClient`**。本机只有 Windows PowerShell **5.1**
+   （没有 `pwsh`），5.1 的 `Invoke-RestMethod` **没有 `-SkipHttpErrorCheck`**，
+   而本节的用例里"预期 401/429"占一半，必须能同时拿到状态码与响应体原文。
+2. **`.ps1` 必须存成 UTF-8 *with BOM***。5.1 读无 BOM 的脚本按 ANSI 解，
+   脚本里的中文注释与中文字符串会当场断裂（实测：`'#####` 后面直接报
+   `缺少表达式`／`字符串缺少终止符`，而且报错位置指向的正是被吃掉的那个引号）。
+   另外 `[Console]::OutputEncoding = UTF8` 要显式设，否则服务端返回的中文消息
+   在重定向输出里是乱码 —— 证据会变成不可读的。
+
+### J.1 `quickstart.md` §a–§j 逐条读数
+
+| 步 | 验的是什么 | 读数 |
+|---|---|---|
+| **a** | 未启用 2FA 的登录**零回归** | 200；`data` 键集**恰为** `accessToken,refreshToken,user`（3 个）；`accessToken` 196 字符；`user.menus` 56 / `user.permissions` 138；`mfaRequired` **不存在** |
+| **b** | `setup` 生成密钥且**不启用** | 200；键集 `secret,otpauthUrl,qrCodeDataUrl,enabled`；`enabled=false`；`secret` 32 字符 Base32；`otpauthUrl` = `otpauth://totp/CRM:admin?secret=…&issuer=CRM&algorithm=SHA1&digits=6&period=30`；`qrCodeDataUrl` 以 `data:image/png;base64,iVBORw0KGgo` 开头（PNG 魔数）、长度 6250 |
+| **c** | 本地按 RFC 6238 算码 | `timeStep=59651113` → `code=917816`（**用自证过的实现**，见 J.3） |
+| **d** | `enable` 校验动态码并**一次性**给恢复码 | 200；`enabled=true`；`recoveryCodes` **10 条、长度全为 8** |
+| **e** | `status` | 200；键集 `enabled,enabledAt,recoveryCodesRemaining`；`recoveryCodesRemaining=10`；**响应原文不含刚下发的 secret** |
+| **f** | 已启用 2FA 的登录 | 200；`data` 键集**恰为** `mfaRequired,mfaToken,expiresIn`（3 个）；`mfaRequired=true`；`mfaToken` 43 字符（Base64URL 32 字节）；`expiresIn=300`；`accessToken` / `refreshToken` / `user` **全缺** |
+| **g** | `verify` 动态码换令牌 | 200；`data` 键集 `accessToken,refreshToken,user`；`user.username=admin` |
+| **g2** | **同一动态码重放**（SC-M05 动态码侧） | 401 `MFA_CODE_INVALID`「还可尝试 4 次」。**关键**：重放前后 `timeStep` **都是 59651113** —— 所以这条红**不是**"码过期了"，是防重放真的拦住了 |
+| **g3** | 同一 `mfaToken` 二次使用 | 401 `MFA_TICKET_INVALID`（票据已被 `getAndDelete` 消费） |
+| **h** | 恢复码验证 + **重用被拒** | 用 `KKKRE6K9` → 200（发令牌）；同一码换个新票据再来 → 401 `RECOVERY_CODE_INVALID`；**再换一个未用过的码（`codes[1]`）→ 200**（证明"用过即废"不是"整批坏了"）；随后 `status.recoveryCodesRemaining=8`（10−2） |
+| **i** | `disable`（密码 + 动态码） | 200 `{"disabled":true}`；`status.enabled=false`、剩余 **0**；**再登录直接发令牌**（FR-M09，键集回到 3 个、无 `mfaRequired`）；此时登录**不再发 `mfaToken`**，拿任何票据去 `verify` 都 401 `MFA_TICKET_INVALID` |
+| **j** | 管理员重置 | 见下（用第二个用户 `smoke2`，因为重置要有"另一个人"） |
+
+**§j 展开**（这条按仓库实况走了 `POST /api/v1/users/{id}/2fa/reset`，即**订正 §三**的路径）：
+
+1. 建 `smoke2`（201，`id=2`）→ 登录 → `setup` → `enable`（10 个恢复码）。
+2. **SC-M04 锁定**：连错 5 次 —— 前 4 次 401 `MFA_CODE_INVALID`，文案里的剩余次数
+   **4 → 3 → 2 → 1** 递减；**第 5 次 429 `MFA_LOCKED`**「请 900 秒后再试」。
+   然后**再登录一次**（仍发票据），用一个**当场算出来的正确码**去验 →
+   **429，仍是 `MFA_LOCKED`**。这正是"第 6 次即使动态码正确也被拒绝"。
+3. **"锁只有 Redis 这一个真源"**：`DEL auth:2fa-fail:2` 之后立刻用正确码 → **200**。
+   ⚠️ 这不是"等 15 分钟自动恢复"那一条（那条由 `AuthMfaIT` 的冻结时钟覆盖，本次**没等**）。
+   它证明的是**另一件事**：锁状态没有第二真源（不存在"库里记了一笔，删了 Redis 键也解不开"的永久锁定）。
+4. 管理员重置 → 200 `{"reset":true}`；`smoke2` 再登录**直接发令牌**（无 `mfaRequired`）；
+   `status.enabled=false`、剩余 0；拿**重置前**保存的恢复码去 `verify` → 401（入口已不存在）。
+
+**审计行**（`audit_log`，真库读出，共 15 行 MFA 相关）：
+
+```
+MFA_ENABLE        entity=USER:1  actor=admin(1)   启用双因素认证
+MFA_ENABLE        entity=USER:2  actor=smoke2(2)  启用双因素认证     ← 自助启用，操作人是本人
+MFA_DISABLE       entity=USER:1  actor=admin(1)   关闭双因素认证
+MFA_RESET         entity=USER:2  actor=admin(1)   管理员重置双因素认证：smoke2   ← FR-M10 操作人=管理员
+MFA_VERIFY_FAILED entity=USER:2  actor=system(0)  …（第 1/5、2/5、3/5、4/5、5/5 次）  ← 5 条，逐次递增，一条不少
+```
+
+两条由此被**真库**确认的性质：① 失败审计 `actor_id=0 / actor_name=system`，走的是
+`recordAsSystem`（该路径无主体）；② **5 条失败审计一条不少**——而每次失败都是抛异常的路径，
+说明 FR-M12 那条"审计不能被事务吞掉"在真 MySQL 上成立（H2 上由 §H 的破坏 H5 反向钉住）。
+另注：第 6 次（锁定那次）**没有**审计行，也是对的——锁定在验码之前短路，它不是一次"验证失败"。
+
+### J.2 计划外补跑的两条
+
+这两条**不在** `quickstart.md` 的 §a–§j 里，是我在跑的时候认为值得加测的：
+
+**§k：旧恢复码在"关闭 → 重新启用"之后是否还有效。**
+恢复码若跨重新启用存活，等于**一次泄露的恢复码永不作废**——这是恢复码机制最要紧的一条性质，
+而 §a–§j 与自动化用例都没有覆盖"关闭后再启用"这个组合。做法：把 §d 那批码（还剩 8 个没用）
+留着，在 §i 关闭、§k 重新启用之后，拿**从未使用过、也从未泄露过**的 `old[2]` / `old[9]` 去验：
+两条**都** 401 `RECOVERY_CODE_INVALID`；同时新下发的码 `NVF96Y2K` → 200（对照组：不是"所有码都坏了"），
+剩余恢复到 9。**结论：重新启用会作废旧码**。
+
+机制在库里可查（这是我第一次读数读错的地方，见 J.4）：撤销是**软删除**。
+
+```sql
+SELECT user_id, deleted, COUNT(*), SUM(used=1) FROM user_recovery_code GROUP BY user_id, deleted;
+-- user_id=1 deleted=0 → 10 行 / 1 used     ← 第二次启用下发的这批（§k 用掉 1 个）
+-- user_id=1 deleted=1 → 10 行 / 2 used     ← 第一次启用那批，被 disable 撤销
+-- user_id=2 deleted=1 → 10 行 / 0 used     ← 被管理员重置撤销
+```
+
+"撤销的后置条件"因此可以用一条**不带 `used` 谓词**的查询来验：该用户不再有任何
+`deleted=0` 的恢复码行。这与 `RecoveryCodeService.revokeAll` 的 javadoc 写的一致。
+
+**§m：没配 `MFA_SECRET_KEY` 时到底发生什么**（`quickstart.md` **订正 §一** 的那条。
+原文说"未配置该密钥，后端应报 `MFA_SECRET_MISSING`"——**启动**还是**调用**？本批的实现是"调用时"，
+这次把它验了）：
+
+| 检查 | 读数 |
+|---|---|
+| 无密钥实例能否启动 | **能**。`Tomcat started on port 18082` / `Started CrmApplication in 11.087 seconds`，另有一条 WARN：`SECURITY: 未配置双因素认证密钥（crm.security.mfa.secret-key / 环境变量 MFA_SECRET_KEY）。2FA 的绑定与启用会在调用时以 MFA_SECRET_MISSING 失败（不会降级为单因素）。` |
+| 无密钥实例上的**普通登录** | 200，`data` 键集仍是 `accessToken,refreshToken,user`（3 个），`mfaRequired` 不存在 ——**与有密钥实例逐字段一致** |
+| 无密钥实例上的 `setup` | **500 `MFA_SECRET_MISSING`**「未配置 crm.security.mfa.secret-key（环境变量 MFA_SECRET_KEY）」← **fail closed** |
+| 无密钥实例上的 `enable` | 400 `MFA_NOT_ENABLED`（`setup` 没成功过，库里没有待确认的密钥；判据顺序如此，不是缺陷） |
+| 无密钥实例上的 `status` | 200 `enabled=false` —— 只读路径不需要密钥 |
+| 密钥**存在但解码后不是 32 字节**（`QUFBQQ==` = 4 字节） | **启动即失败**，退出码 **1**，`IllegalStateException: Failed to execute ApplicationRunner` → `SECURITY: crm.security.mfa.secret-key 解码后为 4 字节，AES-256 要求恰好 32 字节` |
+
+**"缺失=调用时报错 / 畸形=启动就抛"这个二分，在真机上是成立的。**
+
+### J.3 `quickstart.md` §c 的 PowerShell 片段**本身是坏的**（两个独立缺陷）
+
+这一条是本次冒烟**最该被记下来**的发现：**照着 `quickstart.md` §c 抄，永远算不出能通过的码。**
+我按它的原文抄了一遍，`enable` 直接 401 `MFA_CODE_INVALID`。定位到两个各自独立的缺陷：
+
+1. **Base32 字母表错位**。片段写的是
+   `"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".IndexOf($_)`，
+   而标准 Base32 的字母表是 `ABCDEFGHIJKLMNOPQRSTUVWXYZ234567`。
+   前者把每个字母的值**整体 +10**（`M` 应是 12，它算成 22）⇒ 密钥解出来就是错的，
+   后面再对也没用。片段的 `$b32 = $secret -replace '[^A-Za-z2-7]',''` 同样是有意收窄到
+   标准字母表的，两处自相矛盾。
+2. **PowerShell 的 `-shl` 按左操作数定结果类型**。`$hash` 的元素是 `[byte]`，
+   于是 `$hash[$offset+1] -shl 16` 在 **byte 里溢出 = 0**（`[byte]57 -shl 16` → 0，
+   而 `[int]57 -shl 16` → 3735552）。片段的动态截断是
+   `(($h[$o] -band 0x7F) -shl 24) -bor ($h[$o+1] -shl 16) -bor …`，
+   **只有第一项与最后一项活下来**。实测 `T=59` 算出 1090519274 / 8 位码 `519274`，
+   而正确答案是 1094287082 / `94287082`。
+   （`-band 0x7F` 那一步侥幸没事：与 Int32 字面量做 `-band` 会把类型提升成 Int32。）
+
+**修法**是显式的：字母表换成标准表、动态截断前把每个字节 `[int]` 转一次。
+修好之后我先让它**自证**再采信：RFC 6238 附录 B 的 SHA1 六个向量
+（`counter` = `floor(T/30)`，**不是** T 本身——第一版把 T 当时间步传，六个全不匹配），
+六个全中才允许后面用它算码：
+
+```
+RFC6238 counter=1            got=287082 OK      (T=59)
+RFC6238 counter=37037036     got=081804 OK      (T=1111111109)
+RFC6238 counter=37037037     got=050471 OK      (T=1111111111)
+RFC6238 counter=41152263     got=005924 OK      (T=1234567890)
+RFC6238 counter=66666666     got=279037 OK      (T=2000000000)
+RFC6238 counter=666666666    got=353130 OK      (T=20000000000)
+```
+
+另用 **Python 3.12 的 `hmac` 独立算了一遍**同样六个向量做交叉核对（含逐条的 HMAC 十六进制），
+两边的 HMAC 逐字节相同 —— 也就是说**错的是那段 PowerShell，不是 RFC，也不是本批的 Java 实现**。
+
+⚠️ **对本批结论的影响：无。** TOTP 的判据在 Java 侧（`TotpGenerator` + `TotpService` 的官方
+向量单测，见 §A/§B 的破坏），`quickstart.md` §c 只是"怎么在命令行自己算一个码"的操作指引。
+它坏掉会让**照抄的人**卡在 401 并误以为实现有问题 —— 已按"订正不静默、原文留痕"另立
+`quickstart.md` 订正 **§八**，原文逐字保留。
+
+### J.4 我自己在工具侧踩的三个坑（如实记，都不是产品缺陷）
+
+1. **`Get-Content` 的返回值被 `ConvertTo-Json` 序列化成了对象。**
+   `Get-Content` 返回的字符串带 `PSPath` / `PSDrive` / `ReadCount` 等 **NoteProperty**，
+   直接塞进 `@{ recoveryCode = $codes[0] }` 再 `ConvertTo-Json`，`recoveryCode` 会变成一个
+   **嵌套对象**；Jackson 无法把对象绑到 `String recoveryCode`，于是返回
+   **400「请求体格式错误」**——一个与"恢复码对不对"**毫无关系**的错误码。
+   我第一版就是这样，§h 三条全 400。修法是 `[string]$codes[0]` 或读进来时逐项转 `[string]`。
+   > 这正是"**读数指向的方向错了**"：400 说"请求体坏了"，而我的第一反应是"恢复码分支有 bug"。
+2. **`Data` 是 PowerShell 保留字**（DSC 的 `data` 段）。我把取信封的函数命名为 `Data`，
+   报的错是 `MissingStatementBlockForDataSection` —— 一个完全不提"函数名"的错误。改名 `Payload` 即好。
+3. **我第一次读 `user_recovery_code` 得到的"20 行"是我查询口径错了**：`BaseEntity` 的
+   `deleted` 是**逻辑删除**列，我却按"表里有多少行"读，于是把软删除的行也算进来了。
+   加上 `deleted=0` 后是 10 行（J.2 的表）。**加过滤前它看起来像个泄漏缺陷**，加过滤后
+   它是"撤销生效"的证据。与 §I 的两条教训同族：**先怀疑读数，再怀疑被测对象。**
+
+### J.5 验收清单逐条结账（`quickstart.md` 的 SC-M01~SC-M08）
+
+| 项 | 本次手工冒烟是否给了它真机证据 | 说明 |
+|---|---|---|
+| **SC-M01** 全流程 ≤ 30 秒 | **否** | 未计时。要测它得对真实人机交互计时，本次是脚本按序打接口，测出来的只是脚本耗时。**仍未被验证** |
+| **SC-M02** 绑定 ≤ 3 步、首次成功率 ≥ 90% | **否** | 需要多人多次真实绑定（含认证器 App 的扫码）。**仍未被验证** |
+| **SC-M03** 未启用用户登录 P95 增幅 ≤ 50 ms | **只验了结构侧** | 响应体键集恰 3 个、逐字段与"有密钥实例"一致（J.2 的对照）。**延迟本身仍未测**（`quickstart.md` 订正 §七 已经这么记了，本次没有改变） |
+| **SC-M04** 5 次锁定 / 第 6 次拒绝 | **是**（新增） | 前 4 次 401 递减、第 5 次 429、第 6 次用**正确码**仍 429。⚠️ "锁定期满**自动恢复**"**没测**（没等 15 分钟） |
+| **SC-M05** 动态码重放 / 恢复码重用 100% 被拒 | **是**（新增） | 动态码重放的 `timeStep` 前后同为 `59651113`；恢复码重用 401 且未用码仍可用 |
+| **SC-M06** 密钥以 AES-256-GCM 密文落库、库内无明文 | **是**（新增，真 MySQL） | `totp_secret_encrypted` = `ZrrZZ14pgUnCuYZo:WedDa4521ph…`——`base64(iv):base64(ct+tag)`，IV 段 16 个 Base64 字符（**12 字节**）、密文段 64 个字符（**48 字节** = 32 字节明文 + 16 字节 tag）；`LIKE '%<明文密钥>%'` 命中 **0 行**；恢复码表 10 行、`code_hash` 长度**全为 89**（24 字符 salt + `:` + 64 位 hex），`code_hash` 里没有任何明文码 |
+| **SC-M07** 后端 `mvn test` / 前端四道命令通过 | **是** | 见 §H（后端 `mvn -B verify` 退出码 0，surefire 695 / failsafe 323）与 §I.11（前端整链退出码 0） |
+| **SC-M08** 既有前端测试零回归 | **是** | 见 §I.11（89 文件 / 448 用例全绿，基数 86/429 对得上）；本次 §a/f/i 的响应键集也从接口侧印证了"未启用用户响应逐字节不变" |
+
+### J.6 **没做**的部分（明确列出，免得被读成"全验了"）
+
+1. **前端 UI 一律未在真浏览器里跑。** §J 全程是 API 调用，**没有起 5173**，
+   没有登录页、没有 `PersonalCenterPage` 的安全卡。所以：二次验证视图的版式、
+   "使用恢复码"切换、`enable` 后那 10 个恢复码的展示与"未勾选确认前完成按钮 disabled"、
+   二维码在真机上能否被认证器 App 扫出来 —— **全部未验证**。
+   这些的自动化判据只有 jsdom 层的文案/属性断言（jsdom 没有布局引擎，见 §I.12）。
+2. **"Redis 不可用 ⇒ 2FA 登录 503 且无令牌"未在真 Redis 上验。** 要验它得让 6379 不可用，
+   而 6379 是**共享**的（PID 8960 同时暴露 3306 与 6379），按仓规不得为验收去停它。
+   这一条由 `MfaFailClosedIT` 的**按 key 前缀注入故障**覆盖（替身而不是真 Redis）——
+   也就是说：**它的证据是 H2 + 替身级别的，不是真机级别的**。
+3. **锁定期满 15 分钟后自动恢复**未等（用"删键即恢复"代替，两者不是同一件事，见 J.1 §j-3）。
+4. **SC-M01 / SC-M02** 两条只能靠人眼的，仍未测。
+5. **`8081` / `5173` 没起过**：本次验收走的是隔离实例（18081），
+   所以"通过 8081 + 5173 的完整前端交互"这条路径**没有**被走通一次。
+
+### J.7 收尾：共享环境零残留（核过）
+
+| 项 | 收尾前 | 收尾后 |
+|---|---|---|
+| Redis `db 5` / `db 6`（本批用的隔离库） | 14 键 / 1 键 | **0 / 0**（`FLUSHDB`） |
+| Redis `db 0`（共享） | 23 键 | **23 键**（只 `DBSIZE` 看过，**没动**） |
+| MySQL `crm_mfa_smoke` / `crm_mfa_nokey` | 已建 | **已 `DROP`**，且 `REVOKE ALL PRIVILEGES` |
+| `mysql.db` 里的 `crm_mfa%` 残留 | — | **0** |
+| 端口 18081 / 18082 / 18083 | 三个实例 | **全部停**（`netstat` 复核为 0） |
+| 共享开发库 `crm_db` | — | **全程未写**（本次所有写入都在两个隔离库） |
+| `8081` | 无监听 | **无监听**（没碰过；亦无并行会话的后端在跑） |
