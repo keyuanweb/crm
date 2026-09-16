@@ -46,8 +46,12 @@
  * 此后每个清零提交**摘掉对应条目**——所以"清零"这件事**不是靠人记得改台账，
  * 而是不改台账就红**（见下面的三分支双向校验）。
  * <p>其中 **4 条是真源、非欠账**（`usageMap` / `menuManifest` / `App.tsx` 的 53 处元数据 /
- * `breadcrumbTrail`，理由逐条写在台账里且都**独立复核过**），另 **11 条是本批要清的债**
- * ——随提交 3/4/5/6 逐条摘除（`App.tsx` 那条**不清零**，只把 count 由 57 降到 55）。
+ * `breadcrumbTrail`，理由逐条写在台账里且都**独立复核过**），其余各条是本批要清的债，
+ * 随提交 3/4/5/6 逐条摘除（`App.tsx` 那条**不清零**，只把 count 由 57 降到 55）。
+ * <p>⚠️ **本注释不再写「还剩几条债」这个数**——它每个清零提交都要改一次，而**没有任何断言看着它**
+ * （机器守的是 `count` 与实跑命中，见下文），写在这里只会悄悄漂移。历史版本写过「另 11 条」
+ * （第一版 15 条台账的算术：15 − 4），提交 3/4 各摘一批后这个数已经不对了 ⇒
+ * **要数就数 `ZH_ALLOWED` 本身**，别采信本段。
  *
  * <h3>口径边界自证（信息性，**不进退出码**）</h3>
  * 任何扫描器对自己的盲区**自证不了**——漏掉的那项不会出现在结果里。所以本脚本在判完之后
@@ -200,51 +204,7 @@ const ZH_ALLOWED = [
       '**降级兜底中文名 ⇒ 非欠账。** `SUB_PAGE_LABELS` 的两条**已经带 `i18nKey`**，取词优先走键，' +
       '注释原文就是「**缺键时降级为这里的中文名**」，与 `i18n/labelOf.ts#menuLabel()` 是**同一条降级机制**。',
   },
-  // ---- 十条**本批要清的债**（清完即摘）----
-  {
-    file: 'src/components/SignSection.tsx',
-    count: 3,
-    reason:
-      '**本批清零（提交 4）**。L87 `alt="签名"`；L95 是 `t(…, { type: … ? \'报价单\' : \'合同\' })` 的**两个插值取值**' +
-      '——注意它们是 `t()` 的 `options`，不是键。',
-  },
-  {
-    file: 'src/pages/approval/ApprovalFlowPage.tsx',
-    count: 3,
-    reason:
-      '**本批清零（提交 4）**。L47/48/49 是**模块级常量表** `{ value: \'ROLE\', label: \'角色\' }` 一类' +
-      '⇒ 表里**改存键**、组件内 `t()`（范式见 `src/constants/enumLabels.ts`：值是英文键、中文只在注释）。',
-  },
-  {
-    file: 'src/pages/approval/ApprovalCenterPage.tsx',
-    count: 2,
-    reason: '**本批清零（提交 4）**。L251 审批详情、L289 `· 操作人 #`。',
-  },
-  {
-    file: 'src/pages/opportunities/OpportunityListPage.tsx',
-    count: 2,
-    reason: '**本批清零（提交 4）**。L226/229 的 `suffix="元"`。',
-  },
-  {
-    file: 'src/pages/orders/OrderListPage.tsx',
-    count: 2,
-    reason: '**本批清零（提交 4）**。L304 `emptyText`、L308 期次合计：¥。',
-  },
-  {
-    file: 'src/pages/tasks/TaskCalendarPage.tsx',
-    count: 2,
-    reason: '**本批清零（提交 4）**。L78 `<Empty description="当日无任务" />`、L96 截止：。',
-  },
-  {
-    file: 'src/pages/search/SearchResultPage.tsx',
-    count: 1,
-    reason: '**本批清零（提交 4）**。L45 `{ key: \'ALL\', label: \'全部\' }`（下拉选项，用户可见）。',
-  },
-  {
-    file: 'src/pages/stats/TeamLeaderboardPage.tsx',
-    count: 1,
-    reason: '**本批清零（提交 4）**。L20 `t ? t(\'…\') : \'未设目标\'` —— **降级支**同样要经过 `t()`。',
-  },
+  // ---- 二条**本批要清的债**（清完即摘）----
   {
     file: 'src/services/visitService.ts',
     count: 2,

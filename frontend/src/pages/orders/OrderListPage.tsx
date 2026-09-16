@@ -301,11 +301,12 @@ export default function OrderListPage() {
             dataSource={plans}
             columns={planColumns as never}
             pagination={false}
-            locale={{ emptyText: '暂无期次（将自动生成一期）' }}
+            locale={{ emptyText: t('pages.order.list.planEmpty') }}
           />
           {plans.length > 0 && (
             <div style={{ textAlign: 'right', marginTop: 8, fontWeight: 600 }}>
-              期次合计：¥ {(planSum / 100).toLocaleString('zh-CN')}
+              {t('pages.order.list.planSumPrefix')}
+              {(planSum / 100).toLocaleString('zh-CN')}
             </div>
           )}
         </Form>

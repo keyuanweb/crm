@@ -75,7 +75,7 @@ export default function TaskCalendarPage() {
         destroyOnClose
       >
         {selectedTasks.length === 0 ? (
-          <Empty description="当日无任务" />
+          <Empty description={t('pages.taskCalendar.emptyDay')} />
         ) : (
           <List
             dataSource={selectedTasks}
@@ -93,7 +93,8 @@ export default function TaskCalendarPage() {
                   description={
                     <>
                       <Typography.Text type="secondary">
-                        截止：{task.dueAt ? task.dueAt.replace('T', ' ').slice(0, 16) : '-'}
+                        {t('pages.taskCalendar.duePrefix')}
+                        {task.dueAt ? task.dueAt.replace('T', ' ').slice(0, 16) : '-'}
                       </Typography.Text>{' '}
                       <Tag color={PRIORITY_COLORS[task.priority]}>
                         {labelOf(t, ENUM_KEYS.priority, task.priority)}

@@ -385,6 +385,11 @@ const zhCN = {
         msgCustomerRequired: '请选择客户',
         msgNameRequired: '请输入商机名称',
         formAmountMin: '预期金额下限',
+        // 098：金额输入框的单位后缀。值**逐字复制**改动前的 `suffix="元"`。
+        // 不复用其他页面的 `元`（`pages.dashboard.amountSuffix` / `pages.reportCenter.unit` /
+        // `pages.dataVision.unitYuan`）——`enumLabels.ts` 的命名空间纪律写明**刻意不复用页面私有的键**，
+        // 跨页引用会把两个页面的文案耦在一起。
+        amountSuffix: '元',
         formAmountMax: '预期金额上限',
         formRemark: '备注',
         total: '商机总数',
@@ -714,6 +719,11 @@ const zhCN = {
       },
     },
     approval: {
+      // 098：详情抽屉标题（未选中实例时的兜底）与日志行的「操作人」前缀。
+      // 值**逐字复制**改动前的字面量：`logOperatorPrefix` 含**前导空格**与结尾 `#`——
+      // 它渲染在 `{labelOf(…)}` 与 `{l.operator}` 之间，去掉空格会让日志行粘在一起。
+      detailTitle: '审批详情',
+      logOperatorPrefix: ' · 操作人 #',
       list: {
         colTitle: '审批事项',
         colStatus: '状态',
@@ -775,6 +785,12 @@ const zhCN = {
         emptyPlans: '暂无期次（将自动生成一期）',
         planSum: '期次合计：¥ {{sum}}',
         addPlanModal: '添加期次',
+        // 098：期次表格空态与合计行前缀。两者都**逐字复制**改动前的字面量。
+        // ⚠️ `planSumPrefix` 的**结尾有一个空格**，且是必须的：原文是 JSX 文本 `期次合计：¥ `，
+        // 紧接 `{(planSum / 100).toLocaleString()}`；删掉它会渲染成 `期次合计：¥1,234.00`。
+        // （已用 `ts.transpileModule` 实测该 JSX 文本节点确为 `"期次合计：¥ "`，带尾空格。）
+        planEmpty: '暂无期次（将自动生成一期）',
+        planSumPrefix: '期次合计：¥ ',
         addPlanOk: '添加',
         planAmount: '金额（元）',
         planDueDate: '计划回款日期',
@@ -1225,6 +1241,8 @@ const zhCN = {
       labelSigner: '签署人',
       labelSignTime: '签署时间',
       labelSignature: '签名图',
+      // 098：签署图 `alt`。值**逐字复制**改动前的字面量 `alt="签名"`。
+      altSignature: '签名',
       textNotSigned: '该{{type}}尚未签署。',
       textCanSign: '审批通过后可由内部或客户确认签署。',
       textCannotSign: '仅审批通过后可发起签署。',
@@ -1268,6 +1286,10 @@ const zhCN = {
     // 075：全页面国际化补全
     taskCalendar: {
       title: '任务日历',
+      // 098：弹窗空态与「截止：」前缀。值**逐字复制**改动前的字面量（`duePrefix` 无尾空格：
+      // 原文 JSX 文本是 `截止：` 紧接 `{task.dueAt ? …}`）。
+      emptyDay: '当日无任务',
+      duePrefix: '截止：',
       colTitle: '标题',
       colDeadline: '截止日期',
       colStatus: '状态',
@@ -1632,6 +1654,13 @@ const zhCN = {
       deleteConfirm: '确定删除角色「{{name}}」吗？',
     },
     searchResult: {
+      // 098：搜索结果页的类型页签「全部」。值**逐字复制**改动前的 `{ key: 'ALL', label: '全部' }`。
+      // ⚠️ 本键是**这一页唯一写成完整命名空间路径**的键 —— 该页其余 `t('title')` / `t('totalResults')` /
+      // `t('noResults')` / `t(g.label.toLowerCase())` 都是**裸键**，而根级没有这些键、仓里也没有命名空间
+      // 注册（`addResourceBundle` 零命中、`useTranslation` 无 ns 参数）⇒ **它们一个都取不到文案**。
+      // 这是**既有真缺陷（不是本批口径内的中文残留）**，本批**点名不动**：修它要连带动态分组标签的降级
+      // 策略，且该页**没有测试文件**（这正是它一路全绿地活下来的原因）⇒ 需独立立项并配上首个用例。
+      allTypes: '全部',
       title: '搜索结果',
       noResults: '未找到匹配结果',
       totalResults: '共 {{count}} 条结果',
@@ -1872,6 +1901,13 @@ const zhCN = {
     },
     approvalFlow: {
       title: '审批流配置',
+      // 098：审批人类型下拉项。值**逐字复制**改动前的 `APPROVER_TYPES` 字面量
+      // （含 `manager` 那条的半角括号与括号前空格：`指定用户 (上级)`）。
+      approverType: {
+        role: '角色',
+        user: '指定用户',
+        manager: '指定用户 (上级)',
+      },
       colName: '名称',
       colBusinessType: '业务类型',
       colNodeCount: '节点数',

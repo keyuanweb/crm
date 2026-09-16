@@ -43,10 +43,18 @@ interface NodeRow extends FlowNode {
  */
 const BIZ_TYPES = ['CONTRACT', 'QUOTE'] as const
 
+/**
+ * 审批人类型的下拉项（098）。
+ *
+ * <p>**表里存 i18n 键、渲染时 `t()`**：`APPROVER_TYPES` 是模块级常量，拿不到 `useTranslation`
+ * 的 hook，中文写在这里就等于绕过了整个 i18n（与下方 `BIZ_TYPES` 走 `labelOf` 是同一条纪律）。
+ * 这三条是**本页私有文案**，故落在 `pages.approvalFlow.approverType.*`，不进 `ENUM_KEYS`
+ * ——`enumLabels.ts` 收的是**跨页共享的枚举**，而审批人类型只有这个页面用。
+ */
 const APPROVER_TYPES = [
-  { value: 'ROLE', label: '角色' },
-  { value: 'USER', label: '指定用户' },
-  { value: 'MANAGER', label: '指定用户 (上级)' },
+  { value: 'ROLE', labelKey: 'pages.approvalFlow.approverType.role' },
+  { value: 'USER', labelKey: 'pages.approvalFlow.approverType.user' },
+  { value: 'MANAGER', labelKey: 'pages.approvalFlow.approverType.manager' },
 ]
 
 export default function ApprovalFlowPage() {
@@ -229,7 +237,7 @@ export default function ApprovalFlowPage() {
               value={n.approverType}
               onChange={(v) => updateNode(n.key, { approverType: v }, target)}
               style={{ width: '100%' }}
-              options={APPROVER_TYPES}
+              options={APPROVER_TYPES.map(({ value, labelKey }) => ({ value, label: t(labelKey) }))}
             />
           </Col>
           <Col span={7}>

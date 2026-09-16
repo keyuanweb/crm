@@ -382,6 +382,7 @@ const en = {
         msgCustomerRequired: 'Please select customer',
         msgNameRequired: 'Please enter opportunity name',
         formAmountMin: 'Min Expected Amount',
+        amountSuffix: 'CNY',
         formAmountMax: 'Max Expected Amount',
         formRemark: 'Remark',
         total: 'Total Opportunities',
@@ -712,6 +713,8 @@ const en = {
       },
     },
     approval: {
+      detailTitle: 'Approval Detail',
+      logOperatorPrefix: ' · Operator #',
       list: {
         colTitle: 'Approval Item',
         colStatus: 'Status',
@@ -773,6 +776,8 @@ const en = {
         emptyPlans: 'No installments (auto-generates one)',
         planSum: 'Total: ¥ {{sum}}',
         addPlanModal: 'Add Installment',
+        planEmpty: 'No installments yet (one will be generated automatically)',
+        planSumPrefix: 'Installment total: ¥ ',
         addPlanOk: 'Add',
         planAmount: 'Amount (CNY)',
         planDueDate: 'Due Date',
@@ -1224,6 +1229,7 @@ const en = {
       labelSigner: 'Signer',
       labelSignTime: 'Sign Time',
       labelSignature: 'Signature',
+      altSignature: 'Signature',
       textNotSigned: 'This {{type}} has not been signed.',
       textCanSign: 'Can be signed by internal or customer after approval.',
       textCannotSign: 'Can only be initiated after approval.',
@@ -1264,6 +1270,8 @@ const en = {
     // 075：全页面国际化补全
     taskCalendar: {
       title: 'Task Calendar',
+      emptyDay: 'No tasks on this day',
+      duePrefix: 'Due: ',
       colTitle: 'Title',
       colDeadline: 'Deadline',
       colStatus: 'Status',
@@ -1632,6 +1640,7 @@ const en = {
       deleteConfirm: 'Are you sure you want to delete role "{{name}}"?',
     },
     searchResult: {
+      allTypes: 'All',
       title: 'Search Results',
       noResults: 'No results found',
       totalResults: '{{count}} results',
@@ -1873,6 +1882,11 @@ const en = {
     },
     approvalFlow: {
       title: 'Approval Flow Configuration',
+      approverType: {
+        role: 'Role',
+        user: 'Specific User',
+        manager: 'Specific User (Manager)',
+      },
       colName: 'Name',
       colBusinessType: 'Business Type',
       colNodeCount: 'Nodes',

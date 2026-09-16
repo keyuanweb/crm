@@ -16,8 +16,14 @@ const rateColor = (rate?: number) => {
   return 'red'
 }
 
-const rateLabel = (rate?: number, t?: (key: string) => string) => {
-  if (rate === undefined || rate === null) return t ? t('pages.teamLeaderboard.noTarget') : '未设目标'
+/**
+ * 达成率文案。**`t` 必传**（098）：原签名是 `t?: (key) => string`，缺省时返回**裸中文 `'未设目标'`**
+ * ——那是模块级辅助函数拿不到 `useTranslation` 的 hook 时的兜底。但 `pages.teamLeaderboard.noTarget`
+ * 这个键**本来就已经存在**（同文件 L49 的表格 render 一直在用它），故兜底中文是纯冗余：
+ * 它只会在调用方忘传 `t` 时把界面变成中文。改为必传后，**唯一调用点 L79 `rateLabel(v, t)` 行为不变**。
+ */
+const rateLabel = (rate: number | undefined, t: (key: string) => string) => {
+  if (rate === undefined || rate === null) return t('pages.teamLeaderboard.noTarget')
   return `${Math.round(rate * 100)}%`
 }
 

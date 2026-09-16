@@ -4,6 +4,7 @@ import { App, Button, Card, Descriptions, Image, Modal, Typography } from 'antd'
 import { FileDoneOutlined } from '@ant-design/icons'
 import SignaturePad from './SignaturePad'
 import { extractErrorMessage } from '../services/apiClient'
+import { ENUM_KEYS } from '../constants/enumLabels'
 import type { SignatureRecord } from '../types/signature'
 
 interface Props {
@@ -84,7 +85,7 @@ export default function SignSection({
           <Descriptions.Item label={t('pages.signSection.labelSignature')} span={3}>
             <Image
               src={record.signatureImage}
-              alt="签名"
+              alt={t('pages.signSection.altSignature')}
               width={160}
               style={{ border: '1px solid #f0f0f0', borderRadius: 4, padding: 4 }}
             />
@@ -92,7 +93,12 @@ export default function SignSection({
         </Descriptions>
       ) : (
         <Typography.Text type="secondary">
-          {t('pages.signSection.textNotSigned', { type: businessType === 'QUOTE' ? '报价单' : '合同' })}
+          {t('pages.signSection.textNotSigned', {
+            // 098：插值取值原本是裸中文（'报价单' / '合同'）。改用 `enums.entity.*`——
+            // 这正是 `enumLabels.ts` 存在的理由：业务类型是**跨页共享的枚举**，
+            // 不该在签署区块里另写一份中文（`altSignature` 则是本区块私有文案，故落在页面命名空间）。
+            type: t(businessType === 'QUOTE' ? ENUM_KEYS.entity.QUOTE : ENUM_KEYS.entity.CONTRACT),
+          })}
           {canSign ? t('pages.signSection.textCanSign') : t('pages.signSection.textCannotSign')}
         </Typography.Text>
       )}

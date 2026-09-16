@@ -248,7 +248,7 @@ export default function ApprovalCenterPage() {
 
       {/* 详情抽屉 */}
       <Drawer
-        title={detail ? `审批详情 #${detail.instance.id}` : '审批详情'}
+        title={detail ? `审批详情 #${detail.instance.id}` : t('pages.approval.detailTitle')}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
         width={520}
@@ -286,7 +286,9 @@ export default function ApprovalCenterPage() {
                 items={detail.logs.map((l) => ({
                   children: (
                     <span>
-                      {labelOf(t, ENUM_KEYS.approvalAction, l.action)} · 操作人 #{l.operator}
+                      {labelOf(t, ENUM_KEYS.approvalAction, l.action)}
+                      {t('pages.approval.logOperatorPrefix')}
+                      {l.operator}
                       {l.comment ? `：「${l.comment}」` : ''}
                       <Typography.Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
                         {l.createdAt?.replace('T', ' ').slice(0, 16)}

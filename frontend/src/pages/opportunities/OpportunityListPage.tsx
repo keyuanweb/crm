@@ -223,10 +223,10 @@ export default function OpportunityListPage() {
             </Form.Item>
           </FormGrid>
           <Form.Item name="expectedAmountMin" label={t('pages.opportunity.list.formAmountMin')}>
-            <InputNumber min={0} suffix="元" style={{ width: '100%' }} />
+            <InputNumber min={0} suffix={t('pages.opportunity.list.amountSuffix')} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="expectedAmountMax" label={t('pages.opportunity.list.formAmountMax')}>
-            <InputNumber min={0} suffix="元" style={{ width: '100%' }} />
+            <InputNumber min={0} suffix={t('pages.opportunity.list.amountSuffix')} style={{ width: '100%' }} />
           </Form.Item>
           <CustomFieldFormItems entityType="OPPORTUNITY" />
           <Form.Item name="remark" label={t('pages.opportunity.list.formRemark')}>

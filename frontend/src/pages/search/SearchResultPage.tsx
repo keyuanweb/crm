@@ -42,7 +42,7 @@ export default function SearchResultPage() {
           onChange={setActiveType}
           style={{ marginTop: 8 }}
           items={[
-            { key: 'ALL', label: '全部' },
+            { key: 'ALL', label: t('pages.search.allTypes') },
             ...resp.groups.map((g) => ({ key: g.type, label: `${t(g.label.toLowerCase())}（${g.items.length}）` })),
           ]}
         />
