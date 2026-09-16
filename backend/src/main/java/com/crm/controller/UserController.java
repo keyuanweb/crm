@@ -2,6 +2,7 @@ package com.crm.controller;
 
 import com.crm.common.ApiResponse;
 import com.crm.common.PageResult;
+import com.crm.dto.auth.MfaResetResponse;
 import com.crm.dto.department.DataPermissionRequest;
 import com.crm.dto.user.ChangePasswordRequest;
 import com.crm.dto.user.ResetPasswordRequest;
@@ -9,6 +10,7 @@ import com.crm.dto.user.UserCreateRequest;
 import com.crm.dto.user.UserResponse;
 import com.crm.dto.user.UserUpdateRequest;
 import com.crm.security.RequirePermission;
+import com.crm.service.MfaService;
 import com.crm.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,9 +44,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
   private final UserService userService;
+  private final MfaService mfaService;
 
-  public UserController(UserService userService) {
+  public UserController(UserService userService, MfaService mfaService) {
     this.userService = userService;
+    this.mfaService = mfaService;
   }
 
   @GetMapping
@@ -103,5 +107,24 @@ public class UserController {
   public ApiResponse<Void> changeOwnPassword(@Valid @RequestBody ChangePasswordRequest request) {
     userService.changeOwnPassword(request);
     return ApiResponse.ok();
+  }
+
+  /**
+   * 管理员重置某用户的 2FA（082，FR-M10，contracts/auth-mfa.md §7）。
+   *
+   * <p>落在 {@code /api/v1/users} 而不是契约原文的 {@code /api/v1/admin/users}：本仓没有 {@code /admin/**}
+   * 前缀，用户管理一直在这里。路径随仓库，权限码随规格—— {@code user:manage} 已经在职，不新增码（{@code RequirePermissionCatalogTest}
+   * 会盯住）。
+   *
+   * <p><b>用 {@code POST} 不用 {@code PUT}</b>：这不是幂等的资源替换语义，而是一次 "让他回到单因素"的运维动作，且它带副作用（作废全部恢复码）。
+   *
+   * <p>无请求体：重置不要求任何确认参数，目标由路径给出、操作人由 JWT 给出。
+   */
+  @PostMapping("/{id}/2fa/reset")
+  @RequirePermission("user:manage")
+  @Operation(summary = "管理员重置用户的双因素认证（幂等）")
+  public ApiResponse<MfaResetResponse> resetMfa(@PathVariable Long id) {
+    mfaService.resetByAdmin(id);
+    return ApiResponse.ok(new MfaResetResponse(true));
   }
 }

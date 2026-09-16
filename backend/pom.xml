@@ -36,6 +36,12 @@
     <poi.version>5.2.5</poi.version>
     <openpdf.version>1.3.30</openpdf.version>
     <jjwt.version>0.12.5</jjwt.version>
+    <!--
+      082：二维码生成。**必须显式写版本**——Spring Boot 3.2.0 的 BOM 不管理 com.google.zxing，
+      不写版本会直接报 'dependencies.dependency.version' is missing。本机 m2 已有 3.5.3（jar 与 pom 齐），
+      故离线可构建；这与立项计划里"m2 里没有、首次构建需要网络"的假设相反，已按实测订正。
+    -->
+    <zxing.version>3.5.3</zxing.version>
     <spotless.version>2.43.0</spotless.version>
     <jacoco.version>0.8.11</jacoco.version>
   </properties>
@@ -145,6 +151,15 @@
            此前它只是经 poi 传递到编译路径上的，POI 一升级或一移除，鉴权路径上就会静默少一个类型。 -->
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
+    </dependency>
+    <dependency>
+      <!-- 082：TOTP 绑定二维码。**只引 core，不引 javase**——javase 提供的 MatrixToImageWriter
+           只省下 MfaQrCodeService 里那十行把 BitMatrix 涂进 BufferedImage 的代码，
+           代价是让一条鉴权路径多背一个绘图依赖；而 PNG 编码本身用 JDK 自带的 ImageIO 就够。
+           版本必须显式写（BOM 不管 zxing），见上面 <properties> 里的说明。 -->
+      <groupId>com.google.zxing</groupId>
+      <artifactId>core</artifactId>
+      <version>${zxing.version}</version>
     </dependency>
 
     <!-- Test -->

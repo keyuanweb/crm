@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.ContextConfiguration;
 
 /**
  * 把应用的 {@code Clock} bean 换成 {@link MutableClock}：**停在某一刻、可被推着走**（082-two-factor-auth）。
@@ -37,7 +38,7 @@ import org.springframework.context.annotation.Primary;
  * }
  * </pre>
  *
- * <h2>三个必须写明的坑</h2>
+ * <h2>四个必须写明的坑</h2>
  *
  * <ol>
  *   <li><b>bean 名不能叫 {@code clock}</b>：{@code ClockConfig} 已经有一个同名的 bean，Spring Boot 2.1 起默认禁止 bean
@@ -48,11 +49,20 @@ import org.springframework.context.annotation.Primary;
  *       版本没这个问题（Mockito 每个用例后重置），本类必须自己还这笔债。
  *   <li><b>不要在本类之外拿 {@code Clock.systemDefaultZone()} 算期望值</b>：应用里所有 MFA 时间都走这个 bean，
  *       测试里若有一处用了系统时钟，那处断言就会在"冻结的现在"与"真实的现在"之间随机红。
+ *   <li><b>本类的 {@code @TestConfiguration} 必须靠 {@link ContextConfiguration} 显式点名</b>：Spring 的默认配置类探测
+ *       （{@code AnnotationConfigContextLoaderUtils}）只扫<b>测试类自己</b>的 {@code getDeclaredClasses()}，
+ *       <b>不递归父类</b>。所以"把 {@code @TestConfiguration} 嵌在抽象基类里、让子类白拿"是<b>不成立的</b>： 子类报的是 {@code
+ *       NoSuchBeanDefinitionException: No qualified bean of type 'MutableClock'}， 而它指向基类那个
+ *       {@code @Autowired} 字段 —— 读起来像"bean 没定义"，实际是"没人扫到这个配置类"。 （本类首次被继承时就是这么红的：9 条用例 9 个
+ *       error，被测代码一行没错。）<br>
+ *       {@link ContextConfiguration} 的查找是 {@code TYPE_HIERARCHY} 语义，写在基类上子类能继承到；
+ *       而那个嵌套类<b>必须留在本类内部</b>——挪成顶层类不会让自动探测开始工作，只是把同一个坑换了个位置。
  * </ol>
  *
  * <p><b>代价如实记</b>：{@code @Primary} 一套额外的 bean 定义会改变上下文缓存键，故凡是用到本类的用例<b>自成一个 Spring 上下文</b>， IT
  * 相位会变慢（{@code AuthCaptchaIT} 已有同款先例）。因此 MFA 的 IT 要<b>收敛</b>：需要冻结时钟的用例尽量放进同一个类， 别让每个用例各起一个上下文。
  */
+@ContextConfiguration(classes = FixedClockTestSupport.FrozenClockConfig.class)
 public abstract class FixedClockTestSupport extends AbstractIntegrationTest {
 
   /**
