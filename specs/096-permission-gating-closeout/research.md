@@ -13,7 +13,7 @@
 
 | # | 清单行 | 086 的判据 | 本项复核 | 处置 |
 |---|---|---|---|---|
-| 1 | `approval/ApprovalCenterPage` 通过/驳回/转交 | 「三个端点零注解、类上也无 `@PreAuthorize`。判权在 `checkApprover(task)`——按**任务分配人**放行，与角色码无关。挂任何码都会与后端判据不一致」 | 086 **对后端判据的描述完全正确**，但推出的「要收口需要什么」是**错的**——它建议「把审批权从任务分配改成角色码」，那是**削弱** | **改前端**（按归属渲染），后端一行不改——⚠️ **注意严重性**：这**不是**「当下可观察的假按钮」（列表端点本就按 `approverId` 过滤），而是**判据没有显式表达**，见 §3 的 2026-09-16 订正 |
+| 1 | `approval/ApprovalCenterPage` 通过/驳回/转交 | 「三个端点零注解、类上也无 `@PreAuthorize`。判权在 `checkApprover(task)`——按**任务分配人**放行，与角色码无关。挂任何码都会与后端判据不一致」 | 086 **对后端判据的描述完全正确**，但推出的「要收口需要什么」是**错的**——它建议「把审批权从任务分配改成角色码」，那是**削弱** | **改前端**（按归属渲染），后端一行不改——⚠️ **注意严重性**：这**不是**「当下可观察的假按钮」（列表端点本就按 `approverId` 过滤），而是**判据没有显式表达**，见 §4 末的 2026-09-16 订正 |
 | 2 | `exports/ExportCenterPage` 下载 | 「无注解。硬挂 `export:create` 会把『任何登录用户都能下载』变成『仅 SALES/SUPPORT/ADMIN 可见』，而后端仍放行 → **真切断**」 | 「硬挂号会真切断」**正确**；但把结论写成「后端先给 `:67` 加码」是**判据用错**——后端**已有**真实数据范围判定，**不该**加码 | **订正判据**（不该设码） |
 | 3 | `custom-object/CustomObjectRecordPage` 删除记录 | 「只有 `@PreAuthorize("hasAnyRole('ADMIN','SALES')")`，5 个记录端点全无码，字典无 `custom_object_record:*` 族。挂 `custom_object:delete` 会**双向错**」 | **完全正确**，且本项实测发现它比原文更严重——**记录面根本没有数据范围过滤**（§2） | **建码族**（本项做） |
 | 4 | `components/CommentSection` 删除评论 | 「类级 `@PreAuthorize("hasAnyRole('ADMIN','SALES','SUPPORT')")`，字典无 `comment:*`。类注释已书面裁决，单独立项」 | **完全正确** | **建码族**（本项做） |
@@ -71,6 +71,11 @@ grep -n "resolveVisibleOwnerIds|DataPermissionService|EntityAccessService|Securi
 | ① | `CustomObjectController` 类 javadoc | 「改造前就是 `hasAnyRole('ADMIN','SALES')`，**且靠数据范围过滤**，不在 084 范围内」 | **订正**（原文留痕 + 带日期 ⚠️） |
 | ② | `RoleConstants` 的 `custom_object` 组注释 | 「`/{id}/records*` **不设码**——那是业务面，**靠菜单 + 数据范围**」 | **订正** |
 | ③ | `V87` 头注释 | 「记录面是业务数据、**由数据范围过滤**」 | **只登记不改**：已应用的迁移改动会破坏 Flyway checksum |
+
+**③ 的登记落在本行（T029，交付时确认）**：`V87__*.sql` 是**已应用**的迁移，改一个字节即破坏
+Flyway checksum，**故本项不动它**。该处表述的订正**留给后续任何一条新迁移**——
+在那条迁移的头注释里写明「V87 头注释称记录面『由数据范围过滤』，096 实测不成立（见
+`specs/096-permission-gating-closeout/research.md` §2.1）」。**本项到此为止，不代后人改迁移。**
 
 **② 的「靠菜单」也是错的**：菜单只控制**前端可见性**，不是服务端闸门
 （084 的整个前提就是「菜单授权不构成访问控制」，见章程原则三）。且「自定义对象」菜单

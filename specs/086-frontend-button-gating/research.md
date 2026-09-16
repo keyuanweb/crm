@@ -61,6 +61,22 @@ hasPerm(code, user) = user.role === 'ADMIN' ? true : (user.permissions ?? []).in
 | `stats/DashboardPage` 设置目标（`:467`） | `StatsController.java:89-105` | 无注解，闸门是方法体内联的"`userId` 为空 ⇒ 仅管理员"。`kpi:view` 被 ANALYST 持有（`V83:14-15`）→ 挂它反而给 ANALYST 露出必然 403 的按钮 | 后端先加码（`quota:*` 管的是销售配额不是销售目标，不可复用） |
 | `components/FollowUpTimeline` 编辑（`:129`，判据 `:98`） | `FollowUpController.java:70-71` → `follow_up:update` | 有码，但该判据下只有"编辑"，属**排除类**（编辑不收口）。`follow_up:delete` 是死码，本组件也没有删除按钮 | 不收口 |
 
+> ⚠️ **2026-09-16 订正（096-permission-gating-closeout）——上表第 2、5 行「要收口需要什么」两格作废。**
+> 原文**逐字保留于上**（本块不回填、不改写那两格），纠正如下。本项复核了这两处端点的真实闸门：
+>
+> | 行 | 原「要收口需要什么」（逐字引用） | 订正后 |
+> |---|---|---|
+> | 2 导出下载 | 「后端先给 `:67` 加码」 | **不该加码**。`ExportJobService.downloadPath` 有 `createdBy` / `ADMIN` 校验（`SystemEnhancementIT` 钉着「SUPPORT 下载他人导出 → 403」）⇒ 这是**真实的数据范围判定**，不是"缺闸门"。加 `export:create` 会把「**本人**可下载」收窄成「SALES/SUPPORT/ADMIN 可下载」 |
+> | 5 仪表盘设置目标 | 「后端先加码（`quota:*` 管的是销售配额不是销售目标，不可复用）」 | **不该加码**。`StatsController.setSalesTarget` 方法体内联「全局目标仅 ADMIN、个人目标仅本人」= 数据范围判定；`kpi:view` 归 ADMIN+ANALYST（`V83`）⇒ 挂它会给 ANALYST 露出**必然 403** 的按钮，挂别的码同理 |
+>
+> **判据的错在哪**：086 这两格用的判据是「**端点有没有权限注解**」；而本仓自己的判据（见
+> `PermissionEnforcementIT` 类头、以及 086 自己 `FR-B04` 的措辞）是「**这条路径有没有数据范围判定**」。
+> 前者会把"已有范围判定、只是不叫权限码"的端点一律判成待加码——第 2 行尤其明显：它同一行的
+> 「为什么收不了口」已经写明硬挂号是**真切断**，再要求"后端先加码"就没有回答"加谁的码"。
+> 两行的**结论都是「保持原样」**：前端不收口（086 已这么做），后端也不加码（本项确认）。
+> 逐行复核见 `specs/096-permission-gating-closeout/research.md` §5（**标题即「被否决的处置：给导出下载 /
+> 仪表盘设置目标挂码」**；同目录 §4 是另一处「被否决的处置」——审批权改按角色码，**不是本节的两行**）。
+
 ### 纯本地 state / 只读，无可收口对象（不挂码）
 
 `ApprovalFlowPage` 表单内节点删除（`:236`）与只读 `Switch`（`:277`）、`OnlineFormPage` 字段必填开关与删行（`:305/309`）、
