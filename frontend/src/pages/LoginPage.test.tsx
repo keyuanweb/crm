@@ -4,10 +4,19 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import LoginPage from './LoginPage'
 import { fetchCaptcha, login } from '../services/authService'
 
-vi.mock('../services/authService', () => ({
-  login: vi.fn(),
-  fetchCaptcha: vi.fn(),
-}))
+/**
+ * 只桩掉有 I/O 的两个函数，**保留模块里真实的类型守卫**（`hasTokens` / `isMfaChallenge`）。
+ *
+ * <p>本仓其他测试文件的 `vi.mock` 都是"把整个模块换成 `{ f: vi.fn() }`"的写法，这里刻意不同：
+ * `LoginPage` 的两个成功分支正是由这两个守卫分流的。若把它们也换成 `vi.fn()`，测试就得自己
+ * 编排"什么时候算 MFA 挑战"，于是**验证的是测试里的那个判据，而不是线上跑的那个** ——
+ * 守卫一旦被改坏（比如 `mfaRequired === true` 写成只判 `typeof mfaToken === 'string'`），
+ * 全绿的用例会替它担保。守卫是纯函数、不碰 I/O，用真的即可。
+ */
+vi.mock('../services/authService', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/authService')>()
+  return { ...actual, login: vi.fn(), fetchCaptcha: vi.fn() }
+})
 
 describe('LoginPage', () => {
   beforeEach(() => {

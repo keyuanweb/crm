@@ -3,15 +3,18 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Alert, Button, Form, Input, Typography } from 'antd'
 import {
+  ArrowLeftOutlined,
   CheckCircleOutlined,
+  KeyOutlined,
   LockOutlined,
   SafetyOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { fetchCaptcha, login } from '../services/authService'
-import { extractErrorMessage } from '../services/apiClient'
+import { fetchCaptcha, hasTokens, isMfaChallenge, login, verifyMfa } from '../services/authService'
+import { extractErrorCode, extractErrorMessage } from '../services/apiClient'
 import { useAuthStore } from '../store/authStore'
+import type { UserInfo } from '../store/authStore'
 
 const { Title, Paragraph, Text } = Typography
 
@@ -19,6 +22,12 @@ interface LoginValues {
   username: string
   password: string
   captchaCode: string
+}
+
+/** 二次验证表单。两个字段**互斥**：视图由 `mfaUseRecovery` 决定挂哪一个。 */
+interface MfaValues {
+  code?: string
+  recoveryCode?: string
 }
 
 const features = [
@@ -34,6 +43,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [captchaId, setCaptchaId] = useState('')
   const [captchaImg, setCaptchaImg] = useState('')
+  // 二次验证（082）。`mfaToken` 是"密码已经对了、但还没走完第二次验证"的**唯一**凭证，因此：
+  //   · 只放在组件 state 里 —— 不进 localStorage，不进任何全局 store。刷新页面即作废（Redis 里
+  //     那张票据还在，但持有它的东西没了），这是正确的：一张未完成验证的票据不该在磁盘上过夜。
+  //   · 组件卸载即丢；用户点"返回上一步"也主动清掉。
+  const [mfaToken, setMfaToken] = useState<string | null>(null)
+  const [mfaExpiresIn, setMfaExpiresIn] = useState(0)
+  const [mfaUseRecovery, setMfaUseRecovery] = useState(false)
   const navigate = useNavigate()
   const setTokens = useAuthStore((s) => s.setTokens)
   const setUser = useAuthStore((s) => s.setUser)
@@ -74,20 +90,86 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /** 走完最后一次验证：写令牌、写用户、进主界面。两个成功分支（单因素与二次验证）共用它。 */
+  const completeLogin = (res: { accessToken: string; refreshToken: string; user?: UserInfo }) => {
+    setTokens(res.accessToken, res.refreshToken)
+    setUser(res.user ?? null)
+    navigate('/', { replace: true })
+  }
+
   const onFinish = async (values: LoginValues) => {
     setError('')
     setLoading(true)
     try {
       const res = await login(values.username, values.password, captchaId, values.captchaCode)
-      setTokens(res.accessToken, res.refreshToken)
-      setUser(res.user)
-      navigate('/', { replace: true })
+      if (isMfaChallenge(res)) {
+        // 密码阶段到此为止。**此处绝不 setTokens** —— 这一支里根本没有令牌，写进去就是
+        // localStorage 里的字符串 "undefined"（见 authService.AuthResponse 的 javadoc：
+        // 那会让 isAuthenticated() 恒真，进而变成静默重定向环）。
+        setMfaToken(res.mfaToken)
+        setMfaExpiresIn(res.expiresIn)
+        setMfaUseRecovery(false)
+        return
+      }
+      if (!hasTokens(res)) {
+        // 既没有票据也没有令牌：契约之外的状态。**不猜、不兜底**，如实报错并让用户重试。
+        setError(t('login.mfaUnexpected'))
+        void refreshCaptcha()
+        return
+      }
+      completeLogin(res)
     } catch (err) {
       setError(extractErrorMessage(err, '登录失败，请检查用户名与密码'))
       void refreshCaptcha()
     } finally {
       setLoading(false)
     }
+  }
+
+  const onVerifyMfa = async (values: MfaValues) => {
+    if (!mfaToken) {
+      return
+    }
+    setError('')
+    setLoading(true)
+    try {
+      const res = await verifyMfa(
+        mfaToken,
+        // 二选一：视图决定传哪个字段（而不是两个都传、让后端挑），这样"用户在哪个视图下提交的"
+        // 与"服务端验的是哪种凭据"始终一致，出问题时不需要对两处做推理。
+        mfaUseRecovery
+          ? { recoveryCode: (values.recoveryCode ?? '').trim() }
+          : { code: (values.code ?? '').trim() },
+      )
+      if (!hasTokens(res)) {
+        setError(t('login.mfaUnexpected'))
+        return
+      }
+      completeLogin(res)
+    } catch (err) {
+      // 票据失效（过期 / 已被消费）要单独处理：此时**留在本视图无论输什么码都不可能成功**
+      // ——票据是一次性的，它已经没了。若不识别这一条，用户会以为是自己输错了，反复重试
+      // 直到怀疑码本身，而真正的解法是回上一步重新输入密码。区分靠的是错误码而不是文案。
+      if (extractErrorCode(err) === 'MFA_TICKET_INVALID') {
+        setMfaToken(null)
+        setMfaUseRecovery(false)
+        setError(t('login.mfaExpired'))
+        void refreshCaptcha()
+        return
+      }
+      // 其余（码错但还剩次数 / 已锁定 / Redis 故障）留在本视图，文案由后端给出——
+      // 它比前端更清楚"还剩几次"和"还要等多久"。
+      setError(extractErrorMessage(err, t('login.mfaFailed')))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** 从二次验证退回密码阶段（票据留着无用，一并丢掉）。 */
+  const backToPassword = () => {
+    setMfaToken(null)
+    setMfaUseRecovery(false)
+    setError('')
   }
 
   return (
@@ -191,10 +273,10 @@ export default function LoginPage() {
         <div style={{ width: '100%', maxWidth: 360 }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <Title level={3} style={{ marginBottom: 8, fontWeight: 600 }}>
-              {t('login.title')}
+              {mfaToken ? t('login.mfaTitle') : t('login.title')}
             </Title>
             <Text type="secondary" style={{ fontSize: 14 }}>
-              {t('login.subtitle')}
+              {mfaToken ? t('login.mfaSubtitle') : t('login.subtitle')}
             </Text>
           </div>
 
@@ -208,6 +290,88 @@ export default function LoginPage() {
             />
           )}
 
+          {mfaToken ? (
+            <Form<MfaValues>
+              name="mfa"
+              // 用 `key` 换实例，而不是持有 `useForm()` 的引用去 resetFields()：
+              //   · 换模式时**必须**丢掉另一个框里已经输入的内容 —— 新实例的 store 天然是空的；
+              //   · 退出二次验证视图后，下次再进来同样是空的；
+              //   · 而且不必为一个"只在某一支渲染"的表单常驻一个表单实例（antd 会警告
+              //     "useForm is not connected to any Form element"，那警告说的是实话）。
+              key={mfaUseRecovery ? 'recovery' : 'code'}
+              onFinish={onVerifyMfa}
+              size="large"
+              layout="vertical"
+              requiredMark={false}
+            >
+              {mfaUseRecovery ? (
+                <Form.Item
+                  name="recoveryCode"
+                  rules={[{ required: true, message: t('login.mfaRecoveryRequired') }]}
+                >
+                  <Input
+                    prefix={<KeyOutlined style={{ color: '#bfbfbf' }} />}
+                    placeholder={t('login.mfaRecoveryCode')}
+                    aria-label={t('login.mfaRecoveryCode')}
+                    autoComplete="off"
+                  />
+                </Form.Item>
+              ) : (
+                <Form.Item
+                  name="code"
+                  rules={[
+                    { required: true, message: t('login.mfaCodeRequired') },
+                    { pattern: /^[0-9]{6}$/, message: t('login.mfaCodeFormat') },
+                  ]}
+                >
+                  <Input
+                    prefix={<SafetyOutlined style={{ color: '#bfbfbf' }} />}
+                    placeholder={t('login.mfaCode')}
+                    aria-label={t('login.mfaCode')}
+                    // 浏览器/系统把这条当作一次性口令，允许从短信或认证器自动填充
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    maxLength={6}
+                    style={{ letterSpacing: 2 }}
+                  />
+                </Form.Item>
+              )}
+
+              {/* 票据有效期不是写死的 5 分钟：它由后端 crm.security.mfa.token-ttl-seconds 决定，
+                  文案里的分钟数由响应里的 expiresIn 算出，配置改了这里跟着变。 */}
+              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 16 }}>
+                {t('login.mfaExpiresIn', { minutes: Math.max(1, Math.ceil(mfaExpiresIn / 60)) })}
+              </Text>
+
+              <Form.Item style={{ marginBottom: 12 }}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  block
+                  loading={loading}
+                  style={{ height: 44, fontWeight: 500 }}
+                >
+                  {t('login.mfaSubmit')}
+                </Button>
+              </Form.Item>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Button type="link" style={{ padding: 0 }} onClick={backToPassword}>
+                  <ArrowLeftOutlined /> {t('login.mfaBack')}
+                </Button>
+                <Button
+                  type="link"
+                  style={{ padding: 0 }}
+                  onClick={() => {
+                    setMfaUseRecovery(!mfaUseRecovery)
+                    setError('')
+                  }}
+                >
+                  {mfaUseRecovery ? t('login.mfaUseCode') : t('login.mfaUseRecovery')}
+                </Button>
+              </div>
+            </Form>
+          ) : (
           <Form<LoginValues>
             name="login"
             onFinish={onFinish}
@@ -294,21 +458,26 @@ export default function LoginPage() {
               </Button>
             </Form.Item>
           </Form>
+          )}
 
-          <div
-            style={{
-              marginTop: 24,
-              padding: '12px 16px',
-              background: '#f5f7fa',
-              borderRadius: 8,
-              border: '1px solid #e8e8e8',
-            }}
-          >
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              演示账号：<Text strong style={{ color: '#595959' }}>admin</Text> /{' '}
-              <Text strong style={{ color: '#595959' }}>admin123</Text>
-            </Text>
-          </div>
+          {/* 演示账号提示只在密码视图显示：二次验证那一步要的是 6 位码，此时一行
+              "admin / admin123" 会把人引回上一步该填什么。 */}
+          {!mfaToken && (
+            <div
+              style={{
+                marginTop: 24,
+                padding: '12px 16px',
+                background: '#f5f7fa',
+                borderRadius: 8,
+                border: '1px solid #e8e8e8',
+              }}
+            >
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                演示账号：<Text strong style={{ color: '#595959' }}>admin</Text> /{' '}
+                <Text strong style={{ color: '#595959' }}>admin123</Text>
+              </Text>
+            </div>
+          )}
         </div>
       </div>
     </div>

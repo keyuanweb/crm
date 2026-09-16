@@ -84,3 +84,23 @@ export function extractErrorMessage(error: unknown, fallback = '请求失败，�
   }
   return fallback
 }
+
+/**
+ * 从 axios 错误中提取后端错误码（`error.code`）。
+ *
+ * <p>为什么光有 {@link extractErrorMessage} 不够：**文案是给人看的，码是给分支用的**。同一批
+ * 401 里，"动态码错了，还剩 3 次"和"这张票据已经作废"对用户是两件完全不同的事——前者该留在
+ * 原地再输一次，后者留在原地**永远不可能成功**（票据是一次性的，过期或被消费之后，输对码也
+ * 只会继续 401）。靠比对中文文案来区分这两者，等于把提示语的措辞变成控制流；后端改一个字，
+ * 用户就卡死在一个死循环里。{@code ErrorCode} 里的字符串是接口契约的一部分，改它要动契约。
+ *
+ * <p>拿不到码时返回 `undefined`（超时、断网、CORS 都属此类）——调用方应把它当作"未知失败"，
+ * 走通用的错误提示，而不是假定成某一个具体的码。
+ */
+export function extractErrorCode(error: unknown): string | undefined {
+  if (axios.isAxiosError(error)) {
+    const body = error.response?.data as { error?: ApiErrorBody } | undefined
+    return body?.error?.code
+  }
+  return undefined
+}

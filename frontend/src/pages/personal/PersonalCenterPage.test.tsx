@@ -4,14 +4,23 @@ import { renderWithProviders } from '../../test/renderWithProviders'
 import PersonalCenterPage from './PersonalCenterPage'
 import * as personalService from '../../services/personalService'
 import * as userService from '../../services/userService'
+import * as mfaService from '../../services/mfaService'
 
 vi.mock('../../services/personalService')
 vi.mock('../../services/userService')
+// 082：安全卡多了一行"双因素认证"，它的状态来自一个独立端点。本文件测的不是它，
+// 但那一次请求**真的**会发（未 mock 时走 apiClient 打 jsdom 里不存在的服务端），
+// 于是每个用例都多一次必然失败的请求 + 一条 message 报错 —— 故在这里给一个安静的默认值。
+vi.mock('../../services/mfaService')
 
 describe('PersonalCenterPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    vi.mocked(mfaService.fetchMfaStatus).mockResolvedValue({
+      enabled: false,
+      recoveryCodesRemaining: 0,
+    })
   })
 
   describe('个人信息查看（US1）', () => {

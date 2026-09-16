@@ -294,7 +294,13 @@ export const PERMS = {
   ticketReply: 'ticket:reply',
 
   // ---- 用户管理（UserController / UserService） ----
-  /** 启用/停用用户、重置密码、设置数据权限：PUT /users/{id}、/users/{id}/password、/users/{id}/data-permission。 */
+  /**
+   * 启用/停用用户、重置密码、设置数据权限、重置双因素认证：PUT /users/{id}、/users/{id}/password、
+   * /users/{id}/data-permission、POST /users/{id}/2fa/reset。
+   *
+   * <p>第四个端点是 082 加的，挂的还是本码（`UserController` 的 `resetMfa`），故**不新增码**：
+   * 界面上这四个动作同生同灭，多一个码只会让"授予了 user:manage 却仍看不到某个按钮"变成可能。
+   */
   userManage: 'user:manage',
 
   // ---- 外勤拜访（FieldVisitController） ----

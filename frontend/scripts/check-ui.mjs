@@ -391,10 +391,14 @@ const R5_ALLOWED = [
   },
   {
     file: 'src/pages/LoginPage.tsx',
-    count: 3,
+    count: 5,
     reason:
       '登录页的 username / password / captchaCode：刻意无 label，靠前缀图标 + placeholder 标识。' +
-      '加 label 会改变登录页（最显眼的一屏）的版式，且与主题统一无关',
+      '加 label 会改变登录页（最显眼的一屏）的版式，且与主题统一无关。' +
+      '082 增至 5 处：二次验证那一步的 code / recoveryCode 沿用**同一屏的同一版式**' +
+      '（各自带前缀图标 + placeholder），且两者互斥、同一时刻只挂载一个 —— ' +
+      '给它们单独加 label 会让"密码三步走"的这一屏出现前两步没有的表头。' +
+      '⚠️ 注意这个理由**不外溢**：个人中心那两个 2FA 弹窗是带 label 的（那边是表单弹窗，不是登录页）',
   },
 ]
 
@@ -421,7 +425,9 @@ const R6_ALLOWED = [
     file: 'src/pages/LoginPage.tsx',
     count: 1,
     reason:
-      '**真缺陷但本轮不动**：第 274 行 `aria-label="验证码图片"`。' +
+      '**真缺陷但本轮不动**：验证码图片那处 `aria-label="验证码图片"`。' +
+      '（原文写的是"第 274 行"——082 改了同一个文件，行号已失效 ⇒ 改为锚字符串。' +
+      '082 之后它在 `LoginPage.tsx` 的验证码 `<img>` 上，与二次验证的改动无关。）' +
       '`LoginPage.test.tsx:48` 已**书面记录**该处为"硬编码中文（非 i18n）"并断言它——' +
       '改它意味着同时改掉那条测试，属 i18n 批次',
   },

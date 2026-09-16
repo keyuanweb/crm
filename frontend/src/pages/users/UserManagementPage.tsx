@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { App, Button, Form, Input, Modal, Popconfirm, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
-import { createUser, fetchUsers, resetPassword, updateUser } from '../../services/userService'
+import { createUser, fetchUsers, resetPassword, resetUserMfa, updateUser } from '../../services/userService'
 import { fetchDepartmentTree, setUserDataPermission } from '../../services/departmentService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
@@ -68,8 +68,9 @@ export default function UserManagementPage() {
     ? roleOptions
     : Object.keys(ENUM_KEYS.userRole).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.userRole, code) }))
   const currentUser = useAuthStore((s) => s.user)
-  // 数据权限 / 重置密码 / 启停三个动作打的是同一个码：PUT /users/{id}、/users/{id}/password、
-  // /users/{id}/data-permission 挂的都是 user:manage（UserController.java:76-94），故共用判据。
+  // 数据权限 / 重置密码 / 重置 2FA / 启停四个动作打的是同一个码：PUT /users/{id}、
+  // /users/{id}/password、/users/{id}/data-permission、POST /users/{id}/2fa/reset 挂的都是
+  // user:manage（UserController.java:76-94、123），故共用判据——四个动作同生同灭。
   // 「编辑」不在收口范围内，保持无条件渲染。
   const can = usePerms([PERMS.userManage])
 
@@ -173,6 +174,22 @@ export default function UserManagementPage() {
     }
   }
 
+  /**
+   * 管理员重置某账号的双因素认证（082，FR-M10）。
+   *
+   * <p>与"重置密码"并列，但**不刷新列表**：列表里没有任何一列反映 2FA 状态
+   * （`UserResponse` 不带这个字段），reload 只会白打一次请求。真要显示，得先让后端把它返回出来——
+   * 而那是一件单独的事，不该顺手塞进本批。
+   */
+  const onResetMfa = async (row: User) => {
+    try {
+      await resetUserMfa(row.id)
+      message.success(t('pages.userManagement.messages.mfaReset', { username: row.username }))
+    } catch (err) {
+      message.error(extractErrorMessage(err, t('pages.userManagement.messages.operationFailed')))
+    }
+  }
+
   const onToggle = async (row: User) => {
     if (row.id === currentUser?.id) {
       message.error(t('pages.userManagement.messages.cannotDisableSelf'))
@@ -233,7 +250,8 @@ export default function UserManagementPage() {
     {
       title: t('pages.userManagement.colAction'),
       valueType: 'option',
-      width: 280,
+      // 082：第五个动作（重置 2FA）需要更宽；280 时五个链接会挤成两行。
+      width: 340,
       render: (_, row) => [
         <a key="edit" onClick={() => openEdit(row)}>
           {t('pages.userManagement.edit')}
@@ -247,6 +265,18 @@ export default function UserManagementPage() {
           <a key="reset" style={{ color: '#fa8c16' }} onClick={() => openReset(row)}>
             {t('pages.userManagement.resetPassword')}
           </a>
+        ) : null,
+        // 用 Popconfirm 而不是承载表单的 Modal：这个动作**没有参数**（目标由路径给出、
+        // 操作人由 JWT 给出），Modal 里会是一个空表单。仓内"单次确认用 Popconfirm、
+        // 要收集输入才用 Modal"的分工，与"重置密码"（要输新密码）的区别正在这里。
+        can[PERMS.userManage] ? (
+          <Popconfirm
+            key="reset2fa"
+            title={t('pages.userManagement.reset2faConfirm', { username: row.username })}
+            onConfirm={() => onResetMfa(row)}
+          >
+            <a>{t('pages.userManagement.reset2fa')}</a>
+          </Popconfirm>
         ) : null,
         can[PERMS.userManage] ? (
           <Popconfirm
