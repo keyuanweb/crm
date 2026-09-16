@@ -55,6 +55,17 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * 两条值得记住的边界：{@code contract:renewal} 这个码与 {@code contract-renewal} 这个菜单此前<b>都无人持有</b>
  * ——功能做好了、菜单树里也有，却对所有人不可见，本批把这一对还给销售四角色；而导出与合同续约相反， {@code export:create}
  * 刻意<b>不按菜单扩</b>（那两条导出没有范围过滤），因此本类里"有意的锁死"与 "把功能还回去"同时存在，各自都有断言看着。
+ *
+ * <p><b>096 · 两族收尾</b>（{@code commentCodesPreserveTheOriginalGateAndSeparateTheTwoForbiddenLayers}
+ * 与 {@code customObjectRecordCodesPreserveTheOriginalGate}）覆盖 {@code V87}
+ * 头注释点名的最后两处角色字面量：评论（类级门）与自定义对象的五个记录端点（方法级门）。 两族都走<b>判据①</b>——补授范围 = 原门放行的角色集合，一个不多一个不少 ⇒
+ * 零扩权、零收窄；本类新增的断言因此成对出现： <b>原门放行的角色照旧通过</b>（漏授即红，证据是"保留事实能力"），<b>原门未放行的角色仍
+ * 403</b>（多授即红，证据是"不扩权"）。被挡住的那一侧特意挑了 <b>ANALYST</b> 与 <b>SALES_REP</b> 这两个"看着像该有"的角色：前者持有 {@code
+ * custom_object:*} 定义面码与「自定义对象」菜单，后者是 081 新增的一线销售角色——{@code hasAnyRole} 匹配的是角色 code，两者改造前后都进不来。
+ *
+ * <p>本批还第一次把类头那条「两层 403 必须分开」写成了<b>成对断言</b>：同一条评论、同一个删除端点，SUPPORT 持码但非作者 ⇒ {@code
+ * FORBIDDEN}（Service 的归属判定），VIEWER 无码 ⇒ {@code PERMISSION_DENIED}（切面）。此前这条判据只有类头的文字与联系人那一个用例（{@code
+ * FORBIDDEN} 侧）， 缺少同一端点上的另一半对照。
  */
 class PermissionEnforcementIT extends AbstractIntegrationTest {
 
@@ -982,6 +993,189 @@ class PermissionEnforcementIT extends AbstractIntegrationTest {
     // 另外三个写码（retention:create/update/delete）不在这里逐条打端点：它们的"对谁都零授予"由
     // PermissionMatrixIT 逐码断言（那里能一次覆盖六个码），而"缺码即 403"的机制由上面三条代表。
     // 六个码的可访问范围与改造前一致（仅 ADMIN 经切面直通），理由与决定记在 V87 与 spec.md。
+  }
+
+  @Test
+  @DisplayName("096 评论族：原类级门放行的 ADMIN/SALES/SUPPORT 照旧，其余停在 PERMISSION_DENIED；两层 403 分得开")
+  void commentCodesPreserveTheOriginalGateAndSeparateTheTwoForbiddenLayers() throws Exception {
+    String admin = loginAndGetToken();
+    String sales = tokenFor(admin, "pw_sales_096", "SALES");
+    String support = tokenFor(admin, "pw_support_096", "SUPPORT");
+    String rep = tokenFor(admin, "pw_rep_096", "SALES_REP");
+    String viewer = tokenFor(admin, "pw_viewer_096", "VIEWER");
+
+    // 客户由本人创建：064 之后非 ADMIN 建的客户默认归自己，checkEntityVisible 才放行。
+    // 若改用 ADMIN 建的客户，SALES/SUPPORT 拿到的 403 会来自数据范围而不是权限码，
+    // 那样的红绿证明不了接线（同 contactWritesFollowPermissionCodesNotRoleNames 的处理）。
+    long salesCustomerId = createCustomer(sales, "评论探针客户-销售");
+    long supportCustomerId = createCustomer(support, "评论探针客户-客服");
+
+    // ---------- 正面：改造前那道类级门放行的三个角色，能力逐字不变 ----------
+    // ADMIN 走切面直通；SALES/SUPPORT 走 V90 按判据① 补授的 comment:*（范围 = 原门放行的集合）。
+    // SUPPORT 这条尤其必须红-绿分明：V90 若漏授它，不是"少给一个角色"，而是把客服已经能用的
+    // 协作能力打成 403 —— 正是 1.5 风险清单里的头号风险，故它在定向破坏里被专门观测过。
+    long salesCommentId = createComment(sales, salesCustomerId, "销售自己的评论");
+    createComment(support, supportCustomerId, "客服自己的评论");
+
+    mockMvc
+        .perform(get(commentsOf(salesCustomerId)).header("Authorization", bearer(sales)))
+        .andExpect(status().isOk());
+    mockMvc
+        .perform(get(commentsOf(supportCustomerId)).header("Authorization", bearer(support)))
+        .andExpect(status().isOk());
+    mockMvc
+        .perform(get(commentsOf(salesCustomerId)).header("Authorization", bearer(admin)))
+        .andExpect(status().isOk());
+
+    // ---------- 反面：原门从未放行的角色，改造后仍进不来 ----------
+    // 这三条同时是「不扩权」的证据：V90 若顺手把 comment:* 授给它们，本处立刻变红。
+    // SALES_REP 尤其重要——它是 081 新增的一线销售角色，看名字像"该有"，但 hasAnyRole 匹配的是
+    // **角色 code**，SALES_REP ≠ 'SALES'，改造前后都进不来（V90 的注释里写明了这一点）。
+    for (String token : List.of(rep, viewer)) {
+      assertDeniedByPermissionCode(token, get(commentsOf(salesCustomerId)));
+      assertDeniedByPermissionCode(
+          token,
+          post("/api/v1/comments")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(commentBody(salesCustomerId, "越权发言")));
+    }
+
+    // ---------- 两层 403 分开：同一个端点、同一条评论、同样的 HTTP 403，只有 error.code 不同 ----------
+    // SUPPORT 持有 comment:delete（切面放行），挡下它的是 CommentService 的「仅作者或 ADMIN 可删」
+    // ⇒ FORBIDDEN（归属/数据层）。
+    mockMvc
+        .perform(
+            delete("/api/v1/comments/" + salesCommentId).header("Authorization", bearer(support)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+
+    // VIEWER 没有 comment:delete，切面在进 Service 之前就拒了 ⇒ PERMISSION_DENIED（权限码层）。
+    // 与上一条配对：同一 URL、同一 HTTP 状态，仅 code 不同 —— 这正是本类类头那条判据的可执行形态。
+    assertDeniedByPermissionCode(viewer, delete("/api/v1/comments/" + salesCommentId));
+
+    // 反证：作者删自己的评论是通的。没有这一条，上面两条在"删除接口整体坏掉"时也会通过。
+    mockMvc
+        .perform(
+            delete("/api/v1/comments/" + salesCommentId).header("Authorization", bearer(sales)))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  @DisplayName("096 记录族：原方法级门放行的 ADMIN/SALES 照旧；ANALYST 持有定义面码仍进不了记录面")
+  void customObjectRecordCodesPreserveTheOriginalGate() throws Exception {
+    String admin = loginAndGetToken();
+    String sales = tokenFor(admin, "pw_sales_rec_096", "SALES");
+    String analyst = tokenFor(admin, "pw_analyst_096", "ANALYST");
+    String viewer = tokenFor(admin, "pw_viewer_rec_096", "VIEWER");
+
+    long objectId = createCustomObject(admin);
+    String list = "/api/v1/custom-objects/" + objectId + "/records";
+
+    // ---------- 正面：SALES 原先过得了那道方法级 hasAnyRole('ADMIN','SALES') ----------
+    // 改造后靠 V90 补授的 custom_object_record:*（判据①：范围 = 原门放行的集合，ADMIN 直通）。
+    long recordId = createRecord(sales, objectId, "记录探针");
+    mockMvc.perform(get(list).header("Authorization", bearer(sales))).andExpect(status().isOk());
+    mockMvc
+        .perform(get(list + "/" + recordId).header("Authorization", bearer(sales)))
+        .andExpect(status().isOk());
+    mockMvc
+        .perform(
+            put(list + "/" + recordId)
+                .header("Authorization", bearer(sales))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(recordBody("记录探针-改")))
+        .andExpect(status().isOk());
+
+    // ---------- 反面：ANALYST 仍进不了记录面 ----------
+    // 它持有 custom_object:read/create/update/delete（对象**定义**面码，084 授予）、也持有
+    // 「自定义对象」菜单，看着像"该有"；但记录面的那道门改造前就没放行它，判据① 要求保留事实能力，
+    // 故 V90 不补。这几条同时是「不扩权」的证据。
+    // ⚠️ 这里被挡住的 403 **只可能**来自权限码这一层：记录面在 Service 里没有任何数据范围兜底
+    // （CustomObjectRecordService 全类无范围过滤调用）—— 这正是它必须设码、而不是"撤门了事"的原因。
+    assertDeniedByPermissionCode(analyst, get(list));
+    assertDeniedByPermissionCode(analyst, get(list + "/" + recordId));
+    assertDeniedByPermissionCode(
+        analyst, post(list).contentType(MediaType.APPLICATION_JSON).content(recordBody("越权建记录")));
+    assertDeniedByPermissionCode(analyst, delete(list + "/" + recordId));
+    assertDeniedByPermissionCode(viewer, get(list));
+
+    // 正对照：ADMIN 走切面直通，端点本身是通的 —— 403 只可能来自权限码
+    mockMvc.perform(get(list).header("Authorization", bearer(admin))).andExpect(status().isOk());
+
+    // 反证：删除在自己这边是通的
+    mockMvc
+        .perform(delete(list + "/" + recordId).header("Authorization", bearer(sales)))
+        .andExpect(status().isOk());
+  }
+
+  /** 评论列表 URL（分页参数取默认之外的显式值，免得将来改默认值把用例的语义悄悄改掉）。 */
+  private String commentsOf(long customerId) {
+    return "/api/v1/comments?entityType=CUSTOMER&entityId=" + customerId + "&page=1&pageSize=20";
+  }
+
+  private String commentBody(long customerId, String content) {
+    return "{\"entityType\": \"CUSTOMER\", \"entityId\": "
+        + customerId
+        + ", \"content\": \""
+        + content
+        + "\"}";
+  }
+
+  /** 发一条评论并返回其 id（POST /api/v1/comments 没有 @ResponseStatus，故是 200 而非 201）。 */
+  private long createComment(String token, long customerId, String content) throws Exception {
+    String resp =
+        mockMvc
+            .perform(
+                post("/api/v1/comments")
+                    .header("Authorization", bearer(token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(commentBody(customerId, content)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return objectMapper.readTree(resp).path("data").path("id").asLong();
+  }
+
+  /** 建一个自定义对象（对象定义面是 ADMIN/ANALYST 的码，记录面探针只需要一个可挂记录的对象）。 */
+  private long createCustomObject(String adminToken) throws Exception {
+    String code = "OBJ096" + (System.nanoTime() % 100000);
+    String resp =
+        mockMvc
+            .perform(
+                post("/api/v1/custom-objects")
+                    .header("Authorization", bearer(adminToken))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        String.format(
+                            "{\"name\": \"096 探针对象\", \"code\": \"%s\", \"fields\": ["
+                                + "{\"field\": \"name\", \"label\": \"名称\", \"type\": \"TEXT\", \"required\": true}"
+                                + "], \"enabled\": true}",
+                            code)))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return objectMapper.readTree(resp).path("data").path("id").asLong();
+  }
+
+  private String recordBody(String name) {
+    return "{\"values\": {\"name\": \"" + name + "\"}}";
+  }
+
+  private long createRecord(String token, long objectId, String name) throws Exception {
+    String resp =
+        mockMvc
+            .perform(
+                post("/api/v1/custom-objects/" + objectId + "/records")
+                    .header("Authorization", bearer(token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(recordBody(name)))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return objectMapper.readTree(resp).path("data").path("id").asLong();
   }
 
   /**
