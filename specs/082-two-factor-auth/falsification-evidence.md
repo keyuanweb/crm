@@ -1378,3 +1378,468 @@ but was:
    其 diff 的 `-` 侧是**改守卫之前**的旧草稿内容，而 `Edit` 报的"文件已在磁盘上被修改"来自
    我先前那次限定范围的 `spotless:apply` 重排 javadoc。**判据是 `grep` 磁盘实际内容 + `sha1sum`**，
    不是诊断面板；整仓 `mvn -B spotless:check` 当时退出码为 **0**，即当时并不存在真实的格式违规。
+
+---
+
+## §H 二次验证（第 9 步，2026-09-16）
+
+**本步新增用例 17 条**：`AuthMfaIT` 12（failsafe）、`MfaFailClosedIT` 4（failsafe）、
+`UserIT.mfaVerifyDoesNotBumpVersion` 1（failsafe）—— surefire 695 → **695**（+0）、
+failsafe 306 → **323**，与「基线 + 本项 N」对得上（12 + 4 + 1 = 17，逐条可数）。
+
+**门禁**（八份文件逐字节还原之后，在**冻结的提交态字节**上完整跑一次 `mvn -B verify`）：
+surefire **695 / 0**、failsafe **323 / 0**、`All coverage checks have been met.`、
+`BUILD SUCCESS`（退出码 **0**）。
+
+### ⚠️ 先说三件**在开发中真的发生过**的事故
+
+与 §C、§G 同源：**是失败先把我的假设证伪，才有的这些实现/断言**。
+
+#### 事故 1：`AuthServiceTest` 单跑必红、全量跑必绿 —— lambda 缓存是**进程级静态**
+
+第 9 步给 `AuthService` 注入 `MfaChallengeService` 之后，`mvn test -Dtest=AuthServiceTest` 在
+`successClearsIpFailures` 上报：
+
+```
+MybatisPlusException: can not find lambda cache for this entity [com.crm.entity.User]
+```
+
+一个**与被测逻辑毫无关系**的红。根因在测试基建的机制：`AuthService.login` 的成功路径上会构造
+`new LambdaUpdateWrapper<User>()...set(User::getLastLoginAt, ...)`，而该缓存由**某个测试类首次
+`initTableInfo` 时写入、且是进程级的** —— 于是本类的结果取决于「同 JVM 里有没有别的类先跑过」。
+修法是本仓既有惯例（`CommentServiceTest` 等 40 余处都在做）：`@BeforeAll` 里
+`TableInfoHelper.initTableInfo(assistant, User.class)`。加完单跑 6/6 绿。
+
+⚠️ 这条**不是代码缺陷**，而是"零回归检查点"的采样错误：若当时按"全量绿 ⇒ 没问题"收工，
+下一次有人单跑这个类就会撞上一个看起来像 `AuthService` 坏了的红。
+
+#### 事故 2：`verifyData` 返回的是**根节点**，不是 `data`
+
+第一版 `verifyData` 直接返回 `data` 节点，于是失败分支（要从根上取 `error.code`）全部取到
+`MissingNode`，断言报的是 `expected: "MFA_TICKET_INVALID" but was: ""` —— **看起来像实现没写错误码**，
+实际是辅助方法返回错了层。修完返回根节点，并把这个形状写进 `verifyData` 的 javadoc
+（`AuthMfaIT` 成功分支里那句 `verifyData(...).path("data")` 就是留下的痕迹）。
+
+同源的一次小事故：`verifyData` 的期望状态码是**显式参数**（`verifyData(ticket, code, null, 401)`），
+而不是靠"断言失败即非 200"推断 —— 后者会让"本该 200 却 401"与"本该 401 却 500"这两种
+方向相反的错误**报出同一句话**。
+
+#### 事故 3：管理员重置之后继续验码 ⇒ `IllegalStateException` ⇒ **500**
+
+第一版 `MfaVerificationService.verify` 没有"读到 user 后立刻判 `twoFactorEnabled`"这一步，
+而 `resetByAdmin` 会**同时清空密钥列**。于是"票据取得之后、提交之前被管理员重置"这条路径走到
+验码分支时会看到「已启用却没有密钥」，抛出：
+
+```java
+throw new IllegalStateException("账号已启用 2FA 但库中没有密钥：userId=" + user.getId());
+```
+
+⇒ 用户拿到 **500**。这是一次**完全正常的并发操作被报成"数据坏了"**，而用户不知道该做什么
+（真实场景：管理员刚给他重置了 2FA，他拿着几分钟前的票据提交）。
+
+修法是在 ① 与 ② 之间加一段早退判据（401 `MFA_TICKET_INVALID`），**但它不能替代 ⑤** ——
+见下面 H7 与 H6 的对照：早退判据管的是"验码之前就已经改了"，⑤ 管的是"验码与消费票据期间改了"，
+两处判据相同、**都必须在**。这一段实测证据在 H7（把它删回去，500 复现）与 H6（只留早退判据时，
+⑤ 的重读**没有任何用例钉得住**）。
+
+### 破坏基准
+
+破坏前先记。八份文件，逐条还原后 `sha1sum -c` 必须全 `OK`：
+
+```
+2af8d551a2829fa727d402258bada8bdf6d18f37 *src/main/java/com/crm/config/SecurityConfig.java
+8207e5f1a896ddc1a8f087775c8f069ffd9d5a92 *src/main/java/com/crm/service/MfaStateStore.java
+0e5607741f8f212c946767996dc2322f215ef7d9 *src/main/java/com/crm/service/MfaVerificationService.java
+ee55f6c889be7ee81fcebf92bd1670858d42ba7b *src/main/java/com/crm/service/AuthService.java
+8f69ca870317aadca395926c483461d46be7097a *src/main/java/com/crm/service/MfaChallengeService.java
+3289d6020de7000b32bea8db89bff4355c55f1f9 *src/test/java/com/crm/integration/AuthMfaIT.java
+203a489b77e34904544f1cd2a97bbd050a12d5e8 *src/test/java/com/crm/integration/MfaFailClosedIT.java
+1a64afcf17672afdc0d1aec1aeae39fff2d00c6c *src/test/java/com/crm/integration/UserIT.java
+```
+
+共 **13 次破坏**（H1–H13），其中 H2b / H4b / H9b 是**计划表外的补充破坏**（各自理由见对应小节）。
+每次单独观测、每次逐字节还原；破坏期间**未提交**。
+
+⚠️ **两份基准要分开看（这是本步最容易读错的地方）**：上面 `AuthMfaIT.java` 的
+`3289d602...` 是 **H1–H6 观测时**的版本（11 条用例）；H6 之后我为了堵一个断言缺口给该文件**加了
+一条用例**，它随之变成 `75cc90a77584bdc078bf6e432655c01dfd3eff43`（12 条），
+`InMemoryRedisTestSupport.java` 同时变成 `51959e0c6d91b2d03f7fb992e3b2adaf64d2d889`。
+⇒ **H1–H6 的观测是在旧基准上做的，H7–H13 是在新基准上做的**，两组的行号因此**不可互相换算**；
+下面每条都记了它当时的行号，引用时请以**断言所在的用例名**为锚，别以行号为锚。
+H1–H6 之所以**没有在新基准上重做**：追加的那条用例只覆盖 ①↔⑤ 窗口，不触及它们任何一条的判据路径
+（如实记，不声称"已在新基准上复核"）。
+
+### 破坏 H1：删掉 `SecurityConfig` 里 `/api/v1/auth/2fa/verify` 的 `permitAll`
+
+**被守护的断言**：`AuthMfaIT.verifyIsReachableWithoutJwt` —— 它断言**不带 `Authorization`** 调
+`verify` 拿到的是**控制器**的 401（带 `{"code":"MFA_TICKET_INVALID"}` JSON），而不是过滤器链的
+空体 401。这是本仓唯一能区分「精确放行这一条路径」与「通配放行整个 `/2fa/**`」的可观测差异。
+
+**failsafe**：11 条中 **9 条变红**。
+
+```
+[ERROR] AuthMfaIT.verifyIsReachableWithoutJwt:301 expected: "MFA_TICKET_INVALID" but was: ""
+```
+
+⚠️ **同一批里 `otherMfaEndpointsStillRequireJwt` 保持绿色** —— 这正是这条断言的**配对设计**：
+它断言未带令牌调 `/2fa/status` 得到的是**空体** 401（`HttpStatusEntryPoint` 不写 body）。
+两条一起看，才能把"放行了正确的端点"与"放行了所有端点"分开；只看前者的话，通配化会让它
+**因为错误的原因而变绿**（通配化之后 verify 确实能到达控制器，但 status 也一起被放出去了）。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H2：`consumeTicket` 改成只 `get`（**完全不删**）
+
+**被守护的断言**：`MfaStateStoreTest.consumeTicketUsesTheAtomicPrimitiveOnly`（surefire，调用形状）
+与 `AuthMfaIT.ticketIsSingleUse`（failsafe，可观测行为）。
+
+**surefire**：
+
+```
+Wanted but not invoked:
+valueOperations.getAndDelete("auth:2fa-ticket:T");
+...
+However, there was exactly 1 interaction with this mock:
+valueOperations.get("auth:2fa-ticket:T");
+```
+
+**failsafe**：`AuthMfaIT.ticketIsSingleUse:141 Response status expected:<401> but was:<200>`
+
+⚠️ **本条的归属一开始记错了。** 我原以为它就是计划表里那条"换成 `get` + `delete`（TOCTOU）"，
+但两层**都**抓到了它 —— 而"IT 在结构上区分不出原子性"这条声明若成立，IT 就不该抓得到。
+差别在语义：**"完全不删"是行为缺陷**（票据永不过期、能换无限个会话），IT 当然看得见；
+**"读了又删"才是 TOCTOU**，两者不可混为一谈。故补做 H2b。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H2b：`get` **+** `delete`（真正的 TOCTOU，**计划表外**）
+
+**被守护的断言**：只有 `MfaStateStoreTest.consumeTicketUsesTheAtomicPrimitiveOnly`。
+
+**failsafe**：**11/11 全部通过，`BUILD SUCCESS`**。
+**surefire**：调用形状断言红（同 H2 的报错形状，`get` 与 `delete` 各一次交互）。
+
+这是证据文件顶部那句免责声明的**直接实证**：**MockMvc 集成测试在结构上区分不出
+`getAndDelete` 与 `get`+`delete`** —— 单线程下两者的可观测行为逐字相同，只有"调用了哪个原语"
+能分开它们，而那只存在于调用形状断言里。⇒ 本条的价值不在"抓到了缺陷"，而在
+**"证明了另一个层次抓不到它"**。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H3：`markTimeStepUsed` 恒返回 `true`
+
+**被守护的断言**：`MfaStateStoreTest.everyMethodFailsClosedWhenTheStoreIsDown`、
+`MfaStateStoreTest.markTimeStepUsedFailsClosedOnAmbiguity`（surefire）；`AuthMfaIT.sameCodeCannotBeReplayedOnANewTicket`、
+`MfaFailClosedIT.verifyFailsClosedWhenReplayMarkerCannotBeWritten`（failsafe）。
+
+**surefire**：上述两条红。
+**failsafe**：
+
+```
+[ERROR] AuthMfaIT.sameCodeCannotBeReplayedOnANewTicket:162 expected:<401> but was:<200>
+[ERROR] MfaFailClosedIT.verifyFailsClosedWhenReplayMarkerCannotBeWritten:94 expected:<503> but was:<200>
+```
+
+⚠️ 第二条是**静默 fail-open** 的原型：Redis 写不进去（本该 503 拒绝），实现却当成"标记成功"、
+照常签发令牌 —— 而响应、审计、监控里**都看不出异常**。这正是 `MfaStateStore` 类 javadoc 里
+"一个'顺手'的 catch 就是一次静默的单因素降级"那句的实测版本。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H4：把锁定检查**挪到验码之后**（但保留它）
+
+**被守护的断言**（计划表声称）：`AuthMfaIT.lockoutAfterFiveFailuresAndAutoRecovery`。
+
+**failsafe**：**11/11 全绿，不转红。**
+
+**如实记**：仅**重排**不构成可观测缺陷。因为锁检查挪到验码之后、**仍在消费票据与签发令牌之前**，
+于是"锁定期内即使码正确也被拒"这条性质**依然成立** —— 而它正是锁定的全部意义。
+⇒ 计划表里"把锁定检查挪到验码之后"这条破坏**写得不忠实**：它描述的顺序变化不改变任何可观测行为。
+补做 H4b。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H4b：**彻底删掉**锁定检查（**计划表外**）
+
+**failsafe**：
+
+```
+[ERROR] AuthMfaIT.lockoutAfterFiveFailuresAndAutoRecovery:199 expected:<429> but was:<200>
+```
+
+即"锁定形同虚设"缺陷：第 6 次即使码正确也放行。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H5：给 `verify` 加 `@org.springframework.transaction.annotation.Transactional`
+
+**被守护的断言**：`AuthMfaIT.failedVerificationIsAuditedAsSystem`、
+`AuthMfaIT.lockoutAfterFiveFailuresAndAutoRecovery`。
+
+**failsafe**：
+
+```
+[ERROR] AuthMfaIT.failedVerificationIsAuditedAsSystem:225 Expected size: 1 but was: 0 in: []
+[ERROR] AuthMfaIT.lockoutAfterFiveFailuresAndAutoRecovery:204
+```
+
+⚠️ **HTTP 状态码仍然是 401** —— 失败的二次验证在接口层"正常"拒绝，只有审计表里那条
+`MFA_VERIFY_FAILED` **消失了**。这就是类 javadoc 里那句"它会消失得毫无痕迹"的实测：
+若测试只断言状态码，这个缺陷**在任何层次都看不见**。⇒ "本方法没有事务"是一个**承重决定**，
+不是风格选择。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H6：⑤ 用 ① 的 `user` 对象代替重读（**计划表外，且不转红**）
+
+**破坏**：`User fresh = userMapper.selectById(userId);` → `User fresh = user;`
+
+**failsafe**：**11/11 全绿，不转红。**
+
+**根因不是破坏写错了，而是断言有缺口**：事故 3 里加的那段**早退判据**（① 与 ② 之间判
+`twoFactorEnabled`）使得当时**两个**候选用例都在 ① 就被拦下 —— 而它们都在**请求之前**就改了状态：
+
+| 用例 | 状态变更发生的时刻 | 谁拦下它 |
+|---|---|---|
+| `adminResetBetweenChallengeAndVerifyIsRejected` | 请求**之前** | ① 之后的早退判据 |
+| （当时没有第二条） | — | — |
+
+⇒ ⑤ 的重读**没有被任何用例固定住**，`MfaUserResetWindow` 那类场景只在理论上成立。
+
+**处理方式：补断言，而不是把这条记成"破坏无效"**（照 §G 事故 1 的先例：红指向测试时，修测试）。
+两处新增：
+
+1. `InMemoryRedisTestSupport` 加一个**一次性副作用钩子** `onGetAndDeleteKeyPrefix(prefix, action)`
+   —— 在命中前缀的键被 `getAndDelete` 取走之后、返回之前执行一次。钩在 `getAndDelete` 上是因为
+   ④（`consumeTicket`）**正好落在 ①↔⑤ 那个窗口里**，且它是这条流程里唯一一次票据读删。
+   MockMvc 是**同步**的，用例没有任何别的办法从外面插进这个窗口。
+2. `AuthMfaIT` 加 `adminResetInsideTheVerificationWindowIsCaughtByTheReRead`：把
+   `mfaService.resetByAdmin(userId)` 挂到那个钩子上，断言 401 `MFA_TICKET_INVALID`，
+   **外加反方向的守卫** `assertThat(redis.containsKey("auth:2fa-ticket:" + ticket)).isFalse();`
+   —— 否则一个"恒返回 401"的实现也能让本用例变绿。
+
+**在 H6 仍然生效的情况下复跑**：
+
+```
+[ERROR] AuthMfaIT.adminResetInsideTheVerificationWindowIsCaughtByTheReRead:287->verifyData:418
+Response status expected:<401> but was:<200>
+```
+
+⇒ 这个新护栏**有牙齿**。还原 H6 之后 `AuthMfaIT` 12 条 + `MfaFailClosedIT` 4 条 = **16/16 绿**。
+
+⚠️ **由此产生的新基准**：`AuthMfaIT.java` → `75cc90a7...`、`InMemoryRedisTestSupport.java` →
+`51959e0c...`（两份都记在 `SHA1SUMS.test` 里）。**H1–H5 的观测取自旧基准**，见上面「两份基准」。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H7：删掉 ① 与 ② 之间的早退判据（**事故 3 的复现**）
+
+**被守护的断言**：`AuthMfaIT.adminResetBetweenChallengeAndVerifyIsRejected`。
+
+**failsafe**：
+
+```
+[ERROR] AuthMfaIT.adminResetBetweenChallengeAndVerifyIsRejected:269->verifyData:418
+Response status expected:<401> but was:<500>
+```
+
+**500 的来源就是事故 3 里那个 `IllegalStateException`**（`resetByAdmin` 清空了
+`totp_secret_encrypted`，验码分支看到"已启用却没有密钥"）⇒ 这一段早退判据**必要**。
+
+⚠️ **同一次观测里，`adminResetInsideTheVerificationWindowIsCaughtByTheReRead`（H6 新增那条）
+保持绿色** —— 它的重置挂在 ④ 那个钩子上，③ 执行时密钥还在。这一绿一红**合起来**才说明了
+两处判据的分工：早退判据管"验码之前就已经改了"，⑤ 管"验码与消费票据期间改了"。
+若只看 H7 这一条，很容易得出"有了早退判据、⑤ 就多余了"的错误结论 —— 而 H6 证明了 ⑤ 是**最终判据**。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H8：`MfaVerificationService` 的收尾改成 `updateById(fresh)`（**085 回归，本批最高风险项**）
+
+**被守护的断言**：`UserIT.mfaVerifyDoesNotBumpVersion`（HTTP 层）与
+`AuthMfaIT.verifyIssuesTokensAndStampsBothTimestamps` 的 `version` 断言（库层）。
+
+**failsafe**：`UserIT` 7 条中 1 条红。
+
+```
+[ERROR] UserIT.mfaVerifyDoesNotBumpVersion:219
+expected: 0
+ but was: 1
+```
+
+即 `@Version` 被推进了 —— 管理端"读过某用户 → 该用户完成了一次二次验证 → 管理端编辑该用户"
+必然收到 **409 VERSION_CONFLICT**，而错误信息指向一个根本不存在的原因（"他人修改"）。
+
+⚠️ 本条的**层次**与 §G 的 G2 相同：这是**纯库层/HTTP 层**的性质，`AuthMfaIT` 那类"从 HTTP 进、
+断言 Redis 与响应"的用例**看不见它**。这也是为什么它在 `UserIT` 里另有一层 HTTP 断言
+（拿**流程之前**的版本号提交编辑必须成功）—— 库层断言与 HTTP 层断言各钉一半。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H9：两个时间戳拆成**两条**语句（各自调 `LocalDateTime.now(clock)`）
+
+**被守护的断言**（计划表声称）：`AuthMfaIT.verifyIssuesTokensAndStampsBothTimestamps` 里
+`assertThat(after.getLastLoginAt()).isEqualTo(after.getLast2faVerifiedAt())`。
+
+**failsafe**：**12/12 全绿，不转红。**
+
+**如实记，且这条负结果比它想证明的东西更重要**：本类用**冻结时钟**
+（`FixedClockTestSupport`），`LocalDateTime.now(clock)` 恒返回同一瞬间 ⇒「拆成两条」
+与「一条语句」在时间戳一致性上**在结构上不可区分**。这与 H2b 是**同一类**：
+**"两条语句"与"一条语句"的差别是原子性，而原子性只能靠调用形状断言或真实并发来钉，
+MockMvc 单线程里没有任何可观测差异。**
+
+**⇒ 进一步：`AuthMfaIT.java:112` 那条"两者逐字相等"的断言是冗余的。** 因为同用例前两条
+（`getLastLoginAt() == now(clock)` 与 `getLast2faVerifiedAt() == now(clock)`）已经**蕴含**了它：
+两条各自等于同一个值 ⇒ 必然相等。任何能让它红的破坏，都会先让前两条红（见 H9b）。
+如实记，不为了"让断言看起来有用"而保留一个不会独立转红的断言。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H9b：两条语句里的一条改用**系统时钟**（计划表外）
+
+**破坏**：`.set(User::getLastLoginAt, LocalDateTime.now())`（无 `clock` 参数）。
+
+**failsafe**：
+
+```
+[ERROR] AuthMfaIT.verifyIssuesTokensAndStampsBothTimestamps:111
+expected: 2026-09-16T18:00 (java.time.LocalDateTime)
+ but was: 2026-09-16T10:03:00.296179 (java.time.LocalDateTime)
+when comparing values using 'ChronoLocalDateTime.timeLineOrder()'
+```
+
+⚠️ **先红的是第 111 行（`getLastLoginAt() == now(clock)`），不是"两者相等"那条** ——
+把 H9 的结论从推理变成了实测：**时间戳这一族的牙齿在"值必须等于注入时钟的当前瞬间"
+（即"不许偷偷用系统时钟"），而不在"两者相等"。** 冻结时钟下 18:00 与真实的 10:03 相差 8 小时，
+一眼可辨；而若两条都用了系统时钟、只是相差几毫秒，那两条断言就都抓不到了。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H10：把**提交的码**写进失败审计的 detail
+
+**被守护的断言**：`AuthMfaIT.failedVerificationIsAuditedAsSystem` 的最后一条 ——
+`assertThat(row.getDetail()).doesNotContain(wrong);`
+
+**破坏**：`failVerification` 增加一个 `String submitted` 形参，detail 拼成
+`"二次验证失败（第 N/5 次），提交的码：" + submitted`。
+
+**failsafe**：
+
+```
+[ERROR] AuthMfaIT.failedVerificationIsAuditedAsSystem:236
+not to contain:
+  "588591"
+```
+
+**为什么要守**：动态码是短时效的，而**恢复码是长期有效的凭证** —— 任何一条把它写进审计/日志的
+实现，都等于把"能换一个会话的字符串"递给了能读审计表或日志文件的人。这条断言用的是
+**提交的错误码**作为探针：它能抓到，意味着**正确码同样跑不掉**（同一条拼接语句）。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H11：失败审计的 `recordAsSystem` 改回 `record`
+
+**被守护的断言**：`AuthMfaIT.failedVerificationIsAuditedAsSystem` 的 `actorId` / `actorName` 两条。
+
+**failsafe**：
+
+```
+[ERROR] AuthMfaIT.failedVerificationIsAuditedAsSystem:230
+Expecting actual not to be null
+```
+
+即 `row.getActorId()` 是 `null`（`record(...)` 取 `SecurityUtil.currentUserId()`，而本路径
+已被 `SecurityFilterChain` 放行、`SecurityContext` 是空的）。
+
+⚠️ **这正是 `AuditService` 自己的 javadoc 明确要避免的"无主体审计行"**：既归因不到人，
+也无法与"用户被删除后 `actor_id` 悬空"区分 —— 事后审计时看到一行 `actor_id IS NULL` 的
+`MFA_VERIFY_FAILED`，没有任何办法判断它是"系统写的"还是"数据坏了"。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H12：`lastLoginAt` 挪回 `AuthService` 的密码阶段
+
+**被守护的断言**：`AuthMfaIT.loginReturnsChallengeInsteadOfTokens` 的最后一条 ——
+`assertThat(userMapper.selectById(userId).getLastLoginAt()).isEqualTo(loginAtBefore);`
+
+**破坏**：把 `challengeFor` 分支从 `lastLoginAt` 更新**之前**挪到**之后**。
+
+**failsafe**：
+
+```
+[ERROR] AuthMfaIT.loginReturnsChallengeInsteadOfTokens:90
+expected: 2026-09-16T10:04:21.144169 (java.time.LocalDateTime)
+ but was: 2026-09-16T10:04:21.207373 (java.time.LocalDateTime)
+```
+
+**为什么要守**：`last_login_at` 常被用来判断"某账号最近活没活跃"。若在密码阶段就写，
+**一次失败的（或从未完成的）二次验证会在库里看起来像一次成功登录** —— 而它在接口层
+只返回了一个 `mfaRequired` 挑战，看不出差别。
+
+⚠️ 同上，**第 90 行先红**（而不是 `AuthMfaIT` 成功分支里的时间戳相等断言）—— 又一次印证 H9 的结论。
+
+**还原**：`sha1sum -c` 输出 `OK`。
+
+### 破坏 H13：`MfaChallengeService.challengeFor` 恒返回 `Optional.empty()`
+
+**被守护的断言**：整条 2FA 登录链 —— 这是"已启用 2FA 的账号**必须**走二次验证"的**唯一**判定点。
+
+**failsafe**：12 条中 **8 条红**。
+
+```
+[ERROR] AuthMfaIT.disabledAccountCannotCompleteVerification:304->verifyData:418 Response status expected:<403> but was:<401>
+[ERROR] AuthMfaIT.failedVerificationIsAuditedAsSystem:225
+[ERROR] AuthMfaIT.loginReturnsChallengeInsteadOfTokens:80
+[ERROR] AuthMfaIT.recoveryCodeIsSingleUseAndTheNextStillWorks:247->verifyData:418 Response status expected:<200> but was:<401>
+[ERROR] AuthMfaIT.sameCodeCannotBeReplayedOnANewTicket:156->verifyData:418 Response status expected:<200> but was:<401>
+[ERROR] AuthMfaIT.ticketIsSingleUse:136->verifyData:418 Response status expected:<200> but was:<401>
+[ERROR] AuthMfaIT.verifyIssuesTokensAndStampsBothTimestamps:103->verifyData:418 Response status expected:<200> but was:<401>
+[ERROR] AuthMfaIT.lockoutAfterFiveFailuresAndAutoRecovery:186 [第 1 次失败应当是码错误而不是锁定]
+```
+
+（`Tests run: 12, Failures: 8, Errors: 0` —— 未红的 4 条是
+`verifyIsReachableWithoutJwt`、`otherMfaEndpointsStillRequireJwt`、
+`adminResetBetweenChallengeAndVerifyIsRejected`、`adminResetInsideTheVerificationWindowIsCaughtByTheReRead`：
+它们断言的都是**没有票据时应当被拒**，而本破坏恰好让所有账号都变成"没有票据"。
+⚠️ 这 4 条在"票据根本不签发"这个错误世界里**因为错误的原因而变绿** —— 是本节观察 1 的又一例。）
+
+⚠️ **红得最多的一条，缺陷方向却最"安静"**：绝大多数红说的是"本该 200 却 401"，
+即**已启用 2FA 的账号拿不到票据、登不进来**（fail closed，用户会立刻报障）。
+真正危险的方向是**反过来**：若 `challengeFor` 对已启用 2FA 的账号返回了空**而登录照常签发令牌**，
+那就是"**静默降级为单因素**" —— 用户正常登录、审计没有异常、监控没有报错。
+本仓没有一条断言能直接区分这两种方向（它们都表现为"某条 MFA 用例红了"），
+**这是一个已知的、如实记下的缺口**：它由 `MfaChallengeService` 的类 javadoc +
+`LoginResponseShapeIT`（非 2FA 响应逐字节不变）从**另一侧**守着，而不是由本步的破坏留痕守着。
+
+**还原**：`sha1sum -c` 输出 `OK`；随后复跑完整 `mvn -B verify`：
+surefire **695 / 0**、failsafe **323 / 0**、`BUILD SUCCESS`。
+
+### 本节五处**如实记**的观察
+
+1. **两次"破坏不转红"，两次都指向断言而不是破坏**（H6、H9），但**修法不同**：
+   - H6 的缺口**可以堵**（加一条用例 + 替身的一次性钩子），因为"⑤ 的重读发生了"终究是可观测的
+     ——它只需要一个能从外面插进 ①↔⑤ 窗口的手段。
+   - H9 的缺口**在 MockMvc 里堵不上**（与 H2b 同源）：单线程下"两条语句"与"一条语句"没有
+     任何可观测差异。能钉它的只有调用形状断言；而这一次**没有补**，理由是补了也只是把
+     同一条冗余断言换个写法 —— 于是改为**删掉冗余断言、并把结论写进 H9**。
+   「不转红」不是"破坏没做对"的同义词：**先分清是断言缺了、还是性质本身不可观测**，
+   两者的处理方式相反。
+2. **H2 与 H2b 的分野值得单独记**：我第一版把"完全不删"当成了 TOCTOU。两者在**代码形态上**
+   只差一个 `delete`，在**缺陷分类上**一个是"行为错"、一个是"并发错"，
+   在**可观测性上**一个被 IT 抓到、一个抓不到。⇒ 写破坏之前先问一句"这个缺陷的**受害者是谁**"，
+   比"这行代码看起来像错的"更能定出它该在哪一层被抓到。
+3. **H4 与 H4b、H9 与 H9b、H2 与 H2b 三对**说明：计划表里的破坏描述**本身就可能是错的**
+   （"挪到之后"不构成缺陷、"拆成两条"不可观测、"换 get+delete"被误当成"只 get"）。
+   破坏留痕的价值一半在"证明护栏有牙齿"，另一半在**"把计划表里想当然的那句话证伪"**。
+4. **本步有两条护栏是被真实事故逼出来的、而不是设计出来的**：事故 3 → ① 后的早退判据（H7 守），
+   H6 → ⑤ 的用例与替身钩子。两条都在**没有它们时**由一次真实的红暴露出来；
+   而 H5（`@Transactional` 吞审计）说明**"少写一个注解"这类缺陷在行为层是看不见的**，
+   只能靠"审计表里那条行数"这种**跨表断言**。
+5. **IDE / m2e 的陈旧 `spotless:check` 快照在本步又出现了多次**（§G 观察 2 的同一回事）。
+   本步多了一个新变体值得记：**破坏期间**它报的 diff 是**真实**的（H8 删掉了唯一使用
+   `LambdaUpdateWrapper` 的那行 ⇒ import 真的变成未使用；H13 同理 `Duration`）。
+   ⇒ 判据不是"忽略一切 spotless 诊断"，而是**`sha1sum` + 磁盘实际内容**：
+   文件处于**基线态**时它的 diff 一律过期，文件处于**破坏态**时它的 diff 可能是真的。
+   本步所有破坏都是直接调 `failsafe:integration-test` / `surefire:test` goal
+   （绕过 `verify` 生命周期），故 `spotless:check` 在破坏期间从未参与，格式违规不影响观测；
+   **还原之后**的完整 `mvn -B verify` 里 `spotless:check` 通过（退出码 0）。
