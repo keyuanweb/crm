@@ -5,6 +5,8 @@ import { CommentOutlined, DeleteOutlined, UserOutlined } from '@ant-design/icons
 import { createComment, deleteComment, fetchComments } from '../services/commentService'
 import { extractErrorMessage } from '../services/apiClient'
 import { useAuthStore } from '../store/authStore'
+import { hasPerm } from '../hooks/usePermission'
+import { PERMS } from '../constants/permissions'
 import type { Comment } from '../types/announcement'
 
 /** 通用评论区（037）：客户/线索/商机/工单详情复用，支持 @提及。 */
@@ -68,7 +70,15 @@ export default function CommentSection({
     }
   }
 
-  const canDelete = (c: Comment) => user?.role === 'ADMIN' || user?.id === c.authorId
+  // 发言与删除是两个码（`CommentController.create` / `.delete`），不能合成一个判据。
+  const canComment = hasPerm(PERMS.commentCreate, user)
+
+  // 判据 = 权限码 ∧ 归属（镜像后端 `CommentService.delete`：码层由 `comment:delete` 放行，
+  // 紧跟着再判「非作者且非 ADMIN ⇒ FORBIDDEN」）。那半个 ADMIN 例外**不能删**：`hasPerm` 对 ADMIN
+  // 与持码者都返回 true，两者被合并了，表达不出「是 ADMIN 但不是作者」这一支——与
+  // `CustomerDetailPage` 的 `customer:update` 处同形（见 `check-perms.mjs` 白名单理由）。
+  const canDelete = (c: Comment) =>
+    hasPerm(PERMS.commentDelete, user) && (user?.role === 'ADMIN' || user?.id === c.authorId)
 
   return (
     <div>
@@ -80,17 +90,19 @@ export default function CommentSection({
         </Typography.Text>
       </Space>
 
-      <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
-        <Input
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={t('pages.commentSection.placeholder')}
-          onPressEnter={() => void onSubmit()}
-        />
-        <Button type="primary" loading={submitting} onClick={() => void onSubmit()}>
-          {t('pages.commentSection.btnSubmit')}
-        </Button>
-      </Space.Compact>
+      {canComment && (
+        <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
+          <Input
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder={t('pages.commentSection.placeholder')}
+            onPressEnter={() => void onSubmit()}
+          />
+          <Button type="primary" loading={submitting} onClick={() => void onSubmit()}>
+            {t('pages.commentSection.btnSubmit')}
+          </Button>
+        </Space.Compact>
+      )}
 
       {comments.length === 0 && !loading ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.commentSection.empty')} style={{ padding: 12 }} />

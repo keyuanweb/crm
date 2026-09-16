@@ -12,6 +12,8 @@ import {
   updateObjectRecord,
 } from '../../services/customObjectService'
 import { extractErrorMessage } from '../../services/apiClient'
+import { usePerms } from '../../hooks/usePerms'
+import { PERMS } from '../../constants/permissions'
 import type { CustomObject, ObjectRecord } from '../../types/customObject'
 
 /** 自定义对象记录管理页（059，动态表单）。 */
@@ -25,6 +27,12 @@ export default function CustomObjectRecordPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<ObjectRecord | null>(null)
   const [form] = Form.useForm()
+  // 记录面三个写码（096 建）。读走 `custom_object_record:read`，是页面取数路径、不做判据。
+  const can = usePerms([
+    PERMS.customObjectRecordCreate,
+    PERMS.customObjectRecordUpdate,
+    PERMS.customObjectRecordDelete,
+  ])
 
   // F1(前端审计修复)：改用 useEffect 加载对象定义（原 render 内 fetch 会重复请求/可能死循环）
   useEffect(() => {
@@ -85,10 +93,20 @@ export default function CustomObjectRecordPage() {
       title: t('pages.customObject.colAction'),
       valueType: 'option',
       render: (_, row) => [
-        <a key="edit" onClick={() => openEdit(row)}>{t('pages.customObject.edit')}</a>,
-        <Popconfirm key="del" title={t('pages.customObject.confirmDeleteRecord')} onConfirm={() => void onDelete(row)}>
-          <a style={{ color: '#ff4d4f' }}>{t('pages.customObject.delete')}</a>
-        </Popconfirm>,
+        can[PERMS.customObjectRecordUpdate] && (
+          <a key="edit" onClick={() => openEdit(row)}>
+            {t('pages.customObject.edit')}
+          </a>
+        ),
+        can[PERMS.customObjectRecordDelete] && (
+          <Popconfirm
+            key="del"
+            title={t('pages.customObject.confirmDeleteRecord')}
+            onConfirm={() => void onDelete(row)}
+          >
+            <a style={{ color: '#ff4d4f' }}>{t('pages.customObject.delete')}</a>
+          </Popconfirm>
+        ),
       ],
     },
   ]
@@ -119,11 +137,15 @@ export default function CustomObjectRecordPage() {
           const res = await fetchObjectRecords(objectId, params.keyword, params.current ?? 1, params.pageSize ?? 20)
           return { data: res.items, success: true, total: res.total }
         }}
-        toolBarRender={() => [
-          <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            {t('pages.customObject.btnAddRecord')}
-          </Button>,
-        ]}
+        toolBarRender={() =>
+          can[PERMS.customObjectRecordCreate]
+            ? [
+                <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                  {t('pages.customObject.btnAddRecord')}
+                </Button>,
+              ]
+            : []
+        }
       />
       <Modal
         title={editing ? t('pages.customObject.modalEditRecordTitle') : t('pages.customObject.modalAddRecordTitle')}

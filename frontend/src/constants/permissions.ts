@@ -116,6 +116,20 @@ export const PERMS = {
   /** 删除通话记录：DELETE /api/v1/call-records/{id}。 */
   callRecordDelete: 'call_record:delete',
 
+  // ---- 评论（CommentController） ----
+  /**
+   * 发表评论 / 删除评论：POST /api/v1/comments、DELETE /api/v1/comments/{id}。
+   *
+   * <p>096 之前 `comment:*` 一码不存在，后端是**类级** `@PreAuthorize("hasAnyRole('ADMIN','SALES','SUPPORT')")`，
+   * 于是非这三者的用户照样看得见「发表」按钮、点下去必然 403。096 建了这三码并撤掉类级门（补授范围
+   * = 那道门原先放行的集合，逐字不变），本页据此收口。
+   *
+   * <p>**不登记 `comment:read`**：列表是页面的取数路径、不做 gating（本文件头部那条口径）。
+   * 该码在后端字典里照旧存在，管理员可勾选。
+   */
+  commentCreate: 'comment:create',
+  commentDelete: 'comment:delete',
+
   // ---- 联系人（ContactController） ----
   /** 删除联系人：DELETE /api/v1/contacts/{id}。 */
   contactDelete: 'contact:delete',
@@ -156,6 +170,22 @@ export const PERMS = {
   customObjectUpdate: 'custom_object:update',
   /** 删除自定义对象：DELETE /api/v1/custom-objects/{id}。 */
   customObjectDelete: 'custom_object:delete',
+
+  // ---- 自定义对象记录（CustomObjectController 的记录面，096 建码） ----
+  /**
+   * 新建 / 编辑 / 删除对象记录：POST /custom-objects/{id}/records、
+   * PUT|DELETE /custom-objects/{id}/records/{rid}。
+   *
+   * <p>对象**定义**面（上一条那组 `custom_object:*`）与**记录**面是两套码。记录面 096 之前**没有任何码**，
+   * 后端是五个记录端点各自的方法级 `@PreAuthorize("hasAnyRole('ADMIN','SALES')")`；补授范围 = 那道门
+   * 原先放行的集合（`ADMIN` + `SALES`），故挂码前后对每个角色逐字一致，变的只是从此可在角色页勾选。
+   * `ANALYST` 虽有定义面码，本族码**没有**——旧门也不放他进记录面，不是本批收窄的。
+   *
+   * <p>**不登记 `custom_object_record:read`**：列表与详情是页面的取数路径、不做 gating（同上口径）。
+   */
+  customObjectRecordCreate: 'custom_object_record:create',
+  customObjectRecordUpdate: 'custom_object_record:update',
+  customObjectRecordDelete: 'custom_object_record:delete',
 
   // ---- 数据保留（DataRetentionPolicyController） ----
   /** 删除保留策略：DELETE /api/v1/data-retention/policies/{id}。 */

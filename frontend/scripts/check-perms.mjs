@@ -77,8 +77,11 @@ const ALLOWED = [
     file: 'src/components/CommentSection.tsx',
     count: 1,
     reason:
-      '**不可收口**：后端 `CommentController` 是类级 @PreAuthorize，字典无 `comment:*` 码族，' +
-      '挂任何码都会与后端判据不一致。见 specs/086-frontend-button-gating/research.md 不可收口清单',
+      '**数据归属规则的 ADMIN 例外**（096 后已收口，不再是「不可收口」）：删除判据现在是 ' +
+      '`hasPerm(comment:delete) && (role === ADMIN || id === authorId)`，' +
+      '镜像后端 `CommentService.delete` 的「非作者且非 ADMIN ⇒ FORBIDDEN」。' +
+      '`hasPerm` 表达不出「是 ADMIN 但不是作者」这一支，故那半个例外保留，两者是 ∧ 关系。' +
+      '（086 时后端是类级 @PreAuthorize、字典无 `comment:*`；096 建码并撤类级门后此条已可收口）',
   },
   {
     file: 'src/components/FollowUpTimeline.tsx',
