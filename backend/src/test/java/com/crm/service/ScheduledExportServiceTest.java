@@ -37,6 +37,7 @@ class ScheduledExportServiceTest {
   @Mock private EmailService emailService;
   @Mock private ExportExecutor exportExecutor;
   @Mock private AuditService auditService;
+  @Mock private com.crm.repository.UserMapper userMapper;
 
   private ScheduledExportServiceImpl scheduledExportService;
 
@@ -62,6 +63,14 @@ class ScheduledExportServiceTest {
         .when(SecurityUtil::currentPrincipal)
         .thenReturn(new CrmPrincipal(1L, "admin", "ADMIN"));
 
+    // 102：UserMapper 不再是"这些用例用不到"——定时导出必须用**任务业主**的角色算内置字段掩码，
+    // 故每次执行都会 selectById(userId)。业主角色固定为 SALES：ADMIN 走的是"不掩码"的直通路径，
+    // 用它做断言等于让"角色传没传"这件事不可见（下面的 verify 断言正是钉这一条）。
+    com.crm.entity.User owner = new com.crm.entity.User();
+    owner.setId(1L);
+    owner.setRole("SALES");
+    when(userMapper.selectById(1L)).thenReturn(owner);
+
     // Manually inject mocks to ensure proper injection
     scheduledExportService =
         new ScheduledExportServiceImpl(
@@ -70,8 +79,7 @@ class ScheduledExportServiceTest {
             emailService,
             exportExecutor,
             auditService,
-            null // UserMapper not needed for these tests
-            );
+            userMapper);
   }
 
   @AfterEach
@@ -168,14 +176,17 @@ class ScheduledExportServiceTest {
     // 而 anyString() 不匹配 null → 桩静默未命中、mock 返回 null → NPE 抛在服务内部，
     // 现象上像是服务缺陷。这里改为精确匹配，并在 Then 段显式 verify，
     // 使"桩没命中"不再可能被静默放过（本类为 LENIENT，未命中不会有任何提示）。
-    when(exportExecutor.executeExportWithRowCount(eq("CUSTOMER"), isNull(), eq("CSV")))
+    when(exportExecutor.executeExportWithRowCount(eq("CUSTOMER"), isNull(), eq("CSV"), eq("SALES")))
         .thenReturn(new String[] {"/tmp/export.csv", "100"});
 
     // When
     scheduledExportService.executeNow(1L);
 
     // Then
-    verify(exportExecutor).executeExportWithRowCount(eq("CUSTOMER"), isNull(), eq("CSV"));
+    // 第 4 位是**任务业主**（SALES）的角色，不是当前请求主体的 ADMIN：定时/手动执行导出都不能用
+    // 环境主体取角色，否则无主体的调度线程会回落 ADMIN 而不掩码（102 的 T16 钉的就是这条）
+    verify(exportExecutor)
+        .executeExportWithRowCount(eq("CUSTOMER"), isNull(), eq("CSV"), eq("SALES"));
     // 只有一处回写：executeExport 重算 nextExecutionTime 后 updateById（:244）。
     // executeNow 本身不改任务状态（执行结果记在 ScheduledExportExecution 表），故是 1 次而非 2 次。
     // 原断言写的是 times(2)，与实现不符却从未暴露——因为上面那个 NPE 每次都在到达本行前抛出，
@@ -195,7 +206,8 @@ class ScheduledExportServiceTest {
         .thenReturn(List.of(sampleTask));
     when(scheduledExportRepository.updateById(any(ScheduledExport.class))).thenReturn(1);
     org.mockito.Mockito.when(
-            exportExecutor.executeExportWithRowCount(anyString(), anyString(), anyString()))
+            exportExecutor.executeExportWithRowCount(
+                anyString(), anyString(), anyString(), anyString()))
         .thenReturn(new String[] {"/tmp/export.csv", "100"});
 
     // When
@@ -271,7 +283,8 @@ class ScheduledExportServiceTest {
 
     assertEquals(ErrorCode.EXPORT_FORBIDDEN, ex.getErrorCode());
     // 归属判定必须先于"是否 ACTIVE"判定，否则非属主可从错误码差异推断任务的当前状态
-    verify(exportExecutor, never()).executeExportWithRowCount(anyString(), any(), anyString());
+    verify(exportExecutor, never())
+        .executeExportWithRowCount(anyString(), any(), anyString(), anyString());
     verify(scheduledExportExecutionRepository, never()).insert(any(ScheduledExportExecution.class));
   }
 

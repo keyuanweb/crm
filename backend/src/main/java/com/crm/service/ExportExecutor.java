@@ -13,6 +13,7 @@ import com.crm.repository.ExportJobMapper;
 import com.crm.repository.LeadMapper;
 import com.crm.repository.OpportunityMapper;
 import com.crm.repository.TicketMapper;
+import com.crm.support.FieldMaskPlanner;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,6 +22,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -43,6 +46,7 @@ public class ExportExecutor {
   private final TicketMapper ticketMapper;
   private final CustomFieldService customFieldService;
   private final DataPermissionService dataPermissionService;
+  private final FieldMaskPlanner fieldMaskPlanner;
   private final String exportDir;
 
   public ExportExecutor(
@@ -52,7 +56,8 @@ public class ExportExecutor {
       OpportunityMapper opportunityMapper,
       TicketMapper ticketMapper,
       CustomFieldService customFieldService,
-      DataPermissionService dataPermissionService) {
+      DataPermissionService dataPermissionService,
+      FieldMaskPlanner fieldMaskPlanner) {
     this.exportJobMapper = exportJobMapper;
     this.leadMapper = leadMapper;
     this.customerMapper = customerMapper;
@@ -60,7 +65,25 @@ public class ExportExecutor {
     this.ticketMapper = ticketMapper;
     this.customFieldService = customFieldService;
     this.dataPermissionService = dataPermissionService;
+    this.fieldMaskPlanner = fieldMaskPlanner;
     this.exportDir = System.getProperty("user.dir") + "/backend/contract-files/exports";
+  }
+
+  /**
+   * 102：该实体在本角色下要掩码的内置字段（HIDDEN）。
+   *
+   * <p>与出参收口点共用 {@link FieldMaskPlanner} 这一个判据源——分开算就会出现「列表页不显示、导出里还在」。
+   */
+  private Set<String> hiddenKeys(String roleCode, String entityType) {
+    return fieldMaskPlanner.plan(roleCode, entityType);
+  }
+
+  /**
+   * 文本列：被掩码 ⇒ **空串**（列仍在）。这是 016 自定义字段 HIDDEN 的既有先例——过滤版 {@code readValuesBatch} 里根本没有那些字段，格子取
+   * {@code getOrDefault(fieldId, "")} 即空串。不发明第二种读法。
+   */
+  private String cell(Set<String> hidden, String fieldKey, String value) {
+    return hidden.contains(fieldKey) ? "" : nvl(value);
   }
 
   /** 063(安全加固)：非 ADMIN 的可见 owner 集（null=不过滤）。 */
@@ -90,6 +113,9 @@ public class ExportExecutor {
     if (job == null) {
       return;
     }
+    // 102：本方法跑在异步线程里，但 ExportJobService 用的是 DelegatingSecurityContextExecutorService，
+    // 主体被带进来了 ⇒ 这里的角色就是提交导出那个人的角色（不是 null 回落 ADMIN）
+    String roleCode = fieldMaskPlanner.currentRole();
     job.setStatus(ExportJobService.STATUS_RUNNING);
     exportJobMapper.updateById(job);
     try {
@@ -102,7 +128,7 @@ public class ExportExecutor {
               + ".xlsx";
       Path file = dir.resolve(fileName);
 
-      byte[] content = buildContent(job);
+      byte[] content = buildContent(job, roleCode);
       Files.write(file, content);
 
       job.setStatus(ExportJobService.STATUS_DONE);
@@ -119,7 +145,7 @@ public class ExportExecutor {
     }
   }
 
-  private byte[] buildContent(ExportJob job) throws IOException {
+  private byte[] buildContent(ExportJob job, String roleCode) throws IOException {
     try (Workbook workbook = new XSSFWorkbook();
         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
       switch (job.getExportType()) {
@@ -127,10 +153,10 @@ public class ExportExecutor {
           writeLeads(workbook.createSheet("线索"), job);
           break;
         case "CUSTOMER":
-          writeCustomers(workbook.createSheet("客户"), job);
+          writeCustomers(workbook.createSheet("客户"), job, roleCode);
           break;
         case "OPPORTUNITY":
-          writeOpportunities(workbook.createSheet("商机"), job);
+          writeOpportunities(workbook.createSheet("商机"), job, roleCode);
           break;
         case "TICKET":
           writeTickets(workbook.createSheet("工单"), job);
@@ -172,7 +198,7 @@ public class ExportExecutor {
     }
   }
 
-  private void writeCustomers(Sheet sheet, ExportJob job) {
+  private void writeCustomers(Sheet sheet, ExportJob job, String roleCode) {
     LambdaQueryWrapper<Customer> qw =
         new LambdaQueryWrapper<Customer>().orderByDesc(Customer::getId).last("LIMIT 5000");
     List<Long> visibleOwners = visibleOwnersOrNull();
@@ -186,21 +212,23 @@ public class ExportExecutor {
     List<com.crm.dto.customfield.CustomFieldResponse> cfDefs =
         customFieldService.listByEntity("CUSTOMER");
     int colCount = writeHeader(sheet, CUSTOMER_HEADERS, cfDefs);
+    // 102：内置字段掩码。按 (角色, 实体) 算一次，不按行算——列表有 N 行就查 N 次库
+    Set<String> hidden = hiddenKeys(roleCode, "CUSTOMER");
     int rowIndex = 1;
     for (Customer c : customers) {
       Row row = sheet.createRow(rowIndex++);
       row.createCell(0).setCellValue(nvl(c.getName()));
       row.createCell(1).setCellValue(nvl(c.getCompany()));
-      row.createCell(2).setCellValue(nvl(c.getContactPerson()));
-      row.createCell(3).setCellValue(nvl(mask(c.getPhone())));
-      row.createCell(4).setCellValue(nvl(mask(c.getEmail())));
-      row.createCell(5).setCellValue(nvl(c.getAddress()));
-      row.createCell(6).setCellValue(nvl(c.getStatus()));
+      row.createCell(2).setCellValue(cell(hidden, "contactPerson", c.getContactPerson()));
+      row.createCell(3).setCellValue(cell(hidden, "phone", mask(c.getPhone())));
+      row.createCell(4).setCellValue(cell(hidden, "email", mask(c.getEmail())));
+      row.createCell(5).setCellValue(cell(hidden, "address", c.getAddress()));
+      row.createCell(6).setCellValue(cell(hidden, "status", c.getStatus()));
       writeCustomFields(row, colCount, "CUSTOMER", c.getId(), cfDefs);
     }
   }
 
-  private void writeOpportunities(Sheet sheet, ExportJob job) {
+  private void writeOpportunities(Sheet sheet, ExportJob job, String roleCode) {
     List<Opportunity> opportunities =
         opportunityMapper.selectList(
             new LambdaQueryWrapper<Opportunity>()
@@ -209,15 +237,22 @@ public class ExportExecutor {
     List<com.crm.dto.customfield.CustomFieldResponse> cfDefs =
         customFieldService.listByEntity("OPPORTUNITY");
     int colCount = writeHeader(sheet, OPPORTUNITY_HEADERS, cfDefs);
+    // 102：⚠️ 「金额」列表头写的是 max（见 OPPORTUNITY_HEADERS 与下面第 2 列），故配 HIDDEN 的
+    // `expectedAmountMin` 只影响 JSON 出参，**不影响本表**——这一点如实写在 102 的 research.md 里
+    Set<String> hidden = hiddenKeys(roleCode, "OPPORTUNITY");
     int rowIndex = 1;
     for (Opportunity o : opportunities) {
       Row row = sheet.createRow(rowIndex++);
       row.createCell(0).setCellValue(nvl(o.getName()));
       row.createCell(1)
           .setCellValue(o.getCustomerId() == null ? "" : String.valueOf(o.getCustomerId()));
-      row.createCell(2)
-          .setCellValue(o.getExpectedAmountMax() == null ? 0 : o.getExpectedAmountMax());
-      row.createCell(3).setCellValue(nvl(o.getStatus()));
+      Cell amount = row.createCell(2);
+      if (hidden.contains("expectedAmountMax")) {
+        amount.setCellValue(""); // 102：列在、格空
+      } else {
+        amount.setCellValue(o.getExpectedAmountMax() == null ? 0 : o.getExpectedAmountMax());
+      }
+      row.createCell(3).setCellValue(cell(hidden, "status", o.getStatus()));
       writeCustomFields(row, colCount, "OPPORTUNITY", o.getId(), cfDefs);
     }
   }
@@ -310,13 +345,21 @@ public class ExportExecutor {
 
   /** 定时导出复用：根据实体类型和格式生成导出文件。 */
   public String executeExport(String entityType, String filterConditions, String exportFormat) {
-    String[] result = executeExportWithRowCount(entityType, filterConditions, exportFormat);
+    String[] result =
+        executeExportWithRowCount(
+            entityType, filterConditions, exportFormat, fieldMaskPlanner.currentRole());
     return result[0];
   }
 
-  /** 定时导出复用：返回文件路径和行数。 */
+  /**
+   * 定时导出复用：返回文件路径和行数。
+   *
+   * <p><b>102：掩码按调用方给的角色算。</b>调度线程**没有请求主体**（063 的 {@code mask()} 与行级过滤在这个入口
+   * fail-open），故角色不能在这里现取——由 {@code ScheduledExportServiceImpl} 传**任务业主**的角色进来。这条路径上 字段掩码与 063
+   * 的两处加固是**混合态**：前者按业主生效，后者仍 fail-open，如实登记在 102 的 research.md。
+   */
   public String[] executeExportWithRowCount(
-      String entityType, String filterConditions, String exportFormat) {
+      String entityType, String filterConditions, String exportFormat, String roleCode) {
     try {
       // 创建临时 ExportJob 用于复用现有导出逻辑
       // （不再设置 exportFormat：ExportJob 已无该字段，见 entity/ExportJob.java 的说明。
@@ -336,7 +379,7 @@ public class ExportExecutor {
               + (exportFormat.toUpperCase().equals("CSV") ? "csv" : "xlsx");
       Path file = dir.resolve(fileName);
 
-      byte[] content = buildContent(tempJob);
+      byte[] content = buildContent(tempJob, roleCode);
       Files.write(file, content);
 
       int rowCount = countRows(tempJob);

@@ -5,6 +5,8 @@ import com.crm.dto.customer.ImportResult;
 import com.crm.entity.Customer;
 import com.crm.repository.CustomerMapper;
 import com.crm.security.SecurityUtil;
+import com.crm.support.BuiltinFieldRegistry;
+import com.crm.support.FieldMaskPlanner;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,10 +37,13 @@ public class CustomerExcelService {
 
   private final CustomerMapper customerMapper;
   private final AuditService auditService;
+  private final FieldMaskPlanner fieldMaskPlanner;
 
-  public CustomerExcelService(CustomerMapper customerMapper, AuditService auditService) {
+  public CustomerExcelService(
+      CustomerMapper customerMapper, AuditService auditService, FieldMaskPlanner fieldMaskPlanner) {
     this.customerMapper = customerMapper;
     this.auditService = auditService;
+    this.fieldMaskPlanner = fieldMaskPlanner;
   }
 
   /** 导入：逐行校验，按 500 行分批事务插入，返回成功/失败明细。 */
@@ -102,6 +107,9 @@ public class CustomerExcelService {
     }
     qw.orderByDesc(Customer::getId);
     List<Customer> customers = customerMapper.selectList(qw);
+    // 102：内置字段掩码走与出参收口点、ExportExecutor 同一个判据源（列在、格空）
+    Set<String> hidden =
+        fieldMaskPlanner.plan(fieldMaskPlanner.currentRole(), BuiltinFieldRegistry.ENTITY_CUSTOMER);
     try (Workbook workbook = new XSSFWorkbook();
         ByteArrayOutputStream out = new ByteArrayOutputStream()) {
       Sheet sheet = workbook.createSheet("客户");
@@ -111,11 +119,11 @@ public class CustomerExcelService {
         Row row = sheet.createRow(rowIndex++);
         row.createCell(0).setCellValue(c.getName());
         row.createCell(1).setCellValue(c.getCompany());
-        row.createCell(2).setCellValue(nullToEmpty(c.getContactPerson()));
-        row.createCell(3).setCellValue(nullToEmpty(c.getPhone()));
-        row.createCell(4).setCellValue(nullToEmpty(c.getEmail()));
-        row.createCell(5).setCellValue(nullToEmpty(c.getAddress()));
-        row.createCell(6).setCellValue(nullToEmpty(c.getRemark()));
+        row.createCell(2).setCellValue(cell(hidden, "contactPerson", c.getContactPerson()));
+        row.createCell(3).setCellValue(cell(hidden, "phone", c.getPhone()));
+        row.createCell(4).setCellValue(cell(hidden, "email", c.getEmail()));
+        row.createCell(5).setCellValue(cell(hidden, "address", c.getAddress()));
+        row.createCell(6).setCellValue(cell(hidden, "remark", c.getRemark()));
       }
       workbook.write(out);
       auditService.record("EXPORT", "CUSTOMER", null, "导出客户：" + customers.size() + " 条");
@@ -232,6 +240,11 @@ public class CustomerExcelService {
 
   private String nullToEmpty(String value) {
     return value == null ? "" : value;
+  }
+
+  /** 102：内置字段列——被掩码 ⇒ 空串（列在、格空，照自定义字段的既有先例）。 */
+  private String cell(Set<String> hidden, String fieldKey, String value) {
+    return hidden.contains(fieldKey) ? "" : nullToEmpty(value);
   }
 
   private String trimToNull(String value) {

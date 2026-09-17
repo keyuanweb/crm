@@ -62,6 +62,25 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
     return user != null && user.getEmail() != null ? user.getEmail() : "admin@example.com";
   }
 
+  /**
+   * 102：定时导出按**任务业主**的角色算内置字段掩码。
+   *
+   * <p>调度线程没有请求主体（{@code SecurityUtil.currentPrincipal()} 为 null），而 {@code
+   * FieldMaskPlanner.currentRole()} 在无主体时回落 ADMIN ⇒ **不掩码**。若在此现取角色，定时导出会成为一个稳定泄漏口，
+   * 且它与手动导出走的是同一段代码、看不出差别。故角色必须由业主身份显式传入。
+   *
+   * <p>⚠️ 业主已被删除（{@code userMapper} 查不到）时回落 ADMIN 并**记警告**——此时角色客观上不可知；这是本批如实登记的 债务（{@code
+   * getUserEmail} 对同一情形也是回落）。
+   */
+  private String ownerRole(Long userId) {
+    User owner = userMapper.selectById(userId);
+    if (owner == null || owner.getRole() == null) {
+      log.warn("定时导出的业主角色不可知（userId={}），本次导出不做内置字段掩码", userId);
+      return "ADMIN";
+    }
+    return owner.getRole();
+  }
+
   @Override
   public ScheduledExportResponse createScheduledExport(ScheduledExportRequest request) {
     ScheduledExport entity = new ScheduledExport();
@@ -214,7 +233,10 @@ public class ScheduledExportServiceImpl implements ScheduledExportService {
       // 复用 016 导出逻辑
       String[] result =
           exportExecutor.executeExportWithRowCount(
-              task.getEntityType(), task.getFilterConditions(), task.getExportFormat());
+              task.getEntityType(),
+              task.getFilterConditions(),
+              task.getExportFormat(),
+              ownerRole(task.getUserId()));
       String filePath = result[0];
       String rowCount = result[1];
       execution.setFilePath(filePath);
