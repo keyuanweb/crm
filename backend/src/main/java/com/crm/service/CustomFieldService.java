@@ -77,6 +77,23 @@ public class CustomFieldService {
         .collect(Collectors.toSet());
   }
 
+  /**
+   * 该角色在本实体上**受保护**的字段 id = HIDDEN ∪ READ_ONLY（103）。
+   *
+   * <p>判据写成「不等于 EDITABLE」而非并列枚举两个已知值，与 {@code support/FieldMaskPlanner.protectedKeys} **同口径**（其
+   * javadoc 的「往严的一侧倒」）：将来多出一种权限值时，未知值一律按受保护处理，**不会静默放行**一个权限不明的字段被删除。
+   *
+   * <p>**私有**而非公开 API：目前只有 {@code saveValues} 一个消费者。而 {@code readValues} / {@code readValuesBatch}
+   * / {@code dropHidden} **必须保持 HIDDEN-only** —— READ_ONLY 的值就得下发，否则客户端无从「原样回传」，056 的 422
+   * 语义随之不可达。将来出现第二消费者再提升。
+   */
+  private Set<Long> protectedFieldIds(String roleCode, String entityType) {
+    return fieldPermissionService.permissionsForRole(roleCode, entityType).entrySet().stream()
+        .filter(e -> !FieldPermissionService.PERM_EDITABLE.equals(e.getValue()))
+        .map(Map.Entry::getKey)
+        .collect(Collectors.toSet());
+  }
+
   private List<CustomFieldValueDTO> dropHidden(
       String roleCode, String entityType, List<CustomFieldValueDTO> values) {
     Set<Long> hidden = hiddenFieldIds(roleCode, entityType);
@@ -249,19 +266,40 @@ public class CustomFieldService {
         valueMapper.insert(value);
       }
     }
-    // 056：HIDDEN 字段的值不下发 ⇒ 调用方提交里必然没有它们（有则 validateWrite 已抛 422）。
-    // 上面的"先删后插"会连它们一起删掉，故按库中原值补回：**看不见不等于该被删除**。
-    Set<Long> hidden = hiddenFieldIds(roleCode, entityType);
-    for (Map.Entry<Long, String> e : existing.entrySet()) {
-      if (!hidden.contains(e.getKey()) || !StringUtils.hasText(e.getValue())) {
-        continue;
+    // 056/103：**看不见**（HIDDEN）或**改不动**（READ_ONLY）的字段，客户端不会提交它们（HIDDEN
+    // 有值则 validateWrite 已抛 422；READ_ONLY 只能原样回传）——而上面的"先删后插"会连它们一起
+    // 删掉，故按库中原值补回：**看不见 / 改不动，都不等于该被删除**。
+    //
+    // 谓词取 !EDITABLE（= HIDDEN ∪ READ_ONLY，与 FieldMaskPlanner 同口径）而**绝不含 EDITABLE**：
+    // 未配置权限的字段不在集合里 ⇒ 其省略**照旧删除**，那是客户端清除自定义字段的唯一手段
+    // （utils/customField.ts 会跳过空值）——多回补一行就把这个能力毁了。
+    //
+    // submittedIds 排除**不是可选优化**：custom_field_value 上有 uk_field_entity_value
+    // (field_id, entity_id)，而 READ_ONLY 的值**会被客户端原样回传、活着穿过 validateWrite**
+    // （值相等 ⇒ 未变更 ⇒ 不 422）⇒ 少了这个排除，主循环插一行、这里再插同一个键 ⇒
+    // DuplicateKeyException ⇒ 每次 PUT 都 500。过滤条件与主循环的跳过规则逐字对齐。
+    Set<Long> protectedIds = protectedFieldIds(roleCode, entityType);
+    if (!protectedIds.isEmpty()) {
+      Set<Long> submittedIds =
+          values == null
+              ? Set.of()
+              : values.stream()
+                  .filter(v -> v.getFieldId() != null && StringUtils.hasText(v.getValue()))
+                  .map(CustomFieldValueDTO::getFieldId)
+                  .collect(Collectors.toSet());
+      for (Map.Entry<Long, String> e : existing.entrySet()) {
+        if (!protectedIds.contains(e.getKey())
+            || submittedIds.contains(e.getKey())
+            || !StringUtils.hasText(e.getValue())) {
+          continue;
+        }
+        CustomFieldValue kept = new CustomFieldValue();
+        kept.setFieldId(e.getKey());
+        kept.setEntityType(entityType);
+        kept.setEntityId(entityId);
+        kept.setFieldValue(e.getValue());
+        valueMapper.insert(kept);
       }
-      CustomFieldValue kept = new CustomFieldValue();
-      kept.setFieldId(e.getKey());
-      kept.setEntityType(entityType);
-      kept.setEntityId(entityId);
-      kept.setFieldValue(e.getValue());
-      valueMapper.insert(kept);
     }
   }
 
