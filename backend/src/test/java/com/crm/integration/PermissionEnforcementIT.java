@@ -901,11 +901,15 @@ class PermissionEnforcementIT extends AbstractIntegrationTest {
             .getContentAsString();
     long mailAccountId = objectMapper.readTree(accountJson).path("data").path("id").asLong();
     // 同步面（旧门 hasAnyRole('ADMIN','SALES')）→ 补 mail_sync:manage 给 SALES，能力保住。
+    // ⚠️ 101 之后这条探针的期望值是 409 而不是 200：同步端点在没有收信源的部署里一律拒绝。
+    // 这恰好让探针**更准**——放行的证据从"200"变成"409 而不是 403"：403 说明被切面挡在门外（码没授到），
+    // 409 说明已经走到业务层由配置门拒绝，即 SALES 确实持有 mail_sync:manage。
     mockMvc
         .perform(
             post("/api/v1/mail-accounts/{id}/sync", mailAccountId)
                 .header("Authorization", bearer(sales)))
-        .andExpect(status().isOk());
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("MAIL_INBOUND_NOT_CONFIGURED"));
     // 配置面（旧门 hasRole('ADMIN')）→ 不授：改错一次全公司邮件链路哑掉。两个面若合并成一个码，
     // 上面那行与这行必有一行是错的，这正是拆码的理由。
     mockMvc
