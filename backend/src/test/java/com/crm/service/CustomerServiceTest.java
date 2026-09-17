@@ -77,7 +77,10 @@ class CustomerServiceTest {
             mock(com.crm.repository.SalesOrderMapper.class),
             mock(CustomFieldService.class),
             mock(Customer360Service.class),
-            mock(WebhookService.class));
+            mock(WebhookService.class),
+            // 102：内置字段护栏在此用替身（capture 默认返回空 Map ⇒ restore 成空操作）。
+            // 本类测的是客户服务自身的语义，内置字段权限的语义在 BuiltinWriteGuardIT / 注册表用例里测
+            mock(com.crm.support.BuiltinWriteGuard.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::currentUserId).thenReturn(1L);
     // 当前用户为管理员（数据权限 ALL），detail/update/delete 权限校验通过

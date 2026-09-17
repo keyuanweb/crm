@@ -15,6 +15,8 @@ import com.crm.repository.CustomerMapper;
 import com.crm.repository.OpportunityMapper;
 import com.crm.repository.SalesOpportunityMapper;
 import com.crm.security.SecurityUtil;
+import com.crm.support.BuiltinFieldRegistry;
+import com.crm.support.BuiltinWriteGuard;
 import com.crm.support.SalesOpportunityAssembler;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ public class OpportunityService {
   private final DashboardStatsService dashboardStatsService;
   private final SalesOpportunityAssembler salesOpportunityAssembler;
   private final CustomFieldService customFieldService;
+  private final BuiltinWriteGuard builtinWriteGuard;
 
   public OpportunityService(
       OpportunityMapper opportunityMapper,
@@ -42,7 +45,8 @@ public class OpportunityService {
       OpportunityStatsService statsService,
       DashboardStatsService dashboardStatsService,
       SalesOpportunityAssembler salesOpportunityAssembler,
-      CustomFieldService customFieldService) {
+      CustomFieldService customFieldService,
+      BuiltinWriteGuard builtinWriteGuard) {
     this.opportunityMapper = opportunityMapper;
     this.salesOpportunityMapper = salesOpportunityMapper;
     this.customerMapper = customerMapper;
@@ -50,6 +54,7 @@ public class OpportunityService {
     this.dashboardStatsService = dashboardStatsService;
     this.salesOpportunityAssembler = salesOpportunityAssembler;
     this.customFieldService = customFieldService;
+    this.builtinWriteGuard = builtinWriteGuard;
   }
 
   @Transactional(readOnly = true)
@@ -113,6 +118,8 @@ public class OpportunityService {
     if (customer == null) {
       throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND);
     }
+    // 102：提交了 HIDDEN / 改了 READ_ONLY 的内置字段 ⇒ 422。create 没有库中原值，故只判定、不回补
+    builtinWriteGuard.validateOnly(BuiltinFieldRegistry.ENTITY_OPPORTUNITY, req);
     Opportunity opportunity = new Opportunity();
     opportunity.setCustomerId(req.getCustomerId());
     opportunity.setName(req.getName().trim());
@@ -139,6 +146,9 @@ public class OpportunityService {
     if (customer == null) {
       throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND);
     }
+    // 102：先判定（提交 HIDDEN ⇒ 422、改 READ_ONLY ⇒ 422）并取库中快照，再让装配无条件覆盖
+    Map<String, Object> guardedBuiltin =
+        builtinWriteGuard.capture(BuiltinFieldRegistry.ENTITY_OPPORTUNITY, req, existing);
     existing.setCustomerId(req.getCustomerId());
     existing.setName(req.getName().trim());
     existing.setExpectedAmountMin(
@@ -149,6 +159,9 @@ public class OpportunityService {
     if (StringUtils.hasText(req.getStatus())) {
       existing.setStatus(req.getStatus().trim());
     }
+    // ⚠️ 回补必须在**全部赋值之后**：上面两处 `null ? 0L` 会把省略的受保护金额字段写成 0，
+    // 只有后置回补才盖得住（旗舰用例 T11 钉的就是这一条）
+    builtinWriteGuard.restore(BuiltinFieldRegistry.ENTITY_OPPORTUNITY, existing, guardedBuiltin);
     existing.setVersion(req.getVersion());
     int rows = opportunityMapper.updateById(existing);
     if (rows == 0) {

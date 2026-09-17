@@ -191,20 +191,21 @@ public class BuiltinFieldRegistry {
   }
 
   /**
-   * 写侧回补：把 {@code source} 上这些属性的值原样写到 {@code target}（{@code source} 为 null 即置 null）。
+   * 写侧回补：把**一个**注册属性就地写成给定值（{@code null} 即置 null）。
    *
-   * <p>只遍历**注册表里的**属性，且调用方只传掩码命中的键——不掩码的字段一律由 {@code apply} 决定， 回补不会吞掉正常编辑。
+   * <p>为什么是「一个键一个值」而不是「从另一个对象整批拷贝」：回补的调用点（{@link BuiltinWriteGuard}）持有的是 **库中原值的快照 Map**（{@code
+   * fieldKey → value}），不是第二个同类型对象——请求对象与实体对象是两种类型 （{@code CustomerRequest} vs {@code
+   * Customer}），从请求拷回去只会把要盖掉的那个值再抄一遍。故这里给的是最小原语， 遍历与顺序由调用方掌握（{@code restore} 必须在 {@code apply}
+   * **之后**跑）。
    */
-  public void copyInto(Object target, Object source, Collection<String> fieldKeys) {
+  public void write(Object target, String fieldKey, Object value) {
     Carrier c = carrierFor(target);
-    if (c == null || fieldKeys == null) {
+    if (c == null) {
       return;
     }
-    for (String fieldKey : fieldKeys) {
-      Field handle = c.fields.get(fieldKey);
-      if (handle != null) {
-        set(target, handle, read(source, fieldKey));
-      }
+    Field handle = c.fields.get(fieldKey);
+    if (handle != null) {
+      set(target, handle, value);
     }
   }
 

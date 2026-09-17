@@ -22,6 +22,8 @@ import com.crm.repository.FollowUpMapper;
 import com.crm.repository.OpportunityMapper;
 import com.crm.repository.SalesOpportunityMapper;
 import com.crm.security.SecurityUtil;
+import com.crm.support.BuiltinFieldRegistry;
+import com.crm.support.BuiltinWriteGuard;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -47,6 +49,7 @@ public class CustomerService {
   private final CustomFieldService customFieldService;
   private final Customer360Service customer360Service;
   private final WebhookService webhookService;
+  private final BuiltinWriteGuard builtinWriteGuard;
 
   public CustomerService(
       CustomerMapper customerMapper,
@@ -62,7 +65,8 @@ public class CustomerService {
       com.crm.repository.SalesOrderMapper orderMapper,
       CustomFieldService customFieldService,
       Customer360Service customer360Service,
-      WebhookService webhookService) {
+      WebhookService webhookService,
+      BuiltinWriteGuard builtinWriteGuard) {
     this.customerMapper = customerMapper;
     this.opportunityMapper = opportunityMapper;
     this.followUpMapper = followUpMapper;
@@ -77,6 +81,7 @@ public class CustomerService {
     this.customFieldService = customFieldService;
     this.customer360Service = customer360Service;
     this.webhookService = webhookService;
+    this.builtinWriteGuard = builtinWriteGuard;
   }
 
   @Transactional(readOnly = true)
@@ -327,6 +332,9 @@ public class CustomerService {
   @Transactional
   public CustomerResponse create(CustomerRequest req) {
     ensureUnique(null, req.getName(), req.getCompany());
+    // 102：提交了 HIDDEN / 改了 READ_ONLY 的内置字段 ⇒ 422。create 没有库中原值，故只判定、
+    // 不回补（内置字段在 create 上等价于「不可设置」，见 BuiltinWriteGuard 的类注释）
+    builtinWriteGuard.validateOnly(BuiltinFieldRegistry.ENTITY_CUSTOMER, req);
     Customer customer = new Customer();
     apply(req, customer);
     if (!StringUtils.hasText(customer.getStatus())) {
@@ -361,7 +369,13 @@ public class CustomerService {
     Customer existing = require(id);
     checkWritePermission(existing);
     ensureUnique(id, req.getName(), req.getCompany());
+    // 102：先判定（提交 HIDDEN ⇒ 422、改 READ_ONLY ⇒ 422）并取库中快照，再让 apply 无条件覆盖
+    Map<String, Object> guardedBuiltin =
+        builtinWriteGuard.capture(BuiltinFieldRegistry.ENTITY_CUSTOMER, req, existing);
     apply(req, existing);
+    // ⚠️ 回补必须在 apply **之后**：apply 无条件覆盖全部字段，被省略的受保护字段只有后置回补才保得住
+    // （008cbb9 那类「编辑一次备注就静默清空电话」的缺陷就是这里缺了这一步）
+    builtinWriteGuard.restore(BuiltinFieldRegistry.ENTITY_CUSTOMER, existing, guardedBuiltin);
     existing.setVersion(req.getVersion());
     int rows = customerMapper.updateById(existing);
     if (rows == 0) {
