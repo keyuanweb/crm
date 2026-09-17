@@ -52,6 +52,14 @@ crm:
     username: ${CRM_MAIL_USERNAME:}
     password: ${CRM_MAIL_PASSWORD:}
     from: ${CRM_MAIL_FROM:crm@example.com}
+    inbound:
+      # 101 收信侧诚实化：本项没有接入真实 IMAP。默认 false = POST /mail-accounts/{id}/sync
+      # 明确回 409（MAIL_INBOUND_NOT_CONFIGURED）且不写任何记录；置 true 才允许生成一条状态为
+      # SIMULATED 的演示记录（界面上标"模拟"，不会显示成"已同步"）。
+      # ⚠️ 唯一真源是本行的 false；Java 侧 MailInboundStatus 的 @Value 默认值只是"配置缺失时的兜底"，
+      # 两处必须同向（本仓有过"代码默认 true、yml false ⇒ yml 胜出 ⇒ 代码默认值是死代码却会被读成真源"的先例）。
+      # ⚠️ 本键只表示"允许生成演示记录"，不是连通性探测：置 true 而 IMAP 不存在时端点照样 200。
+      demo-enabled: ${CRM_MAIL_INBOUND_DEMO_ENABLED:false}
   scheduler:
     # 定时导出扫描间隔（cron 表达式），默认每 5 分钟
     export-cron: ${CRM_SCHEDULER_EXPORT_CRON:0 0/5 * * * ?}

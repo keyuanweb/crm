@@ -93,11 +93,23 @@ public class MailAccountController {
 
   // ===== 同步记录（ADMIN + SALES） =====
 
+  /**
+   * 触发收信同步（101 收信侧诚实化）。<b>两种结果</b>：
+   *
+   * <ul>
+   *   <li>默认（未打开 {@code crm.mail.inbound.demo-enabled}）：本部署没有收信源 ⇒ <b>409</b> + {@code
+   *       MAIL_INBOUND_NOT_CONFIGURED}，<b>不写任何记录</b>（062 里此端点会每调一次插一条假的 SYNCED 记录）。
+   *   <li>显式打开演示开关：<b>200</b> + 一条 {@link com.crm.entity.MailSyncRecord#STATUS_SIMULATED} 记录 （主题与外部
+   *       id 带演示标记），供链路演示。
+   * </ul>
+   *
+   * <p>账户不存在仍是 404、缺 {@code mail_sync:manage} 仍是 403 —— 二者与 062 一致，本项不动。
+   */
   @PostMapping("/{id}/sync")
   @RequirePermission("mail_sync:manage")
-  @Operation(summary = "模拟同步（生成 INBOUND 记录验证链路）")
+  @Operation(summary = "触发收信同步（未接入收信源时拒绝，返回 409）")
   public ApiResponse<MailSyncRecordResponse> sync(@PathVariable Long id) {
-    return ApiResponse.ok(recordService.simulateSync(id));
+    return ApiResponse.ok(recordService.triggerSync(id));
   }
 
   @GetMapping("/{id}/records")

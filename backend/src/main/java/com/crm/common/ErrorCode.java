@@ -146,6 +146,11 @@ public enum ErrorCode {
   MAIL_EMAIL_DUPLICATE(409, "MAIL_EMAIL_DUPLICATE", "邮箱已存在"),
   MAIL_ACCOUNT_NOT_FOUND(404, "MAIL_ACCOUNT_NOT_FOUND", "邮件账户不存在"),
   MAIL_RECORD_NOT_FOUND(404, "MAIL_RECORD_NOT_FOUND", "同步记录不存在"),
+  // 101 收信侧诚实化：未接入收信源（IMAP）时同步端点拒绝。取 409 而非 501/503 —— 501 全仓零先例
+  // （引入客户端与八道门禁都没见过的状态类），503 已被 MFA_STORE_UNAVAILABLE 占为「依赖暂时不可用、
+  // 可重试」，而本情形不可重试；409 在本仓有 30 处先例，语义族正是「服务端当前状态不允许该操作」，
+  // 且日后真接上 IMAP 时「账户未启用 / 凭证缺失」仍会落回 409。
+  MAIL_INBOUND_NOT_CONFIGURED(409, "MAIL_INBOUND_NOT_CONFIGURED", "未接入收信源（IMAP），同步未执行"),
   // 双因素认证（082-two-factor-auth）
   //
   // ⚠️ 这里**没有** MFA_REQUIRED：立项契约把它列为 HTTP 200 的「错误码」，但本枚举是**错误**枚举，

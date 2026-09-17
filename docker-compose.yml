@@ -35,6 +35,9 @@ services:
       - CRM_MAIL_USERNAME=${CRM_MAIL_USERNAME:-}
       - CRM_MAIL_PASSWORD=${CRM_MAIL_PASSWORD:-}
       - CRM_MAIL_FROM=${CRM_MAIL_FROM:-crm@example.com}
+      # 收信侧（101）：未接入真实 IMAP。不设置/置 false 则同步端点回 409 且不写任何记录；
+      # 置 true 才允许生成一条状态为 SIMULATED 的演示记录（界面标"模拟"）。
+      - CRM_MAIL_INBOUND_DEMO_ENABLED=${CRM_MAIL_INBOUND_DEMO_ENABLED:-false}
       # 出站地址白名单（SSRF 防护，FR-G13）：**留空 = 不放行任何出站目标，公网也不放行**，
       # 即 Webhook 回调与集成渠道在编排下默认全部不可用。需要回调外部服务时在 .env 中填写，
       # 例：CRM_OUTBOUND_ALLOWED_HOSTS=hooks.example.com,10.0.0.8
