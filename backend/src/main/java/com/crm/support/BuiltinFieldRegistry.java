@@ -111,20 +111,7 @@ public class BuiltinFieldRegistry {
           if (!entityType.equals(f.entityType())) {
             continue;
           }
-          Field handle = declaredField(type, f.fieldKey());
-          if (handle == null) {
-            throw new IllegalStateException(
-                "载体类 "
-                    + type.getName()
-                    + " 上没有属性 `"
-                    + f.fieldKey()
-                    + "`（内置字段 "
-                    + entityType
-                    + ":"
-                    + f.fieldKey()
-                    + "）。掩码与回补都按属性名做反射，名字对不上时会**静默什么都不做**，"
-                    + "故此处直接让应用起不来。");
-          }
+          Field handle = requireProperty(type, f);
           handle.setAccessible(true);
           handles.put(f.fieldKey(), handle);
         }
@@ -134,6 +121,32 @@ public class BuiltinFieldRegistry {
     if (carriers.size() != CARRIERS.values().stream().mapToInt(List::size).sum()) {
       throw new IllegalStateException("载体句柄数量与声明不符，注册表构建失败");
     }
+  }
+
+  /**
+   * 解析**一个**载体类上的**一个**注册属性，解析不到即抛。
+   *
+   * <p>从 {@link #validate()} 的载体循环里提出来（包级可见、静态）是**为了能被用例直接打到**：注册表内容 ({@code REGISTERED})与载体清单都是
+   * {@code private static final} 且 {@code validate()} 只在 {@code @PostConstruct}
+   * 跑一次——若这段判定留在循环里，任何「删掉这段 null 检查」的改法都不会让用例变红 （真实条目在真载体上永远解析得到）。提出来之后，用例可以用一个**编造的** {@link
+   * BuiltinField} 直接验证 「属性名打错 ⇒ 抛」这一条判据本身。
+   */
+  static Field requireProperty(Class<?> type, BuiltinField field) {
+    Field handle = declaredField(type, field.fieldKey());
+    if (handle == null) {
+      throw new IllegalStateException(
+          "载体类 "
+              + type.getName()
+              + " 上没有属性 `"
+              + field.fieldKey()
+              + "`（内置字段 "
+              + field.entityType()
+              + ":"
+              + field.fieldKey()
+              + "）。掩码与回补都按属性名做反射，名字对不上时会**静默什么都不做**，"
+              + "故此处直接让应用起不来。");
+    }
+    return handle;
   }
 
   /** 某实体的全部注册字段（配置面用；未注册的实体返回空表）。 */
