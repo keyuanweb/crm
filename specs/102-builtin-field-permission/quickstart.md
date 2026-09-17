@@ -178,6 +178,9 @@ grep -n '100 → 101\|001–102' specs/roadmap.md | head
 
 # ⑧ spotless 重排自证（长句留痕用 <br> 自占一行，改完重跑确认没被折回）
 cd backend && mvn -B spotless:apply && git diff --stat -- ../CRM_FEATURE_COMPARISON.md   # 期望无变化
+# ⚠️ **交付实测的读法订正（2026-09-17）**：字面跑出来是 `1 file changed, 25 insertions(+), 4 deletions(-)`，
+# 那是**本批自己的 6 处 102 订正**（工区未提交），**不是 spotless 的重排**。
+# ⇒ 本判据要读的是 **spotless 自己那行 `0 were changed to be clean`**；`git diff --stat` 只适合在**已提交的树**上跑。
 ```
 
 ---
@@ -197,3 +200,5 @@ cd backend && mvn -B spotless:apply && git diff --stat -- ../CRM_FEATURE_COMPARI
 
 ⚠️ **交付态读数不得被后一次 `mvn test` 冲掉**：门禁跑完**不要再跑 Maven**；交付块引用**整次 verify** 的读数并写明**出处**。
 ⚠️ 本仓已知现象：**同一棵未改动的树两次 verify 的分母会漂移**（IDE 语言服务原地增量编译改写 `target/classes`）⇒ 取那一次并写明出处，**不去**「确认哪一次更准」。
+⚠️ **本条自身的一处例外（2026-09-17 交付实测）：§6 ⑧ 的字面命令含一次 `mvn -B spotless:apply`，它必然在门禁之后跑。** 该命令是**直接目标调用、不走生命周期、不执行任何测试** ⇒ **不触碰 `jacoco.exec`**，交付读数不受影响（实测该次同为 `812 files clean / 0 were changed`）。**登记此例外是为了让「门禁后不再跑 Maven」这条纪律与 §6 ⑧ 不互相矛盾**，不是放宽它。
+⚠️ **读数落到哪**：交付读数**不在本文件重复第二份** —— 门禁 / 覆盖率 / 冒烟 / 判据 / 订正自查逐条落在 **`falsification-evidence.md` 的 §门禁 · §冒烟 · §判据 · §订正** 四节与 **`tasks.md` 的「交付块」**表；本表（§7）只是「从哪取」的清单。
