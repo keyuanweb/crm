@@ -153,7 +153,7 @@ cd frontend && pnpm run test:e2e
 crm/
 ├── backend/                    # Spring Boot 后端
 │   ├── src/main/java/com/crm/ # controller/service/repository/entity/dto
-│   ├── src/main/resources/    # application.yml、db/migration（V1~V90，缺 V72；V90 = 096 权限码补授）
+│   ├── src/main/resources/    # application.yml、db/migration（V1~V91，缺 V72；V91 = 102 内置字段权限）
 │   └── pom.xml
 ├── frontend/                   # React 前端
 │   ├── src/                   # pages/components/services/types/store/hooks

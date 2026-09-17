@@ -10,7 +10,7 @@
 |---|---|---|
 | 后端 REST Controller | **66** | `backend/src/main/java/**/*Controller.java` |
 | 数据库表 | **86** | `db/migration/*.sql` 中 `CREATE TABLE` 去重（**注意用 `src/main/resources`，`target/classes` 会让计数翻倍**） |
-| Flyway 迁移 | **89 个（V1–V90，缺 V72）** | `backend/src/main/resources/db/migration` |
+| Flyway 迁移 | **90 个（V1–V91，缺 V72）** | `backend/src/main/resources/db/migration` |
 | 后端测试类 | **190 个含用例的类**（`src/test` 共 196 个 `.java`）⚠️ **2026-09-17 第五次重测（由 101 执行）：188/194 → 190/196**（+2 = 101 新增的 `MailInboundStatusTest` + `MailInboundDemoIT`）；⚠️ **2026-09-17 第四次重测（由 100 执行）：182/188 → 188/194**（+6 = 100 新增的 5 个单测类 + `RateLimitIT`）；**旧值逐字在本行内仍可 grep 到**（见下方 ⚠️ 段） | `grep -rlE "@Test\|@ParameterizedTest" backend/src/test/java` |
 | 前端页面组件 | **100 个非测试 tsx**（含测试共 176） | `frontend/src/pages` 下 `*.tsx` 且非 `*.test.tsx` |
 | 前端路由定义 | **87 个 `<Route>`** | `frontend/src/App.tsx` 的 `<Route` 88 处 − `<Routes>` 1 处 |

@@ -16,6 +16,7 @@ import com.crm.entity.FieldPermission;
 import com.crm.repository.FieldPermissionMapper;
 import com.crm.security.JwtAuthFilter.CrmPrincipal;
 import com.crm.security.SecurityUtil;
+import com.crm.support.BuiltinFieldRegistry;
 import java.util.List;
 import java.util.Map;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -44,7 +45,8 @@ class FieldPermissionServiceTest {
   @BeforeEach
   void setUp() {
     permissionMapper = mock(FieldPermissionMapper.class);
-    service = new FieldPermissionService(permissionMapper);
+    // 注册表在此用替身：本类测的是服务语义，不是注册表自检（那条在 BuiltinFieldRegistryTest）
+    service = new FieldPermissionService(permissionMapper, mock(BuiltinFieldRegistry.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock
         .when(SecurityUtil::currentPrincipal)
