@@ -2137,6 +2137,10 @@ const en = {
       formFieldLabel: 'Field',
       formFieldRequired: 'Please select field',
       formFieldPlaceholder: 'Select field',
+      // 102：字段下拉分两组（此前只有「自定义字段」一组，因为内置字段选不到）
+      groupBuiltin: 'Built-in',
+      groupCustom: 'Custom',
+      msgFieldsFailed: 'Failed to load configurable fields',
       formPermissionLabel: 'Permission',
       formPermissionRequired: 'Please select permission',
       btnSave: 'Save',

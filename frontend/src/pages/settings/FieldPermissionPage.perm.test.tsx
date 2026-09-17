@@ -9,15 +9,14 @@ vi.mock('../../services/fieldPermissionService', () => ({
   fetchFieldPermissions: vi.fn(),
   upsertFieldPermission: vi.fn(),
   deleteFieldPermission: vi.fn(),
+  // 102：表单里选实体类型时改调可配字段端点（此前是 fetchCustomFields）。本文件不选实体，
+  // 故它不会被调用；但页面**导入**了它，工厂里缺这个键会让取值那一刻抛「没有该导出」。
+  fetchAvailableFields: vi.fn(),
 }))
-// 页面另外间接依赖这两个服务：`fetchRoleOptions` 在挂载时的 useEffect 里发一次（`:50-59`），
-// `fetchCustomFields` 在表单里选实体类型时发（`:67-74`）。不挡掉就是真请求（XHR 已被 setup 静默成
-// 永不返回）。本文件只测渲染层，两者都不会被断言。
+// 页面另外间接依赖这个服务：`fetchRoleOptions` 在挂载时的 useEffect 里发一次（`:50-59`）。
+// 不挡掉就是真请求（XHR 已被 setup 静默成永不返回）。本文件只测渲染层，不会被断言。
 vi.mock('../../services/roleService', () => ({
   fetchRoleOptions: vi.fn(),
-}))
-vi.mock('../../services/customFieldService', () => ({
-  fetchCustomFields: vi.fn(),
 }))
 
 /**
@@ -34,9 +33,13 @@ vi.mock('../../services/customFieldService', () => ({
  *
  * <p><b>本页没有"可用来当守卫的兄弟控件"</b>：action 列里只有这一个受管辖的删除，
  * 没有第二个不受权限管辖的链接（对比 `SlaPolicyListPage` 的「编辑」）。因此反空洞守卫改由
- * **真实数据行**承担——用行里那个唯一的 `fieldId` 数值（`:86`，`dataIndex` 直出、无 render、
- * 与 i18n / enumLabels 都无关）作为"该行确实渲染过"的证据。这样"删除不在"才不会被
- * "整张表压根没渲染出来"冒充。
+ * **真实数据行**承担——用行里那个唯一的 `fieldId` 数值作为"该行确实渲染过"的证据。这样"删除不在"
+ * 才不会被"整张表压根没渲染出来"冒充。
+ *
+ * <p>⚠️ **2026-09-17（102）本列已不再是 `dataIndex` 直出**：它改为渲染 `fieldName`，并在字段名缺失时
+ * 依次回落 `fieldKey` → `fieldId`（见 `FieldPermissionPage.tsx` 该列的 `render`）。本文件的锚点行
+ * （下面那个 `permRow`）**既无 `fieldName` 也无 `fieldKey`**，故仍渲染出 `8842`，锚点照旧成立；
+ * 但「直出、无 render」这个理由已不成立，改为「render 的兜底链落到 fieldId」。列一改，锚点仍要能自证。
  *
  * <p>负向用例**必须**用非 ADMIN：`hasPerm` 对 `role === 'ADMIN'` 直通返回 true
  * （`hooks/usePermission.ts:10`），拿管理员永远测不出「看不见」。
@@ -47,7 +50,10 @@ const salesNoPerm: UserInfo = { id: 2, username: 'sales01', displayName: '销售
 /** 只多了 `field_permission:manage`，其余与基线逐字相同——把差异收敛到唯一变量。 */
 const salesWithPerm: UserInfo = { ...salesNoPerm, permissions: ['field_permission:manage'] }
 
-/** 一条普通配置行。`fieldId` 取一个不会与任何标题/枚举文案撞车的数值，专供行定位用。 */
+/**
+ * 一条普通配置行。`fieldId` 取一个不会与任何标题/枚举文案撞车的数值，专供行定位用；
+ * 刻意**不给** `fieldName`/`fieldKey`（102 起字段列的兜底链会落到这个数字，见文件头 ⚠️）。
+ */
 const permRow = {
   id: 5,
   roleCode: 'SALES',
@@ -57,7 +63,7 @@ const permRow = {
 }
 
 const LBL_DELETE = 'pages.fieldPermission.btnDelete'
-/** 反空洞守卫锚点：该行 `fieldId` 单元格的**字面渲染结果**。 */
+/** 反空洞守卫锚点：该行「字段」单元格的**字面渲染结果**（102 起是 render 兜底链的末端）。 */
 const ROW_ANCHOR = '8842'
 
 async function renderPage(user: UserInfo) {
@@ -68,15 +74,15 @@ async function renderPage(user: UserInfo) {
   vi.mocked(fetchRoleOptions).mockResolvedValue([{ code: 'SALES', name: '销售' }] as never)
 
   renderWithProviders(<FieldPermissionPage />)
-  // 反空洞守卫：等到表格真的渲染出这一行（`fieldId` 由行数据直出），否定断言才有意义 ——
+  // 反空洞守卫：等到表格真的渲染出这一行（「字段」列渲染出锚点值），否定断言才有意义 ——
   // 否则"按钮不在"可能只是"整张表还没加载出来"，那样的负向断言是假绿。
   await screen.findByText(ROW_ANCHOR)
 }
 
-/** 按 `fieldId` 单元格定位到 `<tr>`。 */
+/** 按「字段」单元格定位到 `<tr>`。 */
 function row(): HTMLElement {
   const tr = screen.getByText(ROW_ANCHOR).closest('tr')
-  if (!tr) throw new Error(`未找到 fieldId=${ROW_ANCHOR} 所在的行`)
+  if (!tr) throw new Error(`未找到「字段」= ${ROW_ANCHOR} 所在的行`)
   return tr as HTMLElement
 }
 

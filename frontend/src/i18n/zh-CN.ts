@@ -2161,6 +2161,10 @@ const zhCN = {
       formFieldLabel: '字段',
       formFieldRequired: '请选择字段',
       formFieldPlaceholder: '选择字段',
+      // 102：字段下拉分两组（此前只有「自定义字段」一组，因为内置字段选不到）
+      groupBuiltin: '内置字段',
+      groupCustom: '自定义字段',
+      msgFieldsFailed: '可配置字段加载失败',
       formPermissionLabel: '权限',
       formPermissionRequired: '请选择权限',
       btnSave: '保存',

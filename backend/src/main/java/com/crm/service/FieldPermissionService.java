@@ -5,13 +5,19 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.crm.common.BusinessException;
 import com.crm.common.ErrorCode;
 import com.crm.common.PageResult;
+import com.crm.dto.field.AvailableFieldResponse;
 import com.crm.dto.field.FieldPermissionRequest;
 import com.crm.dto.field.FieldPermissionResponse;
 import com.crm.dto.field.FieldPermissionView;
+import com.crm.entity.CustomField;
 import com.crm.entity.FieldPermission;
+import com.crm.repository.CustomFieldMapper;
 import com.crm.repository.FieldPermissionMapper;
 import com.crm.security.SecurityUtil;
+import com.crm.support.BuiltinField;
 import com.crm.support.BuiltinFieldRegistry;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,11 +42,20 @@ public class FieldPermissionService {
 
   private final FieldPermissionMapper permissionMapper;
   private final BuiltinFieldRegistry builtinFieldRegistry;
+  private final CustomFieldMapper customFieldMapper;
 
+  /**
+   * ⚠️ {@code CustomFieldMapper} 是**只读字段定义**用的，不能换成 {@code CustomFieldService}：后者已经依赖本类
+   * （自定义字段值的权限计算），反向注入会构成构造器环 ⇒ Spring Boot 2.6+ 默认禁止循环引用、应用启动即失败。 本类对它的两处使用（可配字段表、{@code
+   * fieldName}）都只需要一张表的一次查询，不值得为它建新类。
+   */
   public FieldPermissionService(
-      FieldPermissionMapper permissionMapper, BuiltinFieldRegistry builtinFieldRegistry) {
+      FieldPermissionMapper permissionMapper,
+      BuiltinFieldRegistry builtinFieldRegistry,
+      CustomFieldMapper customFieldMapper) {
     this.permissionMapper = permissionMapper;
     this.builtinFieldRegistry = builtinFieldRegistry;
+    this.customFieldMapper = customFieldMapper;
   }
 
   // ===== 配置 CRUD =====
@@ -56,8 +71,7 @@ public class FieldPermissionService {
     }
     qw.orderByDesc(FieldPermission::getId);
     Page<FieldPermission> p = permissionMapper.selectPage(new Page<>(page, pageSize), qw);
-    return PageResult.of(
-        p.getRecords().stream().map(this::toResponse).toList(), p.getTotal(), page, pageSize);
+    return PageResult.of(toResponses(p.getRecords()), p.getTotal(), page, pageSize);
   }
 
   /**
@@ -108,6 +122,67 @@ public class FieldPermissionService {
   @Transactional
   public void delete(Long id) {
     permissionMapper.deleteById(id);
+  }
+
+  /**
+   * 102 配置面：某实体在本系统里**全部可配字段**（内置 + 自定义），供字段权限页的「字段」下拉。
+   *
+   * <p><b>为什么读 {@link CustomFieldMapper} 而不是 {@code CustomFieldService}</b>：后者已依赖本类，见构造器上的注释。
+   *
+   * <p><b>与 {@code CustomFieldService.listByEntity} 的两点刻意不同</b>：
+   *
+   * <ol>
+   *   <li><b>不按调用者角色的 HIDDEN 过滤自定义字段</b>。配置面要配的正是「被隐藏的那些」——按角色过滤会让已配成 HIDDEN
+   *       的字段从下拉里消失，配好了却再也改不回来（而今天唯一能进本端点的角色是 ADMIN，过滤与否看不出差别， 所以这条不写下来就会被后人当成冗余代码删掉）。
+   *   <li><b>不带 permission 标记</b>：那是编辑实体值时要看的，不是配权限时要看的。
+   * </ol>
+   *
+   * <p><b>结果为空 ⇒ 422 而不是空表</b>（契约 §3.1）：空表让「这个实体没有可配字段」与「实体名拼错了」不可区分。 故「未知
+   * entityType」在本方法里**不需要**另立一份已知实体清单——注册表认不出、自定义字段也没有的实体， 聚合出来本来就是空的。少一份清单就少一处会与前端 {@code
+   * ENUM_KEYS.fieldEntity} 漂移的第二真相。
+   */
+  public PageResult<AvailableFieldResponse> availableFields(
+      String entityType, long page, long pageSize) {
+    String type = entityType == null ? "" : entityType.trim();
+    List<AvailableFieldResponse> all = new ArrayList<>();
+    for (BuiltinField f : builtinFieldRegistry.fieldsOf(type)) {
+      all.add(AvailableFieldResponse.builtin(f.fieldKey(), f.label()));
+    }
+    for (CustomField f : enabledCustomFields(type)) {
+      all.add(AvailableFieldResponse.custom(f.getId(), f.getName()));
+    }
+    if (all.isEmpty()) {
+      throw new BusinessException(
+          ErrorCode.FIELD_PERMISSION_INVALID, "该实体没有可配置权限的字段：" + entityType);
+    }
+    return PageResult.of(slice(all, page, pageSize), all.size(), page, pageSize);
+  }
+
+  /** 该实体的启用中自定义字段（与 {@code listByEntity} 同一筛选与排序，但不做权限装饰）。 */
+  private List<CustomField> enabledCustomFields(String entityType) {
+    return customFieldMapper.selectList(
+        new LambdaQueryWrapper<CustomField>()
+            .eq(CustomField::getEntityType, entityType)
+            .eq(CustomField::getEnabled, 1)
+            .orderByAsc(CustomField::getSortOrder)
+            .orderByAsc(CustomField::getId));
+  }
+
+  /**
+   * 内存分页（内置在前、自定义在后）。判据只有一条：**不得因越界的 page/pageSize 抛异常**——下拉只需要一页到底， 真正的风险是有人传了 {@code
+   * pageSize=Long.MAX_VALUE} 让 {@code (page-1)*size} 溢出成负数，再被 {@code subList} 拒掉（配置面报 500
+   * 而看不出原因）。故先把两个乘数都夹到列表长度以内。
+   */
+  private static <T> List<T> slice(List<T> all, long page, long pageSize) {
+    long from = Math.max(1, page);
+    long size = (pageSize <= 0 || pageSize > all.size()) ? all.size() : pageSize;
+    if (from > all.size()) {
+      return List.of(); // 每页至少一条 ⇒ page 超过总条数时必然为空
+    }
+    int start = (int) ((from - 1) * size);
+    return start >= all.size()
+        ? List.of()
+        : all.subList(start, (int) Math.min(all.size(), start + size));
   }
 
   // ===== 权限计算 =====
@@ -280,14 +355,49 @@ public class FieldPermissionService {
   // ===== 装配 =====
 
   private FieldPermissionResponse toResponse(FieldPermission fp) {
+    return toResponse(fp, namesFor(List.of(fp)));
+  }
+
+  private List<FieldPermissionResponse> toResponses(List<FieldPermission> rows) {
+    Map<Long, String> names = namesFor(rows);
+    return rows.stream().map(fp -> toResponse(fp, names)).toList();
+  }
+
+  /** 自定义字段名批量取——按行查库会让一页 20 条配置发 20 次查询。内置行没有 {@code fieldId}，不进这次查询。 */
+  private Map<Long, String> namesFor(Collection<FieldPermission> rows) {
+    List<Long> ids =
+        rows.stream().map(FieldPermission::getFieldId).filter(Objects::nonNull).distinct().toList();
+    if (ids.isEmpty()) {
+      return Map.of();
+    }
+    return customFieldMapper.selectBatchIds(ids).stream()
+        .collect(Collectors.toMap(CustomField::getId, CustomField::getName, (a, b) -> a));
+  }
+
+  /**
+   * 102：{@code fieldName} 由**声明**变为**真正赋值**（056 的契约里它一直有，实现里一直是 null）。
+   *
+   * <p>内置字段名取注册表的 {@code label}，自定义字段名取字段定义——两种字段名在同一个响应里同一个键， 配置列表不必再回头查一次字段表。找不到时留 null
+   * 而不是编一个占位串：字段定义可能已被删除， 而「这个配置指向一个已不存在的字段」正是调用方需要看见的事实。
+   */
+  private FieldPermissionResponse toResponse(FieldPermission fp, Map<Long, String> customNames) {
     FieldPermissionResponse resp = new FieldPermissionResponse();
     resp.setId(fp.getId());
     resp.setRoleCode(fp.getRoleCode());
     resp.setEntityType(fp.getEntityType());
     resp.setFieldId(fp.getFieldId());
     resp.setFieldKey(fp.getFieldKey());
+    resp.setFieldName(fieldName(fp, customNames));
     resp.setPermission(fp.getPermission());
     resp.setCreatedAt(fp.getCreatedAt());
     return resp;
+  }
+
+  private String fieldName(FieldPermission fp, Map<Long, String> customNames) {
+    if (fp.getFieldKey() != null) {
+      BuiltinField builtin = builtinFieldRegistry.find(fp.getEntityType(), fp.getFieldKey());
+      return builtin == null ? null : builtin.label();
+    }
+    return fp.getFieldId() == null ? null : customNames.get(fp.getFieldId());
   }
 }

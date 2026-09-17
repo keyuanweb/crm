@@ -5,10 +5,12 @@ import { App, Button, Form, Modal, Popconfirm, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   deleteFieldPermission,
+  fetchAvailableFields,
   fetchFieldPermissions,
+  fieldOptionValue,
+  toUpsertField,
   upsertFieldPermission,
 } from '../../services/fieldPermissionService'
-import { fetchCustomFields } from '../../services/customFieldService'
 import { fetchRoleOptions } from '../../services/roleService'
 import { extractErrorMessage } from '../../services/apiClient'
 import { ENUM_KEYS, labelOf } from '../../constants/enumLabels'
@@ -20,12 +22,18 @@ import { FormGrid, VERTICAL_MIN_ITEM_WIDTH } from '../../components/ui'
 interface FormValues {
   roleCode: string
   entityType: string
-  fieldId: number
+  /** 由 `fieldOptionValue` 编出来的选项值（`fieldId|fieldKey`），不是字段 id。 */
+  field: string
   permission: string
 }
 
 /**
  * 字段权限配置页（056，仅 ADMIN）。
+ *
+ * <p><b>102：本页从「只能配自定义字段」扩到内置字段。</b>字段下拉改调
+ * `GET /field-permissions/available-fields`（内置 + 自定义同源，分两组），选项值把 `fieldId` 与
+ * `fieldKey` 编在一起、提交时拆开（见 `services/fieldPermissionService.ts` 的两个编解码函数）；
+ * 列表的「字段」列改渲染 `fieldName` 而不是那串数字 id。
  *
  * <p><b>1.5：角色下拉改为以后端为准。</b>改造前它是硬编码的
  * `['ADMIN','SALES','SUPPORT','SERVICE']`，两处都错：`SERVICE` **这个角色从来不存在**（`role` 表里
@@ -41,7 +49,9 @@ export default function FieldPermissionPage() {
   const actionRef = useRef<ActionType>()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
-  const [fieldOptions, setFieldOptions] = useState<{ value: number; label: string }[]>([])
+  const [fieldOptions, setFieldOptions] = useState<
+    { label: string; options: { value: string; label: string }[] }[]
+  >([])
   const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([])
   const [form] = Form.useForm<FormValues>()
   // 删除字段权限配置走 DELETE /field-permissions/{id}，FieldPermissionController 上标的是
@@ -65,12 +75,32 @@ export default function FieldPermissionPage() {
     ? roleOptions
     : Object.keys(ENUM_KEYS.userRole).map((code) => ({ value: code, label: labelOf(t, ENUM_KEYS.userRole, code) }))
 
+  /**
+   * 载入该实体的可配字段（内置 + 自定义，102）。
+   *
+   * <p>改动点：此前读的是**自定义字段定义列表**，故内置字段（客户电话/商机金额…）在配置面上根本选不到，
+   * 后端那套内置字段权限等于没有入口。
+   *
+   * <p>失败时**不能静默清空**：后端对「没有任何可配字段的实体」返回 422（契约 §3.1），
+   * 静默清空会把「实体名/参数不对」显示成一个空下拉，管理员只会以为这个实体没有字段。
+   */
   const loadFields = async (entityType: string) => {
     try {
-      const res = await fetchCustomFields(entityType, 1, 100)
-      setFieldOptions(res.items.map((f) => ({ value: f.id, label: f.name })))
-    } catch {
+      const res = await fetchAvailableFields(entityType)
+      const groups = [
+        {
+          label: t('pages.fieldPermission.groupBuiltin'),
+          options: res.items.filter((f) => f.builtin).map((f) => ({ value: fieldOptionValue(f), label: f.fieldName })),
+        },
+        {
+          label: t('pages.fieldPermission.groupCustom'),
+          options: res.items.filter((f) => !f.builtin).map((f) => ({ value: fieldOptionValue(f), label: f.fieldName })),
+        },
+      ].filter((g) => g.options.length > 0) // 空分组会渲染出一个光秃秃的分组标题
+      setFieldOptions(groups)
+    } catch (err) {
       setFieldOptions([])
+      message.error(extractErrorMessage(err, t('pages.fieldPermission.msgFieldsFailed')))
     }
   }
 
@@ -84,7 +114,16 @@ export default function FieldPermissionPage() {
       render: (_, row) => labelOf(t, ENUM_KEYS.userRole, row.roleCode, row.roleCode),
     },
     { title: t('pages.fieldPermission.colEntity'), dataIndex: 'entityType', render: (_, row) => labelOf(t, ENUM_KEYS.fieldEntity, row.entityType) },
-    { title: t('pages.fieldPermission.colField'), dataIndex: 'fieldId', search: false },
+    {
+      title: t('pages.fieldPermission.colField'),
+      dataIndex: 'fieldName',
+      search: false,
+      // 102：此前这一列直出数字 fieldId —— 配置列表里一排「8842」既看不出是哪个字段，
+      // 也分不出内置/自定义。兜底链仍保留 fieldId：字段定义被删除后 fieldName 与 fieldKey 都可能是空，
+      // 那时数字比一片空白更可辨（也正是「这条配置指向的字段已不存在」的证据）。
+      render: (_, row) =>
+        row.fieldName || row.fieldKey || (row.fieldId == null ? '-' : String(row.fieldId)),
+    },
     {
       title: t('pages.fieldPermission.colPermission'),
       dataIndex: 'permission',
@@ -120,7 +159,13 @@ export default function FieldPermissionPage() {
   const onCreate = async () => {
     const values = await form.validateFields()
     try {
-      await upsertFieldPermission(values)
+      // 选项值 → 请求体：内置字段发 fieldKey、自定义字段发 fieldId（后端强制「恰好一个」）
+      await upsertFieldPermission({
+        roleCode: values.roleCode,
+        entityType: values.entityType,
+        permission: values.permission,
+        ...toUpsertField(values.field),
+      })
       message.success(t('pages.fieldPermission.msgSaved'))
       setModalOpen(false)
       actionRef.current?.reload()
@@ -169,7 +214,7 @@ export default function FieldPermissionPage() {
                 placeholder={t('pages.fieldPermission.formEntityPlaceholder')}
               />
             </Form.Item>
-            <Form.Item name="fieldId" label={t('pages.fieldPermission.formFieldLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formFieldRequired') }]}>
+            <Form.Item name="field" label={t('pages.fieldPermission.formFieldLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formFieldRequired') }]}>
               <Select options={fieldOptions} placeholder={t('pages.fieldPermission.formFieldPlaceholder')} />
             </Form.Item>
             <Form.Item name="permission" label={t('pages.fieldPermission.formPermissionLabel')} rules={[{ required: true, message: t('pages.fieldPermission.formPermissionRequired') }]} initialValue="READ_ONLY">

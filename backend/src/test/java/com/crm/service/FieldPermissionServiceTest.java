@@ -13,6 +13,7 @@ import com.crm.common.ErrorCode;
 import com.crm.dto.field.FieldPermissionRequest;
 import com.crm.dto.field.FieldValueLike;
 import com.crm.entity.FieldPermission;
+import com.crm.repository.CustomFieldMapper;
 import com.crm.repository.FieldPermissionMapper;
 import com.crm.security.JwtAuthFilter.CrmPrincipal;
 import com.crm.security.SecurityUtil;
@@ -46,7 +47,10 @@ class FieldPermissionServiceTest {
   void setUp() {
     permissionMapper = mock(FieldPermissionMapper.class);
     // 注册表在此用替身：本类测的是服务语义，不是注册表自检（那条在 BuiltinFieldRegistryTest）
-    service = new FieldPermissionService(permissionMapper, mock(BuiltinFieldRegistry.class));
+    // 102：第三个参数是只读自定义字段定义的 mapper（可配字段表与 fieldName 用；默认返回空表）
+    service =
+        new FieldPermissionService(
+            permissionMapper, mock(BuiltinFieldRegistry.class), mock(CustomFieldMapper.class));
     securityUtilMock = Mockito.mockStatic(SecurityUtil.class);
     securityUtilMock
         .when(SecurityUtil::currentPrincipal)

@@ -2,6 +2,7 @@ package com.crm.controller;
 
 import com.crm.common.ApiResponse;
 import com.crm.common.PageResult;
+import com.crm.dto.field.AvailableFieldResponse;
 import com.crm.dto.field.FieldPermissionRequest;
 import com.crm.dto.field.FieldPermissionResponse;
 import com.crm.security.RequirePermission;
@@ -47,6 +48,24 @@ public class FieldPermissionController {
       @RequestParam(defaultValue = "1") long page,
       @RequestParam(defaultValue = "20") long pageSize) {
     return ApiResponse.ok(permissionService.page(roleCode, entityType, page, pageSize));
+  }
+
+  /**
+   * 该实体**可配置权限**的字段：内置（注册表）+ 自定义（字段定义）。
+   *
+   * <p>102 新增：此前配置面的下拉只有自定义字段 ⇒ 内置字段**配不出来**，后端那套内置字段权限就等于没有入口。
+   *
+   * <p>未知/无可配字段的 {@code entityType} ⇒ 422（由服务层判，见 {@code FieldPermissionService.availableFields}）。
+   * 分页参数保留是为了与同资源的列表端点同形，默认一页取完（字段数是个位到两位数）。
+   */
+  @GetMapping("/available-fields")
+  @RequirePermission("field_permission:manage")
+  @Operation(summary = "该实体可配置权限的字段（内置 + 自定义）")
+  public ApiResponse<PageResult<AvailableFieldResponse>> availableFields(
+      @RequestParam String entityType,
+      @RequestParam(defaultValue = "1") long page,
+      @RequestParam(defaultValue = "200") long pageSize) {
+    return ApiResponse.ok(permissionService.availableFields(entityType, page, pageSize));
   }
 
   @PostMapping
