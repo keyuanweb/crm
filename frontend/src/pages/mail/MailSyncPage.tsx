@@ -9,7 +9,7 @@ import {
   deleteSyncRecord,
   fetchMailAccounts,
   fetchSyncRecords,
-  simulateSync,
+  triggerSync,
   updateMailAccount,
 } from '../../services/mailService'
 import { extractErrorMessage } from '../../services/apiClient'
@@ -192,7 +192,7 @@ function SyncRecordList({ accountId }: { accountId: number }) {
   const { t } = useTranslation()
   const { message } = App.useApp()
   const actionRef = useRef<ActionType>()
-  // 086：模拟同步（POST /mail-accounts/{id}/sync）与删除同步记录
+  // 086：触发收信同步（POST /mail-accounts/{id}/sync）与删除同步记录
   // （DELETE /mail-accounts/{id}/records/{recordId}）两个端点挂的都是 mail_sync:manage。
   const can = usePerms([PERMS.mailSyncManage])
   const SYNC_DIRECTION_LABELS: Record<string, string> = {
@@ -204,7 +204,21 @@ function SyncRecordList({ accountId }: { accountId: number }) {
     { title: t('pages.mail.subject'), dataIndex: 'subject' },
     { title: t('pages.mail.from'), dataIndex: 'fromAddress', search: false },
     { title: t('pages.mail.to'), dataIndex: 'toAddress', search: false },
-    { title: t('pages.mail.status'), dataIndex: 'syncStatus', search: false, render: (_, row) => (row.syncStatus === 'SYNCED' ? <Tag color="green">{t('pages.mail.tagSynced')}</Tag> : <Tag color="red">{t('pages.mail.tagFailed')}</Tag>) },
+    // 101：三向。062 是二向（SYNCED 绿、其余红），于是 SIMULATED 会被渲染成红色「失败」——
+    // 同样是假话，只是方向相反。未知值仍兜底为「失败」：状态值不外泄给用户，也不能被误读成成功。
+    {
+      title: t('pages.mail.status'),
+      dataIndex: 'syncStatus',
+      search: false,
+      render: (_, row) =>
+        row.syncStatus === 'SYNCED' ? (
+          <Tag color="green">{t('pages.mail.tagSynced')}</Tag>
+        ) : row.syncStatus === 'SIMULATED' ? (
+          <Tag color="orange">{t('pages.mail.tagSimulated')}</Tag>
+        ) : (
+          <Tag color="red">{t('pages.mail.tagFailed')}</Tag>
+        ),
+    },
     {
       title: t('pages.mail.time'),
       dataIndex: 'syncTime',
@@ -237,9 +251,11 @@ function SyncRecordList({ accountId }: { accountId: number }) {
   return (
     <>
       {/*
-        诚实化：按钮已写明「模拟同步」，但下表会把后端 simulateSync 插的假记录渲染成绿色
-        「已同步」——看起来像真实收信成功。本期不接 IMAP（用户已确认），但不能让模拟数据
-        冒充真实结果，故在表上方明示数据来源。
+        101 收信侧诚实化。062 的问题是按钮与表格合起来在说一件不实的话：「模拟同步」调一次，
+        事后端插一条假 SYNCED 记录，下表把它渲染成绿色「已同步」——像真的收到了邮件。
+        现在后端默认**拒绝且不写任何记录**（409 MAIL_INBOUND_NOT_CONFIGURED），
+        只有部署方显式打开演示开关才会生成一条标 SIMULATED 的记录（下表渲染成橙色「模拟」）。
+        本条 Alert 保留（无条件显示）是为了在按钮被拒之前就说清原因；文案随新行为改写。
       */}
       <Alert
         type="warning"
@@ -269,15 +285,17 @@ function SyncRecordList({ accountId }: { accountId: number }) {
                   icon={<SyncOutlined />}
                   onClick={async () => {
                     try {
-                      await simulateSync(accountId)
+                      await triggerSync(accountId)
                       message.success(t('pages.mail.msgSyncTriggered'))
                       actionRef.current?.reload()
                     } catch (err) {
+                      // 默认部署下这里接到的就是 409「未接入收信源（IMAP），同步未执行」——
+                      // 那是受控失败，不是异常，故照常走错误提示（文案由后端 message 带来）。
                       message.error(extractErrorMessage(err, t('pages.mail.msgSyncFailed')))
                     }
                   }}
                 >
-                  {t('pages.mail.btnSimulateSync')}
+                  {t('pages.mail.btnSyncInbox')}
                 </Button>,
               ]
             : []),

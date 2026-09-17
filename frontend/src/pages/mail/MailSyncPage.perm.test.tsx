@@ -11,21 +11,22 @@ vi.mock('../../services/mailService', () => ({
   updateMailAccount: vi.fn(),
   deleteMailAccount: vi.fn(),
   fetchSyncRecords: vi.fn(),
-  simulateSync: vi.fn(),
+  triggerSync: vi.fn(),
   deleteSyncRecord: vi.fn(),
 }))
 
 /**
  * 086 权限收口 · `MailSyncPage` 的**两个不同权限码 + 两层嵌套表格**的渲染测试。
+ * 101 另加两条**状态渲染**用例（`SIMULATED` 与未知值）。
  *
  * <pre>
  *   删除邮箱账号      ← mail_account:manage（DELETE /mail-accounts/{id}）
- *   模拟同步          ← mail_sync:manage   （POST /mail-accounts/{id}/sync）
+ *   同步收件          ← mail_sync:manage   （POST /mail-accounts/{id}/sync）
  *   删除同步记录      ← mail_sync:manage   （DELETE /mail-accounts/{id}/records/{recordId}）
  * </pre>
  *
  * <p>三个控件挂两个码，且同步记录子表（`SyncRecordList`）是**账户表的展开行**——不点开
- * 那个展开箭头，子表根本不挂载，此时对「模拟同步」的否定断言测的只是"没展开"，不是"没权限"。
+ * 那个展开箭头，子表根本不挂载，此时对「同步收件」的否定断言测的只是"没展开"，不是"没权限"。
  * 所以每个用例都先展开第一行，并以子表顶部那条 `demoDataNoticeTitle` 提示为**
  * 子表已挂载**的证据，再做否定断言。
  *
@@ -46,16 +47,17 @@ const accountRow = {
   enabled: true,
   isDefaultSender: true,
 }
-const syncRecordRow = {
+/** 同步记录行；`syncStatus` 是唯一被参数化的字段（101 的状态渲染用例只动它）。 */
+const syncRecordRow = (syncStatus: string) => ({
   id: 100,
   accountId: 1,
   direction: 'INBOUND',
   subject: '测试邮件',
   fromAddress: 'a@b.com',
   toAddress: 'c@d.com',
-  syncStatus: 'SYNCED',
+  syncStatus,
   syncTime: '2026-01-01T10:00:00',
-}
+})
 
 const adminUser: UserInfo = { id: 1, username: 'admin', displayName: '系统管理员', role: 'ADMIN' }
 /** 非 ADMIN 基线：零权限码。 */
@@ -76,18 +78,18 @@ const queryAccountDelete = () =>
   screen.queryAllByText('common.button.delete').filter((el) => !el.closest('.ant-table-expanded-row'))
 /** 展开出来的同步记录子表。 */
 const expandedRow = () => document.querySelector('.ant-table-expanded-row') as HTMLElement | null
-const querySyncButton = () => screen.queryAllByText('pages.mail.btnSimulateSync')
+const querySyncButton = () => screen.queryAllByText('pages.mail.btnSyncInbox')
 const querySyncRecordDelete = () => {
   const row = expandedRow()
   return row ? within(row).queryAllByText('common.button.delete') : []
 }
 
-async function renderPage(user: UserInfo) {
+async function renderPage(user: UserInfo, syncStatus = 'SYNCED') {
   useAuthStore.setState({ user })
   const { fetchMailAccounts, fetchSyncRecords } = await import('../../services/mailService')
   vi.mocked(fetchMailAccounts).mockResolvedValue([accountRow] as never)
   vi.mocked(fetchSyncRecords).mockResolvedValue({
-    items: [syncRecordRow],
+    items: [syncRecordRow(syncStatus)],
     total: 1,
     page: 1,
     pageSize: 10,
@@ -123,7 +125,7 @@ describe('MailSyncPage 权限收口（086）', () => {
     localStorage.clear()
   })
 
-  it('ADMIN 看得见账号「删除」、「模拟同步」与同步记录「删除」', async () => {
+  it('ADMIN 看得见账号「删除」、「同步收件」与同步记录「删除」', async () => {
     await renderPage(adminUser)
     await expandFirstAccount()
 
@@ -153,7 +155,7 @@ describe('MailSyncPage 权限收口（086）', () => {
     expect(querySyncRecordDelete()).toHaveLength(0)
   })
 
-  it('只持有 mail_sync:manage 的 SALES：看得见「模拟同步」与同步记录「删除」，看不见账号「删除」', async () => {
+  it('只持有 mail_sync:manage 的 SALES：看得见「同步收件」与同步记录「删除」，看不见账号「删除」', async () => {
     await renderPage(salesWithSyncManage)
     await expandFirstAccount()
 
@@ -161,5 +163,43 @@ describe('MailSyncPage 权限收口（086）', () => {
     expect(querySyncButton()).toHaveLength(1)
     expect(querySyncRecordDelete()).toHaveLength(1)
     expect(queryAccountDelete()).toHaveLength(0)
+  })
+})
+
+/**
+ * 101 加在状态列上的两条：三向渲染与未知值兜底。
+ *
+ * <p>它们与权限面无关（用 ADMIN，只关心渲染），所以另起一组——混进上面那组会让「授权收口」与
+ * 「诚实化」两类判据共用同一份 setup，一处坏了分不清是哪一类。
+ *
+ * <p>⚠️ 这两条**替代不了**后端那三条：它们只证明"界面不再把演示记录显示成已同步"，
+ * 证不了"后端默认拒绝且不写记录"。前端能做的只有不撒谎。
+ */
+describe('MailSyncPage 收信状态渲染（101）', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  it('SIMULATED 渲染成橙色「模拟」——既不是绿色「已同步」，也不是红色「失败」', async () => {
+    await renderPage(adminUser, 'SIMULATED')
+    await expandFirstAccount()
+    await expectBothTablesRendered()
+
+    expect(screen.queryAllByText('pages.mail.tagSimulated')).toHaveLength(1)
+    expect(screen.queryAllByText('pages.mail.tagSynced')).toHaveLength(0)
+    // 三向少写一支（SIMULATED 落到兜底）时这条会红：把演示记录显示成「失败」同样是假话。
+    expect(screen.queryAllByText('pages.mail.tagFailed')).toHaveLength(0)
+  })
+
+  it('未知状态仍兜底为红色「失败」，原值不外泄给用户', async () => {
+    await renderPage(adminUser, 'SOMETHING_NEW')
+    await expandFirstAccount()
+    await expectBothTablesRendered()
+
+    expect(screen.queryAllByText('pages.mail.tagFailed')).toHaveLength(1)
+    expect(screen.queryAllByText('pages.mail.tagSynced')).toHaveLength(0)
+    expect(screen.queryAllByText('pages.mail.tagSimulated')).toHaveLength(0)
+    expect(screen.queryAllByText('SOMETHING_NEW')).toHaveLength(0)
   })
 })

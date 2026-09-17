@@ -18,7 +18,8 @@ export interface MailSyncRecord {
   subject?: string
   fromAddress?: string
   toAddress?: string
-  syncStatus: 'SYNCED' | 'FAILED'
+  /** SYNCED = 真实收信落库；FAILED = 失败；SIMULATED = 演示记录，**不是**真实收信（101）。 */
+  syncStatus: 'SYNCED' | 'FAILED' | 'SIMULATED'
   externalId?: string
   syncTime?: string
 }
