@@ -10,12 +10,61 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.crm.AbstractIntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
 /** 线索集成测试（T013）：完整业务流程 CRUD/线索池/分配/领取/跟进/转化。 */
 class LeadIT extends AbstractIntegrationTest {
+
+  /**
+   * 103 T0/钉住：编辑线索时**结构性省略** `ownerId`（编辑弹窗不渲染该字段）⇒ 库中负责人必须保留。
+   *
+   * <p>判据取**响应里的值**而非「键在不在」：{@code application.yml} 的 {@code default-property-inclusion: non_null}
+   * 会让 null 字段整个从响应里消失，故「键在**且**等于 claim 之后的值」才同时排除「被清空」与「从未设置」两种可能。
+   *
+   * <p>正对照：同一次 PUT 改掉 `name`——若它没变，说明这次 PUT 根本没生效，本条会以另一种方式失败，而不是假绿。
+   */
+  @Test
+  @DisplayName("103：编辑线索省略 ownerId ⇒ 负责人保留")
+  void omittedOwnerIdSurvivesLeadUpdate() throws Exception {
+    String token = loginAndGetToken();
+    Long leadId = createLead(token, "负责人保留", "保留科技");
+
+    // 造出非空负责人：管理员创建时 ownerId 为 null（线索池），claim 把它设成当前用户。
+    String claimed =
+        mockMvc
+            .perform(
+                post("/api/v1/leads/" + leadId + "/claim").header("Authorization", bearer(token)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.ownerId").isNumber())
+            .andReturn()
+            .getResponse()
+            .getContentAsString(StandardCharsets.UTF_8);
+    long ownerAfterClaim = objectMapper.readTree(claimed).path("data").path("ownerId").asLong();
+
+    // 编辑：**刻意不含 ownerId**（编辑弹窗不渲染它），改 name 作正对照。
+    String body = """
+        {"name": "负责人保留-改", "company": "保留科技"}
+        """;
+    String updated =
+        mockMvc
+            .perform(
+                put("/api/v1/leads/" + leadId)
+                    .header("Authorization", bearer(token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString(StandardCharsets.UTF_8);
+
+    JsonNode data = objectMapper.readTree(updated).path("data");
+    assertThat(data.path("name").asText()).isEqualTo("负责人保留-改");
+    assertThat(data.has("ownerId")).as("省略 ownerId 后负责人被清空（该字段从响应里消失）").isTrue();
+    assertThat(data.path("ownerId").asLong()).isEqualTo(ownerAfterClaim);
+  }
 
   private Long createLead(String token, String name, String company) throws Exception {
     String body =

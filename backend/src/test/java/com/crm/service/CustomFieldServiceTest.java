@@ -251,4 +251,135 @@ class CustomFieldServiceTest {
               assertThat(v.getFieldValue()).isEqualTo("机密");
             });
   }
+
+  // ===== 103：受保护字段（HIDDEN ∪ READ_ONLY）被省略时不得销毁其值 =====
+  //
+  // 判据一律落在**插入的行**上（不是「没抛异常」）：省略即销毁的形态是「少了一行」，
+  // 而「多了一行」是同一次修法的反向风险（会毁掉 EDITABLE 的清空能力）——两个方向都要钉。
+
+  /** 捕获本次 saveValues 的全部 insert（按插入顺序）。 */
+  private List<CustomFieldValue> insertedValues() {
+    org.mockito.ArgumentCaptor<CustomFieldValue> captor =
+        org.mockito.ArgumentCaptor.forClass(CustomFieldValue.class);
+    verify(valueMapper, org.mockito.Mockito.atLeastOnce()).insert(captor.capture());
+    return captor.getAllValues();
+  }
+
+  /** 同上，收成 fieldId → fieldValue 的 Map（同一 id 被插两次会暴露为重复键，故另有逐条判据）。 */
+  private java.util.Map<Long, String> insertedById() {
+    return insertedValues().stream()
+        .collect(
+            java.util.stream.Collectors.toMap(
+                CustomFieldValue::getFieldId, CustomFieldValue::getFieldValue, (a, b) -> a));
+  }
+
+  @Test
+  @DisplayName("103：保存值时省略 READ_ONLY 字段 → 按库中原值补回（原先只回补 HIDDEN）")
+  void saveValuesKeepsReadOnlyFieldValue() {
+    asRole("SALES", java.util.Map.of(1L, FieldPermissionService.PERM_READ_ONLY));
+    when(fieldMapper.selectList(any())).thenReturn(List.of(field(1L), field(2L)));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "只读原值"), stored(2L, "旧")));
+
+    CustomFieldValueDTO submitted = new CustomFieldValueDTO();
+    submitted.setFieldId(2L);
+    submitted.setValue("新");
+    service.saveValues("LEAD", 10L, List.of(submitted));
+
+    assertThat(insertedById()).containsEntry(1L, "只读原值").containsEntry(2L, "新");
+    assertThat(insertedValues()).hasSize(2);
+  }
+
+  @Test
+  @DisplayName("103：values 为 null 或空列表时同样回补受保护字段（回补不以非空载荷为前提）")
+  void saveValuesRestoresProtectedFieldWhenNothingSubmittedAtAll() {
+    asRole("SALES", java.util.Map.of(1L, FieldPermissionService.PERM_READ_ONLY));
+    when(fieldMapper.selectList(any())).thenReturn(List.of(field(1L), field(2L)));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "只读原值")));
+
+    service.saveValues("LEAD", 10L, null);
+
+    assertThat(insertedById()).containsEntry(1L, "只读原值").hasSize(1);
+
+    Mockito.clearInvocations(valueMapper);
+    service.saveValues("LEAD", 10L, List.of());
+
+    assertThat(insertedById()).containsEntry(1L, "只读原值").hasSize(1);
+  }
+
+  @Test
+  @DisplayName("103：原样回传的 READ_ONLY 值不得被回补成第二行（uk_field_entity_value 撞键）")
+  void saveValuesDoesNotDuplicateEchoedReadOnlyValue() {
+    asRole("SALES", java.util.Map.of(1L, FieldPermissionService.PERM_READ_ONLY));
+    when(fieldMapper.selectList(any())).thenReturn(List.of(field(1L), field(2L)));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "只读原值")));
+
+    CustomFieldValueDTO echoed = new CustomFieldValueDTO();
+    echoed.setFieldId(1L);
+    echoed.setValue("只读原值");
+    service.saveValues("LEAD", 10L, List.of(echoed));
+
+    assertThat(insertedValues()).extracting(CustomFieldValue::getFieldId).containsExactly(1L);
+    assertThat(insertedById()).containsEntry(1L, "只读原值");
+  }
+
+  @Test
+  @DisplayName("103 反方向：未配置权限的字段被省略时仍照旧删除（清空能力不得被过度回补毁掉）")
+  void saveValuesStillClearsOmittedEditableField() {
+    asRole("SALES", java.util.Map.of(1L, FieldPermissionService.PERM_READ_ONLY));
+    when(fieldMapper.selectList(any())).thenReturn(List.of(field(1L), field(2L)));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "只读原值"), stored(2L, "旧")));
+
+    CustomFieldValueDTO echoed = new CustomFieldValueDTO();
+    echoed.setFieldId(1L);
+    echoed.setValue("只读原值");
+    service.saveValues("LEAD", 10L, List.of(echoed));
+
+    assertThat(insertedValues()).extracting(CustomFieldValue::getFieldId).doesNotContain(2L);
+    assertThat(insertedById()).hasSize(1);
+  }
+
+  @Test
+  @DisplayName("103：未知权限值按受保护处理（谓词取 != EDITABLE，往严的一侧倒）")
+  void saveValuesTreatsUnknownPermissionValueAsProtected() {
+    asRole("SALES", java.util.Map.of(1L, "SOMETHING_ELSE"));
+    when(fieldMapper.selectList(any())).thenReturn(List.of(field(1L), field(2L)));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "只读原值"), stored(2L, "旧")));
+
+    CustomFieldValueDTO submitted = new CustomFieldValueDTO();
+    submitted.setFieldId(2L);
+    submitted.setValue("新");
+    service.saveValues("LEAD", 10L, List.of(submitted));
+
+    assertThat(insertedById()).containsEntry(1L, "只读原值").containsEntry(2L, "新");
+  }
+
+  @Test
+  @DisplayName("103：完全无权限配置时不回补任何字段（fail-open 默认下省略即清空）")
+  void saveValuesRestoresNothingWhenNoPermissionConfigured() {
+    asRole("SALES", java.util.Map.of());
+    when(fieldMapper.selectList(any())).thenReturn(List.of(field(1L), field(2L)));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "旧一"), stored(2L, "旧二")));
+
+    CustomFieldValueDTO submitted = new CustomFieldValueDTO();
+    submitted.setFieldId(2L);
+    submitted.setValue("新");
+    service.saveValues("LEAD", 10L, List.of(submitted));
+
+    assertThat(insertedById()).containsEntry(2L, "新").doesNotContainKey(1L).hasSize(1);
+  }
+
+  @Test
+  @DisplayName("103：字段被提交但值为空白 → 与主循环同规则，不算「已提交」、原值照旧回补")
+  void saveValuesTreatsBlankSubmissionAsOmittedForProtectedField() {
+    asRole("SALES", java.util.Map.of(1L, FieldPermissionService.PERM_READ_ONLY));
+    when(fieldMapper.selectList(any())).thenReturn(List.of(field(1L), field(2L)));
+    when(valueMapper.selectList(any())).thenReturn(List.of(stored(1L, "只读原值")));
+
+    CustomFieldValueDTO blank = new CustomFieldValueDTO();
+    blank.setFieldId(1L);
+    blank.setValue("   ");
+    service.saveValues("LEAD", 10L, List.of(blank));
+
+    assertThat(insertedById()).containsEntry(1L, "只读原值").hasSize(1);
+  }
 }
