@@ -10,7 +10,12 @@ export function useCustomFieldFilterColumns(entityType: FieldEntityType): ProCol
     queryFn: () => fetchFieldDefinitions(entityType),
   })
   return (data ?? [])
-    .filter((f) => f.enabled)
+    /*
+      103：HIDDEN 字段不产筛选列。否则工具栏里会出现一个用户看不见、值也不下发的 cf_<id>
+      条件 —— 筛出来的结果无法解释。`permission` 缺席（分页端点那种形态）⇒ 不隐藏，与后端
+      「未配置即 EDITABLE」的 fail-open 默认同向。
+    */
+    .filter((f) => f.enabled && !f.permission?.hidden)
     .map((f) => ({
       title: f.name,
       dataIndex: `cf_${f.id}`,
