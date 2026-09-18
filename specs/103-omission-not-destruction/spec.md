@@ -56,7 +56,8 @@
 - **FR-001** 新增**私有**方法 `CustomFieldService.protectedFieldIds(roleCode, entityType)`，返回该角色在该实体上**受保护**的自定义字段 id 集合（**HIDDEN ∪ READ_ONLY**）。
 - **FR-002** 判据**必须**写成 `!EDITABLE`（**不是**并列枚举 `HIDDEN` / `READ_ONLY`）：将来若多出一种权限值，「不是可编辑」一律按受保护处理——**往严的一侧倒**，不会静默放行一个未知权限的字段被删除。此判据须与 `support/FieldMaskPlanner.protectedKeys`（`:58-67`，javadoc 逐字「往严的一侧倒」）**同口径**。
 - **FR-003** 回补循环的判据由 `hidden` 改为 `protectedIds`，**并新增「已提交 id 排除」**：提交过的 id 不得再回补一次。
-  - **理由（本批最关键的机制发现）**：`custom_field_value` 上有唯一索引 `uk_field_entity_value (field_id, entity_id)`。现有循环之所以安全**纯属巧合**——HIDDEN 字段**永远不可能**被提交（`validateWrite` 直接 422）。放宽到 `!EDITABLE` 会打破这个巧合：**READ_ONLY 的值会被客户端原样回传并活着穿过 `validateWrite`**（`existing.equals(v.getValue())` ⇒ 未变更 ⇒ 不 422），于是主循环插一行、回补循环再插**同一个键** ⇒ `DuplicateKeyException` ⇒ **500**。这正是**前端今天的默认行为**，属常见路径而非边角。
+  - **理由（本批最关键的机制发现）**：`custom_field_value` 上有唯一索引 `uk_field_entity_value (field_id, entity_id)`。现有循环之所以安全**纯属巧合**——HIDDEN 字段**永远不可能**被提交（`validateWrite` 直接 422）。放宽到 `!EDITABLE` 会打破这个巧合：**READ_ONLY 的值会被客户端原样回传并活着穿过 `validateWrite`**（`existing.equals(v.getValue())` ⇒ 未变更 ⇒ 不 422），于是主循环插一行、回补循环再插**同一个键** ⇒ `DuplicateKeyException` ⇒ **409 `DUPLICATE_KEY`**。这正是**前端今天的默认行为**，属常见路径而非边角。
+    - ⚠️ **2026-09-18 订正**：上句原写「⇒ **500**」——**机制对、状态码错**（`GlobalExceptionHandler:130-138` 把 `DuplicateKeyException` 渲染成 409，D2 实测读数 `Status expected:<200> but was:<409>`）。**旧值「500」逐字保留**；**结论不变**（少了这个排除，PUT 一律失败）。详见 `research.md` §0.1 的 ⚠️ 块与 `falsification-evidence.md` 的 D2 行。
   - **FR-003a** 「已提交」的过滤条件**逐字对齐主循环的跳过规则**（`fieldId == null || !hasText(value)`）。
 - **FR-004** **不得**破坏「省略即清空」对 **EDITABLE** 字段的能力：`permissionsForRole` 对 ADMIN 返回空映射、未配置的行不出现 ⇒ 未配置字段**不在受保护集合里** ⇒ 其省略**照旧删除**。这是客户端清除自定义字段的**唯一手段**（`frontend/src/utils/customField.ts:11` 会跳过空值）。**本项最重要的不变式**。
 - **FR-005** 读路径（`readValues` / `readValuesBatch` / `dropHidden`）**必须保持 HIDDEN-only**：READ_ONLY 的值**必须照常下发**——056 契约的 422 只针对「修改已有值」，客户端**看得见**才谈得上「原样回传」。不得把读路径接到 `protectedFieldIds` 上。
@@ -114,6 +115,7 @@
 
 - **SC-001** READ_ONLY 自定义字段被省略 ⇒ 库中**原值仍在**（不是「请求成功」——断的是**值**）。
 - **SC-002** READ_ONLY 值被**原样回传** ⇒ **不产生重复行、不 500**（唯一索引陷阱的回归）。
+  ⚠️ **2026-09-18 订正**：末两字原写「不 500」，**实为「不 409」**——D2 的实测读数是 `expected:<200> but was:<409>`（`DUPLICATE_KEY`）。**旧值「不 500」逐字保留**；**这条成功判据本身不变**（原样回传 ⇒ 200 且只有一行）。
 - **SC-003** **EDITABLE** 字段被省略 ⇒ **仍然被清空**（反方向的判据：清空能力是「多回补」会毁掉的东西）。
 - **SC-004** READ_ONLY 的值对受限角色**仍然可见**（读路径不被顺手接到受保护集合上）。
 - **SC-005** 未知权限值 ⇒ 按**受保护**处理（`!EDITABLE` 的往严一侧倒）。

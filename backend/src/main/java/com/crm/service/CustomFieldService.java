@@ -277,7 +277,13 @@ public class CustomFieldService {
     // submittedIds 排除**不是可选优化**：custom_field_value 上有 uk_field_entity_value
     // (field_id, entity_id)，而 READ_ONLY 的值**会被客户端原样回传、活着穿过 validateWrite**
     // （值相等 ⇒ 未变更 ⇒ 不 422）⇒ 少了这个排除，主循环插一行、这里再插同一个键 ⇒
-    // DuplicateKeyException ⇒ 每次 PUT 都 500。过滤条件与主循环的跳过规则逐字对齐。
+    // DuplicateKeyException ⇒ **每次 PUT 都失败**。过滤条件与主循环的跳过规则逐字对齐。
+    //
+    // ⚠️ 2026-09-18 订正（103 的定向破坏 D2 实测，读数见 specs/103-omission-not-destruction/
+    // falsification-evidence.md）：上句原写「⇒ 每次 PUT 都 500」——**机制对、状态码错**。实测去掉
+    // 本排除后抛的**确实是** DuplicateKeyException，但 GlobalExceptionHandler:130-138 把它渲染成
+    // **409 `DUPLICATE_KEY`**（063 起的唯一键冲突出口），**不是 500**。结论不变（少了这个排除，
+    // 原样回传 READ_ONLY 值的 PUT 一律失败），故排除本身照旧必需。**旧值「500」逐字保留在上句引号内。**
     Set<Long> protectedIds = protectedFieldIds(roleCode, entityType);
     if (!protectedIds.isEmpty()) {
       Set<Long> submittedIds =

@@ -38,7 +38,8 @@ private Set<Long> protectedFieldIds(String roleCode, String entityType) {
 
 ### D2 回补块：**谓词放宽 **加上** 已提交 id 排除**（缺一不可）
 
-**这是本批最关键的机制发现**（`research.md` §0.1）：只放宽谓词会**每次 PUT 500**。
+**这是本批最关键的机制发现**（`research.md` §0.1）：只放宽谓词会**每次 PUT 失败**。
+> ⚠️ **2026-09-18 订正**：本句原写「只放宽谓词会**每次 PUT 500**」——**机制对、状态码错**（D2 实测为 409 `DUPLICATE_KEY`，见 `research.md` §0.1 的 ⚠️ 块）。**旧值「500」逐字保留在此**，**结论不变**。
 
 ```java
 Set<Long> protectedIds = protectedFieldIds(roleCode, entityType);
@@ -173,7 +174,7 @@ if (!protectedIds.isEmpty()) {
 | # | 用例 | 断言 |
 |---|---|---|
 | I1 | `omittedReadOnlyCustomFieldValueSurvivesUpdate` | SALES 对 A 持 READ_ONLY；建时 A="只读原值"、B="旧"；只改 B 的 PUT ⇒ 200；**ADMIN 读回 ⇒ A 原值 且 B="新"**（正对照：这次 PUT 确实生效） |
-| I2 | `echoingReadOnlyCustomFieldValueDoesNotFail` | A **原样回传** + B 改动 ⇒ 200，且 A **恰好一个值**（无重复、无 500）。**唯一能端到端抓住 §0.1 陷阱的那条** |
+| I2 | `echoingReadOnlyCustomFieldValueDoesNotFail` | A **原样回传** + B 改动 ⇒ 200，且 A **恰好一个值**（无重复、无 500）。**唯一能端到端抓住 §0.1 陷阱的那条**<br>⚠️ **2026-09-18 订正**：括号里的「无 500」应为「无 409」（D2 实测）。**旧值逐字保留**；该用例的**成功判据不变** |
 | I3 | `omittedEditableCustomFieldValueIsStillCleared` | 无任何 FLS 配置；建时含 A、B；只提交 B ⇒ ADMIN 读回 **A 已消失** |
 | I4 | `readOnlyCustomFieldValueIsStillVisibleToTheRestrictedRole` | 读路径必须 HIDDEN-only：SALES GET **看得见 A 的值** |
 | I5 | `requiredProtectedCustomFieldSaveIsRejected` | **必填**字段配 READ_ONLY 后被省略 ⇒ 422 `CUSTOM_FIELD_REQUIRED`（来自 `:218-222`，**早于**回补）。**标注为边界，不是 fix** |
@@ -189,7 +190,7 @@ if (!protectedIds.isEmpty()) {
 | # | 破坏 | 该红 |
 |---|---|---|
 | D1 | 回补谓词缩回 `HIDDEN`（103 之前的代码） | U1、U2、I1（U3 **应保持绿**） |
-| D2 | **去掉 `submittedIds` 排除** | U3、I2 —— 预测 `DuplicateKeyException` 撞 `uk_field_entity_value` ⇒ 500。**若不变红，则唯一索引/插入路径与此处记录的机制不符** ⇒ **逐字记录该证伪结果**，不得回填成「验证通过」 |
+| D2 | **去掉 `submittedIds` 排除** | U3、I2 —— 预测 `DuplicateKeyException` 撞 `uk_field_entity_value` ⇒ 500。**若不变红，则唯一索引/插入路径与此处记录的机制不符** ⇒ **逐字记录该证伪结果**，不得回填成「验证通过」<br>⚠️ **2026-09-18 实测订正**：**两条都变红了**（预测成立），**但状态码应为 409 不是 500**（`GlobalExceptionHandler:130-138`）。**旧值「500」逐字保留**；本条要求（逐字记录、不得回填）已履行，读数见 `falsification-evidence.md` |
 | D3 | **反方向过度回补**：把每个 id 都当受保护 | U4、I3 |
 | D4 | 谓词改成枚举 `HIDDEN \|\| READ_ONLY` | U5 |
 | D5 | 回补块挪到 `valueMapper.delete` **之前** | U1、I1（证明回补**在删除之后**，而非仅仅存在） |

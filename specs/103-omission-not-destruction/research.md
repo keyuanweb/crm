@@ -6,7 +6,17 @@
 
 ## 0 两条阻塞发现（先读这两条）
 
-### 0.1 只放宽回补谓词会让**每次 PUT 500**——谓词不是全部
+### 0.1 只放宽回补谓词会让**每次 PUT 失败**——谓词不是全部
+
+> ⚠️ **2026-09-18 订正（由本批定向破坏 D2 实测）**：本节标题与末句原写 **「…会让每次 PUT 500」/「…⇒ 500」**。
+> **实测：机制对、状态码错。** 去掉 `submittedIds` 排除后跑 `FieldPermissionIT.echoingReadOnlyCustomFieldValueDoesNotFail`，
+> 抛的**确实是** `DuplicateKeyException`（日志 `Type = org.springframework.dao.DuplicateKeyException`，撞的确实是
+> `uk_field_entity_value`），但 `exception/GlobalExceptionHandler.java:130-138`（063 起的唯一键冲突出口）把它渲染成
+> **409 `DUPLICATE_KEY`** —— IT 的读数逐字是 `Status expected:<200> but was:<409>`，**不是 500**。
+> **结论一字不变**：少了这个排除，原样回传 READ_ONLY 值的 PUT **一律失败**，故排除依旧不是可选优化。
+> **旧值「500」逐字保留在本节的标题与末句里**（判据：`grep -n "500" research.md` 仍应命中它们）。
+> 同批订正的落点还有 `spec.md`（2 处）、`quickstart.md`（1 处）、`plan.md`（2 处）、
+> `falsification-evidence.md`（D2 行）、以及 `CustomFieldService.java` 的对应注释；`tasks.md` §实做订正 第 3 行。
 
 `custom_field_value` 上有**唯一索引** `uk_field_entity_value (field_id, entity_id)`，**两处都有**（★）：
 
@@ -15,7 +25,7 @@
 
 `CustomFieldService.java:252-265` 的回补循环遍历 `existing` 的**每一行**并插入保留下来的那些。今天它安全**纯属巧合**：HIDDEN 字段**永远不可能**被提交（`validateWrite` 直接 422），所以**被回补的 id 绝不会同时被主循环插过**。
 
-把谓词放宽到 `!EDITABLE` 会打破这个巧合，因为 **READ_ONLY 的值会被客户端原样回传、并活着穿过 `validateWrite`**（`:279-307` 的判据是 `existing == null || !existing.equals(v.getValue())` ⇒ 值相同 ⇒ 未变更 ⇒ **不 422**）⇒ 主循环在 `:244-249` 插一行，回补循环再插**同一个 `(field_id, entity_id)`** ⇒ `DuplicateKeyException` ⇒ **500**。
+把谓词放宽到 `!EDITABLE` 会打破这个巧合，因为 **READ_ONLY 的值会被客户端原样回传、并活着穿过 `validateWrite`**（`:279-307` 的判据是 `existing == null || !existing.equals(v.getValue())` ⇒ 值相同 ⇒ 未变更 ⇒ **不 422**）⇒ 主循环在 `:244-249` 插一行，回补循环再插**同一个 `(field_id, entity_id)`** ⇒ `DuplicateKeyException` ⇒ **409 `DUPLICATE_KEY`**（**破坏实验前本句写的是「500」，订正见上**）。
 
 **而这是常见路径，不是边角**：前端今天就在渲染 READ_ONLY 字段并回传其值（§4.2）。
 

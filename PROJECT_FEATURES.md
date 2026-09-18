@@ -10,14 +10,14 @@
 |---|---|---|
 | 后端 REST Controller | **66** | `backend/src/main/java/**/*Controller.java` |
 | 数据库表 | **86** | `db/migration/*.sql` 中 `CREATE TABLE` 去重（**注意用 `src/main/resources`，`target/classes` 会让计数翻倍**） |
-| Flyway 迁移 | **90 个（V1–V91，缺 V72）**⚠️ **2026-09-17 第六次重测（由 102 执行）：89（V1–V90）→ 90（V1–V91）**（+`V91__field_permission_builtin_fields.sql`）；**旧值逐字在本行内仍可 grep 到**（`**89 个（V1–V90，缺 V72）**`） | `backend/src/main/resources/db/migration` |
-| 后端测试类 | **197 个含用例的类**（`src/test` 共 204 个 `.java`）⚠️ **2026-09-17 第六次重测（由 102 执行）：190/196 → 197/204**（+7 个含用例的类 = 102 新增的 **3 个单测类**（`BuiltinFieldRegistryTest`·`FieldMaskPlannerTest`·`FieldPermissionServiceBuiltinTest`）+ **4 个 IT**（`BuiltinFieldMaskingIT`·`BuiltinFieldWriteGuardIT`·`BuiltinFieldExportIT`·`FieldPermissionAvailableFieldsIT`）；`.java` **+8** 是因为同期多了一个**不带 `@Test` 的夹具** `BuiltinFieldPermissionFixture`——**两半不同增**，别读成漏改）；⚠️ **2026-09-17 第五次重测（由 101 执行）：188/194 → 190/196**（+2 = 101 新增的 `MailInboundStatusTest` + `MailInboundDemoIT`）；⚠️ **2026-09-17 第四次重测（由 100 执行）：182/188 → 188/194**（+6 = 100 新增的 5 个单测类 + `RateLimitIT`）；**旧值逐字在本行内仍可 grep 到**（见下方 ⚠️ 段） | `grep -rlE "@Test\|@ParameterizedTest" backend/src/test/java` |
-| 前端页面组件 | **100 个非测试 tsx**（含测试共 177）⚠️ **2026-09-17 第六次重测（由 102 执行）：含测试共 176 → 177**（+1 = `pages/settings/FieldPermissionPage.test.tsx`，**新文件**（102 的 T17）⇒ **「非测试」那一半 100 不变**（新增的这个文件本身就是 `*.test.tsx`，不在前半的口径里），只有括号里的「含测试」+1；**旧值 `含测试共 176` 逐字在本行内仍可 grep 到**） | `frontend/src/pages` 下 `*.tsx` 且非 `*.test.tsx` |
+| Flyway 迁移 | **90 个（V1–V91，缺 V72）**⚠️ **2026-09-17 第六次重测（由 102 执行）：89（V1–V90）→ 90（V1–V91）**（+`V91__field_permission_builtin_fields.sql`）；**旧值逐字在本行内仍可 grep 到**（`**89 个（V1–V90，缺 V72）**`）⚠️ **2026-09-18 第七次重测（由 103 执行）：本行不动 —— 103 零迁移**（**不新增、不改既有、不删**）⇒ 90（V1–V91，缺 V72）**逐字不变**；⚠️ **本行的「不动」是刻意、不是漏改**（与 102 那次「迁移数移动 ⇒ 6 处落点一起改」的情形不同，**不得套模板去找一处并不存在的遗漏**） | `backend/src/main/resources/db/migration` |
+| 后端测试类 | **197 个含用例的类**（`src/test` 共 204 个 `.java`）⚠️ **2026-09-17 第六次重测（由 102 执行）：190/196 → 197/204**（+7 个含用例的类 = 102 新增的 **3 个单测类**（`BuiltinFieldRegistryTest`·`FieldMaskPlannerTest`·`FieldPermissionServiceBuiltinTest`）+ **4 个 IT**（`BuiltinFieldMaskingIT`·`BuiltinFieldWriteGuardIT`·`BuiltinFieldExportIT`·`FieldPermissionAvailableFieldsIT`）；`.java` **+8** 是因为同期多了一个**不带 `@Test` 的夹具** `BuiltinFieldPermissionFixture`——**两半不同增**，别读成漏改）；⚠️ **2026-09-17 第五次重测（由 101 执行）：188/194 → 190/196**（+2 = 101 新增的 `MailInboundStatusTest` + `MailInboundDemoIT`）；⚠️ **2026-09-17 第四次重测（由 100 执行）：182/188 → 188/194**（+6 = 100 新增的 5 个单测类 + `RateLimitIT`）；**旧值逐字在本行内仍可 grep 到**（见下方 ⚠️ 段）⚠️ **2026-09-18 第七次重测（由 103 执行）：197 / 204 两半均不变**——103 **零新增测试类**（只在 `CustomFieldServiceTest` · `FieldPermissionIT` · `LeadIT` **三个既有类**里加例：17 / 8 / 8），`.java` 数也不动；**明写「不变」以免被读成漏改** | `grep -rlE "@Test\|@ParameterizedTest" backend/src/test/java` |
+| 前端页面组件 | **100 个非测试 tsx**（含测试共 177）⚠️ **2026-09-17 第六次重测（由 102 执行）：含测试共 176 → 177**（+1 = `pages/settings/FieldPermissionPage.test.tsx`，**新文件**（102 的 T17）⇒ **「非测试」那一半 100 不变**（新增的这个文件本身就是 `*.test.tsx`，不在前半的口径里），只有括号里的「含测试」+1；**旧值 `含测试共 176` 逐字在本行内仍可 grep 到**）⚠️ **2026-09-18 第七次重测（由 103 执行）：100 / 177 均不变**——103 新增的两个测试文件在 `components/` 与 `hooks/` 下，**不在本行的 `pages/` 口径里**（本行判据逐字是 `frontend/src/pages` 下的 `*.tsx`）；那两个文件本身是 `*.test.tsx`，**只进「前端单测」那一行** | `frontend/src/pages` 下 `*.tsx` 且非 `*.test.tsx` |
 | 前端路由定义 | **87 个 `<Route>`** | `frontend/src/App.tsx` 的 `<Route` 88 处 − `<Routes>` 1 处 |
 | 前端 service | **56 个 `*Service.ts`**（+`apiClient.ts`；`services/` 非测试 `.ts` 共 60） | `frontend/src/services` |
-| 前端单测 / E2E | **93 / 7**⚠️ **2026-09-17 第六次重测（由 102 执行）：92 → 93**（+1 = `FieldPermissionPage.test.tsx`，**新文件**；E2E 仍 7）；**旧值逐字在本行内仍可 grep 到**（`**92 / 7**`） | `*.test.ts(x)`、`frontend/e2e/*.spec.ts` |
-| i18n 资源 | zh-CN 3457 行 / en 3430 行 | `frontend/src/i18n`（⚠️ **行数不等 ≠ 键集不等**：现值相差 **27** 行，根因已查明 —— **098 只在 `zh-CN.ts` 一侧写了说明注释**：098 对本表两文件是**纯新增、删除 0 行**，`zh-CN.ts` **+60 行（其中 30 行是注释）**、`en.ts` **+31 行（注释 0 行）**（`git diff --numstat 7356eb8 HEAD -- src/i18n/*.ts`）。**键集双向一致性由 `pnpm i18n:check` 判定**，不以行数为准；098 交付实测 **2963 / 2963 键**。⚠️ **2026-09-16 第三次重测（由 099 执行）**：099 删掉配额创建页后**两侧各减 1 行**（死键 `pages.quotaCreate.btnBack`），故 **3453/3426 → 3452/3425**、键 **2963/2963 → 2962/2962**（`git diff --numstat 63ea0e7 HEAD -- src/i18n/*.ts` 两文件均 `0 1`）；**行数差仍是 27**（099 是两侧同删，不改变那个差）。⚠️ **2026-09-17（由 101 执行）**：101 收信侧诚实化前端收口——删死键 `pages.mail.btnSimulateSync`（-1 键，两侧各 -1 行）、加 `pages.mail.btnSyncInbox` 与 `pages.mail.tagSimulated`（+2 键，两侧各 +1 行）⇒ 净 **+1 键 / +1 行**，故 **3452/3425 → 3453/3426**、键 **2962/2962 → 2963/2963**（`pnpm i18n:check` 实测 **2963/2963**；`wc -l frontend/src/i18n/*.ts` 实测 **3453 / 3426**）；**行数差仍是 27**（两侧同增同减，不改变那个差）。⚠️ **2026-09-17（由 102 执行）**：字段权限配置面扩到内置字段——加 `pages.fieldPermission.groupBuiltin` / `groupCustom` / `msgFieldsFailed`（**+3 键**，两侧各 +1 行注释 +3 行键 ⇒ 各 **+4 行**）⇒ **3453/3426 → 3457/3430**、键 **2963/2963 → 2966/2966**（`pnpm i18n:check` 实测 **2966/2966**；`wc -l frontend/src/i18n/*.ts` 实测 **3457 / 3430**）；**行数差仍是 27**（两侧同增同减，不改变那个差）。**旧值逐字在上句与本行内仍可 grep 到**） |
-| Spec 模块 | **101 个（001–102，缺 069）**⚠️ **2026-09-17 第六次重测（由 102 执行）：100（001–101，缺 069）→ 101（001–102，缺 069）**（+`102-builtin-field-permission`；实测 `ls -d specs/[0-9]* | wc -l` = **101**）；⚠️ **2026-09-17（由 101 执行）：99（001–100，缺 069）→ 100（001–101，缺 069）**（+`101-mail-inbound-honesty`）；⚠️ **2026-09-17（由 100 执行）：98（001–099）→ 99（001–100，缺 069）**；**旧值逐字在本行内仍可 grep 到** | `specs/NNN-*` |
+| 前端单测 / E2E | **95 / 7**⚠️ **2026-09-18 第七次重测（由 103 执行）：93 → 95**（+2 = `components/CustomFieldItems.test.tsx` + `hooks/useCustomFieldFilters.test.tsx`，**两个都是新文件**；**E2E 仍 7**——103 不写 e2e）；⚠️ **2026-09-17 第六次重测（由 102 执行）：92 → 93**（+1 = `FieldPermissionPage.test.tsx`，**新文件**；E2E 仍 7）；**旧值逐字在本行内仍可 grep 到**（`**92 / 7**`；**`93 / 7` 是本行在 103 之前的旧值、逐字保留在此**） | `*.test.ts(x)`、`frontend/e2e/*.spec.ts` |
+| i18n 资源 | zh-CN 3457 行 / en 3430 行 | `frontend/src/i18n`（⚠️ **行数不等 ≠ 键集不等**：现值相差 **27** 行，根因已查明 —— **098 只在 `zh-CN.ts` 一侧写了说明注释**：098 对本表两文件是**纯新增、删除 0 行**，`zh-CN.ts` **+60 行（其中 30 行是注释）**、`en.ts` **+31 行（注释 0 行）**（`git diff --numstat 7356eb8 HEAD -- src/i18n/*.ts`）。**键集双向一致性由 `pnpm i18n:check` 判定**，不以行数为准；098 交付实测 **2963 / 2963 键**。⚠️ **2026-09-16 第三次重测（由 099 执行）**：099 删掉配额创建页后**两侧各减 1 行**（死键 `pages.quotaCreate.btnBack`），故 **3453/3426 → 3452/3425**、键 **2963/2963 → 2962/2962**（`git diff --numstat 63ea0e7 HEAD -- src/i18n/*.ts` 两文件均 `0 1`）；**行数差仍是 27**（099 是两侧同删，不改变那个差）。⚠️ **2026-09-17（由 101 执行）**：101 收信侧诚实化前端收口——删死键 `pages.mail.btnSimulateSync`（-1 键，两侧各 -1 行）、加 `pages.mail.btnSyncInbox` 与 `pages.mail.tagSimulated`（+2 键，两侧各 +1 行）⇒ 净 **+1 键 / +1 行**，故 **3452/3425 → 3453/3426**、键 **2962/2962 → 2963/2963**（`pnpm i18n:check` 实测 **2963/2963**；`wc -l frontend/src/i18n/*.ts` 实测 **3453 / 3426**）；**行数差仍是 27**（两侧同增同减，不改变那个差）。⚠️ **2026-09-17（由 102 执行）**：字段权限配置面扩到内置字段——加 `pages.fieldPermission.groupBuiltin` / `groupCustom` / `msgFieldsFailed`（**+3 键**，两侧各 +1 行注释 +3 行键 ⇒ 各 **+4 行**）⇒ **3453/3426 → 3457/3430**、键 **2963/2963 → 2966/2966**（`pnpm i18n:check` 实测 **2966/2966**；`wc -l frontend/src/i18n/*.ts` 实测 **3457 / 3430**）；**行数差仍是 27**（两侧同增同减，不改变那个差）。**旧值逐字在上句与本行内仍可 grep 到**）⚠️ **2026-09-18 第七次重测（由 103 执行）：本行不动 —— 103 零 i18n 键**（`i18n:check` 实测仍 **2966/2966**、`wc -l` 仍 **3457 / 3430**、行数差仍 **27**） |
+| Spec 模块 | **102 个（001–103，缺 069）**⚠️ **2026-09-18 第七次重测（由 103 执行）：101（001–102，缺 069）→ 102（001–103，缺 069）**（+`103-omission-not-destruction`；实测 `ls -d specs/[0-9]* | wc -l` = **102**，缺号**仍只有 `069`**；⚠️ **旧值 `**101 个（001–102，缺 069）**` 逐字保留在本行内、仍可 grep 到**）；⚠️ **2026-09-17 第六次重测（由 102 执行）：100（001–101，缺 069）→ 101（001–102，缺 069）**（+`102-builtin-field-permission`；实测 `ls -d specs/[0-9]* | wc -l` = **101**）；⚠️ **2026-09-17（由 101 执行）：99（001–100，缺 069）→ 100（001–101，缺 069）**（+`101-mail-inbound-honesty`）；⚠️ **2026-09-17（由 100 执行）：98（001–099）→ 99（001–100，缺 069）**；**旧值逐字在本行内仍可 grep 到** | `specs/NNN-*` |
 
 > ⚠️ **本次重测相对上一版的变动（逐行列出，不静默改数）**：数据库表 **85 → 86**（+`user_recovery_code`，082）；
 > Flyway **87（V1–V88）→ 88（V1–V89）**（+`V89__two_factor_auth.sql`，082）；
@@ -176,6 +176,33 @@
 >
 > **旧值逐字留痕（仍可在本段与本文件表头 grep 到，不是静默改写）**：
 > `**89 个（V1–V90，缺 V72）**`、`190/196`、`含测试共 176`、`**92 / 7**`、`zh-CN 3453 行 / en 3425 行`、`2963/2963`、`100（001–101，缺 069）`。
+
+> ⚠️ **2026-09-18 第七次重测（由 103 = 103-omission-not-destruction 执行）——本次只动 2 行**
+>
+> **本项的活动半径是「一个既有服务类 + 三个既有测试类 + 三个前端文件 + 文档」**（**零新迁移、零新类、零新测试类、零新端点、零新错误码、零新权限码、零 i18n 键**；**零删除、零重命名**）
+> ⇒ 动的只有**前端单测一行与规格一行**，其余各行**逐字未变**——其中 **Flyway 迁移**与**后端测试类**这两行的「不变」分别是本批「**零迁移**」与「**零新增测试类**」的直接后果，已**在本行内明写**（免得被读成漏改）。
+>
+> | 行 | 旧值（逐字见下方留痕） | 新值 | 变动来源 |
+> |---|---|---|---|
+> | 前端单测 / E2E | 93 / 7 | **95 / 7** | 103 新增 **2 个测试文件**（`components/CustomFieldItems.test.tsx` · `hooks/useCustomFieldFilters.test.tsx`，C4 的两个**新文件**）；**E2E 仍 7**（103 不写 e2e） |
+> | Spec 模块 | 101（001–102，缺 069） | **102（001–103，缺 069）** | 103 自己的目录（**同 097/099/100/101/102 的处置：它不给自己豁免**） |
+>
+> **未变的行（逐条点名，不写「若干行」）**：后端 REST Controller **66**（103 **无新端点**）、数据库表 **86**（**零迁移**）、Flyway 迁移 **90（V1–V91，缺 V72）**、
+> 后端测试类 **197 / 204**（**零新增测试类**——只在三个既有类里加例）、前端页面组件 **100（含测试共 177）**（新增的两个测试文件在 `components/` 与 `hooks/`，**不在本行的 `pages/` 口径里**）、
+> 前端路由定义 **87**（103 未加路由）、前端 service **56（+`apiClient.ts`，非测试 60）**、i18n 资源 **zh-CN 3457 行 / en 3430 行（键 2966/2966）**（**零新增键**）。
+>
+> 复算命令即上表「依据」列；本次实跑读数（当前工作区）：`find frontend/src -name '*.test.ts*' | wc -l` → **95**；
+> `ls -d specs/[0-9]* | wc -l` → **102**；`find frontend/src/pages -name '*.tsx' | wc -l` → **177**、加 `! -name '*.test.tsx'` → **100**；
+> `grep -rlE "@Test|@ParameterizedTest" backend/src/test/java | wc -l` → **197**；`find backend/src/test/java -name '*.java' | wc -l` → **204**；
+> `ls backend/src/main/resources/db/migration/*.sql | wc -l` → **90**；`grep -h 'CREATE TABLE' …/*.sql | sort -u | wc -l` → **86**；
+> `find backend/src/main/java -name '*Controller.java' | wc -l` → **66**；`wc -l frontend/src/i18n/*.ts` → **3457 / 3430**；`pnpm i18n:check` → **2966/2966**。
+>
+> ⚠️ **一处口径提醒（本段专记，免得 95 被读大）**：103 的**前端门禁是那五道**（`i18n:check` / `lint` / `typecheck` / `ui:check` / `zh:check`），**其中不含任何全量 vitest**；
+> 103 的前端用例证据是**定向 vitest**（**2 文件 / 7 passed**，读数见 `specs/103-omission-not-destruction/` 与 `README.md` 的 103 行）。
+> ⇒ **不得**把本行的 **95** 读成「95 个测试文件本次全跑过、全绿」——它只是**文件计数**。
+>
+> **旧值逐字留痕（仍可在本段与本文件表头 grep 到，不是静默改写）**：
+> `93 / 7`、`**101 个（001–102，缺 069）**`。
 
 ## 二、技术栈
 
