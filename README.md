@@ -169,6 +169,7 @@ crm/
 ├── INSTALL.md                  # 详细安装指南
 ├── PROJECT_FEATURES.md         # 代码核对版功能全景整理
 ├── CRM_FEATURE_COMPARISON.md   # 功能对比分析
+├── DELIVERY_SCOPE.md           # 交付边界说明（A 档：适用范围、不在范围内的项、部署前提）
 └── README.md                   # 项目说明（本文件）
 ```
 
@@ -212,6 +213,10 @@ spec.md → plan.md → research.md → data-model.md → contracts/ → tasks.m
 ## 功能对比
 
 本项目功能覆盖与 Salesforce、HubSpot、Zoho/Dynamics 365、纷享销客/销售易、SuiteCRM/EspoCRM/Odoo 等平台的对比分析，详见 [CRM_FEATURE_COMPARISON.md](CRM_FEATURE_COMPARISON.md)。
+
+## 交付边界
+
+本交付**包含什么、不包含什么、在什么前提下成立**，详见 [DELIVERY_SCOPE.md](DELIVERY_SCOPE.md)：它给出适用范围与失效条件、明确不在交付范围内的项（每项附可复核的判据）、部署与运维前提、以及已知缺陷与债务的入口。
 
 ## 许可证
 
