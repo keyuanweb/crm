@@ -48,10 +48,9 @@ services:
       # 属性虽然存在、默认值也安全，却在编排下**根本无法配置**：合法集成无路可走，
       # 要开只能改镜像内的 application.yml。属功能缺口，不只是可发现性问题。
       - CRM_OUTBOUND_ALLOWED_HOSTS=${CRM_OUTBOUND_ALLOWED_HOSTS:-}
-      # CORS 配置：编排下前端由 nginx 在 80 端口提供，浏览器 Origin 是 http://localhost。
-      # 改造前这里是开发服务器端口 5173 —— 该端口在编排下没有任何服务监听，
-      # 于是同源的页面请求被后端以跨域来源拒绝（同源策略下浏览器仍会带上 Origin）。
-      - CORS_ALLOWED_ORIGINS=http://localhost
+      # CORS 配置：编排下前端由 nginx 在 8082 端口提供，浏览器 Origin 是 http://localhost:8082。
+      # （8082 而非 80/8080：宿主机 80 被 IIS 占用、8080 被 Apache 占用；443 无证书已移除。）
+      - CORS_ALLOWED_ORIGINS=http://localhost:8082
     depends_on:
       mysql:
         condition: service_healthy
@@ -76,8 +75,7 @@ services:
       dockerfile: frontend/Dockerfile
     container_name: crm-frontend
     ports:
-      - "80:80"
-      - "443:443"
+      - "8082:80"
     volumes:
       # 只挂配置。产物在镜像里，不再从宿主机挂入 —— 挂载点一旦留在编排里，
       # 就会诱使后人把 `dist` 当成交付物（正是本次要修掉的误解）。
@@ -98,8 +96,6 @@ services:
       - MYSQL_USER=crm_user
       - MYSQL_PASSWORD=${DB_PASSWORD:-crm123456}
       - TZ=Asia/Shanghai
-    ports:
-      - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
       # 刻意**不**把 db/migration 挂成 /docker-entrypoint-initdb.d：MySQL 按文件名字母序执行该目录
@@ -126,8 +122,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: crm-redis
-    ports:
-      - "6379:6379"
     command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
     volumes:
       - redis-data:/data

@@ -56,7 +56,7 @@ pipeline {
         stage('Health check') {
             when { expression { !params.DRY_RUN } }
             steps {
-                sh 'curl -fsS http://localhost/health || echo "WARN: frontend /health failed"'
+                sh 'curl -fsS http://localhost:8082/health || echo "WARN: frontend /health failed"'
                 sh 'curl -fsS http://localhost:8081/actuator/health || echo "WARN: backend health failed"'
             }
         }
