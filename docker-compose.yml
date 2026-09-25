@@ -26,6 +26,9 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       # JWT 密钥（生产环境必须修改）
       - JWT_SECRET=${JWT_SECRET}
+      # 双因素认证（082）：TOTP 密钥静态加密密钥（AES-256-GCM）。
+      # 缺失时 2FA 绑定/启用会在调用时报 MFA_SECRET_MISSING。生产必须设置：openssl rand -base64 32
+      - MFA_SECRET_KEY=${MFA_SECRET_KEY:-}
       # 定时任务配置
       - CRM_SCHEDULER_EXPORT_CRON=0 0/5 * * * ?
       - CRM_SCHEDULER_RETENTION_CRON=0 0 2 * * ?
