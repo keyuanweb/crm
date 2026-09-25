@@ -50,3 +50,6 @@ backend/null
 frontend/null
 
 .pnpm-store/
+
+# DSH harness runtime artifacts
+/dsh-jenkins.json

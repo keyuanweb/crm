@@ -1,0 +1,69 @@
+<?xml version="1.1" encoding="UTF-8"?>
+<project>
+  <actions/>
+  <description>CRM deploy via docker compose (WSL)</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>ENV</name>
+          <description>Deployment environment</description>
+          <defaultValue>dev</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>DRY_RUN</name>
+          <description>true = build images only, skip up -d</description>
+          <defaultValue>true</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>TARGET</name>
+          <description>Agent node label</description>
+          <defaultValue>built-in</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.PasswordParameterDefinition>
+          <name>DEPLOY_TOKEN</name>
+          <description>Deployment token</description>
+        </hudson.model.PasswordParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>RUN_TESTS</name>
+          <description>Run backend tests before deploy</description>
+          <defaultValue>false</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>set -e
+echo "=== CRM deploy ENV=$ENV DRY_RUN=$DRY_RUN TARGET=$TARGET ==="
+cd /mnt/e/code/crm
+test -f docker-compose.yml || { echo "ERROR: docker-compose.yml missing"; exit 1; }
+test -f .env || { echo "ERROR: .env missing (cp .env.example .env first)"; exit 1; }
+docker version
+docker compose build
+if [ "$DRY_RUN" = "true" ]; then
+  echo "DRY_RUN=true skip up -d and health check"
+else
+  docker compose up -d --remove-orphans
+  docker compose ps
+  curl -fsS http://localhost/health || echo "WARN: frontend /health failed"
+  curl -fsS http://localhost:8081/actuator/health || echo "WARN: backend health failed"
+fi
+echo "=== deploy done ==="
+</command>
+      <configuredLocalRules/>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers/>
+  <buildWrappers/>
+</project>
