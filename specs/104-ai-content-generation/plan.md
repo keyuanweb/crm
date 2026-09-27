@@ -4,6 +4,15 @@
 **上游**: `CRM_FEATURE_COMPARISON.md` **2.10 AI 能力**（判定 `1.5` / 八项无一项变化 / 差距清单 P1 第 8 项）
 **形制**: 后端 + 前端 + 文档；**产 `contracts/`（对外行为确有新增）**；**不产 `data-model.md`（无新实体，见 D7）**；**一个迁移 `V92`（仅权限码）**
 
+> ⚠️ **2026-09-27 C2 开工实测订正（范围）**：上面这句里的「**一个迁移 `V92`**」**不能按原样读**，两件事同时被实测推翻，**原文逐字保留在上，不静默改写**：
+>
+> **① 权限码整体后移到 C3。** 原定 C2 含「`V92` 权限码 + `schema-h2.sql` 同步 + 前端 `permissions.ts`」，却又要求 C2「**无端点、无 UI**」——**码先于引用它的端点存在，会被三道护栏按住**（`UnwiredPermissionCodeTest` 的双向冻结台账只收 22 条**存量**、096 非目标 4「只建被端点真引用的码」、`PermissionMatrixIT` 的 FR-G14 判例）。**已实测**：把 `ai:generate` 加进字典即转红，断言原文 `Expecting empty but was: ["ai:generate"]`（破坏前绿 / 破坏后红 / 还原后复绿，`sha256` 逐字相等）。⇒ **字典 + `V92` + `schema-h2.sql` + 前端 `permissions.ts` 四件随 C3 的第一个端点走**，读数见 **`research.md` §12.3**。
+>
+> **② `V92` 到底存不存在，是 C3 要裁的问题（本文件不再预设它存在）。** 本项是**新能力**：改造前既无粗粒度门（判据① 无对象）也无菜单承诺（判据② 无对象）⇒ 落**判据③「一个码都不补」**。仓内对这条判据**有已执行的先例**：`PermissionMatrixIT` 的 FR-G14 六码——**在字典里、注解在端点上、全部迁移中一条授予都没有**，且把"零授予"写成可执行断言。若按该先例，**`V92` 根本不该存在**（没有 DDL、没有授予 ⇒ 迁移是空文件）。**故 C3 必须先裁这一条再动手**；两种裁法对本文件下游三处的影响不同，见下方落点表的 ⚠️。
+>
+> ⚠️ **受 ①② 直接影响的落点**（每一处都已就地标注，此处汇总以便一次找齐）：`plan.md` 的 **D5**、**D6**、**Project Structure 后端树**、**落点表**（`specs/README.md` 迁移表行 / `INSTALL.md` / `PROJECT_FEATURES.md` 的 Flyway 计数 / 「与 103 的关键差别」整段）、**提交拆分 C2 行**；以及 `tasks.md` 的 **T015 / T016 / T017**、`quickstart.md` §3 与 §6、`contracts/ai-content-generation.md` §6、`spec.md` **FR-020**。
+
+
 ---
 
 ## Constitution Check
@@ -101,13 +110,13 @@ if (enabled && !outboundUrlValidator.isAllowed(baseUrl)) {
 
 - 生成结果插入前端编辑区，经**既有保存路径**持久化（FR-019）⇒ 不需要新表、不需要新写路径、不需要新的回滚语义。
 - 每次调用落 `AuditService.record(...)`（141 个既有调用点同形）。**detail 只放元数据**：模型名 / 输入输出 token / 耗时 / 能力名。**不放提示词原文、不放客户数据**（FR-016，以 grep 断言，SC-004）。
-- **本项唯一的迁移是 `V92`**（FR-020 的权限码），**不是**表结构变更。
+- **本项唯一的迁移是 `V92`**（FR-020 的权限码），**不是**表结构变更。 ⚠️ **2026-09-27 C2 订正：这一条的原样表述已被推翻两次——`V92` 落点后移到 C3，且它「存不存在」本身待 C3 按判据③ 裁决（详见文首 ⚠️ 与 `research.md` §12.3）。原句逐字保留。**
 
 ### D6 权限码 `ai:generate`：**不设码的路径已被证伪**
 
 022 撤除权限码的论证**依赖一个错误的取数假设**（D2 表）。假设不成立 ⇒ 论证不成立 ⇒ **本项必须设码**。
-- 落点四处：`RoleConstants.PERMISSION_DEFS`（`RoleConstants.java:105`）、迁移 `V92`（授给角色）、前端 `constants/permissions.ts`、以及既有的三道护栏（`RequirePermissionCatalogTest` 注解 ⊆ 字典、`PermissionMatrixIT` 授权 ⊆ 字典、`check-perms.mjs`）。
-- 因此**必须同步 `schema-h2.sql`**（行尾 `-- V92` 标记，当前该文件已有 65 处该形式）与 `SchemaParityIT` 的镜像清单；`SchemaIdempotencyIT` 要求脚本可重跑。
+- 落点四处：`RoleConstants.PERMISSION_DEFS`（`RoleConstants.java:105`）、迁移 `V92`（授给角色）、前端 `constants/permissions.ts`、以及既有的三道护栏（`RequirePermissionCatalogTest` 注解 ⊆ 字典、`PermissionMatrixIT` 授权 ⊆ 字典、`check-perms.mjs`）。 ⚠️ **2026-09-27 C2 订正**：这「四处」**必须同批**（码先于端点存在会被 `UnwiredPermissionCodeTest` 按住，实测转红见 `research.md` §12.3），故整体从 C2 后移到 **C3**；且「**授给角色**」这个括号里的内容正是 C3 要按判据③ 裁的那一条（先例 `PermissionMatrixIT` 的 FR-G14 六码是**一条都不授**，那样 `V92` 就成了空迁移）。另：`check-perms.mjs` 是**单向**判据，字典里有、前端没有它**不管**（实测，见 §12.3 末）。原句逐字保留。
+- 因此**必须同步 `schema-h2.sql`**（行尾 `-- V92` 标记，当前该文件已有 65 处该形式）与 `SchemaParityIT` 的镜像清单；`SchemaIdempotencyIT` 要求脚本可重跑。 ⚠️ **2026-09-27 C2 订正：前提是 `V92` 存在**——若 C3 按判据③ 裁为「零授予」，则**没有迁移、这几处同步全部不发生**，本句整条不适用（同样后移，不是取消判断）。原句逐字保留。
 
 ### D7 为什么**刻意不产** `data-model.md`
 
@@ -139,7 +148,7 @@ backend/src/main/java/com/crm/
 ├── controller/
 │   └── AiContentController.java          【新】4 个生成端点，全部 @RateLimit + @RequirePermission
 └── resources/db/migration/
-    └── V92__ai_generate_permission.sql   【新】仅权限授予
+    └── V92__ai_generate_permission.sql   【新】仅权限授予  ⚠️ 2026-09-27 C2：本行**待 C3 裁决**——若按判据③ 零授予，它不存在（见文首 ⚠️）
 ```
 
 **不新增的（刻意）**：无实体、无 DTO 包（响应是纯文本 + 元数据的小 record）、无新的 MyBatis Mapper、无 `AsyncConfigurer`。
@@ -195,14 +204,19 @@ frontend/src/
 
 ⚠️ **与 103 的关键差别**：103 零迁移 ⇒ `INSTALL.md` 不动、对比报告"很可能不改"。**本项有一个迁移（`V92`）且是 AI 域的能力增量** ⇒ **两处都必须动**。**这条差异须明写**，免得读者照 103 的经验去找一处并不存在的"不动"。
 
+> ⚠️ **2026-09-27 C2 订正（整段的另一半不成立，须与上面逐字保留的原文一起读）**：本段把两个**独立**的论断捆成了一句，实测表明它们的成立性不同。
+> - **「AI 域的能力增量」这半边成立** ⇒ `CRM_FEATURE_COMPARISON.md` **必须动**（见下方小节的处置）。
+> - **「有一个迁移 `V92`」这半边待裁** ⇒ 若 C3 按判据③ 裁为零授予，则**没有新增迁移**，于是 `INSTALL.md` **不动**、`specs/README.md:3` 的版本行与**迁移表都不增行**、`PROJECT_FEATURES.md` 的 Flyway 计数**不移动**（90 → 90）。
+> - ⇒ **本项到底更像 103 还是更像有迁移的那一类，取决于 C3 的裁决**；下表相应四行都已就地标注。**在此之前不得预填这些数字。**
+
 | 文件 | 改什么 | 旧值处置 |
 |---|---|---|
-| `specs/README.md` | 模块表加 104 行（**6 列**：`# \| 模块 \| 阶段 \| 状态 \| 文档 \| 契约`）；`:3` 版本行；编号说明段（仍「`069` 未创建」）；**迁移表加一行 V92** | 旧值逐字保留 |
+| `specs/README.md` | 模块表加 104 行（**6 列**：`# \| 模块 \| 阶段 \| 状态 \| 文档 \| 契约`）；`:3` 版本行；编号说明段（仍「`069` 未创建」）；**迁移表加一行 V92** ⚠️ **2026-09-27 C2：仅当 C3 裁出 `V92` 才加；零授予则迁移表不动、`:3` 版本行也不动**（原文逐字保留）| 旧值逐字保留 |
 | `specs/roadmap.md` | `## 当前进度` 加 104 行（立项**刻意不预勾**）；计数移动；104 行下**债务 blockquote**；`:4` `**最后更新**` | 上一条**逐字保留** |
 | `README.md` | 目录树 `specs/` 计数 `001~103` → `001~104`；文档索引加指针 | 旧值逐字保留 + 带日期 ⚠️ |
-| `PROJECT_FEATURES.md` | 一次重测块，**只写真正移动的行**：Flyway 迁移 **90 → 91**、i18n 键（以门禁实测为准，当前 **2966**）、后端测试类计数、前端单测计数、Spec 模块 `103 → 104` | 旧值保留可 grep |
+| `PROJECT_FEATURES.md` | 一次重测块，**只写真正移动的行**：Flyway 迁移 **90 → 91** ⚠️ **2026-09-27 C2：若 C3 裁为零授予则本行不动（90 → 90）**、i18n 键（以门禁实测为准，当前 **2966**）、后端测试类计数、前端单测计数、Spec 模块 `103 → 104`（**原文逐字保留**）| 旧值保留可 grep |
 | `CRM_FEATURE_COMPARISON.md` | ⚠️ **本项必须改，且要改得对**：见下 | 见下 |
-| `INSTALL.md` | **迁移列表加 `V92`**（103 不动的理由在本项不成立） | 旧值逐字保留 |
+| `INSTALL.md` | **迁移列表加 `V92`**（103 不动的理由在本项不成立）⚠️ **2026-09-27 C2：本行整条以「存在 `V92`」为前提；C3 若按判据③ 裁为零授予 ⇒ 无新增迁移 ⇒ 本文件不动**（原文逐字保留）| 旧值逐字保留 |
 | `DELIVERY_SCOPE.md` | 本项**给部署包新增一个外部依赖**（出网 + API key）⇒ 交付边界须记这一条 | — |
 
 ### ⚠️ `CRM_FEATURE_COMPARISON.md` 的处置（本项最容易做错的一处）
@@ -306,7 +320,7 @@ cd frontend && pnpm run i18n:check && pnpm run lint && pnpm run typecheck \
 | # | 提交 | 内容 |
 |---|---|---|
 | C1 | `docs(104): 立项` | 七件工件 + 登记（`specs/README.md` 104 行与编号说明段、`specs/roadmap.md` 104 行 + 计数 + 债务 blockquote）。**不含任何代码** |
-| C2 | `feat(104): AI 客户端与配置门` | `AiStatus` + 两个异常 + 三个 `ErrorCode` + `AiContentService`（出网点）+ `V92` 权限码 + `schema-h2.sql` 同步 + 前端 `permissions.ts`。**无端点、无 UI** |
+| C2 | `feat(104): AI 客户端与配置门` | `AiStatus` + 两个异常 + 三个 `ErrorCode` + `AiContentService`（出网点）+ `AiClientFactory`（**实施期新增**：密钥只在这一个文件里被取用，好让"密钥不进审计类"成为结构性事实——原计划的客户端构造写在 `AiContentService` 里，会使 §6 那条 grep 判据自相矛盾）+ pom 依赖 `com.anthropic:anthropic-java:2.65.0` + `application.yml` / `.env.example`。**无端点、无 UI**。<br>⚠️ **2026-09-27 订正**：原列的「`V92` 权限码 + `schema-h2.sql` 同步 + 前端 `permissions.ts`」**整体后移到 C3**（码先于端点存在会被护栏按住，实测转红见 `research.md` §12.3）。原文逐字保留。 |
 | C3 | `feat(104): 邮件草稿生成（P1）` | `AiPromptCatalog` 的 P1 组 + 1 个端点 + `contracts/` 的字段白名单段 + 前端 `aiContentService.ts` / `types` / `AiGenerateButton` + 邮件页接入 + i18n 键 |
 | C4 | `test(104): P1 用例与定向破坏读数` | U1–U8 + I1–I6 + F1–F4；D1–D10 逐条做、逐条还原 |
 | C5 | `docs(104): P1 交付登记与对比报告订正` | 落点表全部；**`falsification-evidence.md` 在此产生**（它记的是**实测读数**，开工前无法写，**不得预先编造**）；`CRM_FEATURE_COMPARISON.md` 的 2.10 处置（见落点表的三条要求） |

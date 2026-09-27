@@ -26,15 +26,22 @@
 
 ## Phase 1：基础设施（C2，**无端点、无 UI**）
 
+⚠️ **2026-09-27（C2 实做）改判：本相位只到 T014 + T018**。原计划的 T015 / T016 / T017（权限码三件套）**不在 C2 做，移到 C3 与第一个端点同批**——理由不是排期，是三道守卫**合起来使 C2 阶段的权限码无法存在**：`UnwiredPermissionCodeTest`（冻结台账 22 条，双向）、`RequirePermissionCatalogTest`（注解 ⊆ 字典）、`PermissionMatrixIT` 的 FR-G14 判例（字典里有、注解有、**无任何迁移授予**，零授予是**可执行断言**）⇒ 一个"进了字典但无端点消费"的码，要么让台账变红，要么必须靠迁移去授予它，而授予一个没人校验的码正是 FR-G14 判例禁止的那种补授。**实测已证**（`research.md` §12.3：把 `ai:generate` 加进 `RoleConstants.PERMISSION_DEFS` 后，`UnwiredPermissionCodeTest` 以 `Expecting empty but was: ["ai:generate"]` 变红，探针随即删除、行数归零）。
+⚠️ **T010–T014 与 T018 已执行，但下方复选框一律不勾**（同 Phase 0 的规矩：**只在本项交付时才勾**）。阅读位置：`AiStatus` 的四态表与"启动即失败"理由在类 javadoc；`AiClientFactory` 是**实现期新增件**（原结构树里没有）——把客户端构造留在 `AiContentService` 会与 `quickstart.md` §6 那条 `grep apiKey` 判据直接冲突，故拆出一个只此一处持有密钥的类。
+
 - [ ] T010 [P] `config/AiStatus.java`：唯一判据源；`@Value` 读 `crm.ai.enabled`（默认 `false`）/ `base-url` / `api-key` / `model` / `max-tokens` / `timeout-seconds`；javadoc **自称唯一判据源**（照 `MailInboundStatus`）；含启动期白名单校验（plan D1）
 - [ ] T011 [P] `common/AiNotConfiguredException.java` + `common/AiGenerationException.java`：**继承 `BusinessException`**，与 `MailInboundNotConfiguredException` 同包同形
 - [ ] T012 `common/ErrorCode.java`：**只增不改**三个码（状态码按 T000 的实测结果定）
 - [ ] T013 `service/AiContentService.java`：**唯一出网点**——SDK 客户端持有、超时、`usage` 取数、错误映射（`RateLimitException` → 可重试码）、审计写入（**detail 不含提示词与客户数据**）。**不加 `@Async`**（plan D3）
 - [ ] T014 `resources/application.yml`：新增 `crm.ai.*` 六项，**默认值与 `@Value` 兜底逐字一致**（FR-002）；`.env.example` 增占位（**空值，不是真密钥**）
 - [ ] T015 `db/migration/V92__ai_generate_permission.sql`：**仅权限授予**（无 DDL）
+  - ⚠️ **2026-09-27 C2：移到 C3，且「授给谁」本身是待裁项**——按本仓权限授予判据③（改造前无粗粒度门、也无菜单承诺 ⇒ **一个都不补**，只接码），本码很可能**一个角色都不授予**；那样就**没有 `V92` 这个文件**（`plan.md` 顶部 ⚠️ ①②）。**在 C3 裁决前不要创建此文件。**
 - [ ] T016 同步 `schema-h2.sql`（行尾 `-- V92` 标记）+ `SchemaParityIT` 镜像清单；确认 `SchemaIdempotencyIT` 仍可重跑
+  - ⚠️ **2026-09-27 C2：随 T015 一起移 C3；若 T015 裁为「无迁移」则本项整条不存在**（原文逐字保留）。当前实测基线：迁移 90 个文件、最高 `V91`（仅 `V72` 缺号），`schema-h2.sql` 有 65 个 `-- V<n>` 标记。
 - [ ] T017 `RoleConstants.PERMISSION_DEFS` 增 `ai:generate`；前端 `constants/permissions.ts` 同步
+  - ⚠️ **2026-09-27 C2：移到 C3，且三项（字典 + 端点注解 + 前端注册表）必须同批落地**。理由是实测出来的：`FrontendPermissionCodeAlignmentTest` 是**单向**的（前端 ⊆ 字典），字典领先前端**没有任何门禁看得见**（`research.md` §12.3 的预测落空就落在这里）；反过来，字典里的码若无人消费，则 `UnwiredPermissionCodeTest` 立即变红。
 - [ ] T018 门禁子集自证：`mvn -B -q compile` + `pnpm run perms:check`
+  - ⚠️ **2026-09-27 C2 实测**：两条都过——`mvn -B -q compile` 退出 0；`perms:check` 读数 **68 码 / 8 文件 / 9 处**，与 T004 基线**零漂移**。子集到此为止，**不冒充全量**（全量门禁留到交付相位，见 `research.md` §12.6）。
 
 ---
 
@@ -108,6 +115,7 @@
 
 - **T000–T004（Phase 0）必须先做**：T000/T001 的结论直接决定代码怎么写；跳过就是照着一份未验证的预测写实现。
 - T010 → T011/T012/T013 → T014 → T015/T016/T017 → T018
+  - ⚠️ **2026-09-27 C2 改判**：实做链条是 **T010 → T011/T012/T013 → T014 → T018**（C2 到 T018 收尾），**T015/T016/T017 移到 C3**，与新链条 **C3 = T015/T016/T017 → T020–T026（首个端点）** 合并同批。原链条「→ T015/T016/T017 → T018」**逐字保留**如上：它写的是"权限码先于门禁自证"，而实做把门禁自证提前、权限码推后——**两条都不是错的顺序，区别在于权限码能不能独立于端点存在**，实测答案是不能（见 Phase 1 的 ⚠️）。
 - **Phase 2 依赖 Phase 1 全部**（客户端与配置门是 P1 的前提）
 - Phase 3 依赖 Phase 2；T035 **必须**在 T030–T034 全绿之后做（否则破坏打在未绿的用例上，读数无意义）
 - Phase 4 依赖 Phase 3；**Phase 5+ 依赖 Phase 4 的门禁通过**
@@ -116,6 +124,7 @@
 ## Notes
 
 - **本批唯一的迁移是 V92**（仅权限码，无 DDL）；**零新增表、零新增实体**（plan D5/D7）
+  - ⚠️ **2026-09-27 C2 改判**：本句**以「存在 `V92`」为前提**，而该前提**尚未成立**——按判据③ 本项很可能**一个角色都不授予**，那样**本批迁移数为 0**（连"唯一"的那个也没有）。原句逐字保留如上。**零新增表、零新增实体**这半句不受影响，仍然成立。
 - **零 `@Async`、零流式、零 markdown 渲染**（plan D3 + spec 非目标）
 - 中文断言须显式 `StandardCharsets.UTF_8`（本仓有 ISO-8859-1 假红先例）；能断 `error.code` 优先断 code
 - IT **不得**加 `@Transactional` / `@TestMethodOrder`
@@ -126,6 +135,11 @@
 ## 实做订正
 
 > 交付时填写。**三列**：原计划 / 实做 / 理由。原文逐字保留，订正**不静默**。
+>
+> ⚠️ **2026-09-27 C2：本表仍按上句「交付时填写」，暂不预填**（C2 不是交付）。但 C2 期间已发生的改判**不得悬空**，故就地记在**改判发生的那一段**，交付时逐条搬进本表。当前待搬的三条：
+> 1. **C2 的相位边界**：原计划 Phase 1 含 T015/T016/T017（权限码三件套）⇒ 实做 C2 只到 T014 + T018，权限码三件套移 C3 与首个端点同批。理由：三道守卫使"无端点消费的权限码"无法存在（详见 Phase 1 的 ⚠️ 与 `research.md` §12.3）。
+> 2. **`AiClientFactory` 是实现期新增件**：原结构树无此类 ⇒ 新增一个只此一处持有 api-key 的 `@Component`。理由：密钥构造若留在 `AiContentService`，`quickstart.md` §6 的 `grep apiKey` 判据会连带命中服务本身，判据失去分辨力。
+> 3. **`V92` 的存废**：原计划"本批唯一的迁移是 V92" ⇒ 待 C3 按判据③ 裁；若零授予则**无迁移**，连带 `schema-h2.sql` / 迁移表 / `INSTALL.md` / Flyway 计数四处不动（详见 `plan.md` 顶部 ⚠️ ①②）。
 
 | # | 原计划 | 实做 | 理由 |
 |---|---|---|---|

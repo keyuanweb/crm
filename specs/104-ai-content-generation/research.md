@@ -277,8 +277,8 @@ public final AnthropicOkHttpClient.Builder baseUrl(java.util.Optional<java.lang.
 
 | # | 发现 | 处置 |
 |---|---|---|
-| a | **Jackson 版本落差**：SDK 按 **2.19.4** 构建；本仓 Spring Boot **3.2.0** 的 BOM 把 jackson 管理在 **2.15.3** ⇒ Maven 最近者优先会让 SDK 跑在**比它构建时更老**的 Jackson 上 | C2 加依赖后**必须**跑 `mvn -B dependency:tree -Dincludes=com.fasterxml.jackson.core` **取实际解析版本并记录**。**不得**为迁就 SDK 而全局升 Jackson（会牵动全仓每个模块，**超出本批范围**） |
-| b | **净新增的运行时足迹**：`okhttp 4.12.0` + `kotlin-stdlib-jdk8 1.9.0` + `kotlin-reflect 1.9.0` + `jackson-datatype-jdk8/jsr310` + `jackson-module-kotlin` + `com.github.victools:jsonschema-* 4.38.0`。**仓内今天既无 okhttp 也无 kotlin**（`grep -E 'okhttp\|kotlin' backend/pom.xml` **零命中**） | 这些是**本项净新增**的运行时依赖 ⇒ 须进 `DELIVERY_SCOPE.md`（T044），并核对胖 jar 体积；`quickstart.md` §2 的"三堵墙"之外，部署侧多了这一条**依赖足迹** |
+| a | ⚠️ **2026-09-27 C2 已实测**：解析结果**没有一个 2.19.x**（全部 2.15.3），且 SDK 在 2.15.3 上**真跑通了一次**（探针读数见 **§12.1 / §12.2**）。本行余下原文逐字保留。**Jackson 版本落差**：SDK 按 **2.19.4** 构建；本仓 Spring Boot **3.2.0** 的 BOM 把 jackson 管理在 **2.15.3** ⇒ Maven 最近者优先会让 SDK 跑在**比它构建时更老**的 Jackson 上 | C2 加依赖后**必须**跑 `mvn -B dependency:tree -Dincludes=com.fasterxml.jackson.core` **取实际解析版本并记录**。**不得**为迁就 SDK 而全局升 Jackson（会牵动全仓每个模块，**超出本批范围**） |
+| b | ⚠️ **2026-09-27 C2 实测订正：本行 kotlin 版本号 `1.9.0` 不准确（实测 `1.9.20`），且漏记 `okio 3.6.0`。旧值逐字保留在本行，权威读数见 §12.1**。**净新增的运行时足迹**：`okhttp 4.12.0` + `kotlin-stdlib-jdk8 1.9.0` + `kotlin-reflect 1.9.0` + `jackson-datatype-jdk8/jsr310` + `jackson-module-kotlin` + `com.github.victools:jsonschema-* 4.38.0`。**仓内今天既无 okhttp 也无 kotlin**（`grep -E 'okhttp\|kotlin' backend/pom.xml` **零命中**） | 这些是**本项净新增**的运行时依赖 ⇒ 须进 `DELIVERY_SCOPE.md`（T044），并核对胖 jar 体积；`quickstart.md` §2 的"三堵墙"之外，部署侧多了这一条**依赖足迹** |
 
 **工作区状态自证**：本次只读制品 + 写 `~/.m2`（**不在 git 树内**）⇒ `git status` 应仍只有 `104-ai-content-generation` 之外无改动。<br>复算命令：
 ```bash
@@ -286,3 +286,102 @@ J="$JAVA_HOME/bin/javap.exe"
 CP="$HOME/.m2/repository/com/anthropic/anthropic-java-client-okhttp/2.65.0/anthropic-java-client-okhttp-2.65.0.jar:$HOME/.m2/repository/com/anthropic/anthropic-java-core/2.65.0/anthropic-java-core-2.65.0.jar"
 "$J" -classpath "$CP" 'com.anthropic.client.okhttp.AnthropicOkHttpClient$Builder' | grep baseUrl
 ```
+
+---
+
+## §12 ✅ C2 实做实测（2026-09-27，加依赖之后跑的）
+
+**本节是 C2 全部读数的权威落点**；`plan.md` / `tasks.md` / `contracts/` / `quickstart.md` 只留指针，不复制数字。
+
+### §12.1 解析出的版本（**权威口径 = `dependency:list`，不是文档也不是 pom**）
+
+复算：`cd backend && mvn -B dependency:list -DincludeScope=runtime | grep -E 'anthropic|okhttp|okio|kotlin|jackson'`
+
+| 制品 | 解析版本 | 备注 |
+|---|---|---|
+| `com.anthropic:anthropic-java` | **2.65.0** | 聚合 jar（346 字节，只有 MANIFEST）|
+| `anthropic-java-client-okhttp` / `-core` | **2.65.0** | 真正的类在这两个里 |
+| `com.fasterxml.jackson.core:{core,databind,annotations}` | **2.15.3** | **全部** 2.15.3，**没有一个 2.19.x** |
+| `jackson-module-kotlin` | **2.15.3** | 运行时；随之新进 classpath |
+| `com.squareup.okhttp3:okhttp` | **4.12.0** | 净新增 |
+| `com.squareup.okio:{okio,okio-jvm}` | **3.6.0** | 净新增（§11.3 未记，本次补）|
+| `org.jetbrains.kotlin:*` | **1.9.20** | 净新增，五件（stdlib / stdlib-jdk7 / jdk8 / reflect / stdlib-common）|
+| `com.github.victools:jsonschema-*` | **4.38.0** | 三件，净新增 |
+
+⚠️ **两处订正 §11.3 自己的读数**（旧值逐字保留在 §11.3，不静默改写）：
+- §11.3(b) 记的 `kotlin-*-1.9.0` **不精确**，实测 **1.9.20**。原因：当时读的是 **2.34.0 的 pom**（那里是 1.8.0）与模糊印象，**没有对 2.65.0 的解析结果取数**。教训与 §6.1 同类——**版本要取解析结果，不要取声明**。
+- §11.3(b) 未记 **okio 3.6.0**（okhttp 的传递依赖）。本次补上。
+
+**Jackson 落差（§11.3(a)）的实测结论**：没有 2.19.x 出现在任何范围里，**最近者优先把 SDK 按 2.15.3 跑**。是否致命 —— 见 §12.2 的实测，**不靠推理**。
+
+### §12.2 一次性探针：SDK 在 2.15.3 上**真跑通了一次**
+
+推理"2.15.3 应该够用"不算数，故起了一个**回环桩 HTTP 服务**、用 SDK 真发一次请求（请求序列化 + 响应反序列化都会真的走 Jackson），**用完即删**（探针文件在临时目录，未进仓库）。读数：
+
+```
+PROBE client built  (baseUrl binding works at runtime)
+PROBE call returned (serialize + deserialize both worked)
+PROBE text            = PROBE_OK
+PROBE stopReason      = Optional[max_tokens]
+PROBE MAX_TOKENS.equals(stopReason) = true
+PROBE of("max_tokens").equals(MAX_TOKENS) = true
+PROBE inputTokens     = 11
+PROBE outputTokens    = 7
+PROBE request body    = {"max_tokens":4096,"messages":[{"content":"USER PAYLOAD","role":"user"}],
+                        "model":"claude-opus-5","system":"STABLE SYSTEM PREFIX"}
+PROBE RESULT = OK
+```
+
+它同时结清了四件事：
+1. **`baseUrl(String)` 在运行时也成立**（不只是编译期），§11.1 的大小写结论**运行期复核过**。
+2. **2.15.3 上请求/响应两个方向都通** ⇒ Jackson 落差**在本项用到的这条路径上不是阻塞项**。
+   ⚠️ **边界（不得读过头）**：这证明的是**本项用到的那几条路径**，不是"SDK 的全部特性在 2.15.3 上都没问题"。本项不用工具、不用流式、不用 beta，故这是够用的范围。
+3. **截断判定成立**：`StopReason.MAX_TOKENS.equals(...)` 与 `of("max_tokens").equals(MAX_TOKENS)` **两条都为 true** ⇒ `AiContentService` 里那个判定不是猜的。
+4. **FR-009 的分层在报文体上成立**：`system` 是稳定前缀、`messages[0].content` 才是含数据的那段，两者在**线上**确实是分开的两个字段。
+
+📌 **一条给部署方的实测发现（`baseUrl` 的用法）**：SDK 请求的路径是 **`/v1/messages`，由 SDK 自己拼**。故 `CRM_AI_BASE_URL` 应填**主机根**（如 `https://api.anthropic.com`），**不要**带 `/v1` ——带了会打到 `/v1/v1/messages`。这条已写进 `.env.example`。
+
+### §12.3 ⚠️ **C2 范围订正：权限码与迁移 `V92` 不能在 C2 落地**
+
+`plan.md` 原定 C2 = `AiStatus` + 两个异常 + 三个 `ErrorCode` + `AiContentService` + **`V92` 权限码** + `schema-h2.sql` 同步 + 前端 `permissions.ts`，且"C2 **无端点、无 UI**"。**后三项与"无端点"自相矛盾**，且被**三条独立的仓内规矩**同时按住：
+
+| # | 来源 | 内容 |
+|---|---|---|
+| 1 | `UnwiredPermissionCodeTest`（**双向冻结台账**）| 字典里**没有被任何 `@RequirePermission` 引用**的码，必须逐条登记在那份 **22 条**台账里（A 类 11 / B 类 11，`hasSize` 写死）；其类 javadoc 明写台账管**存量**（"不要因未用而删"），不管新增 |
+| 2 | `specs/096-.../spec.md:116`（非目标 4）| 「**只建被端点真引用的码**」——码与端点同批 |
+| 3 | `PermissionMatrixIT:59-99`（FR-G14 判例）| 六个"零授予"码的先例：字典 + 注解 + **迁移里一条授予都没有**，且把"零授予"**写成可执行记录** |
+
+**实测（不是推理）**：把 `ai:generate` 临时加进 `PERMISSION_DEFS`（**按顶层分组**）后跑三道护栏 ——
+`UnwiredPermissionCodeTest` **转红**，断言原文 **`Expecting empty but was: ["ai:generate"]`**（破坏前 5/5 绿，还原后 5/5 复绿；`sha256` 逐字相等）。**故 C2 加码必红，三条落点（字典 / `V92` / 前端）整体后移到 C3**（与第一个端点同批）。
+
+⚠️ **同一次实验里有一条预测被打脸，必须记下**：我预判 `FrontendPermissionCodeAlignmentTest` 也会红——**没有**。那道护栏是**单向的**（`FrontendPermissionCodeAlignmentTest:76` 校验"前端登记的码 ⊆ 字典"），**字典里有、前端没有**它**不管**。 含义：前端 `permissions.ts` 落后于字典时**没有任何门禁看得见**（`RequirePermissionCatalogTest` 同理，它管"注解 ⊆ 字典"）。本条是本项 T017 的**人工判据**，不是自动判据。
+
+⚠️ **一次失败实验的形态**：第一次破坏我把 `permGroup(...)` 写进了**另一个 group 的 varargs 里**（嵌套分组）⇒ 三道护栏一起抛 `NullPointerException`（`TreeSet.add(null)`），**红在与判据无关的原因上**。若就此收尾，会得出一条错误结论（"加码会 NPE"）。**先分辨红的形态，再采信红的含义**。
+
+### §12.4 ⚠️ 订正 `plan.md` D1 的伪码：`isAllowed` 不存在
+
+`plan.md` D1 写的是 `outboundUrlValidator.isAllowed(baseUrl)`。**该方法不存在**（C1 自己标了"命名以实施为准"）。真实可用的入口是 **`OutboundUrlValidator.validate(String url, ErrorCode onReject)`**（抛 `BusinessException`）。 落地取后者：`AiStatus.configurationProblem()` 调它并 `catch (RuntimeException)` 转成一句可读描述，启动期再抛 `IllegalStateException`。
+**刻意不改 `OutboundUrlValidator`**（083 所有、多个调用方共用）：加一个只为本项存在的方法，等于把本项的语义塞进一个共享件。用 `validate` 还顺带保证**拒绝措辞与全仓其他出站调用一致**。
+
+### §12.5 FR-002 的"默认值逐字一致"：**六项全等**
+
+```bash
+awk '/^  ai:/{f=1;next} /^  [a-z]/{f=0} f' backend/src/main/resources/application.yml \
+  | grep -E "^    [a-z-]+:" | sed -E 's/^ +([a-z-]+): \$\{[A-Z_]+:([^}]*)\}.*/\1=\2/'
+grep -oE 'crm\.ai\.[a-z-]+:[^}"]*' backend/src/main/java/com/crm/config/AiStatus.java | sed -E 's/crm\.ai\.//;s/:/=/'
+```
+两侧各输出六行，**逐字相同**（`enabled=false` / `base-url=` / `api-key=` / `model=claude-opus-5` / `max-tokens=4096` / `timeout-seconds=60`）。
+
+⚠️ **第一次跑这条判据时它是假绿的**：我按 4 空格缩进 grep，结果**扫到了别的段**（`captcha.enabled` 等），输出里混进 `enabled=true` ——两侧"都有六行"却**不是同一批**。判据必须**锚在 `ai:` 段内**（如上 `awk`），否则它比的是两个不同的集合。
+
+### §12.6 C2 的门禁子集（**非交付读数**）
+
+| 检查 | 读数 |
+|---|---|
+| `mvn -B -q compile` | exit 0 |
+| `mvn -B spotless:apply` | exit 0 |
+| `pnpm run perms:check` | ✓ **68 个权限码；8 个文件 9 处** —— 与 T004 基线**逐字相同**（零漂移）|
+| `UnwiredPermissionCodeTest` + `RequirePermissionCatalogTest` + `FrontendPermissionCodeAlignmentTest` | **5/5 绿** |
+| `SearchIT`（**证 IT 上下文能带着新 bean 起来**）| 2/2 绿，18.5s |
+
+⚠️ 这一栏**不是**交付读数：C2 按 plan 的"显式红窗"允许暂无对应用例，且这些读数会被 C4/C5 那次完整 `verify` 覆盖（见 `quickstart.md` §5 末条）。

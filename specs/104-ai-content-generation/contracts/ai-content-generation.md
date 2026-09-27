@@ -175,6 +175,6 @@
 | `specs/022-ai-assistant/**` | **一字不改**。本项是并行新增路径；022 保留继续可用（spec A-003） |
 | `specs/102-builtin-field-permission/**` | **一字不改**。本项**消费**其 FLS 判定，不修改 |
 | `ErrorCode` 既有 150 个常量 | **只增不改**；不重命名、不改变既有码的语义 |
-| `db/migration/V1–V91` | **一字不改**（不编辑任何已应用的迁移）；只新增 `V92` |
-| `schema-h2.sql` | **须同步**（行尾 `-- V92` 标记）+ `SchemaParityIT` 镜像清单 + `SchemaIdempotencyIT` 可重跑 |
+| `db/migration/V1–V91` | **一字不改**（不编辑任何已应用的迁移）；只新增 `V92` ⚠️ **2026-09-27 C2：前半句无条件成立；"只新增 `V92`"待 C3 裁——判据③ 若裁为零授予则本项**不新增任何迁移****（原文逐字保留）|
+| `schema-h2.sql` | **须同步**（行尾 `-- V92` 标记）+ `SchemaParityIT` 镜像清单 + `SchemaIdempotencyIT` 可重跑 ⚠️ **2026-09-27 C2：随上一条，`V92` 不存在时本行不适用**（原文逐字保留）|
 | `.specify/feature.json` | **不碰**（共享单槽指针，gitignored，无法从历史恢复） |
