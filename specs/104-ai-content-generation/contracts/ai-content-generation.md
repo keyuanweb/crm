@@ -92,6 +92,34 @@
 
 ⚠️ **判门必须发生在出站之前**：非法输入**不得**产生任何出站请求（FR 判据 I5 / D5）。
 
+⚠️ **2026-09-27 C3 开工实测订正（表末一行，逐字保留如上）——该行的括号里是假前提，结论随之改**：
+
+**实测：既有认证后的实体端点并不"同码"。** 它们对"不可见"抛的是 **403**，只有"确实不存在"才 404：
+
+| 服务 | 缺失 | 不可见 |
+|---|---|---|
+| `CustomerService` | `require(id)` → `CUSTOMER_NOT_FOUND`（404，`:450-456`） | `checkViewPermission` → `ErrorCode.FORBIDDEN`（**403**，`:412-431`，抛出点在 `:430`） |
+| `ContactService` | `require` → `CONTACT_NOT_FOUND`（`:174`） | `checkContactPermission` → `FORBIDDEN`（`:162`，抛出点 `:171`） |
+| `FollowUpService` | `require` → `FOLLOW_UP_NOT_FOUND`（`:200`） | 可见性校验 → `FORBIDDEN`（`:71/74/77`） |
+
+⇒ 照本行原样实现，会造出**全仓唯一**一个"不可见也回 404"的实体端点——恰恰是"同码"的**反面**。
+
+**且"避免探测"这个独立理由在本系统里也立不住**：同一套 id 经 `/api/v1/customers/{id}` 等处即可区分 403/404 ⇒ 存在性预言机**早已在别处开放**，本端点单独回 404 只是让攻击者换一个端点，不减少任何可探测信息。
+
+**决定：改走房规——缺失 404、不可见 403。**（这一条**不是**"可以两边选"，而是：**要么统一走房规，要么全仓改口径**。若项目日后要"统一不区分"，那是一次覆盖**每个**实体端点的独立变更，不能由本项单点引入——单点引入只会让口径分裂成两套。）原结论"不区分"由此**作废**，理由（假前提 + 无效收益）逐条留在上面**不删**。
+
+⚠️ **FR-013（字段级权限一致性）不受影响**：它管的是"结果里不得出现无权读的字段值"，与"不可见实体回 404 还是 403"是两件事。
+
+⚠️ **同一次订正的第二处：表里"长度超限 / 空 content / 枚举非法 → **422**"这三行也改判为 **400**（原文逐字保留在上表，本节不改写它）**：
+
+**实测：全仓没有"通用校验类" 422 码。** 那 49 处 422 全是**实体专属**的（`CALL_FIELD_INVALID` / `EXPORT_TYPE_INVALID` / `OPEN_EVENT_INVALID` / `INTEGRATION_TYPE_INVALID` / `FIELD_PERMISSION_INVALID` / `OBJECT_FIELD_INVALID` / `SIGNATURE_IMAGE_TOO_LARGE`）——没有一处是"入参长度/枚举"这类横切约束。而本仓的 Bean Validation 失败路径**一律映射成 400**（`GlobalExceptionHandler` 里那个 400 是写死的字面量，且注释明写 **⚠️ 绝不可扩张为"全局把 400 改成 422"**，FR-V15 另有用例钉着"别的端点仍是 400"）。
+
+⇒ 若照上表实现，必须**新造**一个通用 422 码（如 `AI_INPUT_TOO_LONG`），那是与"AI 生成"无关的**全局口径变更**：它会让"长度不合规"在 AI 端点回 422、在别的端点回 400，而两处的**用户可见行为本该一致**。
+
+**决定：走 400 + 既有 `BAD_REQUEST`，在服务层判**（`AiEmailDraftService.validate`），**不新增 `ErrorCode`**。两个附带好处：① 消息是中文且可读（枚举非法时**回显合法集合**），② 0 个新增码 ⇒ plan 的"三个码只增不改"仍然成立、`ErrorCode` 总数不动。**校验在出站之前**（FR-012 的 I5/D5）不受影响：服务层判门与校验都在 `AiContentService.generate` 之前。
+
+⚠️ **表格第一列的行没有一条需要 422**：`instruction`/`content` 长度、空 `content`、`tone`/`mode` 枚举 —— 全是"调用方给的入参不合规"，它们的正确语义族就是 400（`BAD_REQUEST`），而不是 422（本仓的 422 表达的是"**实体**的某个字段值不合业务规则"，那是需要读到实体之后才判得出的东西）。
+
 ---
 
 ## 4. 错误码（⚠️ 具体状态码须开工时实测 `ErrorCode` 分布再定 ⇒ **2026-09-27 T000 已实测，本表四行全部维持，见节末**）
@@ -116,6 +144,16 @@
 
 **截断不是错误**：`truncated=true` 仍是 **200**，由前端呈现为"未完成"态。
 
+⚠️ **2026-09-27 C3 补：限流参数定稿**（本表原来只写"带 `@RateLimit`"，**没有写取值**——那等于把"配多少"留给实现随手定）：
+
+| 项 | 取值 | 理由 |
+|---|---|---|
+| `scope` | **`ai-generate`**（新建，不共用 `export-generate`）| 同属"单次成本高、无批量场景"，但成本**形态**不同（导出烧本机 CPU，生成烧**外部计费**）。共用桶会让导出把生成配额吃掉，且两条链路的失败模式不同（一个能重试、一个要花钱） |
+| `limit` / `windowSeconds` | **10 / 60** | 与 `export-generate` 同级。⚠️ 真正的**成本闸**是 FR-015/FR-017 的**日预算**（Redis `ai:gen:budget:{scope}:{id}:{yyyyMMdd}`，plan D8 已定键形）；本注解管的是**突发**（连点、脚本循环、前端重试风暴），故刻意给得比日预算宽松 |
+| `by` | **`USER`** | 端点已认证，"谁在花钱"才是被限的量。按 IP 会在 NAT 后把同事连坐（照导出/导入的裁决） |
+
+⚠️ **注意这道注解不被任何门禁要求**（一个"没有任何东西会红"的坑，正是 `RateLimitCoverageTest` 存在的理由之一，但它这次兜不住）：本端点是 **POST** 且权限码 `ai:generate` **不以 `export:` 开头** ⇒ 自动落进台账的**具名规则「已认证常规写接口」**，于是**即使一个字都不加注解，台账也绿**。FR-014 之所以要求显式标注，是因为"外部计费调用"不在那条规则当初的设想里（规则的前提是"滥用已被权限码与数据权限约束"——对烧钱的出站调用不成立）。⇒ **这是人工判据，不是自动判据**，C4 的用例须自行断言四个端点都带注解（`quickstart.md` §6 那两条 grep 就是它的可执行形态）。
+
 ---
 
 ## 5. 逐能力字段白名单（**本契约最重要的部分**）
@@ -137,6 +175,15 @@
 | `opportunity.name` / `amount` / `stage` / `expectedCloseDate` | 其他商机的数据 |
 | 最近 N 条跟进的**摘要**（N 见实施，须在 `research.md` 定稿） | 跟进记录全文（超预算时须**截断并告知**） |
 | 用户 `instruction` / `tone` | 任何其他客户的数据 |
+
+⚠️ **2026-09-27 C3 开工实测订正（本表上一行整块逐字保留，四处硬伤逐条列出，不静默改写）**：写这张表时是按通用 CRM 的字段名推的，未与实体核对。C3 开工时逐项实测（`grep -rniE "industry" backend/src/main | wc -l` → **0**；`grep -rn "级别\|等级" backend/src/main` → 命中的全是健康度等级/SLA 级别等**别的域**；`grep -rn "industry\|行业" backend/src/main/resources/db/migration/` → **0**，即**没有**名为行业/级别的自定义字段种子）：
+
+1. **`customer.industry` / `customer.level` 这两个字段不存在**，`Customer` 实体只有 `name` / `company` / `contactPerson` / `phone` / `email` / `address` / `remark` / `status` / `createdBy` / `ownerId` / `campaignId`（`entity/Customer.java:15-33`）。**本项不因此新增字段**（`spec.md` 的关键实体节明写"零新增实体、零新增表"，且扩表须回立项）⇒ **P1 的送入集里删掉这两个字段**，白名单**不得列出取不到的字段**（列了就等于把"C2 计划里的 V92"那种"纸面存在"再造一遍）。若日后要给模型行业上下文，正确路径是**先有该字段**（或定义为自定义字段并种子化），那是独立立项。
+2. **`customer.name`（公司名）这个括注不准确**：`name` 与 `company` 是两个**独立列**。P1 送 `name`（客户名）与 `company`（公司名）**两者**，括注不再等于。
+3. **`opportunity.stage` / `expectedCloseDate` 不在 `Opportunity` 上**，在 `SalesOpportunity`（`opportunityId` / `amount` / `stage` / `expectedCloseDate`，`entity/SalesOpportunity.java:17-31`）；`Opportunity` 只有 `name` / `amount` / `expectedAmountMin` / `expectedAmountMax` / `status`（注意这是**商机自身的 `status`**，与 `SalesOpportunity.stage` 不是一回事）。⇒ 取 stage 必须多一跳：`opportunityId` → `SalesOpportunity`。
+4. **N 未定稿**，本表自己写着"须在 `research.md` 定稿"而未定 ⇒ **C3 定稿：N = 5、每条节选 200 字符**，且**不另设总预算阈值**（上界由构造给出）。权威读数与算式在 **`research.md` §13.2**（⚠️ 原写"见 §12.7"——那个编号不存在，本节属 C3 的实测，落在 §13；此处就地订正指针，不改上文那句的措辞）。
+
+⚠️ **本节的"不送入"半列（电话/邮箱/证件/银行账号、其他商机、其他客户）不受影响，逐条仍然成立**——它是"禁区"清单，不依赖任何字段是否存在；即便某字段今天不存在，"不送入"也永远为真。**受影响的只有"送入"半列**。
 
 ### 5.3 P2 客户 360 摘要
 
@@ -175,6 +222,6 @@
 | `specs/022-ai-assistant/**` | **一字不改**。本项是并行新增路径；022 保留继续可用（spec A-003） |
 | `specs/102-builtin-field-permission/**` | **一字不改**。本项**消费**其 FLS 判定，不修改 |
 | `ErrorCode` 既有 150 个常量 | **只增不改**；不重命名、不改变既有码的语义 |
-| `db/migration/V1–V91` | **一字不改**（不编辑任何已应用的迁移）；只新增 `V92` ⚠️ **2026-09-27 C2：前半句无条件成立；"只新增 `V92`"待 C3 裁——判据③ 若裁为零授予则本项**不新增任何迁移****（原文逐字保留）|
-| `schema-h2.sql` | **须同步**（行尾 `-- V92` 标记）+ `SchemaParityIT` 镜像清单 + `SchemaIdempotencyIT` 可重跑 ⚠️ **2026-09-27 C2：随上一条，`V92` 不存在时本行不适用**（原文逐字保留）|
+| `db/migration/V1–V91` | **一字不改**（不编辑任何已应用的迁移）；只新增 `V92` ⚠️ **2026-09-27 C2：前半句无条件成立；"只新增 `V92`"待 C3 裁——判据③ 若裁为零授予则本项**不新增任何迁移**** ✅ **2026-09-27 C3 已裁为零授予 ⇒ 后半句作废：本项不新增任何迁移，`V92__ai_generate_permission.sql` 不创建；`V1–V91` 一字不改那半句照旧生效**（原文逐字保留）|
+| `schema-h2.sql` | **须同步**（行尾 `-- V92` 标记）+ `SchemaParityIT` 镜像清单 + `SchemaIdempotencyIT` 可重跑 ⚠️ **2026-09-27 C2：随上一条，`V92` 不存在时本行不适用** ✅ **2026-09-27 C3：已确认 `V92` 不存在 ⇒ 本行整条不适用，`schema-h2.sql` / `SchemaParityIT` / `SchemaIdempotencyIT` 三处一律不动**（原文逐字保留）|
 | `.specify/feature.json` | **不碰**（共享单槽指针，gitignored，无法从历史恢复） |

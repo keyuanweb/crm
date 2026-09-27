@@ -26,7 +26,7 @@
 | 限流台账护栏 | `security/RateLimitCoverageTest.java`（**字节码扫描**：每个 Controller 方法须带 `@RateLimit` 或豁免且理由非空） |
 | 前端超时逃生口 | `services/apiClient.ts:36` 注释 + `:38` 全局 30s ⇒ 生成类调用**显式 `timeout: 0`** |
 | 契约台账 | `contracts/ai-content-generation.md`（**§5 逐能力字段白名单是本项最重的一张表**） |
-| 迁移 | 新增 **`V92`**（仅权限码，无 DDL）+ 同步 `schema-h2.sql` 行尾 `-- V92` + `SchemaParityIT` 镜像清单 ⚠️ **2026-09-27 C2：本行整条待 C3 裁——按判据③ 若 `ai:generate` 一个角色都不授予，则本项迁移数为 0，本行不适用**（原文逐字保留）|
+| 迁移 | 新增 **`V92`**（仅权限码，无 DDL）+ 同步 `schema-h2.sql` 行尾 `-- V92` + `SchemaParityIT` 镜像清单 ⚠️ **2026-09-27 C2：本行整条待 C3 裁——按判据③ 若 `ai:generate` 一个角色都不授予，则本项迁移数为 0，本行不适用** ✅ **2026-09-27 C3 已裁即"零授予"：本行整条不适用**（`schema-h2.sql` / `SchemaParityIT` / 迁移表 / `INSTALL.md` / Flyway 计数**五处一律不动**；权威落点 `research.md` §13.6，复算命令见 §6）（原文逐字保留）|
 
 ## 4 怎么跑（本机）
 
@@ -79,7 +79,7 @@ git diff --stat -- backend/src/main/resources/db/migration/
   grep -rln "apiKey()" backend/src/main/java/com/crm/ | sort
   ```
   一条 0 命中的否定判据单独存在时是**自证不了**的：它无法区分"密钥被管住了"与"密钥被挪到别处了"。
-- **`git diff --stat -- db/migration/` 那条**：其后半句的自证方式（空输出=正确读数）**只在 `V92` 真的存在时**才成立。C3 若按判据③ 裁为零授予 ⇒ 本项**根本不新增迁移**，"空输出"于是同时兼容两种情形（什么都没加 / 加了但被误提交为已跟踪文件的修改），**该命令失去分辨力**。此时正确的判据换成迁移计数不动：`ls backend/src/main/resources/db/migration/ | wc -l`（交付基线 **90**，最高 `V91`）。
+- **`git diff --stat -- db/migration/` 那条**：其后半句的自证方式（空输出=正确读数）**只在 `V92` 真的存在时**才成立。C3 若按判据③ 裁为零授予 ⇒ 本项**根本不新增迁移**，"空输出"于是同时兼容两种情形（什么都没加 / 加了但被误提交为已跟踪文件的修改），**该命令失去分辨力**。此时正确的判据换成迁移计数不动：`ls backend/src/main/resources/db/migration/ | wc -l`（交付基线 **90**，最高 `V91`）。 ✅ **2026-09-27 C3：这个分支已被走到（裁为零授予）⇒ 上面那条 `ls | wc -l` 就是本项的**生效判据**，`git diff --stat` 那条自此只作补充；权威落点 `research.md` §13.6**
 
 ## 7 交付时填（**不得预填**）
 

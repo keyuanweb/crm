@@ -464,7 +464,26 @@ public final class RoleConstants {
               perm("recycle:restore", "恢复数据"),
               perm("recycle:purge", "清理数据"),
               perm("tag:manage", "标签管理"),
-              perm("segment:manage", "细分管理")));
+              perm("segment:manage", "细分管理")),
+          // 104：AI 文本生成（生成式内容辅助）。本码覆盖的是**一个此前不存在的能力**——该能力在
+          // 立项时实测为真空白（`/ai/` 端点零命中；anthropic / openai / langchain / ollama 等
+          // 在 backend 与 frontend 逐项零命中，见 spec 104 的背景节）。
+          // ⇒ 判据①（改造前有粗粒度门 → 补授范围 = 原门放行的集合）**不适用**：没有那道门；
+          //   判据②（无闸门但有菜单承诺 → 按菜单持有者）**也不适用**：AI 生成是挂在既有页面上的
+          //   按钮，没有独立菜单项可承诺。
+          // ⇒ 走**判据③：一个都不补，只接码**。默认可访问范围 = 该能力不存在时（即只有 ADMIN 能打，
+          //   其余角色 403），同时管理员从此能在角色页上把它勾给别的角色，而**不改代码**。
+          // 同判例（都是"建了码但一个角色都不授"，且都在注释里写明理由）：
+          //   `mail_account:manage`（V-1.5 批 3：「本码不授任何人」）
+          //   `workflow:read`（「本码不授给任何角色 ⇒ 与改造前一致」）
+          //   `integration:manage`（「补码后不授给任何角色，可访问范围与改造前一致，但管理员从此能在
+          //     角色页上勾选」）
+          // ⚠️ **因此没有配套的授权迁移**（原计划里的 `V92` 不存在——已按判据③ 就地订正
+          // `specs/104-ai-content-generation/spec.md` 的 FR-020 与 plan 的落点表）。
+          // ⚠️ 这条「零授予」是**记录在案的决定，不是遗漏**，且有可执行痕迹看着它：
+          // `com.crm.integration.AiPermissionGrantIT`（照 `PermissionMatrixIT` 的 FR-G14 判例）。
+          // 要给它补授，就得同时改那条用例与 FR-020 的记录——不允许悄悄变成另一种现状。
+          permGroup("AI 能力", perm("ai:generate", "AI 生成")));
 
   private static Map<String, Object> group(String title, Map<String, Object>... items) {
     Map<String, Object> m = new LinkedHashMap<>();

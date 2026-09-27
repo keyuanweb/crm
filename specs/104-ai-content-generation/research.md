@@ -385,3 +385,112 @@ grep -oE 'crm\.ai\.[a-z-]+:[^}"]*' backend/src/main/java/com/crm/config/AiStatus
 | `SearchIT`（**证 IT 上下文能带着新 bean 起来**）| 2/2 绿，18.5s |
 
 ⚠️ 这一栏**不是**交付读数：C2 按 plan 的"显式红窗"允许暂无对应用例，且这些读数会被 C4/C5 那次完整 `verify` 覆盖（见 `quickstart.md` §5 末条）。
+
+---
+
+## §13 ✅ C3 实做实测（2026-09-27，P1 邮件草稿）
+
+**本节是 C3 全部读数的权威落点**（`plan.md` / `tasks.md` / `contracts/` 只留指针，不复制数字）。
+
+### §13.1 落地形态订正：多了一个 `AiEmailDraftService`（**实现期新增件**）
+
+`plan.md` 的后端结构树里 `service/` 只有 `AiContentService`（出网点）与 `AiPromptCatalog`（常量与白名单），**没有 `AiEmailDraftService`**。落地时新增了它：装配 P1 上下文的那段逻辑（取数 → 判可见 → 过 FLS → 渲染）既不属于"出网点"（那层不认识客户），也不属于"常量与纯函数"（那层刻意不认识 Spring / 数据库 / 当前用户，见其类注释）。
+
+**为什么不能塞进 `AiContentService`**：`quickstart.md` §6 有一条判据是 `grep -rln "apiKey()" backend/src/main/java/com/crm/` **读数应为 1**（只有 `AiClientFactory` 取密钥）。取数逻辑一旦进 `AiContentService`，这个类就会同时持有"密钥的消费方"与"客户数据的装配方"两种身份，那条 grep 断言随之失去区分力——它本来靠的就是"取密钥与别的关注点分居不同文件"。⇒ **分层本身是那条第 6 条判据能成立的前提**，不是洁癖。
+
+**同类的实现期新增件在本项里是第三次出现**（C2 的 `AiClientFactory`、C2 的门禁订正、本次的 `AiEmailDraftService`）：plan 的结构树是**立项期**的预期，落地时的分层按"每层能否被单独断言"定。每次偏离都在本文件留痕，`plan.md` 侧只留指针。
+
+### §13.2 P1 上下文预算定稿（契约 §5.2 "N 见实施" 的落点）
+
+| 项 | 定稿值 | 依据 |
+|---|---|---|
+| 最近跟进条数 **N** | **5** | `AiPromptCatalog.P1_FOLLOWUP_LIMIT`。取数走 `FollowUpService.page(customerId, null, null, 1, 5)`，其排序是 `createdAt DESC`（`contracts/` 要求"最近 N 条"，而"第 1 页"正是这个语义） |
+| 每条节选长度 | **200 字符** | `P1_FOLLOWUP_EXCERPT_CHARS`。**被截的条目在提示词里明写"（本条已节选）"**——"截断并告知"在 P1 退化为逐条告知，而不是一个总阈值 |
+| 联系人条数 | 2（只要姓名，用于在最近一条无姓名时有备选） | `P1_CONTACT_LIMIT` |
+| 商机明细行数 | 1（取 `stage` / `amount` / `expectedCloseDate`） | `P1_SALES_OPPORTUNITY_LIMIT` |
+
+**单条 user 消息的上界 = 结构给的上界，不是估的**：
+
+```
+5 × (200 节选 + ~15 日期与前缀)  ≈ 1.08k
++ 固定字段（客户名/公司/状态/联系人/商机名/金额/阶段/成交日期）  ≈ 0.2k
++ instruction 上限（INSTRUCTION_MAX_CHARS）                     = 4.0k
+------------------------------------------------------------
+标称上界                                                       ≈ 5.3k 字符
+```
+
+⚠️ **本条的第一稿是错的（订正留痕）**：`AiPromptCatalog` 初稿只写"跟进 + 固定字段 ≈ 1.5k"，**把 `instruction` 漏在算式外**——而那是唯一由调用方直接控制、上限还最大（4000）的一段。⇒ **"上界由构造给出"在漏掉最大项时是假命题**，且它朝"看起来更安全"的方向失真。订正后 P1 **仍然不设**"总预算截断阈值"（上界既然由构造给出，就不存在静默丢弃这个失败模式），但那个上界必须是**真的**。
+
+### §13.3 取数路径表（FR-010 的落地，**逐字段**）
+
+规则：**只经既有服务方法取数**（本类不注入任何 Mapper）。每行写出"这一步自带什么校验、缺什么、缺的由谁补"。
+
+| 数据 | 入口 | 自带校验 | 本服务另补的 |
+|---|---|---|---|
+| 客户 | `CustomerService.require(id)` | **仅 404**（`CUSTOMER_NOT_FOUND`，`:450-456`）——**无范围校验** | `EntityAccessService.canViewCustomer` → 不可见 **403** |
+| 商机 | `OpportunityService.require(id)`（`:188`）| **仅 404**。⚠️ **实测：该文件里没有任何范围校验的调用**（`grep -nE "entityAccessService\|dataPermissionService\|canView\|visibleOwnerIds\|visibleCustomerIds\|FORBIDDEN"` → **0 命中**）| `EntityAccessService.canViewOpportunity` → 不可见 **403** |
+| 商机明细（stage/amount/日期）| `SalesOpportunityService.page(null, opportunityId, null, 1, 1)` | ⚠️ **无**（同上：`grep` → 0 命中；`require` 在 `:159`，也只管 404）| ① 上游已判过商机可见性；② 本调用**只按 `opportunityId` 过滤** ⇒ 取不到别人家的行（这是"结构性安全"而非"检查后安全"）|
+| 联系人姓名 | `ContactService.page(null, customerId, null, 1, 2)` | **有**：非 ADMIN 时按 `customerId IN 可见集` **过滤**（不是抛错） | 无需（客户可见性上面已判）|
+| 最近跟进 | `FollowUpService.page(customerId, null, null, 1, 5)` | **有**：行级可见性校验，不可见 → **403**（`:71/74/77`）| 无需 |
+
+📌 **这张表本身是一条判据**：三处"仅 404"的服务（客户 / 商机 / 商机明细）**都必须由调用方补可见性检查**——`CustomerService` 与 `OpportunityService` 的 `require` 都不做范围校验，而本项是**第一个**把这两个 `require` 用在"读出来给外部模型"场景的调用方。⇒ C4 的 I2/I3 必须**分别**覆盖这三条（只测客户那条，会漏掉商机那两条）。
+
+📌 **`canViewOpportunity` 的委托关系不足以省掉客户那一判**：它目前**恰好**委托到 `canViewCustomer(opp.customerId)`（商机无 owner 字段），但那是**另一个类的内部实现**。若它日后改成按商机 owner 判，而本服务只调它，就会静默丢掉客户侧的检查。故本服务**各判各的**（代价：一次查询）。
+
+### §13.4 FLS 门（FR-013）：哪些字段要过、哪些**不需要**过
+
+| 送入项 | 102 是否登记该字段 | 处置 |
+|---|---|---|
+| `customer.name` / `company` | **未登记**（`BuiltinFieldRegistry` 的 CUSTOMER 组是 `contactPerson` / `phone` / `email` / `address` / `remark` / `status` / `campaignId`）| **不过 FLS**——"既无权限可言，就不存在无权读" |
+| `customer.status` | **已登记** | 过：`plan(currentRole(), ENTITY_CUSTOMER)` 含 `status` ⇒ **整行不渲染**（不是渲染成"未知"）|
+| `customer.contactPerson` | **已登记** | 过：同上；被 HIDDEN 时**退到联系人表**取姓名 |
+| `contact.name` | 联系人实体**不在** CUSTOMER 组内 | 不过 FLS（登记表的实体范围就是 `ENTITY_CUSTOMER`）|
+| 商机 `name` / `amount` / `stage` / `expectedCloseDate` | **均未登记**：OPPORTUNITY 组登记的是 `expectedAmountMin` / `expectedAmountMax` / `remark` / `status` 四个，与 P1 送入集**无一相交** | **不过 FLS**。⚠️ 这条结论**依赖白名单**：白名单一旦变动到与那四个相交，本行即失效（`AiEmailDraftService` 的类注释里也写了同一句）|
+
+⚠️ **必须自己判，不能指望响应侧**：`FieldMaskingResponseBodyAdvice` 只作用于 **HTTP 响应**链路，本项拼出来的**提示词不经过它**。"响应会擦掉"这种想法在这里保护不到任何东西——FR-013 的判据（结果里不得出现无权读的字段值）在"提示词"这个出口上没有自动兜底。
+
+### §13.5 状态码终裁（契约 §3/§4 的订正落点）
+
+| 情形 | 原表 | **终裁** | 理由（详见契约 §3 的两段 ⚠️）|
+|---|---|---|---|
+| 实体不存在 | 404 不区分 | **404** | 与既有实体端点一致 |
+| 实体不可见 | 404 不区分 | **403** | 既有端点对"不可见"一律 403（`CustomerService:430` / `ContactService:171` / `FollowUpService:71`）；"不区分"的括号是**假前提**，且"避免探测"在别处已有预言机 |
+| `instruction` 过长 / `tone` 非法 / 两个 id 都没有 / 两个 id 指向不同客户 | 422 | **400** + 既有 `BAD_REQUEST` | 全仓**无通用 422 校验码**；`@Valid` 那条路在本仓一律 400 且禁扩张；**不新增码**（三个码的承诺不变）|
+| 未配置 | 409 | 409 | `AiNotConfiguredException`，零出站 |
+| 上游超时 / 429 / 5xx | 503 | 503 | `AiGenerationException.upstreamUnavailable()` |
+| 模型拒答 / 空输出 | 422 | 422 | `AiGenerationException.rejected()` |
+| 预算耗尽 | 429 | 429（**未实现**，见 §13.6）| 复用 `RATE_LIMITED` |
+| 截断 | 200 | 200（`truncated=true`）| 不是错误 |
+
+**限流参数**：`@RateLimit(scope="ai-generate", limit=10, windowSeconds=60, by=USER)`——取值理由与"这道注解不被任何门禁要求"的坑，写在契约 §4 的 C3 块里。
+
+### §13.6 权限码与迁移的**终裁**：零授予 ⇒ **没有 `V92`**
+
+判据③（既无"改造前的粗粒度门"可继承，也无菜单承诺可依据）⇒ `ai:generate` **一个角色都不授予**，因此**本项零新增迁移**（原计划的 `V92__ai_generate_permission.sql` **不存在**）。同判例：`mail_account:manage` / `workflow:read` / `integration:manage` / `open_platform:manage`（都是"建了码、一个角色都不授、且注释里写明理由"）。
+
+零授予的**实际后果**（一处容易写反）：`PermissionAspect` 里 `ADMIN` 内建角色**恒放行**（`PermissionAspect.java:43-44`）⇒ 后果**不是**"连 ADMIN 也被拒"，而是 **ADMIN 照旧能用、其余全部角色一律 403**，直到管理员在角色页上把它勾给某个角色。
+
+**可执行痕迹**（照 `PermissionMatrixIT` 的 FR-G14 判例）：`com.crm.integration.AiPermissionGrantIT#aiGenerateIsGrantedToNoPresetRole`——正对照（`customer:claim` 必须查得出持有者）+ 前提（本码必须在字典里，否则"零授予"恒真）+ 断言（`rolesHolding("ai:generate")` 为空）。**行为面的那一半**（预置角色真打端点 → 403）归 C4。
+
+⚠️ **FR-015 / FR-017 的每日预算闸（Redis `ai:gen:budget:{scope}:{id}:{yyyyMMdd}`）在本批未实现**：C3 只落了限流的**突发**那一半。`tasks.md` 的 Phase 2 里原本**没有**对应任务（只有 plan D8 的设计与 C4 的 U7 断言）——该缺口已在 `tasks.md` 就地补记（**不勾选**）。
+
+### §13.7 ⚠️ 未决事项：**P1 的前端宿主不存在**（须用户裁决）
+
+`plan.md:186` 写的 P1 接入点是"**邮件编辑/活动页**（P1 草稿）"。**实测：本仓前端没有"客户上下文的邮件编辑器"这个页面。**
+
+| 现状 | 读数 |
+|---|---|
+| 唯一的"邮件主题 + 正文"编辑器 | `pages/marketing/EmailTemplatePage.tsx`——**模板 CRUD 弹窗**，字段名 `content`，走 `createEmailTemplate` / `updateEmailTemplate`，**与客户无关**（没有客户选择器、没有客户上下文）|
+| 022 的"商机下一步行动" | `playbookService.fetchOpportunityActions` **全仓无引用** ⇒ 022 那条规则式建议**当前没有任何页面在渲染**，也就没有"与它做视觉区分"的现成落点（契约 §2.5 的前提）|
+
+⇒ C3 的前端半边（`aiContentService.ts` / `types/aiContent.ts` / `AiGenerateButton.tsx` / **页面接入** / i18n 键 / `constants/permissions.ts`）**无法照 plan 落地**，三种可选宿主见 `tasks.md` 的对应 ⚠️ 块（含各自的代价）。**本批不擅自替用户选**：三种都在改产品可见形态。
+
+### §13.8 C3 的门禁子集（**非交付读数**）
+
+| 检查 | 读数 |
+|---|---|
+| `mvn -B compile` | **exit 0** |
+| `mvn -B spotless:check` | **exit 0**（`0 needs changes`；⚠️ 同一次输出里 `821 were skipped because caching determined they were already clean`——**这条是缓存判定、不是"真解析过"的证据**，我无法在本次拿到 `skipped=0` 的读数，故不把它当交付证据） |
+| `pnpm run perms:check` | **未跑**：C3 **刻意不动前端**（前端半边随 §13.7 的裁决整批走）。⇒ 读数仍是 **68**，不是 69 |
+
+⚠️ 这一栏**不是**交付读数：C3 同样处于 plan 允许的"显式红窗"（新代码暂无对应用例），最终读数由 C4/C5 那次完整 `verify` 给出。

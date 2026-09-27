@@ -29,13 +29,14 @@
 - [x] **与仓内既有判例不混淆**：`contracts/` §2 把 **022 的"撤门也安全"** 单独列为**对照留痕**并说明其**经实测不成立**；`research.md` §2 用**三层验证**（源码 / 拦截器注册 / 全仓 grep）支撑该结论，并指明 `OrderController.java:45` 的**诚实写法**为反面参照。
 - [x] **单一判据源**：FR-002 要求"是否已配置"只有一个判据类（照 `MailInboundStatus`），且 `application.yml` 默认值与 `@Value` 兜底**逐字一致**；该一致性**有 U1 看着**（唯一能抓"Java 兜底值被改"的判据）。
 - [x] **订正不静默**：`contracts/` §6 与 `tasks.md` T043 明写 `CRM_FEATURE_COMPARISON.md` **2.10 的"总闸门实测零命中"表述会因本项失效** ⇒ 处置是**原文逐字保留 + 追加带日期 ⚠️ 块**（**不是重写**），与 103 的留痕规则同口径。
-- [x] **一个数字住在好几个地方**：落点表列全（`specs/README.md` 6 列行 + `:3` 版本行 + 编号说明段 + 迁移表 V92 / `specs/roadmap.md` 进度行 + 计数 + 债务 blockquote + `:4` 日期 / `README.md` 目录树计数 / `PROJECT_FEATURES.md` / **`CRM_FEATURE_COMPARISON.md`** / **`INSTALL.md` 迁移列表** / `DELIVERY_SCOPE.md`）。
-      ⚠️ **与 103 的关键差异**：103 是**零迁移**故 `INSTALL.md` 明写**不动**；本项**新增 V92** ⇒ `INSTALL.md` **必须动**，而 `CRM_FEATURE_COMPARISON.md` **也必须动**（103 只需核对）。**两处都不得照抄 103 的判断。**
+- [x] **一个数字住在好几个地方**：落点表列全（`specs/README.md` 6 列行 + `:3` 版本行 + 编号说明段 + 迁移表 V92 / `specs/roadmap.md` 进度行 + 计数 + 债务 blockquote + `:4` 日期 / `README.md` 目录树计数 / `PROJECT_FEATURES.md` / **`CRM_FEATURE_COMPARISON.md`** / **`INSTALL.md` 迁移列表** / `DELIVERY_SCOPE.md`）。 ✅ **2026-09-27 C3：清单里凡以 `V92` 为内容的落点（`specs/README.md` 迁移表 V92 行、`INSTALL.md` 迁移列表、Flyway 计数那类）随零授予**全部落空**——它们不是"少改一处"，而是**本来就不该出现**；`CRM_FEATURE_COMPARISON.md` 2.10 与 `DELIVERY_SCOPE.md` 两处照旧必须动（与迁移数无关）。**
+      ⚠️ **与 103 的关键差异**：103 是**零迁移**故 `INSTALL.md` 明写**不动**；本项**新增 V92** ⇒ `INSTALL.md` **必须动**，而 `CRM_FEATURE_COMPARISON.md` **也必须动**（103 只需核对）。**两处都不得照抄 103 的判断。** ✅ **2026-09-27 C3 订正：本条的"关键差异"因零授予而不存在**——本项与 103 在迁移面**同为"零迁移"，故 `INSTALL.md` 同样**不动**；`CRM_FEATURE_COMPARISON.md` **仍必须动**（它动的是"总闸门实测零命中"那句表述随本项失效，与迁移数无关）。原文逐字保留如上。
 - [x] **`data-model.md` 的缺席有理由**（`plan.md` D7，照 103 先例）：本项**零新增实体、零新增表**（FR-019），唯一的数据形状事实是**既有** `ErrorCode`/权限词典，其权威住处已在代码里；抄一份就造出第二个家 ⇒ 按章程"条件性工件"的定义，**不产**。
 
 ## 门禁与纪律
 
 - [x] **迁移面最小**：**唯一新增是 V92**（仅权限码授予，**无 DDL**）；**V1–V91 一字不改**；`schema-h2.sql` 同步 + `SchemaParityIT` 镜像清单 + `SchemaIdempotencyIT` 可重跑。
+  - ✅ **2026-09-27 C3 订正：订正后本项是**零迁移**——"唯一新增是 V92"那半句作废（零授予 ⇒ 无迁移），"V1–V91 一字不改"与"不编辑已应用迁移"照旧成立，"`schema-h2.sql` 同步"等三处随之不适用。** 判据：`ls backend/src/main/resources/db/migration/ | wc -l` = **90**（交付基线，最高 `V91`）。原文逐字保留如上。
 - [x] **不碰 `.specify/feature.json`**（共享单槽指针，gitignored，无法从历史恢复）；**不跑任何 `/speckit-*`**；**不编辑任何已应用的迁移**。
 - [x] **不传 `-DargLine`**（会静默挤掉 JaCoCo agent：`jacoco.exec` 不生成而构建全程成功无报错）。
 - [x] **提交纪律**：`ListAgents` 先查（多会话共用同一工区）、**逐路径 `git add`**、禁用 `git add -A` / `git commit -a`、尾行 `Co-Authored-By: Claude Code <noreply@anthropic.com>`、**不把提交自己的哈希写进它携带的文件**、**复选框不预勾**、`## 实做订正` **三列**。
