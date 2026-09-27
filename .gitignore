@@ -53,3 +53,6 @@ frontend/null
 
 # DSH harness runtime artifacts
 /dsh-jenkins.json
+
+# Jenkins 部署用的本地 bare 仓库（E:\code\crm.git，是源码的镜像，不随仓库交付）
+/crm.git/

@@ -1,7 +1,8 @@
 // CRM 部署流水线（Jenkins）
 // 运行环境：Built-In Node = Linux (amd64)，Jenkins 与 docker 引擎同在 WSL Ubuntu-22.04。
-// 部署方式：直接 docker compose（无需 wsl 前缀、无需 SCM checkout）。
-// 代码路径：/mnt/e/code/crm（Windows E:\code\crm 的 WSL 挂载点）。
+// 部署方式：从本地 bare 仓库 git clone 源码（非 SCM checkout，因 Jenkins 无 git 插件且无外网），
+//          然后 docker compose 构建部署。
+// 源码源：/mnt/e/code/crm.git（bare 仓库）；构建目录：/tmp/crm-build。
 
 pipeline {
     agent { label "${params.TARGET ?: 'built-in'}" }
@@ -20,13 +21,16 @@ pipeline {
     }
 
     stages {
-        stage('Preflight') {
+        stage('Prepare source') {
             steps {
                 sh '''
                     set -e
                     echo "ENV=${ENV} DRY_RUN=${DRY_RUN} TARGET=${TARGET}"
-                    test -f /mnt/e/code/crm/docker-compose.yml || { echo "ERROR: docker-compose.yml missing"; exit 1; }
-                    test -f /mnt/e/code/crm/.env || { echo "ERROR: .env missing (cp .env.example .env first)"; exit 1; }
+                    git config --global --add safe.directory /mnt/e/code/crm.git
+                    git -C /mnt/e/code/crm push /mnt/e/code/crm.git master 2>/dev/null || echo "push skipped (no new commits)"
+                    rm -rf /tmp/crm-build
+                    git clone /mnt/e/code/crm.git /tmp/crm-build
+                    cp /mnt/e/code/crm/.env /tmp/crm-build/.env || { echo "ERROR: .env missing"; exit 1; }
                     docker version
                 '''
             }
@@ -35,21 +39,24 @@ pipeline {
         stage('Tests (optional)') {
             when { expression { params.RUN_TESTS } }
             steps {
-                sh 'cd /mnt/e/code/crm/backend && mvn -q test'
+                sh 'cd /tmp/crm-build/backend && mvn -q test'
             }
         }
 
         stage('Build images') {
             steps {
-                sh 'cd /mnt/e/code/crm && docker compose build'
+                sh 'cd /tmp/crm-build && docker compose build'
             }
         }
 
         stage('Deploy') {
             when { expression { !params.DRY_RUN } }
             steps {
-                sh 'cd /mnt/e/code/crm && docker compose up -d --remove-orphans'
-                sh 'cd /mnt/e/code/crm && docker compose ps'
+                sh '''
+                    docker rm -f crm-redis crm-mysql crm-backend crm-frontend 2>/dev/null || echo "no old containers"
+                    cd /tmp/crm-build && docker compose up -d --remove-orphans
+                    cd /tmp/crm-build && docker compose ps
+                '''
             }
         }
 
@@ -67,7 +74,7 @@ pipeline {
             echo "Deploy OK: ENV=${params.ENV}, DRY_RUN=${params.DRY_RUN}"
         }
         failure {
-            echo "Deploy FAILED. Inspect logs: cd /mnt/e/code/crm && docker compose logs"
+            echo "Deploy FAILED. Inspect logs: cd /tmp/crm-build && docker compose logs"
         }
     }
 }

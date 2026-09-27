@@ -1,7 +1,7 @@
 <?xml version="1.1" encoding="UTF-8"?>
 <project>
   <actions/>
-  <description>CRM deploy via docker compose (WSL)</description>
+  <description>CRM deploy from git source (local bare repo) via docker compose</description>
   <keepDependencies>false</keepDependencies>
   <properties>
     <hudson.model.ParametersDefinitionProperty>
@@ -46,14 +46,19 @@
     <hudson.tasks.Shell>
       <command>set -e
 echo "=== CRM deploy ENV=$ENV DRY_RUN=$DRY_RUN TARGET=$TARGET ==="
-cd /mnt/e/code/crm
+git config --global --add safe.directory /mnt/e/code/crm.git
+git -C /mnt/e/code/crm push /mnt/e/code/crm.git master 2>/dev/null || echo "push skipped (no new commits)"
+rm -rf /tmp/crm-build
+git clone /mnt/e/code/crm.git /tmp/crm-build
+cd /tmp/crm-build
 test -f docker-compose.yml || { echo "ERROR: docker-compose.yml missing"; exit 1; }
-test -f .env || { echo "ERROR: .env missing (cp .env.example .env first)"; exit 1; }
+cp /mnt/e/code/crm/.env .env || { echo "ERROR: .env missing"; exit 1; }
 docker version
 docker compose build
 if [ "$DRY_RUN" = "true" ]; then
   echo "DRY_RUN=true skip up -d and health check"
 else
+  docker rm -f crm-redis crm-mysql crm-backend crm-frontend 2>/dev/null || echo "no old containers"
   docker compose up -d --remove-orphans
   docker compose ps
   curl -fsS http://localhost:8082/health || echo "WARN: frontend /health failed"
