@@ -123,6 +123,45 @@
 ⚠️ **`mvn verify` 的坑**：不给 `-Dmaven.test.failure.ignore=true` 时可能在覆盖率判定**之前**就中止；**绝不传 `-DargLine`**（会静默挤掉 JaCoCo agent，`jacoco.exec` 不生成而构建全程无报错）。
 ⚠️ **spotless 缓存命中不算"真解析过"**（「N were skipped because caching determined…」）⇒ 须移走 `target/spotless-index` 复跑取 `skipped 0`。
 
+### §6.1 ✅ 开工基线实测（T004，2026-09-27）——**上表逐格复跑，零漂移**
+
+上表是立项期写的；开工前**逐道实跑复测**，读数**与表中逐字相同**（故本项**没有**触发任何订正；本仓少见的一次"复测即吻合"）：
+
+| 门禁 | 开工实测（原样输出摘要） | 与上表 |
+|---|---|---|
+| `i18n:check` | `zh-CN 2966 键 / en 2966 键；路由 58 条 / 清单 56 项，粗粒度别名 3 条`；退出码 **0** | **一致** |
+| `menu:check` | `56 个菜单项`，来源 `RoleConstants.MENU_TREE`；退出码 **0** | 一致 |
+| `perms:check` | `68 个权限码；8 个文件含已登记的 ADMIN 判断，共 9 处`；退出码 **0** | 一致（**本项加 `ai:generate` ⇒ 交付时应为 69**） |
+| `ui:check` | `扫描 271 个产品文件（其中 125 个 tsx）、303 个 Form.Item`；`白名单内冻结的既存债 54 处，未新增违规`；退出码 **0** | **一致** |
+| `zh:check` | `扫描 268 个产品文件、候选点 9162 个`；`未登记命中 0 处；台账内冻结 266 处、4 条`；口径外 55（只印不判）；退出码 **0** | **一致** |
+
+**结构性计数基线**（口径 = **文件 / 类数**，**不是用例数**——用例数要跑 `mvn verify` 与 `test:coverage` 才有，属 T040/T041，**不得在此混用**）：
+
+| 项 | 基线 |
+|---|---|
+| 迁移脚本 | **90** 个，最高 **V91**，**缺号仅 V72**（集合差判据，见下方 ⚠️） |
+| `schema-h2.sql` 的 `-- V<n>` 标记 | **65** |
+| 后端主代码类 | **608** |
+| surefire **用例类** | **110** |
+| failsafe **用例类** | **86** |
+| 前端测试文件 | **95** |
+
+⚠️ **一处探针失效（同类第二例，须记）**：判"迁移有没有缺号"时我第一版写的是
+
+```bash
+for i in $(seq 1 91); do ls */V$i__*.sql >/dev/null 2>&1 || echo -n "V$i "; done   # ❌ 恒不报缺号
+```
+
+**它错在 `$i__` 被 shell 当成变量名 `i__`**（下划线是合法变量名字符）⇒ 展开成空串 ⇒ glob 变成 `V*.sql` ⇒ **总是命中、退出码 0 ⇒ 永不报缺号**。**它给出的是"无缺号"，与真值（缺 V72）相反，且失败形态是静默的**。
+**正确判据是集合差**：
+
+```bash
+ls src/main/resources/db/migration/ | grep -oE '^V[0-9]+' | sed 's/V//' | sort -n > /tmp/have.txt
+comm -13 /tmp/have.txt <(seq 1 91)     # 应输出 72
+```
+
+**元教训**：与 §7.1 同一族——**探针必须自证覆盖了整个总体**；本例还多一层，**变量名的边界也是一种"模式的边界"**。凡在 shell 里拼 `$var` 后紧跟 `_` 或字母数字，一律写成 `${var}` 显式定界。
+
 ---
 
 ## §7 `ErrorCode` 分布（用于选码，**2026-09-27 实测**）
@@ -130,6 +169,29 @@
 400×10 / 401×8 / 403×8 / 404×38 / **409×31** / 422×48 / 429×2 / 500×3 / **503×1**；**501 零先例**。
 
 ⇒ 本项的选码理由见 `plan.md` 的表与 `contracts/` §4。**开工时须重测**（分布会随并行批次变化）。
+
+### §7.1 ⚠️ **2026-09-27 开工实测（T000）：上面那串分布里 `422×48` 是错的，真值 `422×49`**
+
+**旧值 `422×48` 逐字保留在上**（不是静默改写）。它是**我的 grep 漏了一处**造成的，不是分布变了：
+
+| | |
+|---|---|
+| 失效模式 | `grep -oE '\([0-9]{3}, "'` —— 要求 `(` **紧跟**数字 |
+| 漏掉的 | `ErrorCode.java:35-36` 的 `OPPORTUNITY_STAGE_PROBABILITY_INVALID(` —— 它的 `422` 在**下一行**，故整条常量没被计数 |
+| **自证方式（关键）** | 命中数 **149** ≠ enum 常量数 **150** ⇒ **该不符本身就是判据**。若只看 `422×48` 这一格的绝对值，这个漏是**自证不了的**——缺的那项不会出现在结果里 |
+| 修正后 | `grep -oE '[0-9]{3}, "'` ⇒ **150** 命中，与常量数**逐字吻合**；逐码点交叉复核亦一致 |
+
+**实测分布（2026-09-27，T000）**：400×10 / 401×8 / 403×8 / 404×38 / **409×31** / **422×49** / 429×2 / 500×3 / **503×1**；**501 仍为零先例**（`grep -c '501, "'` → **0**）。
+
+**复算命令**（读者可自证）：
+```bash
+f=backend/src/main/java/com/crm/common/ErrorCode.java
+grep -oE '[0-9]{3}, "' $f | wc -l            # 必须 = 150（= enum 常量数）
+grep -oE '[0-9]{3}, "' $f | grep -oE '^[0-9]{3}' | sort | uniq -c
+grep -c '501, "' $f                          # 0
+```
+
+**教训（同类，本仓已有第二条）**：这是「**grep 模式的边界要自证**」的又一例。**判据不是"我扫到了什么"，而是"我的扫描覆盖了整个总体"**——凡按模式数一个**已知总数**的集合，**命中数必须等于那个总数**，否则模式有漏；只报分格数（如 `422×48`）时，这个漏**永远自证不了**。
 
 ---
 
@@ -162,10 +224,65 @@
 
 ## §10 ⚠️ 未核实事项与存疑（**不得读成已确认**）
 
-1. **官方 Java SDK 的 base URL 配置方法未验证**。捆绑参考只列了 `.apiKey(...)`；**未列出** base URL 的 builder 方法名。SDK 的 client config 确实支持 base URL（或 `ANTHROPIC_BASE_URL` 环境变量），但**具体 Java 端写法未确认**。**实施时以编译报错为准**（照该参考的显式指引：先写文件再让编译器指路），**不得**在此臆断方法名。
-2. **SDK 版本未锁定**。捆绑参考列的是 `com.anthropic:anthropic-java:2.34.0`；**实施时须以当时的最新稳定版为准**，并确认与本仓 Spring Boot / JDK 21 的兼容性。
+1. **官方 Java SDK 的 base URL 配置方法未验证**。捆绑参考只列了 `.apiKey(...)`；**未列出** base URL 的 builder 方法名。SDK 的 client config 确实支持 base URL（或 `ANTHROPIC_BASE_URL` 环境变量），但**具体 Java 端写法未确认**。**实施时以编译报错为准**（照该参考的显式指引：先写文件再让编译器指路），**不得**在此臆断方法名。<br>⇒ ✅ **2026-09-27 T001 已实测结清**：原文逐字保留在上，**该条已不成立**——方法名实测为 **`baseUrl(String)`**（javap 读数 + 复算命令见 **§11.1**）。
+2. **SDK 版本未锁定**。捆绑参考列的是 `com.anthropic:anthropic-java:2.34.0`；**实施时须以当时的最新稳定版为准**，并确认与本仓 Spring Boot / JDK 21 的兼容性。<br>⇒ ✅ **2026-09-27 T002 已实测结清**：原文逐字保留在上，**该条已不成立**——锁定 **`2.65.0`**（最新 release），JDK 21 兼容性以**字节码主版本**判过（major 52），见 **§11.2**。
+
+⚠️ **本段两处的留痕口径（自查记录，2026-09-27）**：这两条**第一稿写错了**——当时写的是「~~**官方 Java SDK 的 base URL 配置方法未验证**。~~ ⇒ ✅ …（原文逐字保留在上，不静默改写）」，即**一边声称"原文逐字保留"、一边把原文删掉了**（原句里那些实测后才知其重要的话，如"捆绑参考只列了 `.apiKey(...)`""以编译报错为准"，**全被抹掉**）。**这正是「订正不静默」要防的形态：改写者自己声明保留了，判据却没人核。** 自查判据 = **旧值仍可 grep 到**：`grep -n '以编译报错为准\|2\.34\.0' research.md` ⇒ 修正后**两条都能命中**。
+
+⚠️ **这段自查的可复现性必须说清（不得含糊）**：被删的那两句**只出现在工作区的中间态里，从未提交** ⇒ 「修正前零命中」这个读数**读者无法从 git 复现**。可复现的部分是反方向的：`git show HEAD:specs/104-ai-content-generation/research.md | grep -c '以编译报错为准'` ⇒ **1**，即 **C1 提交里原文是在的**，是我随后的编辑把它删掉又补回来的。**记此以免把一句不可复现的读数当成证据。**
 3. **模型默认值**。`spec.md` FR-001 写默认 `claude-opus-5`。**这是"能力最强"的默认而非"最便宜"的默认**——`plan.md` 未做成本测算，**因本项出厂默认 `enabled=false`**（不配置即零成本）。若将来要给出成本敏感的默认，须另做测算。
 4. **提示缓存是否命中未测**。D4 已要求"默认按不命中预期"，实施时以 `usage().cacheReadInputTokens()` 实测为准。
 5. **跟进记录的 `N`（送入条数）未定稿**。`contracts/` §5.2 留作实施期决定，须与超预算截断策略一起定。
 6. **四项能力的相对价值未做用户验证**。P1–P4 的优先级来自**工程风险排序**（P1 零新增持久化 ⇒ 风险最低），**不是**来自用户调研。若实际使用中 P3/P4 更高频，优先级应据实调整。
 7. **022 缺陷的运行时复现未做**。§2 的结论是**代码级**判定（三层验证，见上），**未**用 SALES 令牌实调 `GET /suggestions` 观察跨 owner 泄漏。若要作为独立立项的依据，**须补一次运行时的行为层验证**（并注意管理员令牌会直通、抓不到）。
+
+---
+
+## §11 ✅ 开工前置实测：SDK 面（T001 / T002，2026-09-27）
+
+**验证方式（决定了这些读数的可信度）**：从 Maven Central 取回制品到**本地 `~/.m2`**（**仓库工作区零改动**），再用 `javap` / `unzip -l` 读**真实 class 文件**。
+⇒ 本节的每一条都是**字节码级读数**，**不是**文档引用、**不是**记忆推断。**上一条被标红的未核实项（§10.1）就此结清。**
+
+### §11.1 ✅ T001：base URL 的方法名是 `baseUrl(String)`（**大写 U**）
+
+```java
+// 实测签名（javap -classpath <client-okhttp.jar>:<core.jar> 'com.anthropic.client.okhttp.AnthropicOkHttpClient$Builder'）
+public final AnthropicOkHttpClient.Builder baseUrl(java.lang.String);
+public final AnthropicOkHttpClient.Builder baseUrl(java.util.Optional<java.lang.String>);
+```
+
+⚠️ **注意大小写**：是 **`baseUrl`**，**不是** `baseURL`、`base_url`、`setBaseUrl`。这正是 §10.1 拒绝臆断的那一格 —— 猜的话有三个都说得通的写法。
+**入口**：`AnthropicOkHttpClient.builder()`（静态）→ `Builder`；另有 `AnthropicOkHttpClient.fromEnv()`（读环境变量，**本项不用**——FR-001 要求配置显式经 `@Value`）。
+
+**同一批实测到的其它绑定**（全部命中，无一落空）：
+
+| 用途 | 实测绑定 |
+|---|---|
+| `Message` 参数 | `MessageCreateParams.Builder.{model, maxTokens(long), system, systemOfTextBlockParams, thinking, outputConfig, build}` |
+| 自适应思考 | `thinking(ThinkingConfigAdaptive)` 有**专用重载**；`ThinkingConfigAdaptive` 类存在 |
+| usage 取数（FR-016） | `Usage.{inputTokens, outputTokens, cacheReadInputTokens, cacheCreationInputTokens}` |
+| 错误判别 | `AnthropicServiceException.errorType()` → **`Optional<ErrorType>`**（⚠️ **是 Optional，不是裸值**）；`RateLimitException` / `AnthropicRetryableException` / `AnthropicIoException` / `UnprocessableEntityException` 均存在 |
+| Builder 方法名清单另含 | `apiKey` / `timeout` / `maxRetries` / `build`（**仅读到方法名，参数类型未逐个读**） |
+
+### §11.2 ✅ T002：版本锁定 **`2.65.0`**（**不是**捆绑参考的 `2.34.0`）
+
+`maven-metadata.xml` 实测：`<latest>2.65.0</latest>` / `<release>2.65.0</release>`；**`2.34.0` 是旧版**。
+**上表与 §11.1 的每一个探针都在 `2.65.0` 上复跑过一遍，全部命中** ⇒ 这次锁定**不是**照旧版抄，也**不是**赌新版没改。
+
+**JDK 21 兼容性（决定性判据 = 字节码主版本，与 089 升 21 时用的是同一条）**：SDK core 的 class **major 52（Java 8）**、`okhttp 4.12.0` 同为 **major 52** ⇒ 远低于 JDK 21 的 **65**，**在读取上限之内**。
+
+⚠️ **一个会让人误判的形态（必读）**：`com.anthropic:anthropic-java` **本身是个 346 字节的空壳 jar**（只有 `META-INF/MANIFEST.MF`，**零个 class**）。真正的类来自它的依赖链：`anthropic-java` → `anthropic-java-client-okhttp` → `anthropic-java-core`（19 MB）。**看到那个 346 字节的 jar 不要以为依赖没拉下来。**
+
+### §11.3 ⚠️ 两处须在 C2 处置的新发现（**本节新增，立项期未知**）
+
+| # | 发现 | 处置 |
+|---|---|---|
+| a | **Jackson 版本落差**：SDK 按 **2.19.4** 构建；本仓 Spring Boot **3.2.0** 的 BOM 把 jackson 管理在 **2.15.3** ⇒ Maven 最近者优先会让 SDK 跑在**比它构建时更老**的 Jackson 上 | C2 加依赖后**必须**跑 `mvn -B dependency:tree -Dincludes=com.fasterxml.jackson.core` **取实际解析版本并记录**。**不得**为迁就 SDK 而全局升 Jackson（会牵动全仓每个模块，**超出本批范围**） |
+| b | **净新增的运行时足迹**：`okhttp 4.12.0` + `kotlin-stdlib-jdk8 1.9.0` + `kotlin-reflect 1.9.0` + `jackson-datatype-jdk8/jsr310` + `jackson-module-kotlin` + `com.github.victools:jsonschema-* 4.38.0`。**仓内今天既无 okhttp 也无 kotlin**（`grep -E 'okhttp\|kotlin' backend/pom.xml` **零命中**） | 这些是**本项净新增**的运行时依赖 ⇒ 须进 `DELIVERY_SCOPE.md`（T044），并核对胖 jar 体积；`quickstart.md` §2 的"三堵墙"之外，部署侧多了这一条**依赖足迹** |
+
+**工作区状态自证**：本次只读制品 + 写 `~/.m2`（**不在 git 树内**）⇒ `git status` 应仍只有 `104-ai-content-generation` 之外无改动。<br>复算命令：
+```bash
+J="$JAVA_HOME/bin/javap.exe"
+CP="$HOME/.m2/repository/com/anthropic/anthropic-java-client-okhttp/2.65.0/anthropic-java-client-okhttp-2.65.0.jar:$HOME/.m2/repository/com/anthropic/anthropic-java-core/2.65.0/anthropic-java-core-2.65.0.jar"
+"$J" -classpath "$CP" 'com.anthropic.client.okhttp.AnthropicOkHttpClient$Builder' | grep baseUrl
+```

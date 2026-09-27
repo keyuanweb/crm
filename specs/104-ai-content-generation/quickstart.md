@@ -12,6 +12,8 @@
 | 2 | **官方 SDK 绕过这个校验器** | SDK 内部走 **OkHttp**，**不使用**本仓的共享 `RestTemplate` ⇒ 不逐跳校验 | 以**启动期一次校验**替代（plan D1）。**这是本项唯一的出站管控点**，不可省 |
 | 3 | **`ai:` Redis 前缀已被 022 占用** | `SuggestionService.java:36` `IGNORE_PREFIX="ai:ignore:"` | 本项一律走 **`ai:gen:*`**，两族不得混用 |
 
+**墙之外还有一条「足迹」**（T002 实测所得，不进上表以保持"三堵墙"这个叫法）：接 SDK 会**净新增** okhttp 4.12.0 / kotlin-stdlib / kotlin-reflect / victools jsonschema —— **本仓今天既无 okhttp 也无 kotlin**。这条属**部署足迹**而非阻塞项，落地位置是 `DELIVERY_SCOPE.md`（T044）。另有一处**版本落差须处置**：SDK 按 Jackson **2.19.4** 构建，而本仓 Spring Boot 3.2.0 的 BOM 管到 **2.15.3**。两者详见 `research.md` §11.3。
+
 ## 3 关键坐标
 
 | 什么 | 在哪 |
@@ -79,6 +81,6 @@ git diff --stat -- backend/src/main/resources/db/migration/
 | 门禁那次 `verify` 的结果 | 交付时填，**权威读数写在 `tasks.md` §交付块**（本文件只留指针——「一个数字住在好几个地方」是本仓严打的） |
 | `jacoco.exec` 字节数 / mtime | 同上 |
 | 前端九道（含 `build`） | 同上 |
-| `i18n:check` 键数 | 交付时填；**基线 2966/2966**（开工前须实跑复测，见 `tasks.md` T004） |
+| `i18n:check` 键数 | 交付时填；**开工基线 2966/2966**（**2026-09-27 已实跑复测、与立项期读数逐字相同**，见 `research.md` §6.1——本项**新增 i18n 键**，故交付读数应与基线**不等**，差值 = 本项新增键数×2） |
 | 定向破坏 D1–D10 的实测输出 | 见 `falsification-evidence.md`（**交付相位才写**，开工前不得编造） |
 | 四项能力实际交付到哪一档（P1 单发 / P1+P2 / 全量） | 交付时填 —— 本文件的 §2/§3 对四档**均适用** |
