@@ -267,7 +267,7 @@
 > `find backend/src/main/java -name '*Controller.java' | wc -l` → **67**；`grep -rlE "@Test|@ParameterizedTest" backend/src/test/java | wc -l` → **204**；`find backend/src/test/java -name '*.java' | wc -l` → **212**；
 > `find frontend/src/services -name '*Service.ts' | wc -l` → **57**；`find frontend/src/pages -name '*.tsx' | wc -l` → **177**（非测试 **100**）；`ls backend/src/main/resources/db/migration/*.sql | wc -l` → **90**；`ls -d specs/[0-9]* | wc -l` → **103**。
 >
-> ⚠️ **一处必须点名的读数边界**：本档的**前端用例证据**是**定向 vitest（23/23）**与**一次空转机器上的全量 `test:coverage`（97 文件 / 493 用例全绿、退出码 0）**——前者是**本档新判据**的运行读数，后者是**整棵树**的读数；⚠️ **97 个测试文件里只有 1 个是本档的**（相对 P1 记的 96 的增量**是其他批次已提交的工作**）⇒ **不得**把 493 或覆盖率算进本档增量。**后端证据**是**定向命令**（`AiPromptCatalogTest` 17/17 · `AiContentIT` 10/10）——**本档未跑完整 `verify`**，理由与如实登记见 `specs/104-ai-content-generation/tasks.md` §交付块 · C6。
+> ⚠️ **一处必须点名的读数边界**：本档的**前端用例证据**是**定向 vitest（23/23）**与**一次空转机器上的全量 `test:coverage`（97 文件 / 493 用例全绿、退出码 0）**——前者是**本档新判据**的运行读数，后者是**整棵树**的读数；⚠️ **97 个测试文件里只有 1 个是本档的**（相对 P1 记的 96 的增量**是其他批次已提交的工作**）⇒ **不得**把 493 或覆盖率算进本档增量。**后端证据**是**定向命令**（`AiPromptCatalogTest` 17/17 · `AiContentIT` 10/10）——**本档未跑完整 `verify`**，理由与如实登记见 `specs/104-ai-content-generation/tasks.md` §交付块 · C6。✅ **2026-09-27 当日补跑（上句原文逐字保留，它记的是提交那一刻的真值）**：在已提交、工区静止的 `5c0cb5c` 上 `mvn -B -o verify` ⇒ **BUILD SUCCESS / 02:09 min**、surefire **836** / failsafe **366** 全 0、`jacoco:check` 打印 **「All coverage checks have been met.」**（**读数逐条在 `tasks.md` §交付块 · C6，本段不复制**）。⚠️ **本节动的 2 行不变**：补跑只增加证据，**不动任何计数**。
 >
 > **旧值逐字留痕（仍可在本段与本文件表头 grep 到，不是静默改写）**：
 > **96 / 7**、**zh-CN 3476 行 / en 3448 行（键 2984/2984）**。

@@ -336,6 +336,17 @@
 | `mvn -B -o test -Dtest=AiPromptCatalogTest` | `Tests run: 17, Failures: 0, Errors: 0, Skipped: 0` ⇒ `BUILD SUCCESS` |
 | `mvn -B -o test-compile failsafe:integration-test failsafe:verify -Dit.test=AiContentIT` | `Tests run: 10, Failures: 0, Errors: 0, Skipped: 0` ⇒ `BUILD SUCCESS` |
 | `mvn -B -o spotless:check`（**先把 `target/spotless-index` 移走，强制真解析**） | `Spotless.Java is keeping 830 files clean - 0 needs changes to be clean, 830 were already clean, **0 were skipped because caching determined they were already clean**` ⇒ `BUILD SUCCESS` |
+| **`mvn -B -o verify`**（在**已提交、工区静止**的 `5c0cb5c` 上补跑） | surefire **836** · failsafe **366**（Failures·Errors·Skipped **全 0**）· `jacoco:check` **「All coverage checks have been met.」** · 报告 **279 个类** · **INSTRUCTION 82.41 / BRANCH 64.68 / LINE 83.86 / METHOD 86.68** · `jacoco.exec` **155 703 758 字节 / mtime 2026-09-27T20:36:09** ⇒ **BUILD SUCCESS / 02:09 min**（日志 `/tmp/gate104-c6.log`） |
+
+✅ **2026-09-27 补跑（同日晚，本批交付的后续动作）——上面那段「未在本批跑」的话已被补上**（**原文逐字保留在上**：它记的是**提交 `5c0cb5c` 那一刻**的真实状态，**不是错**）：
+- **补跑的条件与归属**：在**已提交、工区静止**（`git status` 只剩一条别的会话的 auto-stash）的 `5c0cb5c` 上执行 `cd backend && mvn -B -o verify`——**未传 `-DargLine`**（传了会**静默废掉 JaCoCo**：代理被挤掉、`jacoco.exec` 不生成而构建全程成功），**也未传 `-Djava.version`**（本机 `JAVA_HOME` 已指向 JDK 21，`mvn -v` 报 `Java version: 21.0.12.1`）。MySQL 与 Redis 均在跑（`mysqladmin status` / `redis-cli ping` 皆通）。
+- ⚠️ **覆盖率四个值不是从 HTML 抄的**：取自本次运行生成的 `target/site/jacoco/jacoco.csv`（**279 行**，与 `jacoco:report` 的 `Analyzed bundle … with 279 classes` 逐字对上），按各列 `*_MISSED / *_COVERED` 汇总。复算命令（自证口径，别只引结论）：
+  ```bash
+  python -c "import csv;r=list(csv.DictReader(open('backend/target/site/jacoco/jacoco.csv',encoding='utf-8')));s=lambda k:sum(int(x[k]) for x in r);p=lambda c,m:100*s(c)/(s(c)+s(m));print('I %.2f B %.2f L %.2f M %.2f'%(p('INSTRUCTION_COVERED','INSTRUCTION_MISSED'),p('BRANCH_COVERED','BRANCH_MISSED'),p('LINE_COVERED','LINE_MISSED'),p('METHOD_COVERED','METHOD_MISSED')))"
+  ```
+- ⚠️ **这一次 verify 里的 `spotless:check` 是缓存命中**（日志逐字：`830 were **skipped because caching determined they were already clean**`）——**它的 "clean" 不作数**；格式合规的真读数是上面表格第三行那条（移走 `target/spotless-index` 后 **0 skipped**）。**两条都要引**，只引一条会读错。
+- ⚠️ **`jacoco.exec` 的字节/mtime 与四项百分比属"这一次运行"**：**P3/P4 一开工、一跑 Maven，`target/jacoco.exec` 就会被重新生成** ⇒ 那时再去核这两个数**必然核不到**，**核不到 ≠ 有人改过代码**（本仓既有纪律：「交付态读数会被后一次 `mvn test` 冲掉」）。**P3/P4 若交付，必须为它们自己再跑一次完整 verify**，本节的读数**不得**当成它们的读数。
+- ⚠️ **本节仍不假装"本批一开始就跑了 verify"**：上面那条⚠️ 说的"当时只有定向口径"是**事实**，本 ✅ 块补的是一次**事后补跑**；两者的区别（**谁在什么时候、在哪个 commit 上跑**）必须都留着，否则"交付读数属那一次完整 verify"这条纪律会被读成一句空话。
 
 ⚠️ **第三行那条 `spotless:check` 为什么要移走缓存目录**（本仓既有的坑，`memory` 里也有）：直接跑 `spotless:check` 在本仓会打出 `830 were **skipped because caching determined they were already clean**` —— 那是**缓存命中**，**它没有解析过任何文件**，"clean"这个结论**证明不了**格式合规（`-Dspotless.upToDateChecking=false` 实测**无效**）。移走 `target/spotless-index` 后复跑，读数变成 **0 skipped / 830 were already clean**，才是真解析出来的结论 ⇒ **本批的 Java 交付是 spotless 合规的**（`spotless:apply` 无需跑：0 处需要改）。这也补上了本节开头那句"最终门禁未跑"缺的一格证据。
 
