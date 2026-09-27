@@ -2,6 +2,8 @@ package com.crm.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.crm.support.BuiltinField;
+import com.crm.support.BuiltinFieldRegistry;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -64,7 +66,11 @@ class AiPromptCatalogTest {
             AiPromptCatalog.P2_TAG_FIELDS,
             AiPromptCatalog.P2_HEALTH_FIELDS,
             AiPromptCatalog.P2_AGGREGATE_FIELDS,
-            AiPromptCatalog.P2_FOLLOWUP_FIELDS)) {
+            AiPromptCatalog.P2_FOLLOWUP_FIELDS,
+            // P3 的两张清单同在此列（C7 补）：漏掉一个能力的清单，等于该能力不受这条不变式约束——
+            // 而「漏掉」在这里是静默的：循环照跑、断言照绿。
+            AiPromptCatalog.P3_CONTENT_FIELDS,
+            AiPromptCatalog.P3_CUSTOMER_FIELDS)) {
       assertThat(fields).doesNotContainAnyElementsOf(FORBIDDEN);
     }
   }
@@ -412,5 +418,182 @@ class AiPromptCatalogTest {
     assertThat(AiPromptCatalog.yuan(100L)).isEqualTo("1.00");
     assertThat(AiPromptCatalog.yuan(0L)).as("0 分是「这个数是 0」，不是「没有这个数」").isEqualTo("0.00");
     assertThat(AiPromptCatalog.yuan(null)).as("null 进 null 出，缺的整行不出现").isNull();
+  }
+
+  // ==================== P3 跟进记录润色 / 总结（U10） ====================
+
+  /**
+   * P3 的白名单与渲染（U10-a…U10-i）。<b>与 U8 / U9 同一套三层判据</b>（清单 / 分量 / 渲染），第三份独立清单。
+   *
+   * <p>⚠️ P3 与 P1/P2 有一处本质不同，用例的形状也跟着不同：<b>本能力的输入是用户当场写的一段自由文本</b>（不是库里已有的行）。 故这里多出两条 P1/P2 没有的判据：①
+   * 原文<b>整段</b>照送、不节选（U10-e）——它是 US3-AS1"关键要素逐项保留"的<b>结构侧</b>落点， 也是 T064 的定向破坏目标；②
+   * 除了那段原文，本能力的上下文里只有<b>一个</b>客户字段（U10-i 把"不需要 FLS 过滤"这句注释变成可执行判据）。
+   */
+  @Test
+  @DisplayName("U10-a P3 白名单与模式集合：用字面量钉住（P3_MODES 是从常量派生的，派生值必须自己钉）")
+  void p3WhitelistAndModesArePinned() {
+    assertThat(AiPromptCatalog.P3_CAPABILITY).isEqualTo("followup-polish");
+    assertThat(AiPromptCatalog.P3_CONTENT_FIELDS)
+        .as("本能力只送一段原文，多一个字段就是多一条出网路径")
+        .containsExactly("content");
+    assertThat(AiPromptCatalog.P3_CUSTOMER_FIELDS)
+        .as("客户名是 P3 唯一会送的客户字段（且只在 POLISH 时）")
+        .containsExactly("name");
+    // ⚠️ 这里是本类里唯一一处"断言派生值"的地方：P3_MODES 由两个常量派生（见其 javadoc 的理由），
+    // 故若有人改了常量的字面量，集合会跟着变而<b>没有任何东西看得见</b>——只有这条字面量断言看得见。
+    assertThat(AiPromptCatalog.P3_MODE_POLISH).isEqualTo("POLISH");
+    assertThat(AiPromptCatalog.P3_MODE_SUMMARIZE).isEqualTo("SUMMARIZE");
+    assertThat(AiPromptCatalog.P3_MODES).containsExactlyInAnyOrder("POLISH", "SUMMARIZE");
+    assertThat(AiPromptCatalog.P3_CONTENT_MAX_CHARS)
+        .as("长度上限是 T063 边界用例的参照物；它变了，那条用例的边界也得跟着变")
+        .isEqualTo(4000);
+  }
+
+  @Test
+  @DisplayName("U10-b PolishContext 的分量集合就是 P3 的白名单（mode 是控制项，同 P1 的 tone）")
+  void p3ContextComponentsAreExactlyTheWhitelist() {
+    Set<String> actual =
+        Arrays.stream(AiPromptCatalog.PolishContext.class.getRecordComponents())
+            .map(c -> c.getName())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+
+    assertThat(actual)
+        .as("加了分量就等于静默放宽白名单；P3 的分量与 P1/P2 的分量是三份独立的清单")
+        .containsExactlyInAnyOrder("content", "customerName", "mode");
+  }
+
+  /** 一份"什么都有"的 P3 上下文：原文与客户名都塞哨兵，用来做往返回合。 */
+  private static AiPromptCatalog.PolishContext fullPolishContext() {
+    return new AiPromptCatalog.PolishContext("哨兵跟进原文", "哨兵客户名", "POLISH");
+  }
+
+  @Test
+  @DisplayName("U10-c 哨兵往返：content 与 customerName 都出现在提示词里（缺字段 ⇔ 清单与渲染不一致）")
+  void everyP3WhitelistedFieldReachesThePrompt() {
+    String prompt = AiPromptCatalog.renderFollowUpPolishUserPrompt(fullPolishContext());
+
+    assertThat(prompt).contains("哨兵跟进原文", "哨兵客户名");
+    assertThat(prompt).contains("整理方式");
+  }
+
+  @Test
+  @DisplayName("U10-d 只渲染 P3 白名单字段：标签集合 ⊆ {客户名称}（多渲染一行即红）")
+  void noLabelOutsideTheP3WhitelistIsRendered() {
+    Set<String> allowed = Set.of("客户名称");
+
+    String prompt = AiPromptCatalog.renderFollowUpPolishUserPrompt(fullPolishContext());
+
+    // ⚠️ 与 U9-d 同一处陷阱：原文是<b>用户自己的文本</b>，它可能自带 "- " 起头的行。故这里给渲染函数的原文
+    // 不含该前缀（否则取到的"标签"其实是用户原文的一部分，红在取值方式上而不是判据上）。真实输入是任意的，
+    // 但这不影响本条的判据：渲染器<b>不该</b>给原文加前缀，用户原文自带什么就是什么。
+    List<String> bullets =
+        Arrays.stream(prompt.split("\n"))
+            .map(String::stripLeading)
+            .filter(line -> line.startsWith("- "))
+            .map(line -> line.substring(2))
+            .toList();
+
+    assertThat(bullets)
+        .as("正对照：本能力的渲染真的产出了 `标签：值` 形态的子弹（否则下面那条是空过）")
+        .isNotEmpty()
+        .allSatisfy(
+            bullet -> {
+              int colon = bullet.indexOf('：');
+              assertThat(colon).as("P3 的每个子弹都必须是「标签：值」形态；没有冒号的子弹会整条从下面的标签断言里漏过去").isNotNegative();
+              assertThat(allowed)
+                  .as("提示词里出现了白名单之外的标签：客户数据就是这样流出去的，而响应里什么都看不出来")
+                  .contains(bullet.substring(0, colon));
+            });
+  }
+
+  @Test
+  @DisplayName("U10-e US3-AS1 结构侧：原文整段照送、不节选（日期与客户名逐字仍在；T064 的判据）")
+  void contentIsSentVerbatimWithoutExcerpting() {
+    // 远超任何节选阈值的长原文：若渲染器走的是 P1 那条 excerpt 路子，尾部这一截必然会消失。
+    String content = "3 月 5 日与张经理通了电话，他说预算要等下一季度。".repeat(60) + "尾哨兵";
+    assertThat(content.length()).isGreaterThan(1000);
+
+    String prompt =
+        AiPromptCatalog.renderFollowUpPolishUserPrompt(
+            new AiPromptCatalog.PolishContext(content, "哨兵客户名", "POLISH"));
+
+    assertThat(prompt).as("原文必须整段出现——节选会让「关键要素逐项保留」在结构上就不可能：模型看不到的要素，提示词再严也保不住").contains(content);
+    // 逐项点名 US3-AS1 的两个要素（T063）：日期与客户名都要逐字在提示词里。整段包含已经蕴含这两条，
+    // 但它们是用户可读的判据本身，故单独钉一次——T064 的破坏正是冲着"日期"来的。
+    assertThat(prompt).contains("3 月 5 日").contains("哨兵客户名");
+    assertThat(prompt)
+        .as("不得出现任何「这里被截过」的形态：本项的口径是入口拒（超长 400），不是静默截断")
+        .doesNotContain("已节选", "（本条已节选）", "…");
+  }
+
+  @Test
+  @DisplayName("U10-f 没给客户名时该行不出现（不写「未知」——「未知」会被模型读成一种事实）")
+  void absentCustomerNameProducesNoLine() {
+    String prompt =
+        AiPromptCatalog.renderFollowUpPolishUserPrompt(
+            new AiPromptCatalog.PolishContext("只有正文", null, "SUMMARIZE"));
+
+    assertThat(prompt).as("正对照：正文真的到了提示词里").contains("只有正文");
+    assertThat(prompt).doesNotContain("客户名称").doesNotContain("未知");
+  }
+
+  @Test
+  @DisplayName("U10-g P3 系统提示词是稳定前缀：不可插值的常量，且含「逐字保留事实」这条规则（US3-AS1 提示词侧）")
+  void p3SystemPromptIsAConstantWithNoPlaceholders() {
+    assertThat(AiPromptCatalog.P3_SYSTEM_PROMPT).isNotBlank();
+    assertThat(AiPromptCatalog.P3_SYSTEM_PROMPT)
+        .as("常量一旦变成模板（%s / {} / ${），「用户数据只进 user 消息」就不再是结构性的了")
+        .doesNotContain("%s", "{}", "${")
+        .doesNotContain("哨兵");
+    assertThat(AiPromptCatalog.P3_SYSTEM_PROMPT)
+        .as("规则 3 是 US3-AS1 的提示词侧落点：删掉它 AI 照常跑得通、只有这条断言会红（而结构侧的 U10-e 只管「原样送到」）")
+        .contains("逐字保留");
+  }
+
+  @Test
+  @DisplayName("U10-h 模式映射：两种取值给出两种说明，null/未知退回 POLISH（渲染器的容错，不是第零道校验）")
+  void modeMapping() {
+    assertThat(promptWithMode("SUMMARIZE")).isNotEqualTo(promptWithMode("POLISH"));
+    assertThat(promptWithMode(null)).isEqualTo(promptWithMode("POLISH"));
+    assertThat(promptWithMode("没见过的值")).isEqualTo(promptWithMode("POLISH"));
+    // ⚠️ 上面两条"退回默认"断的是<b>渲染器不抛</b>，不是"非法值被接受"：非法值在服务层就被拒了（400），
+    // 渲染器这一层只是"万一漏到这里也不至于 500"（同 toneLabel）。两道口的判据不能互相顶替。
+  }
+
+  private static String promptWithMode(String mode) {
+    return AiPromptCatalog.renderFollowUpPolishUserPrompt(
+        new AiPromptCatalog.PolishContext("原文", null, mode));
+  }
+
+  @Test
+  @DisplayName("U10-i P3 送客户名不需要 FLS 过滤：{name} 与 102 已登记字段无交集（把那句注释变成可执行判据）")
+  void p3CustomerWhitelistDoesNotIntersectBuiltinFields() {
+    Set<String> registeredCustomerFields =
+        new BuiltinFieldRegistry()
+            .fieldsOf(BuiltinFieldRegistry.ENTITY_CUSTOMER).stream()
+                .map(BuiltinField::fieldKey)
+                .collect(Collectors.toSet());
+
+    assertThat(registeredCustomerFields)
+        .as("正对照：注册表真的读到了条目——否则下面的「无交集」会以「注册表是空的」形式假绿")
+        .containsExactlyInAnyOrder(
+            "contactPerson", "phone", "email", "address", "remark", "status", "campaignId");
+    assertThat(AiPromptCatalog.P3_CUSTOMER_FIELDS)
+        .as("一旦白名单变动到与已登记字段相交，P3_CUSTOMER_FIELDS 那段「不需要 FLS 过滤」的推理即失效，必须补上过滤")
+        .doesNotContainAnyElementsOf(registeredCustomerFields);
+
+    // 同一形态的推理，P1 对商机字段也写过一句（"同 P1 对商机字段的推理"）。⚠️ 那句此前<b>只有注释没有判据</b>，
+    // 本档顺手把它也变成可执行的（不是新能力，是把一条既有论断补上守卫——补之前它对任何改动都是沉默的）。
+    Set<String> registeredOpportunityFields =
+        new BuiltinFieldRegistry()
+            .fieldsOf(BuiltinFieldRegistry.ENTITY_OPPORTUNITY).stream()
+                .map(BuiltinField::fieldKey)
+                .collect(Collectors.toSet());
+    assertThat(registeredOpportunityFields)
+        .as("正对照：同上（商机侧登记的恰是金额上下限与备注/状态，而 P1 送的是 name/amount/stage/expectedCloseDate）")
+        .containsExactlyInAnyOrder("expectedAmountMin", "expectedAmountMax", "remark", "status");
+    assertThat(AiPromptCatalog.P1_OPPORTUNITY_FIELDS)
+        .as("同上：P1 送商机四项（name/amount/stage/expectedCloseDate），与已登记四项无一相交")
+        .doesNotContainAnyElementsOf(registeredOpportunityFields);
   }
 }

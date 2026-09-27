@@ -367,6 +367,114 @@ public final class AiPromptCatalog {
     sb.append('\n');
   }
 
+  // ==================== P3 跟进记录润色 / 总结 ====================
+
+  /** P3 的能力名（进审计 detail 与日志，<b>不进</b>提示词）。 */
+  public static final String P3_CAPABILITY = "followup-polish";
+
+  /**
+   * P3 送入模型的字段（{@code contracts/} §5.4 的落地）：<b>用户输入的跟进原文</b>，逐字送、不节选。
+   *
+   * <p>⚠️ <b>本项只有这一个能力送"用户当场输入的自由文本"</b>（P1 也送跟进节选，但那是<b>库里的历史记录</b>、且被 {@link #excerpt} 截过）。§5.1 第
+   * 5 条的落点：自由文本按原文送入，但（一）长度受限——{@link #P3_CONTENT_MAX_CHARS} 既是入参校验也是渲染的天花板；（二）渲染时与既有文本同等对待——它只出现在
+   * user 消息里，system 侧仍是不可插值的常量 （FR-009）。
+   *
+   * <p><b>为什么不节选</b>：本能力的输入就是用户此刻要整理的那段话（不是"最近 N 条"的抽样）。把它悄悄截掉一截，
+   * 输出就会丢掉用户自己写过的内容，而用户<b>看不出</b>是模型漏了还是这里截了——"截断并告知"在这条路径上
+   * <b>无可告知之处</b>（提示词里没法标"原文已节选"而不让模型以为用户只写了这些）。⇒ 口径改为<b>入口拒</b>： 超长直接 400，不静默截。
+   */
+  public static final Set<String> P3_CONTENT_FIELDS = Set.of("content");
+
+  /**
+   * P3 唯一会送的客户字段：<b>客户名</b>，且只在 {@code mode=POLISH} 且调用方给了 {@code customerId} 时作上下文（§5.4）。
+   *
+   * <p><b>为什么 SUMMARIZE 不送客户名</b>：总结的输入是用户自己贴进去的多条记录，客户名不是它的用途——这是 §5.1 第 4
+   * 条"逐能力重新论证、<b>不得</b>默认继承"的落点（P2 连联系人都不要，理由同源：少送一个字段就少一处 FLS 判定、 少一条出网路径）。
+   *
+   * <p><b>本能力不需要 FLS 过滤（不是漏了）</b>：{@code BuiltinFieldRegistry} 为 {@code ENTITY_CUSTOMER} 登记的是
+   * {@code contactPerson} / {@code phone} / {@code email} / {@code address} / {@code remark} /
+   * {@code status} / {@code campaignId} 七项，而本清单只有 {@code name}——与那七项<b>无一相交</b>（同 P1 对商机字段的推理）。
+   * 一旦白名单变动到与它们相交，这段推理即失效，必须补上过滤。
+   */
+  public static final Set<String> P3_CUSTOMER_FIELDS = Set.of("name");
+
+  /**
+   * 输入长度上限（{@code contracts/} §3）。
+   *
+   * <p>⚠️ 数值与 {@link #INSTRUCTION_MAX_CHARS} 相同，但这是<b>独立常量</b>：§3 把 {@code instruction} 与 {@code
+   * content} 写在同一行、给同一个数，而两者的语义不同（一个是"补写要求"、一个是"要整理的原文"）—— 共用一个常量会让"改 P1 的上限"顺手改掉 P3
+   * 的，而那种连带在编译期没有任何东西看得见。
+   */
+  public static final int P3_CONTENT_MAX_CHARS = 4000;
+
+  /** {@code mode=POLISH}：把原文整理成通顺、结构清晰的记录。 */
+  public static final String P3_MODE_POLISH = "POLISH";
+
+  /** {@code mode=SUMMARIZE}：把输入中的多条记录压缩成一段。 */
+  public static final String P3_MODE_SUMMARIZE = "SUMMARIZE";
+
+  /**
+   * 允许的模式取值（{@code contracts/} §2.4 的枚举）。非法/缺值由服务层拒（400），不走 Bean Validation。
+   *
+   * <p>⚠️ 这里<b>从两个常量派生</b>（而不是像 {@link #TONES} 那样写字面量）：服务层要用 {@link #P3_MODE_POLISH}
+   * 去判"要不要送客户名"，若集合另写一份字面量，两者就能各自漂移而<b>没有东西看得见</b> ——"派生"让集合与常量永远同源。⚠️
+   * 但用例里必须用<b>字面量</b>断言这个集合（自证边界，见 U10-a）。
+   */
+  public static final Set<String> P3_MODES = Set.of(P3_MODE_POLISH, P3_MODE_SUMMARIZE);
+
+  /**
+   * P3 的系统提示词：<b>稳定前缀</b>，不含任何用户数据（FR-009）。
+   *
+   * <p>规则 3 是 US3-AS1（"关键要素逐项保留"）的<b>提示词侧</b>落点；它的<b>结构侧</b>落点是 {@link
+   * #renderFollowUpPolishUserPrompt}——原文整段照送、不节选（见 {@link #P3_CONTENT_FIELDS} 的"为什么不节选"）。
+   * 两处缺一不可：只做结构，模型仍可能把"3 月 5 日"改写成"上个月"；只做提示词，输入本身先被截掉了一截。
+   */
+  public static final String P3_SYSTEM_PROMPT =
+      """
+      你是一名企业 CRM 系统的销售助理，负责整理销售人员写的跟进记录。
+
+      规则：
+      1. 只输出整理后的记录本身。不要标题，不要 Markdown 标记，不要代码块，不要解释你改了什么。
+      2. 用简体中文。
+      3. 输入里出现的具体事实——日期与时间、客户名与人名、金额、数量、产品名、下一步安排——必须逐字保留，
+         不得改写、不得省略、不得换算（「3 月 5 日」不得变成「上个月」）。整理只动措辞，不动事实。
+      4. 只能使用输入里给出的信息。输入里没有的事实——承诺、价格、交付时间、结论——一律不得补充、不得推测。
+      5. 输入无法整理时（例如只有寒暄、没有任何可记录的内容），直接说明还缺什么，不要硬写。
+      6. 全文控制在 400 字以内。
+      """;
+
+  /** P3 装配好的上下文——<b>它的分量就是白名单本身</b>（{@code mode} 是控制项，同 P1 的 {@code tone}）。 */
+  public record PolishContext(String content, String customerName, String mode) {}
+
+  /**
+   * 把上下文渲染成 P3 的 user 消息（<b>含用户输入与客户名</b>，FR-009）。
+   *
+   * <p><b>原文整段照送</b>：不改写、不转义、不加引号、不节选——本能力的产出完全建立在"模型看到的就是用户写的"之上。 ⚠️
+   * 这里<b>也不做</b>"看起来像指令就删掉"的过滤：那种过滤既拦不住注入（换个说法就能绕过），又会改动用户原文， 而 US3-AS1 判的正是"关键要素逐字仍在"。边界由
+   * system/user 的分工给出：规则在 system 侧、数据在 user 侧。
+   */
+  public static String renderFollowUpPolishUserPrompt(PolishContext ctx) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("跟进原文：\n").append(ctx.content() == null ? "" : ctx.content()).append("\n\n");
+    line(sb, "客户名称", ctx.customerName());
+    sb.append("整理方式：").append(modeLabel(ctx.mode()));
+    return sb.toString();
+  }
+
+  /**
+   * 模式 → 中文说明（进提示词）。
+   *
+   * <p>⚠️ 与 {@link #toneLabel} 同一条纪律：{@code switch} 对 null 抛 NPE，而"缺值 ⇒ 500"出现在一个 AI 端点上
+   * 是最坏的一种失败（调用方本应先规范化——而那种"本应"没有任何东西看着）。缺省取 {@code POLISH}：它是两个模式里
+   * <b>改动最小</b>的那个（只整理措辞、不压缩内容），万一缺值真漏到这里，破坏面也比"当成总结"小。
+   */
+  private static String modeLabel(String mode) {
+    return switch (mode == null ? P3_MODE_POLISH : mode) {
+      case P3_MODE_SUMMARIZE -> "总结：把输入中的多条记录压缩成一段，按时间或主题归并，事实逐项保留";
+      default -> "润色：把口语化、有错别字或语序混乱的原文整理成通顺、结构清晰的记录";
+    };
+  }
+
   /**
    * 分 → 元的字符串（金额在库里是<b>分</b>，直接送出去会让模型把"12345"读成 12345 元）。
    *

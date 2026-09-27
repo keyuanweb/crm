@@ -31,6 +31,7 @@ export default function AiCustomerSummaryButton({
 }: AiCustomerSummaryButtonProps) {
   return (
     <AiTextGenerateButton
+      keyScope="pages.customer.detail"
       keyPrefix="aiSummary"
       generate={() => generateCustomerSummary({ customerId })}
       onGenerated={onGenerated}

@@ -310,6 +310,10 @@ const zhCN = {
         aiDraftUpstreamUnavailable: 'AI 服务暂时不可用，请稍后重试',
         aiDraftRateLimited: '请求过于频繁或今日额度已用完，请稍后重试',
         aiDraftForbidden: '没有 AI 生成权限',
+        // C7（P3 带来第三个能力）追加：外壳的 `ERROR_SUFFIX` 是一张 `Record<AiErrorCode, string>`，
+        // 故**每个前缀下都必须有这条键**——三个端点各自的入参不同（此处是客户/商机标识），
+        // 但"这次输入不成立"这件事本身要有一个说法，否则漏了它的那一组会直接把键名渲染到屏幕上。
+        aiDraftInvalidInput: '请求不合法：客户或商机信息有误，请刷新后重试',
         aiDraftFailed: '生成失败，请稍后重试',
         // 104 P2（客户 360 摘要）：与上面 aiDraft* 是一组**平行**的键，两组的条数与语义逐条对应
         // （外壳 AiTextGenerateButton 按前缀取键，两组的形状必须一致，否则缺的那一条会渲染成键名）。
@@ -330,6 +334,8 @@ const zhCN = {
         aiSummaryUpstreamUnavailable: 'AI 服务暂时不可用，请稍后重试',
         aiSummaryRateLimited: '请求过于频繁或今日额度已用完，请稍后重试',
         aiSummaryForbidden: '没有 AI 生成权限',
+        // 见上方 `aiDraftInvalidInput` 的理由（同一张 Record，故同一组键的形状）。
+        aiSummaryInvalidInput: '请求不合法：客户信息有误，请刷新后重试',
         aiSummaryFailed: '生成失败，请稍后重试',
         colOrderNo: '订单号',
         colTitle: '标题',
@@ -1257,6 +1263,34 @@ const zhCN = {
       msgAdded: '已添加',
       msgSaveFailed: '保存失败',
       unknown: '未知',
+      // 104 P3（跟进记录润色 / 总结）：与 `pages.customer.detail` 下的 aiDraft* / aiSummary* 是**平行**
+      // 的三组键——形状必须一致（同一条 `ERROR_SUFFIX` 被三个前缀共用），只是作用域挂在本组件自己那一组。
+      // ⚠️ **为什么挂在这里而不是 `pages.customer.detail`**：本组件的宿主同时挂在客户详情页与线索详情页上，
+      // 把 P3 的词条塞进客户页那组，会让线索页上的按钮读客户页的键；而两份语言文件都有那些键、
+      // `check-i18n.mjs` 只比对两份文件之间的键集合 ⇒ 用错作用域在那套门禁下**是隐形的**。
+      aiPolishButton: '整理跟进记录',
+      aiPolishModalTitle: 'AI 整理跟进记录',
+      aiPolishHint: '原文会整段发给模型；结果写回跟进内容框，点「保存」前不会写入任何记录。',
+      aiPolishAria: '整理后的跟进内容',
+      aiPolishPlaceholder: '点击「生成」后，整理后的内容会出现在这里',
+      aiPolishGenerate: '生成',
+      aiPolishRegenerate: '重新生成',
+      aiPolishGenerating: '正在生成…',
+      aiPolishCopy: '复制',
+      aiPolishCopied: '已复制到剪贴板',
+      aiPolishDone: '生成完成',
+      aiPolishTruncated: '整理结果已达长度上限，内容可能不完整，请续写或重新生成',
+      aiPolishNotConfigured: '未启用 AI 文本生成，未执行',
+      aiPolishRejected: '内容被模型拒绝，请调整输入后重试',
+      aiPolishUpstreamUnavailable: 'AI 服务暂时不可用，请稍后重试',
+      aiPolishRateLimited: '请求过于频繁或今日额度已用完，请稍后重试',
+      aiPolishForbidden: '没有 AI 生成权限',
+      aiPolishInvalidInput: '跟进原文不能为空，且不超过 4000 字，请修改后重试',
+      aiPolishFailed: '生成失败，请稍后重试',
+      // 下面三条是 P3 独有的（P1/P2 没有请求体可选项）：模式选择器的标题与两个模式的名称。
+      aiPolishModeLabel: '整理方式',
+      aiPolishModePolish: '润色（保留全部内容）',
+      aiPolishModeSummarize: '总结（压缩成要点）',
     },
     notificationCenter: {
       title: '通知中心',

@@ -229,6 +229,20 @@
 | **用户输入的 `content` 原文** | 除 `customer.name` 外的任何客户字段 |
 | `customer.name`（仅 `mode=POLISH` 且提供了 `customerId` 时，作上下文） | 客户联系方式、金额、其他实体数据 |
 
+⚠️ **2026-09-27 C7 交付实测订正（上表整块逐字保留，与实现的差异逐条列出，不静默改写）**：本表立项期是按"用户贴一段记录、我们整理"的通用形态推的，逐项实测后的差异如下：
+
+1. **"用户输入的 `content` 原文"这一格落地为 `content` 逐字全文，且"逐字"是结构性的**：本能力**不节选**（`AiPromptCatalog.P3_CONTENT_FIELDS` 的 javadoc），超过 `P3_CONTENT_MAX_CHARS`（**4000**）**入口即拒**（400 `BAD_REQUEST`），不截断。⚠️ 这与 P1/P2 的"最近 5 条 / 每条 200 字符"**不是同一件事**：那两处的节选对象是**库里的既有数据**（送多送少是取数口径），而这里的输入是**用户自己写的这段话**——静默截掉一截会让输出丢掉他写过的内容，而他分不清是模型漏了还是我们截了。本项是 spec US3-AS1（关键要素逐项保留：日期 / 客户名）的**结构性落点**，也是 T064 的破坏靶子（E9 / E10）。
+2. **`customer.name` 确实只在 `mode=POLISH` 时送入**（服务层那句 `if (AiPromptCatalog.P3_MODE_POLISH.equals(mode))`），但**可见性判定不跟着 `mode` 走**：契约 §2.4 写"提供 `customerId` 则须在可见范围内"是**无条件**的——"提供了 id 但那条记录不归我"这件事不该因模式不同而变成 200。两条分别由 U10-h（模式 ⇒ 分量映射）与 I13（越权 / 缺失）看着。
+3. **FLS（HIDDEN）过滤在本能力上**无需**存在，且这是**可执行的**：`P3_CUSTOMER_FIELDS` 只有一个 `name`，而 `BuiltinFieldRegistry` **永久排除必填字段**，`CustomerRequest.name` 正是必填 ⇒ **交集为空**。⚠️ 同 §5.3 第 3 条：这是"交集为空"的**自证**，**白名单一旦与该注册集相交即失效**，必须补上过滤。由 **U10-i** 在单元层看着（含两条正对照：CUSTOMER 内建 7 项 `contactPerson`/`phone`/`email`/`address`/`remark`/`status`/`campaignId`、OPPORTUNITY 内建 4 项 `expectedAmountMin`/`expectedAmountMax`/`remark`/`status` 逐项相等）。📌 **U10-i 里 OPPORTUNITY 那一半（P1 在 C3 立下的"交接点由 P4 兑现"那句声明）在本批第一次变成可执行的**——它不是新判据，是旧声明终于有了判据。
+4. **入参校验的状态码是 400 + `BAD_REQUEST`，不是 §3 原表写的 422**——逐条论证在 §3 的 **C3 订正块**（全仓没有通用校验类 422 码；那 49 处 422 全是实体专属的；为一个入参枚举值新造通用码是与本项无关的全局口径变更）。⚠️ **`tasks.md` 的 T063 那行写的"空/超长 ⇒ 422"是立项期措辞，交付口径是 400**，该行已就地记了这条订正。三处 400 出口都在服务层、都在出站之前：空/空白 `content`、`content.length() > 4000`、`mode` 缺失或非法（**回显合法集合**）。
+5. **"除 `customer.name` 外的任何客户字段""客户联系方式、金额、其他实体数据"这两句由依赖面守住**：`AiFollowUpPolishService` **不注入任何 Mapper、也不注入 `FollowUpService` 等实体服务**，唯一一次取数是提供了 `customerId` 时的那一次 `customerService.require` + 取 `getName()`。⚠️ "能做的事少"在这里**就是**安全面：少一个依赖就少一条"顺手查一下"的路径，而那种路径不会有任何用例红（它多查的东西不进提示词就不算违规、进了才红——而"进了才红"要求用例恰好断言了那个字段不出网）。
+6. **审计锚是 `CUSTOMER` + 可空的 `customerId`**：本能力的作用对象是**请求体里那段文本**（本项零新增表、草稿不落库），**没有 id 可锚**。不新造 `entity_type` 词条（如 `FOLLOW_UP`）的理由在 `AiFollowUpPolishService` 类注释：新词条要在审计页标签表、筛选器与用例里各加一处，而信息量是**零**（同样没有 id 可指）。没给 `customerId` 的那次生成，审计行 `entity_id` 为 **null**，语义如实（`V3__audit_log.sql` 的 `entity_id BIGINT DEFAULT NULL`）；由 I14 看着。
+7. **三个端点共用同一套门**（同一权限码 `ai:generate`、同一限流 scope `ai-generate`（10 次 / 60 秒 / 用户）、同一个日预算桶，FR-015/FR-017）。P3 是**第三个**加入这条不变式的端点、**不是例外**：它的输入是用户自己的文本（不取任何客户数据），但"花谁的钱"与"能不能用"这两件事与前两个端点完全同一——按输入形态给权限却按成本给限额，会让这两条口径从此分裂。
+8. **前端宿主 = 跟进表单的 `content` 字段旁**（`FollowUpTimeline`，该组件同时挂在**客户详情页与线索详情页**上）。形态**本批自定**为「展示 + 写回表单字段（覆盖式）+ 不落库」：⚠️ P3 与 P1/P2 **不同**——它**有**落点（那段文本本来就要进表单），故 `onGenerated` 把模型返回的**原始**文本写回该字段，**退路是"不点保存"**（本项零新增表）。这是**本批新裁**的形态，**不是**从 P1/P2 继承（`spec.md` 的 C7 块明写"本块只裁范围、不裁形态"）。两处接线的判据：原文由 `Form.useWatch` 读**当前值**（不是打开时的快照，也不是本组件另存一份副本）；文案键的**作用域**是 `pages.followUpTimeline` 而**不是** `pages.customer.detail`（后者会让线索页上的按钮读客户页的词条，而两份语言文件都有那些键 ⇒ 门禁与 `t` 桩都不响，见 E15）。
+9. **请求体是三项、其中一项可空**：`{content, mode, customerId?}`。⚠️ `customerId` **只在提供了的时候才进请求体**（前端按 `undefined` 与否分两种字面量构造）：后端的口径是"提供了就必须在可见范围内"，故"带一个空的 id"与"不声明归属"是两件事——由 G-b 逐字断言序列化后的那串字节看着。
+
+📌 **本节的判据（C7 交付）**：**声明层** `AiPromptCatalogTest` U10-a…U10-i（含 U8-a 的 FORBIDDEN 清单已把 P3 的两张清单纳入）；**行为层** `AiContentIT` I11（原文**逐字**到达模型）/ I12（非法输入 400 且**出站 0**）/ I13（他人客户 403 `FORBIDDEN`、缺失 404 `CUSTOMER_NOT_FOUND`）/ I14（每次调用一条**只含元数据**的审计行）；**前端** `AiFollowUpPolishButton.test.tsx`（G-a…G-j）与 `FollowUpTimeline.aiPolish.test.tsx`（W-a…W-d）。定向破坏读数（E9–E18）在 `falsification-evidence.md`。
+
 ### 5.5 P4 商机下一步建议
 
 | 送入 | 不送入 |

@@ -376,3 +376,68 @@ C4/C5 已登记的读数（`Tests run: 6` / `7` 等）全部失效，须单独�
     `pnpm i18n:check`（zh-CN **3002** 键 / en **3002** 键）/ `pnpm ui:check` / `pnpm zh:check` **五项全过**；
     定向用例 `AiCustomerSummaryButton` **6/6** + `AiGenerateButton` **6/6** + `CustomerDetailPage.perm` **9/9** +
     `CustomerDetailPage.render` **2/2** = **23/23 绿**。
+
+---
+
+## E 批（C7：P3 跟进润色 / 总结，含本批前端）
+
+> 本节是 **C7** 的破坏读数，编号自 **E9** 起接在 C6（E1–E8-b）之后。两批的编号不重叠，各自的"边界"节也各自独立——**上一节（`## 边界（E 批…）`）只覆盖 E1–E8-b**，本节末尾另有 C7 自己的边界。
+>
+> **E9 / E10 打后端**（`AiPromptCatalog.renderFollowUpPolishUserPrompt`，即 T064 点名的那一处），**E11–E15 打本批前端**（P3 组件与共用外壳），**E16–E18 打前端宿主接线**（`FollowUpTimeline` 里那颗按钮——G 系列全部看不见这一层）。
+>
+> ⚠️ **读数一栏照本仓惯例写"哪条用例变红 + 红在什么可观测量上"**，E9 / E10 未附 `Tests run: N` 总行——理由见边界第 1 条。
+
+| # | 破坏 | 它该改变哪条可观察行为 | 点名的判据 | 实测读数 | 结论 |
+|---|---|---|---|---|---|
+| E9 | `renderFollowUpPolishUserPrompt` 里把 `ctx.content()` 换成 **P1 式的节选**（`excerpt(content, 200).text()`） | 送进提示词的跟进原文从「整段」变成「前 200 字符 + 已节选标记」 | **U10-e** `contentIsSentVerbatimWithoutExcerpting` | 单测 **1 红**（26 例中），红的**唯一**一条正是 U10-e：`AssertionError`「原文必须整段出现」，实际提示词可见地被截在 200 字符处 | **变红 ✓，且只红这一条** ⇒ 「逐字、不节选」这条判据有分辨力 |
+| E10 | 同一渲染器里把日期抹掉（`content.replaceAll("\\d+\\s*月\\s*\\d+\\s*日", "")`） | 提示词里的「3 月 5 日」消失 | **U10-e** + **I11** `followUpContentReachesTheModelVerbatim` | 单测 **1 红**（U10-e）；IT **1 红**（I11），且捕获到的提示词里 `3 月 5 日` **出现 0 次** | **变红 ✓，两层各一条** ⇒ **T064（「让润色丢掉日期 ⇒ 该红」）兑现**；这是 US3-AS1「关键要素逐项保留」在**日期**这一项上的可执行判据 |
+| E11 | `AiFollowUpPolishButton` 的请求体恒带 `customerId`（`customerId === undefined ? … : …` → `{content, mode, customerId: customerId ?? 0}`） | 宿主**没给**客户时（线索页），请求体从「没有 `customerId` 这个键」变成「声明了 `customerId: 0`」 | **G-b** | 10 例 **1 红 9 绿**，红的正是 G-b（`expected "spy" to be called with arguments: [ { …(2) } ]` / `Number of calls: 1`） | **变红 ✓，且只红这一条**。⚠️ 破坏取 `?? 0` 而不是 `?? null`：`customerId?: number` 不接受 `null`，那会红在**编译**上（形态②）；`0` 是类型合法的"声明了一个不存在的归属" |
+| E12 | `AiFollowUpPolishButton` 忽略 `mode` 状态（两处字面量都写死 `DEFAULT_MODE`） | 切成「总结」后出站仍是 `POLISH` | **G-c** | 10 例 **1 红 9 绿**，红的正是 G-c | **变红 ✓，且只红这一条** ⇒ 「模式是请求体的一部分、随选择器变」有判据 |
+| E13 | `AiFollowUpPolishButton` 的 `disabled={content.trim() === ''}` → `disabled={false}` | 空原文时按钮从「禁用、点了白点」变成「可点、能打开模态框」 | **G-d**（预测：只有它） | 10 例 **1 红 9 绿**，红的正是 G-d | **变红 ✓，且确实只有它**。⚠️ **正对照 G-e 抓不到这条破坏**（"恒可用"正是 G-e 期望的状态）——G-e 的存在是防**反方向**的错（"恒禁用"），两条不可互替 |
+| E14 | 外壳 `AiTextGenerateButton` 的 `ERROR_SUFFIX.BAD_REQUEST` 从 `'InvalidInput'` 改成 `'Failed'` | 400 的文案从「输入不合法、重试无用」变成「生成失败，请稍后重试」 | **G-f**（预测：只有它） | 三文件 22 例 **1 红 21 绿**：红的正是 G-f；`AiGenerateButton`（6 例）与 `AiCustomerSummaryButton`（6 例）**全绿** | **变红 ✓，且只红这一条** ⇒ 该映射此前**零判据**（P1/P2 的用例从没跑过 `BAD_REQUEST`），本批的 G-f 是它的第一个判据 |
+| E15 | **作用域破坏**：P3 组件的 `KEY` 改 `'pages.customer.detail'`，**并把 22 条 `aiPolish*` 键原样复制进两份语言文件的 `pages.customer.detail` 组** | 线索页上的 P3 按钮从「读 `pages.followUpTimeline.*`」变成「读客户页的词条」——而**两份语言文件都有那些键** | G-c / G-f / G-g / G-j（预测四条） | 10 例 **9 红 1 绿**（G-d 绿）；⚠️ **`npm run i18n:check` 绿：zh-CN **3048** 键 / en **3048** 键** | **变红 ✓，但靶面比预测宽**：除预测的四条外，G-a/G-b/G-e/G-h/G-i 也红了——因为**测试文件里的 `KEY` 字面量**（`pages.followUpTimeline.aiPolish*`）同样参与断言（按钮名、`Placeholder`、`Truncated`…）。⇒ 如实记：**作用域被 9 条用例看着，红点是"字面量不匹配"，不是 `t` 桩抛缺键**（复制的键让桩不再报错）。**最有价值的那一半是 `i18n:check` 的绿**：它**实证**了"用错作用域在那套门禁下是隐形的"这句话 |
+| E16 | `FollowUpTimeline` 的 `canGenerateAiText = hasPerm(PERMS.aiGenerate, user)` → `= true` | 不持码的用户从「看不到这颗按钮」变成「看得到」 | **W-a①** | 3 例 **1 红 2 绿**（此时文件尚无 W-d），红的正是 W-a① | **变红 ✓，且只红这一条** ⇒ 权限门有判据。⚠️ 该破坏同时让 `hasPerm` / `PERMS` 两个 import 变成未使用（lint 会另外报），但**红的不是它**——断言红在先 |
+| E17-a | `FollowUpTimeline` 把 `content={contentValue ?? ''}`（`Form.useWatch` 的**当前值**）换成 `content={editing?.content ?? ''}`（**打开时的快照**） | 用户改过原文之后，送出去的仍是**打开编辑时**那一份 | **W-d**（预测） | ⚠️ **预测被证伪一半**：3 例 **1 红 2 绿**，红的是 **W-b/W-c** 且红在 `toBeEnabled()`（新建路径下 `editing` 为 null ⇒ 原文恒空 ⇒ 按钮恒禁用，**W-d 当时还不存在**） | **形态③「红在前提、不在结论」**：这一刀确实红了，但它红在"按钮压根不可用"，**没有**证明"送出去的是旧值"这件事被看着 ⇒ 处置见 E17-b |
+| E17-b | **补判据后复跑同一破坏**：新增 **W-d**（编辑既有记录、改过原文之后 ⇒ 送出的必须是改过的那段） | 同上 | **W-d** | 4 例 **2 红 2 绿**：W-d 红在**出站内容的逐字相等**（`expected "spy" to be called with arguments: [ { …(3) } ]`），W-b/W-c 仍红在 `toBeEnabled()` | **变红 ✓，且这回红在点名缺陷的那一行** ⇒ 「实时读表单 vs 存快照」这条缝隙现在**只**由 W-d 看着。**两次读数都记**（先记"红错地方"，再记"补刀后红对地方"），因为"这条破坏当初为什么没被说中"正是本批要留下的信息（同 E7 的形状） |
+| E18 | `FollowUpTimeline` 摘掉 `onGenerated={(text) => form.setFieldValue('content', text)}`（**只**摘这一条接线） | 生成成功后，模型返回的文本不再写进跟进表单的 `content` 字段 | **W-b/W-c**（预测：只有它） | 4 例 **1 红 3 绿**，红的正是 W-b/W-c，且落在 `expect(element).toHaveValue('整理后的跟进记录')` | **变红 ✓，且只红这一条** ⇒ 「写回」有判据；而同一条用例里的"**不落库**"两行（`expect(createFollowUp).not.toHaveBeenCalled()` / `updateFollowUp` 同）**在两种实现下都绿**——它们是**反方向**的护栏（防"顺手替你保存了"），本批**没有**为它们做破坏（见边界第 7 条） |
+
+#### E15 的特别说明（**"两份语言文件都有那个键"是这套门禁的结构性盲区**）
+
+`check-i18n.mjs` 只比对 **zh-CN ↔ en 的扁平键集合**（加空值检查），**不扫源码用法**；测试里的 `t` 桩只校验
+**zh-CN 一侧**的键存在性。⇒ 把同一组键复制到**另一个作用域**下，两边都"存在"，三条门禁（`i18n:check`、
+`t` 桩、`lint`）**没有一条会响**。E15 的实测就是这句话的证据：`3048 == 3048`、`✓ 语言资源一致`。
+
+**处置（已采纳为交付物）**：G-f / G-g 断言的是**完整键名字面量**（含作用域），G-j 则反向断言 P3 的三条
+`Mode*` 键**不得**出现在 `pages.customer.detail` 组里。⚠️ 仍如实记为**部分覆盖**：如果**只**复制、不把 `KEY`
+改错（即"多了一份没人用的词条"），只有 G-j 的反向断言会响——而那条断言只点名了 3 条 `Mode*` 键，
+**不覆盖其余 19 条**。
+
+### 边界（C7 **不可证**或**未证**的项）
+
+1. **E9 / E10 未附 `Tests run: N`**：这两条跑在 `-Dtest` / `-Dit.test` 的**定向运行**里，且**早于**本批的交付
+   `verify`。按本仓纪律，**交付 `verify` 之后不再为同一读数单跑 Maven**——`jacoco.exec` 的字节 / mtime 与覆盖率
+   正是"那一次运行"的属性，门禁后再单跑测试类会把它冲掉（**自伤**）。⇒ 这两条记的是**哪条用例红、红在什么
+   可观测量上**（与总行数无关），总行数由 C7 交付的整次 `verify` 给出（`tasks.md` 的 C7 块）。
+2. **E11–E18 的还原判据是"回写后与备份逐字相等"这个事件，不是下列 sha1 的永久值**。本批的还原读数（sha1，五个被破坏的文件）：
+   - `backend/.../AiPromptCatalog.java` `793641edb362c702da17651ec6512a7d80ee436a`（E9/E10；与 C6 批记的是同一个值——本批还原后未再改它）
+   - `frontend/src/components/AiFollowUpPolishButton.tsx` `115fae3be7fd049878880b95292ca38a747c4133`（E11/E12/E13/E15）
+   - `frontend/src/components/AiTextGenerateButton.tsx` `e142d98cffe4e945c2ae7ec91854f686b5b1ece3`（E14）
+   - `frontend/src/components/FollowUpTimeline.tsx` `5a6d6017a98b4faa660c381eb7483b3d12776813`（E16/E17/E18）
+   - `frontend/src/i18n/zh-CN.ts` `7aef0224e5f4398d4b77d1eae4c83553e951815c`、`frontend/src/i18n/en.ts` `3c601c12b03c2bd20b870a8ad96457eafbd0cc0b`（仅 E15 的复制键）
+   - 一并记下**本批未破坏**的判据文件，以免与还原混淆：`AiFollowUpPolishButton.test.tsx` `b51c7300d12620786210d7203ff0a2acb8f98c00`、`FollowUpTimeline.aiPolish.test.tsx` `656b4e71ab695d66fdfb3cdc55d9181a5882009c`、`AiContentIT.java` `ce56dc499cd6fd3fcebfc0594974accd787dce32`、`AiPromptCatalogTest.java` `88f63853108d3c8289b1979c5525c06f87fb72a9`、`AiFollowUpPolishService.java` `25d96c0cca4ea258171b9ca036966028860c765d`。
+3. **E15 的复制键是"一次性的破坏态"，不是交付物**：两份语言文件在还原后**不含** `pages.customer.detail.aiPolish*`（还原后用 `aiPolishButton:` 的出现次数自证：每份文件 **1** 次）。
+4. **还原走的是 `cp` 回写 + sha1 相等**，**未使用** `git checkout`（同 E 批第 7 条）。⚠️ E15 的键复制是**脚本按字节**做的（该文件是 CRLF；脚本原地重写会把整文件的换行翻成 LF ⇒ `spotless` / diff 全文件变红），故脚本以 `rb`/`wb` 处理并在还原后自证 `bare-LF == 0`。
+5. **前端段的门禁读数**（还原后、E18 回写之后重跑，全部取自同一次工作区）：`npx tsc --noEmit` **退出码 0**、
+   `npx eslint .` **退出码 0**、`npm run i18n:check`（zh-CN **3026** 键 / en **3026** 键）、`npm run ui:check`（白名单外新增 0）、
+   `npm run zh:check`（未登记命中 0）、`npm run menu:check`（56 项）、`npm run perms:check`（69 个权限码）**七项全过**；
+   定向用例 **26/26 绿**（`FollowUpTimeline.aiPolish` 4 + `AiFollowUpPolishButton` 10 + `AiGenerateButton` 6 + `AiCustomerSummaryButton` 6）。
+6. **G-d 与 G-e 构成的是一对**（"空 ⇒ 禁用"与"非空 ⇒ 可用"），**任一条单独都不够**：只有 G-d，"恒禁用"也是绿的；
+   只有 G-e，"恒可用"也是绿的。E13 实测的是前一半。
+7. **"写回但不落库"里的"不落库"那一半本批未做破坏**：`expect(createFollowUp).not.toHaveBeenCalled()` 与
+   `expect(updateFollowUp).not.toHaveBeenCalled()` 是**反方向**的护栏（防的是"顺手替你保存了"），而
+   E18 的破坏（摘掉写回）**不会**让它们变红——**未证**的是"如果有人把写回改成'写回 + 保存'，这两行会响"。
+   理由：那需要构造一个"多调一次 `createFollowUp`"的破坏态，而它在本批的实现里**没有对应的单点改动**
+   （保存走的是弹窗的 `onSave`，与 `onGenerated` 不相邻），硬造会变成一次"改两处"的破坏（形态②风险）。
+8. **`FollowUpTimeline` 的既存行为（与 104 无关）**：该组件**只**在 `openCreate` 与保存后调 `load()`，**挂载路径上没有 `useEffect`**
+   ⇒ 两个宿主页（客户详情 / 线索详情）首屏的跟进列表是**空的**，要到用户点开"添加跟进"才拉到数据。⚠️ 这不是本批引入的、
+   也**不在本批范围内**（无判据看着它；W-d 的用例因此要先点一次"添加跟进"才能拿到"编辑"链接）。**如实记为既存缺陷，未修**。

@@ -6,6 +6,7 @@ import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
 import com.crm.service.AiCustomerSummaryService;
 import com.crm.service.AiEmailDraftService;
+import com.crm.service.AiFollowUpPolishService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,13 +17,15 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * AI 文本生成端点（104-ai-content-generation，契约 {@code contracts/ai-content-generation.md}）。
  *
- * <p><b>本类最终会有四个端点，已落两个</b>：{@code POST /email-draft}（P1，C3）与 {@code POST
- * /customer-summary}（P2，C6）。 P3/P4 的 {@code /followup-polish}（T061）·{@code
- * /opportunity-advice}（T071）各自在自己的批次里加进来——<b>不预先占位</b>： 一个没有实现的方法要么必须写死返回、要么直接抛，两者都是把
+ * <p><b>本类最终会有四个端点，已落三个</b>：{@code POST /email-draft}（P1，C3）、{@code POST /customer-summary}（P2，C6）与
+ * {@code POST /followup-polish}（P3，C7）。 仅剩 P4 的 {@code
+ * /opportunity-advice}（T071）在自己的批次里加进来——<b>不预先占位</b>： 一个没有实现的方法要么必须写死返回、要么直接抛，两者都是把
  * "未完成"伪装成"已完成"的形态。
  *
- * <p><b>两个端点共用同一套门</b>：同一个权限码 {@code ai:generate}、同一个限流 scope {@code ai-generate}——
- * 它们花的是同一笔外部计费调用、同一个日预算桶（FR-015/FR-017），分成两套限额只会让"总花费"变成两个都不能单独回答的数。
+ * <p><b>三个端点共用同一套门</b>：同一个权限码 {@code ai:generate}、同一个限流 scope {@code ai-generate}——
+ * 它们花的是同一笔外部计费调用、同一个日预算桶（FR-015/FR-017），分成两套限额只会让"总花费"变成两个都不能单独回答的数。 ⚠️ P3
+ * 是第三个加入这条不变式的端点，<b>不是例外</b>：它的输入是用户自己的文本（不取任何客户数据），但"花谁的钱"
+ * 与"能不能用"这两件事与前两个端点<b>完全同一</b>——按输入形态给权限却按成本给限额，会让这两条口径从此分裂。
  *
  * <p><b>权限码 {@code ai:generate} 按判据③ 裁为"一个角色都不授予"</b>（详见 {@code RoleConstants} 里那段
  * 注释）：本端点挂在<b>既有页面</b>上（不是新菜单），既无"改造前那道粗粒度门"可继承、也无菜单承诺可依据 ⇒ 不补授、只接码。这不是遗漏：它的可执行痕迹是 {@code
@@ -60,11 +63,15 @@ public class AiContentController {
 
   private final AiEmailDraftService aiEmailDraftService;
   private final AiCustomerSummaryService aiCustomerSummaryService;
+  private final AiFollowUpPolishService aiFollowUpPolishService;
 
   public AiContentController(
-      AiEmailDraftService aiEmailDraftService, AiCustomerSummaryService aiCustomerSummaryService) {
+      AiEmailDraftService aiEmailDraftService,
+      AiCustomerSummaryService aiCustomerSummaryService,
+      AiFollowUpPolishService aiFollowUpPolishService) {
     this.aiEmailDraftService = aiEmailDraftService;
     this.aiCustomerSummaryService = aiCustomerSummaryService;
+    this.aiFollowUpPolishService = aiFollowUpPolishService;
   }
 
   /**
@@ -90,6 +97,20 @@ public class AiContentController {
 
   /** P2 响应体：契约 §2.3 的 {@code data}，与 P1 同形。 */
   public record CustomerSummaryResponse(String text, String model, boolean truncated) {}
+
+  /**
+   * P3 请求体。字段与命名<b>逐字对着契约 §2.4 的表</b>；{@code content} 与 {@code mode} 必填，由服务层判。
+   *
+   * <p>⚠️ 与 P2 的形制<b>相反</b>：P2 刻意只有一个字段（请求体多一个自由文本字段就多一条注入路径），而本能力
+   * <b>必须</b>收一段自由文本——它就是这项能力的输入。故这里多出来的是 {@code content}（有长度上限与"非空"两条 校验在服务层）与 {@code
+   * mode}（二值枚举，决定整理方式）。
+   *
+   * <p>为什么仍是<b>不用 {@code @Valid}</b>：同 P1（两条约束都要可读的中文说明，且枚举非法时必须回显合法集合）。
+   */
+  public record FollowUpPolishRequest(String content, String mode, Long customerId) {}
+
+  /** P3 响应体：契约 §2.4 的 {@code data}，与 P1/P2 同形。 */
+  public record FollowUpPolishResponse(String text, String model, boolean truncated) {}
 
   /**
    * 生成一封发给客户的邮件草稿。
@@ -130,5 +151,27 @@ public class AiContentController {
         aiCustomerSummaryService.generate(request.customerId());
     return ApiResponse.ok(
         new CustomerSummaryResponse(result.text(), result.model(), result.truncated()));
+  }
+
+  /**
+   * 润色 / 总结一段跟进记录（P3）。
+   *
+   * <p><b>审计同样锚在 {@code CUSTOMER} 上</b>、动作 {@code GENERATE}，由 {@link
+   * com.crm.service.AiContentService} 统一写入（理由同 P1/P2：写审计的地方若有两个，就要在两处都保证 detail 不含提示词与用户数据）。⚠️
+   * {@code customerId} 在本端点是<b>可选</b>的：没给时那次生成的审计行 {@code entity_id} 为
+   * null，语义是"这次生成没有绑定任何实体"——逐条理由在 {@link AiFollowUpPolishService} 的类注释里。
+   */
+  @PostMapping("/followup-polish")
+  @RequirePermission("ai:generate")
+  @RateLimit(scope = "ai-generate", limit = 10, windowSeconds = 60, by = RateLimitDimension.USER)
+  @Operation(summary = "润色 / 总结跟进记录（P3，返回纯文本）")
+  public ApiResponse<FollowUpPolishResponse> followUpPolish(
+      @RequestBody FollowUpPolishRequest request) {
+    AiFollowUpPolishService.PolishResult result =
+        aiFollowUpPolishService.generate(
+            new AiFollowUpPolishService.PolishCommand(
+                request.content(), request.mode(), request.customerId()));
+    return ApiResponse.ok(
+        new FollowUpPolishResponse(result.text(), result.model(), result.truncated()));
   }
 }

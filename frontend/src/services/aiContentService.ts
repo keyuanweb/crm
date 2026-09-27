@@ -4,6 +4,8 @@ import type {
   CustomerSummaryRequest,
   EmailDraft,
   EmailDraftRequest,
+  FollowUpPolish,
+  FollowUpPolishRequest,
 } from '../types/aiContent'
 
 /**
@@ -40,4 +42,21 @@ export async function generateCustomerSummary(
 ): Promise<CustomerSummary> {
   const { data } = await apiClient.post('/ai/customer-summary', request, { timeout: 0 })
   return data.data as CustomerSummary
+}
+
+/**
+ * 整理一段跟进记录（润色 / 总结）：`POST /api/v1/ai/followup-polish`（104-ai-content-generation P3）。
+ *
+ * <p>契约、权限码、限流与日预算与上面两个端点**逐条相同**（三个端点共用 `ai:generate` /
+ * `ai-generate` 与同一个日预算桶）——包括那条 `timeout: 0`，理由同 P1/P2（每个调用点各自的责任）。
+ *
+ * <p>⚠️ <b>本端点是三个里唯一会回 400 的</b>（空的/超长的 `content`、非法 `mode`，且都在**出站之前**
+ * 判掉）：调用方拿到的 400 是"这次请求本身不成立"，重试没有意义——用户要改的是输入，不是等一会儿。
+ * 那一支的文案由 `BAD_REQUEST` ⇒ `...InvalidInput` 承担（`types/aiContent.ts` 的 `AI_ERROR_CODES`）。
+ */
+export async function generateFollowUpPolish(
+  request: FollowUpPolishRequest,
+): Promise<FollowUpPolish> {
+  const { data } = await apiClient.post('/ai/followup-polish', request, { timeout: 0 })
+  return data.data as FollowUpPolish
 }

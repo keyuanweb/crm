@@ -34,6 +34,17 @@ export const AI_ERROR_CODES = [
   'PERMISSION_DENIED',
   /** 数据范围拒（403）：不归自己的客户。本仓有**两个** 403 出口，见 tasks.md 的 ⚠️。 */
   'FORBIDDEN',
+  /**
+   * 入参不合法（400）：P3 是本项**第一个**会回 400 的 AI 端点（空的/超长的 `content`、非法 `mode`）。
+   *
+   * <p>⚠️ <b>为什么加在这里而不是让 P3 的组件自己看 400</b>：错误码 ⇒ 文案的映射写成
+   * `Record<AiErrorCode, string>`，它的价值正是"加了码却忘了文案 = 编译期报错"。绕过这个联合类型，
+   * 那套总性就只覆盖六个码里的五个，而漏掉的那个（恰恰是用户最容易碰到的输入错误）会静默落到通用文案上。
+   *
+   * <p>后端契约 §3 原表写的是 422；实测全仓没有通用校验码 422（那 49 处全是实体专属的），
+   * 而 `@Valid` 那条路一律映射成 400 ⇒ 订正为 400，理由见 `specs/104-.../contracts/` 的 C3 订正块。
+   */
+  'BAD_REQUEST',
 ] as const
 
 export type AiErrorCode = (typeof AI_ERROR_CODES)[number]
@@ -94,3 +105,30 @@ export type CustomerSummary = AiGenerationResult
 export interface CustomerSummaryRequest {
   customerId: number
 }
+
+/**
+ * 跟进整理的两种模式（与后端 `AiPromptCatalog.P3_MODES` 逐字一致）。
+ *
+ * <p>收成联合类型而不是 `string`：模式决定**模型按什么口径整理**（润色措辞 / 压缩多条），
+ * 传错不是"文案不对"而是"输出的东西不是用户要的"。它是必填——后端缺值回 400。
+ */
+export type FollowUpPolishMode = 'POLISH' | 'SUMMARIZE'
+
+/**
+ * `POST /api/v1/ai/followup-polish` 的请求体（= 后端 `FollowUpPolishRequest` record）。
+ *
+ * <p>⚠️ <b>`customerId` 是唯一的可空字段，且它只影响上下文、不影响可见性判定</b>：后端的口径是
+ * "提供了就必须在可见范围内"（无条件），故这里传它就等于声明"这条跟进属于该客户"——传错会得到
+ * 403 `FORBIDDEN`，而不是"少送一个字段"。宿主（`FollowUpTimeline`）在带 `customerId` 的场景下传它，
+ * 在只有 `leadId` 的场景下不传（那时后端只用 `content`，不取任何客户数据）。
+ */
+export interface FollowUpPolishRequest {
+  /** 要整理的原文；后端上限 4000 字符，且**超长回 400 而不是截断**。 */
+  content: string
+  mode: FollowUpPolishMode
+  /** 可选：跟进所属客户（提供则须在可见范围内，仅用于给模型一个称呼）。 */
+  customerId?: number
+}
+
+/** `POST /api/v1/ai/followup-polish` 的成功响应体（= 后端 `FollowUpPolishResponse` record）。 */
+export type FollowUpPolish = AiGenerationResult

@@ -303,6 +303,10 @@ const en = {
         aiDraftUpstreamUnavailable: 'The AI service is temporarily unavailable, please retry later',
         aiDraftRateLimited: 'Too many requests or the daily quota is used up, please retry later',
         aiDraftForbidden: 'You do not have AI generation permission',
+        // C7 (P3 adds a third capability): the shell's ERROR_SUFFIX is a Record<AiErrorCode, string>,
+        // so every prefix needs this key — each endpoint validates a different input, but "this input
+        // does not stand" still needs wording, and a missing key renders as the key name on screen.
+        aiDraftInvalidInput: 'Invalid request: the customer or opportunity reference is wrong — refresh and retry',
         aiDraftFailed: 'Generation failed, please retry later',
         // 104 P2 (customer 360 summary): a parallel key group to aiDraft* above — same count, same
         // semantics per row. AiTextGenerateButton derives every key from the prefix, so the two
@@ -324,6 +328,8 @@ const en = {
         aiSummaryUpstreamUnavailable: 'The AI service is temporarily unavailable, please retry later',
         aiSummaryRateLimited: 'Too many requests or the daily quota is used up, please retry later',
         aiSummaryForbidden: 'You do not have AI generation permission',
+        // See aiDraftInvalidInput above (same Record, hence the same key shape).
+        aiSummaryInvalidInput: 'Invalid request: the customer reference is wrong — refresh and retry',
         aiSummaryFailed: 'Generation failed, please retry later',
         colOrderNo: 'Order No.',
         colTitle: 'Title',
@@ -1242,6 +1248,32 @@ const en = {
       msgAdded: 'Added',
       msgSaveFailed: 'Save failed',
       unknown: 'Unknown',
+      // 104 P3 (follow-up polish / summarize): a parallel third group to aiDraft* / aiSummary* under
+      // pages.customer.detail — same shape (one ERROR_SUFFIX serves all three prefixes), scoped to the
+      // group the host component itself owns. See the zh file for why the scope is not the customer page.
+      aiPolishButton: 'Tidy up follow-up',
+      aiPolishModalTitle: 'AI tidy up follow-up',
+      aiPolishHint: 'The whole text is sent to the model; the result is written back into the follow-up content box and nothing is stored until you click Save.',
+      aiPolishAria: 'Tidied-up follow-up content',
+      aiPolishPlaceholder: 'The tidied-up text appears here after you click Generate',
+      aiPolishGenerate: 'Generate',
+      aiPolishRegenerate: 'Regenerate',
+      aiPolishGenerating: 'Generating…',
+      aiPolishCopy: 'Copy',
+      aiPolishCopied: 'Copied to clipboard',
+      aiPolishDone: 'Generation complete',
+      aiPolishTruncated: 'The result hit the length limit and may be incomplete — continue or regenerate',
+      aiPolishNotConfigured: 'AI text generation is not enabled',
+      aiPolishRejected: 'The model rejected this request — adjust the input and retry',
+      aiPolishUpstreamUnavailable: 'The AI service is temporarily unavailable, please retry later',
+      aiPolishRateLimited: 'Too many requests or the daily quota is used up, please retry later',
+      aiPolishForbidden: 'You do not have AI generation permission',
+      aiPolishInvalidInput: 'The follow-up text must not be empty and must be 4000 characters or fewer',
+      aiPolishFailed: 'Generation failed, please retry later',
+      // These three are P3-only (P1/P2 have no request-body option): the mode selector's label and modes.
+      aiPolishModeLabel: 'Mode',
+      aiPolishModePolish: 'Polish (keep everything)',
+      aiPolishModeSummarize: 'Summarize (condense the key points)',
     },
     notificationCenter: {
       title: 'Notifications',

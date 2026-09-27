@@ -82,6 +82,9 @@ class AiContentIT extends AbstractIntegrationTest {
   /** P2 的端点。<b>与 P1 共用同一个权限码与限流 scope</b>（同一笔外部计费调用、同一个日预算桶）。 */
   private static final String SUMMARY_ENDPOINT = "/api/v1/ai/customer-summary";
 
+  /** P3 的端点。三个端点共用同一个权限码与限流 scope（同上）。 */
+  private static final String POLISH_ENDPOINT = "/api/v1/ai/followup-polish";
+
   /** 哨兵：写进库、又必须不出现在提示词里的那些值。 */
   private static final String NAME_SENTINEL = "哨兵客户名甲";
 
@@ -94,6 +97,13 @@ class AiContentIT extends AbstractIntegrationTest {
 
   /** P2 的跟进哨兵：它要<b>出现</b>在提示词里（P2 的"最近跟进"段），而 P1 从不断言它。 */
   private static final String FOLLOWUP_SENTINEL = "哨兵跟进内容丙";
+
+  /**
+   * P3 的原文哨兵：它<b>本来就是</b>用户输入，故它出现在提示词里是正常形态（与上面那些"绝不能出网"的哨兵相反）。
+   *
+   * <p>里面带着一个<b>日期</b>是刻意的：US3-AS1 点名"日期"是关键要素，而 T064 的定向破坏正是让润色把日期丢掉。
+   */
+  private static final String CONTENT_SENTINEL = "哨兵跟进原文丁：3 月 5 日与张经理通了电话，他说预算要等下一季度。";
 
   /** 生成是**只读**的：这五张业务表的行数在整个调用前后一行都不该变。 */
   private static final List<String> BUSINESS_TABLES =
@@ -483,6 +493,178 @@ class AiContentIT extends AbstractIntegrationTest {
         .isEqualTo(customerId);
   }
 
+  // ===== P3（跟进记录润色 / 总结）：I11–I14 =====
+
+  /**
+   * US3-AS1（关键要素逐项保留）：<b>用户写的那段原文逐字到达提示词</b>，日期与客户名一个不缺。
+   *
+   * <p><b>为什么这条是 P3 的核心判据</b>：本能力的输入是用户当场写的一段自由文本（不是库里的行），而它的产出完全建立在"模型看到的就是 用户写的"之上。渲染器若按 P1
+   * 那条路子节选（{@code excerpt}），要素就会在<b>出站之前</b>消失—— 那时提示词里再写十条"逐字保留"也保不住模型没看见的东西。故本类断的是
+   * <b>结构侧</b>（原文整段在提示词里），提示词侧（规则 3）由 {@code AiPromptCatalogTest} 的 U10-g 断。
+   *
+   * <p><b>顺带把 §5.4 的"客户名只在 POLISH 时"做成对拍</b>：同一个客户 + 同一段原文，只换 {@code mode}。只断 POLISH 那一侧的话，
+   * 一个"两种模式都送客户名"的实现照样绿——而 §5.1 第 4 条要的正是逐能力（此处是逐模式）重新论证，不是默认继承。
+   */
+  @Test
+  @DisplayName("I11 US3-AS1：原文逐字到达提示词（含日期）；POLISH 送客户名、SUMMARIZE 不送（对拍）")
+  void followUpContentReachesTheModelVerbatim() throws Exception {
+    BuiltinFieldPermissionFixture.Actor actor = fixture.createUser("ai_polish_prompt_");
+    long customerId = createCustomerWithSentinels(actor.token());
+
+    stubReply("整理后的记录");
+    assertThat(polish(actor.token(), polishBody(CONTENT_SENTINEL, "POLISH", customerId)).status())
+        .isEqualTo(200);
+    String polishPrompt = promptSentToTheModel();
+
+    assertThat(polishPrompt)
+        .as("原文必须整段出现（含日期）——节选会让「关键要素逐项保留」在结构上就不可能")
+        .contains(CONTENT_SENTINEL)
+        .contains("3 月 5 日")
+        .contains("跟进原文");
+    assertThat(polishPrompt).as("模式与原文都是提示词的可辨部分；缺了它，调用方无法知道模型是按什么口径整理的").contains("整理方式");
+    assertThat(polishPrompt).as("§5.4：POLISH 的上下文里有客户名").contains("客户名称").contains(NAME_SENTINEL);
+
+    stubReply("整理后的记录");
+    assertThat(
+            polish(actor.token(), polishBody(CONTENT_SENTINEL, "SUMMARIZE", customerId)).status())
+        .isEqualTo(200);
+    String summarizePrompt = lastPromptSentToTheModel();
+
+    assertThat(summarizePrompt)
+        .as("正对照：同一段原文在总结模式下同样整段送达（否则下面的「不含客户名」也能以「什么也没送」的形式假绿）")
+        .contains(CONTENT_SENTINEL);
+    assertThat(summarizePrompt)
+        .as("§5.4：客户名只在 POLISH 时作上下文；SUMMARIZE 的输入是用户自己贴的多条记录")
+        .doesNotContain("客户名称")
+        .doesNotContain(NAME_SENTINEL);
+  }
+
+  /**
+   * 入参非法 ⇒ <b>400 且零出站</b>（FR-012 的 I5/D5 在本能力上的落点），正对照是"恰好等于上限 ⇒ 200"。
+   *
+   * <p>⚠️ 与 I5 同一处纪律：<b>"零出站"那一句必须排在状态码断言之前</b>。出站一旦发生，状态码先变（500），排在后面的 {@code
+   * verifyNoInteractions} 就永远不会开口——安全面该先说。
+   *
+   * <p>⚠️ 契约 §3 原表写的是 422；本仓没有通用校验码 422（那 49 处全是实体专属的），而 {@code @Valid} 那条路一律映射成 400 ⇒ 改走 <b>400 +
+   * {@code BAD_REQUEST}</b>，逐条理由在 {@code AiFollowUpPolishService} 与契约的 C3 订正块里。故这里断的是 400。
+   */
+  @Test
+  @DisplayName("I12 入参非法（空/超长/mode 缺失/非法）⇒ 400 且零出站；恰好 4000 字符 ⇒ 200（正对照）")
+  void invalidPolishInputIsRejectedBeforeAnyEgress() throws Exception {
+    BuiltinFieldPermissionFixture.Actor actor = fixture.createUser("ai_polish_input_");
+    long customerId = createCustomerWithSentinels(actor.token());
+
+    BuiltinFieldPermissionFixture.Res blank =
+        polish(actor.token(), polishBody("   ", "POLISH", customerId));
+    BuiltinFieldPermissionFixture.Res tooLong =
+        polish(actor.token(), polishBody("x".repeat(4001), "POLISH", customerId));
+    BuiltinFieldPermissionFixture.Res noMode =
+        polish(actor.token(), "{\"content\":\"有内容\",\"customerId\":" + customerId + "}");
+    BuiltinFieldPermissionFixture.Res badMode =
+        polish(actor.token(), polishBody("有内容", "SHOUTING", customerId));
+
+    verifyNoInteractions(messageService);
+
+    assertThat(blank.status()).as("空白串与 null 同判：一段只含空格的「跟进内容」没有任何可整理的东西（US3-AS2）").isEqualTo(400);
+    assertThat(tooLong.status())
+        .as("超长 1 个字符即拒——本能力<b>不截断</b>：静默截掉一截会丢掉用户自己写过的内容，而他看不出是谁丢的")
+        .isEqualTo(400);
+    assertThat(noMode.status()).as("mode 必填").isEqualTo(400);
+    assertThat(badMode.status()).as("非法枚举值：服务层判（不放 @Valid，为的是能给出可读的中文说明）").isEqualTo(400);
+    assertThat(badMode.body().path("error").path("code").asText())
+        .as("状态码之外还要判错误码：400 有两个出口，写错那个读的人会以为走的是别的一条路")
+        .isEqualTo("BAD_REQUEST");
+    assertThat(badMode.body().path("error").path("message").asText())
+        .as("非法 mode 必须回显合法集合，否则调用方只能靠猜")
+        .contains("POLISH")
+        .contains("SUMMARIZE");
+
+    // 正对照：恰好 4000 字符（等于上限）必须通过 —— 否则上面那条会以「只要带 content 就拒」的形式假绿。
+    stubReply("整理后的记录");
+    assertThat(polish(actor.token(), polishBody("x".repeat(4000), "POLISH", customerId)).status())
+        .isEqualTo(200);
+  }
+
+  /**
+   * 跨 owner ⇒ <b>403 且一个字节都不出网</b>；客户不存在 ⇒ <b>404</b>（房规：缺失与不可见是两件事）。
+   *
+   * <p>⚠️ {@code customerId} 在本端点是<b>可选</b>的（不给就是"这次生成没绑定实体"）。可选<b>不等于</b>可以不管可见性： 契约 §2.4
+   * 写的是"提供了则须在可见范围内"，<b>无条件</b>——"提供了 id 但那条记录不归我"这件事不该因为 模式不同、或因为"反正只是取个名字"变成 200。
+   */
+  @Test
+  @DisplayName("I13 跨 owner ⇒ 403 + 零出站 + 无审计；客户不存在 ⇒ 404；归属者同一请求 ⇒ 200（正对照）")
+  void polishRejectsAnotherOwnersCustomerBeforeEgress() throws Exception {
+    BuiltinFieldPermissionFixture.Actor owner = fixture.createUser("ai_polish_owner_");
+    BuiltinFieldPermissionFixture.Actor outsider = fixture.createUser("ai_polish_outsider_");
+    long customerId = createCustomerWithSentinels(owner.token());
+    long auditsBefore = generateAuditCount();
+
+    BuiltinFieldPermissionFixture.Res denied =
+        polish(outsider.token(), polishBody("有内容", "POLISH", customerId));
+
+    verifyNoInteractions(messageService);
+
+    assertThat(denied.status()).as("同一个角色、同一个请求体，只有归属不同：这条 403 只能来自数据范围判定").isEqualTo(403);
+    assertThat(denied.body().path("error").path("code").asText())
+        .as("过了权限切面（该角色持 ai:generate）⇒ 必须是 FORBIDDEN，而不是 PermissionAspect 的 PERMISSION_DENIED")
+        .isEqualTo("FORBIDDEN");
+    assertThat(denied.body().toString())
+        .as("403 的响应体里也不得回显那条记录的任何一个字段——否则「拒绝」自己成了一条泄漏路径")
+        .doesNotContain(NAME_SENTINEL);
+    assertThat(generateAuditCount()).as("拒绝路径不写审计").isEqualTo(auditsBefore);
+
+    // 房规的另一半：确实不存在 ⇒ 404（与"不可见"分开）。只断 403 的话，一个"把不存在也当不可见"的
+    // 实现照样绿——而契约原表那行"不区分 404/403"正是被 C3 订正掉的那个写法。
+    BuiltinFieldPermissionFixture.Res missing =
+        polish(outsider.token(), polishBody("有内容", "POLISH", 999_999_999L));
+    assertThat(missing.status()).as("不存在的客户 ⇒ 404，不是 403").isEqualTo(404);
+    assertThat(missing.body().path("error").path("code").asText()).isEqualTo("CUSTOMER_NOT_FOUND");
+
+    stubReply("整理后的记录");
+    assertThat(polish(owner.token(), polishBody("有内容", "POLISH", customerId)).status())
+        .as("正对照：归属者的同一请求是 200 —— 上面那条 403 讲的是归属，不是「端点坏了」")
+        .isEqualTo(200);
+    assertThat(promptSentToTheModel()).contains(NAME_SENTINEL);
+  }
+
+  @Test
+  @DisplayName("I14 P3 只读：审计能力名是 followup-polish；给了客户就锚在客户上，没给则 entity_id 为 null")
+  void polishWritesOneMetadataOnlyAuditRowPerCall() throws Exception {
+    BuiltinFieldPermissionFixture.Actor actor = fixture.createUser("ai_polish_write_");
+    long customerId = createCustomerWithSentinels(actor.token());
+    Map<String, Long> rowsBefore = businessRowCounts();
+    long auditsBefore = generateAuditCount();
+
+    stubReply("整理后的记录");
+    assertThat(polish(actor.token(), polishBody(CONTENT_SENTINEL, "POLISH", customerId)).status())
+        .isEqualTo(200);
+
+    assertThat(businessRowCounts()).as("生成不改业务数据").isEqualTo(rowsBefore);
+    assertThat(generateAuditCount()).isEqualTo(auditsBefore + 1);
+    assertThat(latestGenerateAudit().get("detail").toString())
+        .as("审计只放元数据（FR-016）；能力名必须是本能力自己的，否则三个端点在同一张审计表里分不开")
+        .contains("capability=followup-polish")
+        .doesNotContain(CONTENT_SENTINEL)
+        .doesNotContain(NAME_SENTINEL);
+    assertThat(((Number) latestGenerateAudit().get("entity_id")).longValue())
+        .as("锚点：本能力的载体是客户（沿用 P1/P2 的落点，不新造 entity_type）")
+        .isEqualTo(customerId);
+
+    // 不给 customerId 的那条路径：审计行的 entity_id 是 null（"这次生成没有绑定任何实体"，语义如实）。
+    // ⚠️ 这一条同时是"audit_log.entity_id 可空"这个前提的接线判据：V3 建列时是 DEFAULT NULL，若哪天改成
+    // NOT NULL，本方法会以 500 红在这里，而不是让用户在运行时才发现。
+    stubReply("整理后的记录");
+    assertThat(polish(actor.token(), polishBody("没绑定客户的原文", "SUMMARIZE", null)).status())
+        .isEqualTo(200);
+
+    Map<String, Object> latest = latestGenerateAudit();
+    assertThat((Object) latest.get("entity_id"))
+        .as("没给 customerId ⇒ 审计里就是没有实体可指，而不是随便填一个 0 或上一个客户")
+        .isNull();
+    assertThat(latest.get("detail").toString()).contains("capability=followup-polish");
+    assertThat(generateAuditCount()).isEqualTo(auditsBefore + 2);
+  }
+
   // ===== 夹具与读数 =====
 
   private static String bodyFor(long customerId) {
@@ -500,6 +682,24 @@ class AiContentIT extends AbstractIntegrationTest {
   private BuiltinFieldPermissionFixture.Res summary(String token, long customerId)
       throws Exception {
     return fixture.call(token, HttpMethod.POST, SUMMARY_ENDPOINT, bodyFor(customerId));
+  }
+
+  /**
+   * P3 的请求体。⚠️ {@code customerId} 在这里是 {@code Long} 而<b>不是</b> {@code long}：本端点的这个字段是<b>可选</b>的，
+   * 而"没给"必须能用同一段装配代码表达出来（用 {@code long} 的话就得为"没给"另写一个字面量请求体， 于是两条路径的键序、转义就有机会各自漂移）。
+   */
+  private static String polishBody(String content, String mode, Long customerId) {
+    return "{\"content\":\""
+        + content
+        + "\",\"mode\":\""
+        + mode
+        + "\""
+        + (customerId == null ? "" : ",\"customerId\":" + customerId)
+        + "}";
+  }
+
+  private BuiltinFieldPermissionFixture.Res polish(String token, String body) throws Exception {
+    return fixture.call(token, HttpMethod.POST, POLISH_ENDPOINT, body);
   }
 
   /** 打一条上游回复的桩。⚠️ 先造值、再 {@code when}：SDK 的构造异常抛在实参位置上会污染桩的状态。 */

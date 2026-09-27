@@ -35,6 +35,7 @@ export default function AiGenerateButton({
 }: AiGenerateButtonProps) {
   return (
     <AiTextGenerateButton
+      keyScope="pages.customer.detail"
       keyPrefix="aiDraft"
       generate={() => {
         const request: EmailDraftRequest =

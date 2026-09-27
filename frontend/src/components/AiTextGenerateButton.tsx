@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, App, Button, Input, Modal, Space, Typography } from 'antd'
 import { CopyOutlined, ThunderboltOutlined } from '@ant-design/icons'
@@ -37,8 +37,23 @@ import { asAiErrorCode, type AiErrorCode, type AiGenerationResult } from '../typ
  * `ai-icon-pulse` 脉冲（`DashboardPage.tsx` / `index.css`）。本组件用的是**闪电图标 + antd 语义色
  * 的原生 Alert/Button**，没有任何自定义色值与动画——两个"AI"在同一屏里不会互相冒充（`check-ui.mjs`
  * R1 也禁止组件里出现品牌色字面量）。
+ *
+ * <p>⚠️ <b>2026-09-27 C7 追加（P3 是第三个能力，上面"差异只有两点"那句从此不再完整——原话保留，
+ * 它描述的是 P1/P2 两个能力时的差异面）</b>：P3（跟进润色 / 总结）带来两处外壳扩展 —— `keyScope`
+ * （它的宿主 `FollowUpTimeline` 同时挂在客户详情页与线索详情页上，文案不能钉死在 `pages.customer.detail`）
+ * 与 `extraControls`（模式选择器的插槽；"模式"是 P3 请求体的一部分，故其状态仍住在能力自己的组件里，
+ * 本外壳照旧"看不见请求体"）。
  */
-const KEY = 'pages.customer.detail'
+/**
+ * 文案键的**作用域**（键路径的前半段）。写成联合类型而不是 `string`，理由同 {@link AiTextGenerateButtonProps.keyPrefix}：
+ * 写错一个字符没有任何门禁看得见，界面会直接渲染出键名。
+ *
+ * <p>⚠️ <b>为什么是"按宿主"而不是"只有客户详情页一个"</b>：P3 的宿主是 `FollowUpTimeline`——那个组件
+ * 同时挂在客户详情页与线索详情页上，它自己的文案住在 `pages.followUpTimeline.*`（与页面无关的一组键）。
+ * 把 P3 的文案塞进 `pages.customer.detail.*` 会让线索页上的按钮去读客户页的词条，而**两份语言文件都
+ * 有那些键**、`check-i18n.mjs` 只比对两份文件之间的键集合——"用错了作用域"在那套门禁下是隐形的。
+ */
+export type AiKeyScope = 'pages.customer.detail' | 'pages.followUpTimeline'
 
 /** 受控码 ⇒ 文案键**后缀**（前缀由调用方给）。`Record<AiErrorCode, string>` 的总性 = 缺分支在编译期被挡。 */
 const ERROR_SUFFIX: Record<AiErrorCode, string> = {
@@ -48,31 +63,55 @@ const ERROR_SUFFIX: Record<AiErrorCode, string> = {
   RATE_LIMITED: 'RateLimited',
   PERMISSION_DENIED: 'Forbidden',
   FORBIDDEN: 'Forbidden',
+  // 两个 403 出口共用一条文案（对用户是同一个下一步：找管理员）；而 400 与它们**不同**——那是
+  // "这次输入不成立，重试无用"，用户要改的是内容本身。二者混用会让用户对着输入错误一直点重试。
+  BAD_REQUEST: 'InvalidInput',
 }
 
 /** 未配置 / 生成中 / 成功 / 截断 / 失败——四态外加一个"还没点过"的初始态。 */
 type Status = 'idle' | 'generating' | 'done' | 'truncated' | 'error'
 
 export interface AiTextGenerateButtonProps {
+  /** 文案键的**作用域**（键路径前半段）：`${keyScope}.${keyPrefix}${后缀}`。 */
+  keyScope: AiKeyScope
   /**
-   * 文案键前缀：本组件的全部文案都是 `pages.customer.detail.` + 前缀 + 后缀。
+   * 文案键前缀：本组件的全部文案都是 `${keyScope}.` + 前缀 + 后缀。
    *
-   * <p>写成**联合类型**而不是 `string`：`aiDraft` / `aiSummary` 这两个前缀各自对应语言文件里的一组
-   * 键，写错一个字母**没有任何门禁看得见**（`check-i18n.mjs` 只比对两份语言文件之间的键集合，
-   * 不扫源码用法；组件里渲染出的是键名字面量，而测试把 `t` 桩成恒等函数，两边一起错就一起绿）。
+   * <p>写成**联合类型**而不是 `string`：`aiDraft` / `aiSummary` / `aiPolish` 这三个前缀各自对应语言
+   * 文件里的一组键，写错一个字母**没有任何门禁看得见**（`check-i18n.mjs` 只比对两份语言文件之间的键
+   * 集合，不扫源码用法；组件里渲染出的是键名字面量，而测试把 `t` 桩成恒等函数，两边一起错就一起绿）。
    * 收成联合类型之后，"前缀拼错"在**编译期**就报错。
    */
-  keyPrefix: 'aiDraft' | 'aiSummary'
+  keyPrefix: 'aiDraft' | 'aiSummary' | 'aiPolish'
   /** 出站调用（由能力自己的组件闭包它自己的请求体）。 */
   generate: () => Promise<AiGenerationResult>
+  /**
+   * 触发按钮是否禁用。
+   *
+   * <p>P3 用它表达一个**结构性**前提：没有原文就没有可整理的东西（宿主传进来的表单内容是空的）。
+   * ⚠️ 它**不是**入参校验的替身——长度上限那一类仍由后端判（本仓的"入参校验在出站之前"判据在
+   * 服务层，前端这一层只管"点了也白点"这种能本地知道的事）。
+   */
+  disabled?: boolean
   /** 每次**成功**生成调用一次，参数是返回的**原始**文本（宿主自行决定拿它做什么）。 */
   onGenerated?: (text: string) => void
+  /**
+   * 可选的额外控件，渲染在结果编辑区**之前**（P3 用它放"润色 / 总结"的模式选择器）。
+   *
+   * <p><b>为什么是插槽而不是把模式收进外壳</b>：`mode` 是 P3 请求体的一部分，而本外壳的既有纪律是
+   * "看不见请求体"（见类注释：请求体的形状每个能力最容易被接错，故由能力自己的组件构造）。模式选择器
+   * 的状态因此住在 P3 的组件里，外壳只负责给它一块位置。
+   */
+  extraControls?: ReactNode
 }
 
 export default function AiTextGenerateButton({
+  keyScope,
   keyPrefix,
   generate,
+  disabled,
   onGenerated,
+  extraControls,
 }: AiTextGenerateButtonProps) {
   const { t } = useTranslation()
   const { message } = App.useApp()
@@ -84,7 +123,7 @@ export default function AiTextGenerateButton({
   const [errorKey, setErrorKey] = useState<string | null>(null)
   const [errorText, setErrorText] = useState('')
 
-  const k = (suffix: string) => `${KEY}.${keyPrefix}${suffix}`
+  const k = (suffix: string) => `${keyScope}.${keyPrefix}${suffix}`
 
   const run = async () => {
     // 双保险：按钮此时是 disabled，但"点击"这件事在某些环境里照样会到达处理器（F2 的判据就是它）。
@@ -118,7 +157,7 @@ export default function AiTextGenerateButton({
 
   return (
     <>
-      <Button icon={<ThunderboltOutlined />} onClick={() => setOpen(true)}>
+      <Button icon={<ThunderboltOutlined />} disabled={disabled} onClick={() => setOpen(true)}>
         {t(k('Button'))}
       </Button>
       <Modal
@@ -129,6 +168,7 @@ export default function AiTextGenerateButton({
         onCancel={() => setOpen(false)}
       >
         <Typography.Paragraph type="secondary">{t(k('Hint'))}</Typography.Paragraph>
+        {extraControls}
         {status === 'generating' && <Alert type="info" message={t(k('Generating'))} showIcon />}
         {errorKey !== null && <Alert type="error" message={t(errorKey)} showIcon />}
         {errorText !== '' && <Alert type="error" message={errorText} showIcon />}

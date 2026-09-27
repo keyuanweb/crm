@@ -113,12 +113,18 @@ sed -n '/static String auditDetail(/,/{/p' backend/src/main/java/com/crm/service
 - ⚠️ **上面命令块里的旧期望值原文逐字保留、不重写**，**自本条起以本⚠️为准**。
 - ⚠️ **另两条命令的"文件射程"要扩到 P2 的新类**（**命令原文不改，只记射程**）：「零裸 Mapper 取数」与「审计 detail 只放元数据」两条写的都是 `AiContentService.java` 一个文件。P2 新增的 **`AiCustomerSummaryService.java`** 实测：**裸 Mapper 命中 0**（它全程走 `CustomerService` / `Customer360Service` / `TagService` / `FollowUpService`，**不碰 Mapper**）；**该类内 `auditService` / `auditDetail` 命中也是 0**——因为 P2 **复用** P1 的 `AiContentService` 发请求与记审计（`private final AiContentService aiContentService`），**审计 detail 的构造者仍是 P1 那个 4 标量签名**（即上条"真判据在落点处"那句话**对 P2 同样成立**）。⇒ **两条命令的射程加一句**：判据的落点**没有因为多了一个端点而移动**，这正是"复用同一个 `AiContentService`"换来的；⚠️ **若将来有某一档不走这个类，这两条命令必须重新划射程**（本条即为此立据）。
 
+⚠️ **2026-09-27 C7 档的续记（P3 交付；上面 C6 那两段的原文逐字保留，它们记的是 P2 交付时刻的读数）**：
+
+- **三条自证命令的读数由 2 → 3**（端点数 / `@RequirePermission` 注解数 / `@RateLimit` 注解数**三者仍相等**，各 **3**）：`POST /api/v1/ai/followup-polish` 落地。⇒ §6 首条那个"应 4 处"的旧期望值与 C6 那条订正**都不用改**——**口径（与端点数挂钩、三者必须相等）不变，只有读数随档位移动**，这正是那条订正换来的东西。
+- **射程再记一类（第三个类）**：P3 的 `AiFollowUpPolishService.java` 实测 —— **它不注入任何 Mapper、也不注入 `FollowUpService`**（只注入 `CustomerService` / `EntityAccessService` / `AiContentService` / `AiStatus`）。⚠️ **但"零裸 Mapper 取数"这条行式 grep 在它身上命中 1 行，而那一行是 javadoc 里的一句自述**（"它**不注入任何** Mapper"）⇒ **必须把命中行打印出来才分得清"取数"与"自述"**——这就是本文件 §6 反复说的「grep 模式的边界要自证」在本条上的实例；**如实记，不把它读成违规、也不把它读成 0**。
+- **审计面照旧**：P3 **复用** P1 的 `AiContentService` 发请求与记审计（`private final AiContentService aiContentService`），故"审计 detail 只放元数据"那条的落点**仍是那个 4 标量签名**——**三个端点都没让它动过**。⇒ **§6 那两条命令的射程结论对 P3 同样成立**。
+
 ## 7 交付时填（**不得预填**）
 
 | 项 | 读数 |
 |---|---|
-| 门禁那次 `verify` 的结果 | ✅ **2026-09-27 已在交付提交 `5c0cb5c` 上补跑并落读数**：`mvn -B -o verify` ⇒ **BUILD SUCCESS / 02:09 min**、surefire **836** / failsafe **366**（Failures·Errors·Skipped 全 0）、`jacoco:check` **「All coverage checks have been met.」**。**逐条读数写在 `tasks.md` §交付块 · C6 的 §2.1**（本文件只留指针——「一个数字住在好几个地方」是本仓严打的）⚠️ **注意时序**：C6 提交那一刻**只有定向口径**，完整 verify 是**当日晚些时候补跑**的；两件事在 `tasks.md` 里都留着 |
-| `jacoco.exec` 字节数 / mtime | ✅ **同上（本次补跑）**：**155 703 758 字节 / mtime 2026-09-27T20:36:09**；⚠️ **属那一次运行**——P3/P4 一跑 Maven 就会被重新生成，**届时核不到 ≠ 有人改过代码** |
+| 门禁那次 `verify` 的结果 | ✅ **2026-09-27 已在交付提交 `5c0cb5c` 上补跑并落读数**：`mvn -B -o verify` ⇒ **BUILD SUCCESS / 02:09 min**、surefire **836** / failsafe **366**（Failures·Errors·Skipped 全 0）、`jacoco:check` **「All coverage checks have been met.」**。**逐条读数写在 `tasks.md` §交付块 · C6 的 §2.1**（本文件只留指针——「一个数字住在好几个地方」是本仓严打的）⚠️ **注意时序**：C6 提交那一刻**只有定向口径**，完整 verify 是**当日晚些时候补跑**的；两件事在 `tasks.md` 里都留着。⚠️ **2026-09-27 C7 档再填**：**本批是一次真跑的完整 `verify`**（`clean` 前置、619 main + 212 测试源文件真编译）——`mvn -B -o clean verify -Dmaven.test.failure.ignore=true` ⇒ **BUILD SUCCESS / 退出码 0 / 02:21 min**、surefire **845** / failsafe **370**（Failures·Errors·Skipped 全 0）、`spotless:check` **831 文件全解析 / 0 处需改 / 0 skipped**、`jacoco:check` **「All coverage checks have been met.」**。**逐条读数写在 `tasks.md` §交付块 · C7 的 §3.1**（本文件只留指针）。⚠️ **唯一的非默认 flag 是 `-Dmaven.test.failure.ignore=true`**，本次 0 失败 0 错误 ⇒ **它什么都没忽略**；**未传 `-DargLine`**（会静默废掉 JaCoCo） |
+| `jacoco.exec` 字节数 / mtime | ✅ **同上（本次补跑）**：**155 703 758 字节 / mtime 2026-09-27T20:36:09**；⚠️ **属那一次运行**——P3/P4 一跑 Maven 就会被重新生成，**届时核不到 ≠ 有人改过代码**。✅ **2026-09-27 C7 档再填**：现读 **1 690 424 字节 / mtime 2026-09-27T21:02:38**（属 C7 那一次 `clean verify`；上句 155 703 758 / 20:36:09 **原文逐字保留**——它记的是 C6 补跑那一次，**两批的读数不可互相引用**）。⚠️ **本批之后 P4 一跑 Maven 就会重新生成** |
 | 前端九道（含 `build`） | 同上 |
 | `i18n:check` 键数 | ✅ **交付时已填（2026-09-27）：2984/2984**；**开工基线 2966/2966**（**2026-09-27 已实跑复测、与立项期读数逐字相同**，见 `research.md` §6.1——本项**新增 i18n 键**，故交付读数与基线**不等**：**每语各 +18 键**（**2966 → 2984**，两语同数——正合本仓「双语键同数新增」的规矩；本行原写的「差值 = 新增键数×2」说的是**两语合计**的键条目 +36，**不是**门禁报的那个数 +36）。⚠️ **2026-09-27 C6 档（P2）再填**：现读 **3002/3002**（P2 的 `aiSummary*` 族**每语各 +18 键**，**两语同数**），**上句 2984/2984 原文逐字保留** |
 | 定向破坏 D1–D10 的实测输出 | 见 `falsification-evidence.md`（**交付相位才写**，开工前不得编造）✅ **已产**（C4），**D1–D10 逐条实测、逐条还原**，三处与预测不符 |
