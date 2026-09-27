@@ -179,6 +179,17 @@ public enum ErrorCode {
   // 400 改写为 429（036 的冻结契约本就承诺 429，是实现在违约）。⚠️ 该字符串变更对外可见：
   // 邮件追踪 429 的 `error.code` 由 "TOO_MANY_REQUESTS" 变为 "RATE_LIMITED"。
   RATE_LIMITED(429, "RATE_LIMITED", "请求过于频繁，请稍后再试"),
+  // AI 文本生成（104）。三个码的状态码都**照先例选**，不发明新状态类：
+  //   409 照 MAIL_INBOUND_NOT_CONFIGURED——同族语义"本功能未接入，故未执行"；
+  //   503 照 MFA_STORE_UNAVAILABLE（本仓此前唯一的 503）——"依赖暂时不可用、可重试"；
+  //   422 照校验族（49 处先例）。全仓 501 零先例，故**不发明 501**（见 research.md §7.1）。
+  AI_NOT_CONFIGURED(409, "AI_NOT_CONFIGURED", "未启用 AI 文本生成，未执行（见 crm.ai.enabled 与 AI 配置）"),
+  // ⚠️ 上游限流（模型服务回 429）也归本码，**不**复用 RATE_LIMITED：那是"**你**请求太快"，
+  // 这是"**上游**现在忙"，两者对调用方的含义不同（前者该退避后重试自己，后者该稍后重试或走降级路径）。
+  AI_UPSTREAM_UNAVAILABLE(503, "AI_UPSTREAM_UNAVAILABLE", "AI 服务暂时不可用，请稍后重试"),
+  // 拒答或**空输出**归本码。⚠️ 截断**不**走这里：截断的草稿仍有价值，按成功返回并置 truncated 标志，
+  // 前端据此显示"截断态"（见 contracts/ §4 与 AiContentService 的 javadoc）。
+  AI_GENERATION_REJECTED(422, "AI_GENERATION_REJECTED", "AI 未能给出可用内容，请调整输入后重试"),
   INTERNAL_ERROR(500, "INTERNAL_ERROR", "服务器内部错误");
 
   private final int status;

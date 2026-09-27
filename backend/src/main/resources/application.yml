@@ -82,6 +82,24 @@ crm:
     # 运维无从得知准确拼写，等价于这项白名单在实践中不可用（见 data-model.md §4）。
     # 判定顺序（白名单优先于网段判定）与残余风险边界见 com.crm.common.OutboundUrlValidator。
     allowed-hosts: ${CRM_OUTBOUND_ALLOWED_HOSTS:}
+  ai:
+    # AI 文本生成（104-ai-content-generation）。⚠️ **默认关闭**：出厂状态零出站、零成本、零行为变化。
+    # 打开开关的部署必须同时把模型主机加进上面的出站白名单（CRM_OUTBOUND_ALLOWED_HOSTS），
+    # 否则**启动即失败**——本项唯一的出站准入控制就是启动期的这一次校验（SDK 内部走 OkHttp，
+    # 绕过 OutboundUrlValidator 的逐跳校验）。配置判据只有一处，见 com.crm.config.AiStatus。
+    #
+    # ⚠️ 本节六项的默认值必须与 AiStatus 构造器上的 @Value 兜底值**逐字一致**（FR-002）：
+    # 两处不一致时，判据会随"有没有 application.yml 覆盖"而变，而那种差异在测试里看不见。
+    enabled: ${CRM_AI_ENABLED:false}
+    # 模型服务基地址。可配置是为了支持自建网关／代理；但协议仍须是 Anthropic Messages API
+    # （本地模型需要前置协议转换网关，见 specs/104-ai-content-generation/spec.md 的 A-001）。
+    base-url: ${CRM_AI_BASE_URL:}
+    # API 密钥。**留空即不启用生成**（调用回 409）；它不进日志、不进响应、不进审计 detail。
+    api-key: ${CRM_AI_API_KEY:}
+    model: ${CRM_AI_MODEL:claude-opus-5}
+    # 单次生成的最大输出 token 数与超时秒数。超时**不受**前端全局 30s 约束（前端生成类调用走 timeout: 0）。
+    max-tokens: ${CRM_AI_MAX_TOKENS:4096}
+    timeout-seconds: ${CRM_AI_TIMEOUT_SECONDS:60}
   rate-limit:
     # 全局限流（100-rate-limit-consolidation）。**逐端点的配额数字不在这里**——它们写在端点方法上的
     # @RateLimit(scope, limit, windowSeconds)（与端点同址，照 @RequirePermission 的体例），

@@ -42,6 +42,18 @@
       故离线可构建；这与立项计划里"m2 里没有、首次构建需要网络"的假设相反，已按实测订正。
     -->
     <zxing.version>3.5.3</zxing.version>
+    <!--
+      104：Anthropic 官方 Java SDK。版本必须显式写——Spring Boot 3.2.0 的 BOM 不管 com.anthropic
+      （同 zxing）。2.65.0 是 2026-09-27 maven-metadata 的 <latest>，全部绑定经 javap 读**真实 class
+      文件**核对（见 specs/104-ai-content-generation/research.md §11）。
+      ⚠️ 这个 artifact 本身是**空聚合 jar**（346 字节，只有 MANIFEST）：真正的类经
+      anthropic-java-client-okhttp → anthropic-java-core 传递而来。故"加一条依赖"实际引入的是
+      okhttp / kotlin-stdlib / kotlin-reflect 一整片运行时足迹——**本仓此前既无 okhttp 也无 kotlin**。
+      ⚠️ 该 SDK 按 Jackson 2.19.4 构建，而本仓 BOM 管到 2.15.3 ⇒ 实际解析出的版本须实测
+      （mvn dependency:tree -Dincludes=com.fasterxml.jackson.core）并记录，**不得**为迁就它全局升
+      Jackson（那会动到全仓的序列化行为，是与本项无关的变更）。
+    -->
+    <anthropic.version>2.65.0</anthropic.version>
     <spotless.version>2.43.0</spotless.version>
     <jacoco.version>0.8.11</jacoco.version>
   </properties>
@@ -160,6 +172,15 @@
       <groupId>com.google.zxing</groupId>
       <artifactId>core</artifactId>
       <version>${zxing.version}</version>
+    </dependency>
+    <dependency>
+      <!-- 104：AI 文本生成（生成式内容辅助）的模型客户端。选官方 SDK 而非手搓 HTTP：重试、超时、
+           typed 异常与 usage 计数都自带，手搓会丢掉这些且难以对齐错误语义（FR-006）。
+           ⚠️ 不要引 anthropic-java-bom 或额外的 anthropic-java-client-* —— 聚合 jar 已把
+           okhttp 客户端传进来，重复声明只会让同一片足迹出现两个版本。 -->
+      <groupId>com.anthropic</groupId>
+      <artifactId>anthropic-java</artifactId>
+      <version>${anthropic.version}</version>
     </dependency>
 
     <!-- Test -->
