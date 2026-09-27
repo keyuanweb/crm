@@ -2,7 +2,10 @@ package com.crm.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -16,6 +19,7 @@ import com.anthropic.services.blocking.MessageService;
 import com.crm.AbstractIntegrationTest;
 import com.crm.config.AiClientFactory;
 import com.crm.config.AiStatus;
+import com.crm.service.Customer360Service;
 import com.crm.support.AnthropicTestResponses;
 import com.crm.support.InMemoryRedisTestSupport;
 import java.util.LinkedHashMap;
@@ -30,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.HttpMethod;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
@@ -74,6 +79,9 @@ class AiContentIT extends AbstractIntegrationTest {
 
   private static final String ENDPOINT = "/api/v1/ai/email-draft";
 
+  /** P2 的端点。<b>与 P1 共用同一个权限码与限流 scope</b>（同一笔外部计费调用、同一个日预算桶）。 */
+  private static final String SUMMARY_ENDPOINT = "/api/v1/ai/customer-summary";
+
   /** 哨兵：写进库、又必须不出现在提示词里的那些值。 */
   private static final String NAME_SENTINEL = "哨兵客户名甲";
 
@@ -84,6 +92,9 @@ class AiContentIT extends AbstractIntegrationTest {
   /** 联系人表里的那条：客户档案上的联系人被遮住时，装配器会退到这张表（本类要证明这条退路真的跑了）。 */
   private static final String CONTACT_TABLE_NAME = "哨兵联系人表乙";
 
+  /** P2 的跟进哨兵：它要<b>出现</b>在提示词里（P2 的"最近跟进"段），而 P1 从不断言它。 */
+  private static final String FOLLOWUP_SENTINEL = "哨兵跟进内容丙";
+
   /** 生成是**只读**的：这五张业务表的行数在整个调用前后一行都不该变。 */
   private static final List<String> BUSINESS_TABLES =
       List.of("customer", "opportunity", "sales_opportunity", "contact", "follow_up");
@@ -93,6 +104,17 @@ class AiContentIT extends AbstractIntegrationTest {
   @Autowired private AiStatus aiStatus;
 
   @MockBean private AiClientFactory clientFactory;
+
+  /**
+   * P2 的 360 聚合，被 spy 起来只为一件事：I9 需要看见"<b>聚合根本没发生</b>"。
+   *
+   * <p><b>为什么"403 + 零出站"不够分辨</b>：本端点的门与 {@code FollowUpService.page} 的行级校验调的是同一个 {@code
+   * entityAccessService.canViewCustomer}、抛的是同一个 {@code FORBIDDEN}。把本端点的门删掉，{@code order} 仍在 ——
+   * 因为别人的门替它挡下了。而两者的差别是实质的：后者意味着对方的 360 数据（订单、金额、合同、
+   * 工单、状态）<b>已经被读进内存并渲染成提示词</b>，只是最后的出站被另一个类拦住了。{@code aggregate} 零调用
+   * 才是"门在读取之前"的可观察形式——这是本类唯一能分辨这两者的观测点。
+   */
+  @SpyBean private Customer360Service customer360Service;
 
   private InMemoryRedisTestSupport redis;
 
@@ -118,7 +140,8 @@ class AiContentIT extends AbstractIntegrationTest {
 
     fixture = new BuiltinFieldPermissionFixture(mockMvc, objectMapper, loginAndGetToken());
     // extraPermissions 而不是改夹具基线：那个角色的权限面被 102 的六个用例类共用（见夹具里本重载的 javadoc）。
-    fixture.ensureRole(List.of(AI_GENERATE, "contact:create"));
+    // follow_up:create 是 P2 的 I7 要的：它得能造出一条跟进，才能证明"最近跟进"这段真的会渲染。
+    fixture.ensureRole(List.of(AI_GENERATE, "contact:create", "follow_up:create"));
   }
 
   // ===== I2：字段级权限（最值钱的一条） =====
@@ -332,6 +355,134 @@ class AiContentIT extends AbstractIntegrationTest {
     assertThat(generateAuditCount()).as("拒绝路径不写审计（这次调用没有产生任何用量）").isEqualTo(1);
   }
 
+  // ===== P2（客户 360 摘要）：I7–I10 =====
+
+  /**
+   * US2-AS2：<b>空数据客户不编造</b>——结构侧。<b>两条方向成对，缺一条就会假绿</b>：
+   *
+   * <ol>
+   *   <li>空客户 ⇒ 那些"没有数据的段"整段不出现。只断这一条的话，一个"装配器从来就不渲染任何段"的实现也绿 —— 而那是把功能写坏了；
+   *   <li>同一装配器对<b>真有数据</b>的客户 ⇒ 对应段必须出现，且带得出哨兵值。这条同时是两个东西的正对照：段是能出现的、 以及"跟进"这条取数路径真的被走到了。
+   * </ol>
+   *
+   * <p>⚠️ 为什么健康度也算"可编造"的一种：{@code HealthScoreService} 从满分往下扣，空客户的五个评分维度全无素材 ⇒ 它返回 <b>100 /
+   * GREEN</b>。照直送出去，模型会写"客户健康状况良好"，而事实是这个客户一笔业务都没有 —— 这条编造不是模型干的，是我们先喂给它的（详见 {@code
+   * AiCustomerSummaryService} 的类注释）。
+   */
+  @Test
+  @DisplayName("I7 US2-AS2：空数据客户的提示词里没有可编造的段（含健康度）；有跟进的客户照常给段（正对照）")
+  void emptyCustomerGetsNoSectionToFabricate() throws Exception {
+    BuiltinFieldPermissionFixture.Actor actor = fixture.createUser("ai_sum_empty_");
+    long empty = createCustomerWithSentinels(actor.token());
+    // 第二个客户换公司：建客户有重名判重（同名同公司 ⇒ 409），同公司会让这条用例以"建客户失败"红。
+    long withData = createCustomer(actor.token(), "哨兵公司乙");
+    createFollowUp(actor.token(), withData, FOLLOWUP_SENTINEL);
+
+    stubReply("摘要正文");
+    assertThat(summary(actor.token(), empty).status()).isEqualTo(200);
+    String emptyPrompt = lastPromptSentToTheModel();
+
+    assertThat(emptyPrompt)
+        .as("正对照：装配真的跑到了提示词（否则下面所有的「不出现」都可能只是「什么也没送」）")
+        .contains(NAME_SENTINEL)
+        .contains("业务资料");
+    assertThat(emptyPrompt)
+        .as("没有数据的段整段不出现——「暂无工单」会被模型读成一种事实，而「这一段不存在」才是「资料里没有」")
+        .doesNotContain("交易与回款")
+        .doesNotContain("服务")
+        .doesNotContain("健康度")
+        .doesNotContain("合同（按状态）")
+        .doesNotContain("工单（按状态）")
+        .doesNotContain("最近跟进")
+        .doesNotContain("暂无");
+
+    stubReply("摘要正文");
+    assertThat(summary(actor.token(), withData).status()).isEqualTo(200);
+    String dataPrompt = lastPromptSentToTheModel();
+
+    assertThat(dataPrompt)
+        .as("正对照：真有数据时必须给段，否则上面那组「不出现」会以「装配器根本不会渲染段」的形式假绿")
+        .contains("最近跟进")
+        .contains(FOLLOWUP_SENTINEL)
+        .as("健康度同理：有素材才成行（这条同时钉住「素材判据」不是恒假）")
+        .contains("健康度");
+    assertThat(dataPrompt)
+        .as("健康度判据是「至少一个维度有素材」，而合同<b>不是</b>评分输入——这个客户没有订单，故不应有交易段")
+        .doesNotContain("交易与回款");
+  }
+
+  @Test
+  @DisplayName("I8 P2 的 FLS：status 在库里且被遮 ⇒ 值不进提示词，客户名照常进（正对照）")
+  void summaryNeverSendsHiddenStatus() throws Exception {
+    BuiltinFieldPermissionFixture.Actor actor = fixture.createUser("ai_sum_fls_");
+    long customerId = createCustomerWithSentinels(actor.token());
+
+    assertThat(storedContactAndStatus(customerId))
+        .as("前提：哨兵真写进了库。否则「不含」可能只因它从未被存过")
+        .containsEntry("status", STATUS_SENTINEL);
+    assertThat(fixture.configureBuiltin("CUSTOMER", "status", "HIDDEN").status())
+        .as("配权限失败会让下面那条断言以「本来就没遮」以外的原因说话")
+        .isEqualTo(201);
+
+    stubReply("摘要正文");
+    assertThat(summary(actor.token(), customerId).status()).isEqualTo(200);
+    String prompt = promptSentToTheModel();
+
+    assertThat(prompt).as("正对照：没被遮的字段必须在，否则「不含」会以「什么也没送」的形式假绿").contains(NAME_SENTINEL);
+    assertThat(prompt)
+        .as("HIDDEN 的字段值绝不出网：提示词不经过出参收口点（FieldMaskingResponseBodyAdvice 只擦响应体）")
+        .doesNotContain(STATUS_SENTINEL);
+  }
+
+  @Test
+  @DisplayName("I9 P2 跨 owner：不可见 ⇒ 403、零聚合、零出站；归属者同一请求 ⇒ 200（正对照）")
+  void summaryRejectsAnotherOwnersCustomerBeforeEgress() throws Exception {
+    BuiltinFieldPermissionFixture.Actor owner = fixture.createUser("ai_sum_owner_");
+    BuiltinFieldPermissionFixture.Actor outsider = fixture.createUser("ai_sum_outsider_");
+    long customerId = createCustomerWithSentinels(owner.token());
+
+    BuiltinFieldPermissionFixture.Res denied = summary(outsider.token(), customerId);
+
+    assertThat(denied.status()).isEqualTo(403);
+    assertThat(denied.body().path("error").path("code").asText())
+        .as("过了权限切面（该角色持 ai:generate）⇒ 这个 403 只能来自数据范围判定（FORBIDDEN），不是 PERMISSION_DENIED")
+        .isEqualTo("FORBIDDEN");
+    verifyNoInteractions(messageService);
+    // ⚠️ 这一条才是"门在读取之前"的判据，且必须放在归 owner 的那次调用<b>之前</b>（那次会真的聚合）。
+    // 上面那个 403 有<b>第二个</b>来源：FollowUpService.page 自己的行级校验——同一个 canViewCustomer、同一个
+    // FORBIDDEN。实测把本端点的门删掉，上面三行断言<b>全绿</b>：order 被别人的门替它挡下了。而两者的差别是
+    // 实质的——那种情况下对方的 360 数据（订单 / 金额 / 合同 / 工单 / 状态）已经被读进内存并送进渲染函数，
+    // 只是最后一道出站被另一个类拦住。aggregate 零调用才排除了这条路径。
+    verify(customer360Service, never()).aggregate(anyLong());
+
+    stubReply("摘要正文");
+    assertThat(summary(owner.token(), customerId).status()).isEqualTo(200);
+    assertThat(promptSentToTheModel()).contains(NAME_SENTINEL);
+  }
+
+  @Test
+  @DisplayName("I10 P2 生成是只读的：审计能力名是 customer-summary，锚在客户上，detail 不含客户数据")
+  void summaryWritesOnlyOneMetadataOnlyAuditRow() throws Exception {
+    BuiltinFieldPermissionFixture.Actor actor = fixture.createUser("ai_sum_write_");
+    long customerId = createCustomerWithSentinels(actor.token());
+    Map<String, Long> rowsBefore = businessRowCounts();
+    long auditsBefore = generateAuditCount();
+
+    stubReply("摘要正文");
+    assertThat(summary(actor.token(), customerId).status()).isEqualTo(200);
+
+    assertThat(businessRowCounts()).as("生成不改业务数据").isEqualTo(rowsBefore);
+    assertThat(generateAuditCount()).isEqualTo(auditsBefore + 1);
+    assertThat(latestGenerateAudit().get("detail").toString())
+        .as("审计只放元数据（FR-016）；能力名必须是本能力自己的，否则两个端点在同一张审计表里分不开")
+        .contains("capability=customer-summary")
+        .doesNotContain(NAME_SENTINEL)
+        .doesNotContain(CONTACT_SENTINEL);
+    assertThat(((Number) latestGenerateAudit().get("entity_id")).longValue())
+        .as("锚点：本能力的载体是客户")
+        .isEqualTo(customerId);
+  }
+
   // ===== 夹具与读数 =====
 
   private static String bodyFor(long customerId) {
@@ -344,6 +495,11 @@ class AiContentIT extends AbstractIntegrationTest {
 
   private BuiltinFieldPermissionFixture.Res draft(String token, String body) throws Exception {
     return fixture.call(token, HttpMethod.POST, ENDPOINT, body);
+  }
+
+  private BuiltinFieldPermissionFixture.Res summary(String token, long customerId)
+      throws Exception {
+    return fixture.call(token, HttpMethod.POST, SUMMARY_ENDPOINT, bodyFor(customerId));
   }
 
   /** 打一条上游回复的桩。⚠️ 先造值、再 {@code when}：SDK 的构造异常抛在实参位置上会污染桩的状态。 */
@@ -359,7 +515,30 @@ class AiContentIT extends AbstractIntegrationTest {
     return captor.getValue().messages().get(0).content().asString();
   }
 
+  /**
+   * 同上的<b>最后一次</b>取值：一条用例里发两次请求（空客户 + 有数据客户的对拍、I7）时用它。
+   *
+   * <p>为什么不用 {@link #promptSentToTheModel()} 调两次：那个方法的 {@code verify} 是"恰好一次"，第二次调用会以 {@code
+   * TooManyActualInvocations} 红——红得没错，但红在 mock 的记账上而不是判据上，读的人会以为是装配坏了。
+   */
+  private String lastPromptSentToTheModel() {
+    ArgumentCaptor<MessageCreateParams> captor = ArgumentCaptor.forClass(MessageCreateParams.class);
+    verify(messageService, atLeastOnce()).create(captor.capture());
+    List<MessageCreateParams> all = captor.getAllValues();
+    return all.get(all.size() - 1).messages().get(0).content().asString();
+  }
+
   private long createCustomerWithSentinels(String token) throws Exception {
+    return createCustomer(token, "哨兵公司甲");
+  }
+
+  /**
+   * 客户名恒为 {@link #NAME_SENTINEL}，只把公司换掉。
+   *
+   * <p>⚠️ 为什么要这个重载：建客户有<b>重名判重</b>（同名同公司 ⇒ 409 {@code CUSTOMER_DUPLICATE}）， 而 I7
+   * 要在<b>同一个方法里</b>建两个客户做对拍 —— 用同一个公司会让第二个客户 409，用例会以"建客户失败"红， 而不是以它要断的那件事红（实测就是这么红的）。
+   */
+  private long createCustomer(String token, String company) throws Exception {
     BuiltinFieldPermissionFixture.Res res =
         fixture.call(
             token,
@@ -367,8 +546,9 @@ class AiContentIT extends AbstractIntegrationTest {
             "/api/v1/customers",
             "{\"name\":\""
                 + NAME_SENTINEL
-                + "\",\"company\":\"哨兵公司甲\""
-                + ",\"contactPerson\":\""
+                + "\",\"company\":\""
+                + company
+                + "\",\"contactPerson\":\""
                 + CONTACT_SENTINEL
                 + "\",\"status\":\""
                 + STATUS_SENTINEL
@@ -386,6 +566,21 @@ class AiContentIT extends AbstractIntegrationTest {
             "/api/v1/contacts",
             "{\"customerId\":" + customerId + ",\"name\":\"" + name + "\"}");
     assertThat(res.status()).as("建联系人失败：%s %s", res.status(), res.body()).isEqualTo(201);
+  }
+
+  /** 一条跟进记录：P2 的"最近跟进"段靠它才有素材（走真实端点，不是直插库）。 */
+  private void createFollowUp(String token, long customerId, String content) throws Exception {
+    BuiltinFieldPermissionFixture.Res res =
+        fixture.call(
+            token,
+            HttpMethod.POST,
+            "/api/v1/follow-ups",
+            "{\"customerId\":"
+                + customerId
+                + ",\"method\":\"PHONE\",\"content\":\""
+                + content
+                + "\"}");
+    assertThat(res.status()).as("建跟进失败：%s %s", res.status(), res.body()).isEqualTo(201);
   }
 
   /** 直接读库里的那两列（列名小写：测试库 URL 带 {@code DATABASE_TO_LOWER=TRUE}）。 */

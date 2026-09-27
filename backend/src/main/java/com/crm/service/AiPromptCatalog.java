@@ -188,6 +188,197 @@ public final class AiPromptCatalog {
     }
   }
 
+  // ==================== P2 客户 360 摘要 ====================
+
+  /** P2 的能力名（进审计 detail 与日志，<b>不进</b>提示词）。 */
+  public static final String P2_CAPABILITY = "customer-summary";
+
+  /**
+   * P2 送入模型的客户字段（{@code contracts/} §5.3 的落地）。
+   *
+   * <p>⚠️ <b>与立项期契约的差异（实测订正，与 P1 同源）</b>：§5.3 的"送入"半列列了 <b>行业 / 级别 / 来源</b>， 而这三者在 {@code Customer}
+   * 上<b>都不存在</b>——{@code industry} / {@code level} 全仓零实体命中（P1 开工时已实测过一次，见 {@link
+   * #P1_CUSTOMER_FIELDS}），<b>来源</b>在 Customer 上也没有对应列（{@code source} 是 {@code Lead}
+   * 的字段，不是客户的；{@code customer} 表历次迁移只加过 {@code owner_id} 与 {@code campaign_id}， 而 {@code
+   * campaignId} 是<b>营销活动归因</b>、语义不等于"客户来源"）。**本项不因此新增字段** ⇒ 清单里<b>不列取不到的字段</b>。
+   *
+   * <p>⚠️ <b>联系人姓名不在本能力的白名单里（与 P1 相反，这是刻意的）</b>：§5.1 第 4 条明写"逐能力都要重新论证，<b>不得</b>默认继承"。
+   * 摘要的对象是客户的<b>业务态势</b>（订单/回款/合同/工单/跟进），称呼语不是它的用途——P1 要联系人是<b>因为要写称呼</b>。 少送一个字段就少一处 FLS
+   * 判定、少一条出网路径。
+   *
+   * <p>⚠️ {@code remark}（备注）也<b>不在</b>清单里：它是自由文本、可能含内部敏感信息，而 §5.3 的"不送入"半列 点名了它。同理 {@code
+   * campaignId} 不进——本能力的摘要里没有"来源"这一节。
+   */
+  public static final Set<String> P2_CUSTOMER_FIELDS = Set.of("name", "company", "status");
+
+  /** P2 送入模型的标签字段：<b>只要名称</b>（{@code color} 是给人看的，对摘要没有信息量）。 */
+  public static final Set<String> P2_TAG_FIELDS = Set.of("name");
+
+  /** P2 送入模型的健康度字段：<b>只要分数与等级，不要扣分明细</b>（{@code deductions} 是内部规则名，非必要）。 */
+  public static final Set<String> P2_HEALTH_FIELDS = Set.of("score", "level");
+
+  /**
+   * P2 送入模型的<b>聚合量</b>字段。
+   *
+   * <p>⚠️ §5.3 明写"<b>不送逐笔明细</b>"——故这里全是计数/合计/状态分布，<b>没有</b> {@code orderNo} / {@code title} /
+   * {@code contractNo} / {@code ticketTitle}。把明细送出去不仅超预算，还等于把"客户买了什么"整包交给模型，
+   * 而摘要要表达的只是"这个客户有多少业务往来"。
+   */
+  public static final Set<String> P2_AGGREGATE_FIELDS =
+      Set.of(
+          "orderCount",
+          "orderAmount",
+          "paidAmount",
+          "overdueAmount",
+          "contractStatuses",
+          "ticketStatuses");
+
+  /** P2 送入模型的跟进字段（只有时间与<b>节选</b>，不送全文）。 */
+  public static final Set<String> P2_FOLLOWUP_FIELDS = Set.of("createdAt", "contentExcerpt");
+
+  /** P2 取最近几条跟进。⚠️ 数值与 P1 相同，但这是<b>独立常量</b>——§5.6 明写不得合并，改一处不得连带另一处。 */
+  public static final int P2_FOLLOWUP_LIMIT = 5;
+
+  /** P2 每条跟进的节选长度上限（字符）。同上：独立常量，不与 P1 共用。 */
+  public static final int P2_FOLLOWUP_EXCERPT_CHARS = 200;
+
+  /** P2 最多送入几个标签（客户可能挂了上百个标签；摘要只需要"这个客户被打了什么标"的概貌）。 */
+  public static final int P2_TAG_LIMIT = 10;
+
+  /**
+   * P2 状态分布最多送入几个桶。
+   *
+   * <p>上界由<b>实体自身的状态枚举</b>给出（合同 {@code ContractService} 8 个常量、工单 4 个），故 8 是结构性上界而不是抽样阈值 ——
+   * 这条与"跟进只取最近 5 条"不同：那个是<b>真的在丢数据</b>（故必须明说节选），这个只是给桶数一个确定的上界。
+   */
+  public static final int P2_STATUS_BUCKETS_LIMIT = 8;
+
+  /**
+   * P2 的系统提示词：<b>稳定前缀</b>，不含任何客户数据（FR-009）。
+   *
+   * <p>规则 3/4 是 US2-AS2（"空数据客户不编造"）的<b>提示词侧</b>落点；它的<b>结构侧</b>落点是 {@link
+   * #renderSummaryUserPrompt}——没有数据的段落<b>整段不出现</b>，所以模型手里根本没有可以编造的素材。两处缺一不可：
+   * 只做提示词，模型仍可能凭"客户摘要"这个题目自己发挥；只做结构，模型可能把"没提到工单"补写成"暂无工单"。
+   */
+  public static final String P2_SYSTEM_PROMPT =
+      """
+      你是一名企业 CRM 系统的销售助理，负责把一名客户的业务往来资料压缩成一段结构化摘要。
+
+      规则：
+      1. 只输出摘要本身。不要标题、不要 Markdown 标记、不要代码块、不要解释你的写法。
+      2. 用简体中文，分段书写；每段以一个短小标题起头（如「基本情况」「交易与回款」「服务与跟进」）。
+      3. 只能使用「业务资料」里给出的信息。资料里没有的事实——金额、日期、产品、承诺、评价——
+         一律不得编造、不得推测，也不要用占位符假装已知。
+      4. 资料里没有的段落，整个不写。不要写「暂无工单」「无回款记录」这类填空句，也不要把缺失
+         当成一种情况来描述。
+      5. 资料少到写不出摘要时，直接说明还缺什么，不要硬写。
+      6. 全文控制在 400 字以内。
+      """;
+
+  /** P2 装配好的上下文——<b>它的字段就是白名单本身</b>（可为 null 的字段表示"资料里没有"）。 */
+  public record SummaryContext(
+      String customerName,
+      String company,
+      String customerStatus,
+      List<String> tags,
+      Integer healthScore,
+      String healthLevel,
+      Integer orderCount,
+      String orderAmount,
+      String paidAmount,
+      String overdueAmount,
+      List<StatusCount> contractStatuses,
+      List<StatusCount> ticketStatuses,
+      List<FollowUpExcerpt> followUps) {}
+
+  /** 一个状态桶（{@code status} 是实体自身的枚举值，不是客户数据）。 */
+  public record StatusCount(String status, int count) {}
+
+  /**
+   * 把上下文渲染成 P2 的 user 消息（<b>含客户数据</b>，FR-009）。
+   *
+   * <p>与 P1 同一条规矩：只写"有值"的字段，缺的<b>整行/整段不出现</b>，而不是写成"无"——"无"会被模型读成一种事实
+   * （"这个客户没有工单"），而"这一段不存在"才是"资料里没有"。
+   */
+  public static String renderSummaryUserPrompt(SummaryContext ctx) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("业务资料：\n");
+    line(sb, "客户名称", ctx.customerName());
+    line(sb, "公司", ctx.company());
+    line(sb, "客户状态", ctx.customerStatus());
+    if (ctx.tags() != null && !ctx.tags().isEmpty()) {
+      line(sb, "标签", String.join("、", ctx.tags()));
+    }
+    if (ctx.healthScore() != null) {
+      line(
+          sb,
+          "健康度",
+          ctx.healthScore() + (ctx.healthLevel() == null ? "" : "（" + ctx.healthLevel() + "）"));
+    }
+
+    // 交易与回款：整段按"有没有业务"决定出不出现（US2-AS2 的结构侧判据）。
+    boolean hasOrders = ctx.orderCount() != null && ctx.orderCount() > 0;
+    if (hasOrders || ctx.contractStatuses() != null && !ctx.contractStatuses().isEmpty()) {
+      sb.append("- 交易与回款：\n");
+      if (hasOrders) {
+        sb.append("  - 订单数：").append(ctx.orderCount()).append('\n');
+        appendAmount(sb, "订单金额合计", ctx.orderAmount());
+        appendAmount(sb, "已回款", ctx.paidAmount());
+        appendAmount(sb, "其中逾期", ctx.overdueAmount());
+      }
+      appendStatuses(sb, "合同（按状态）", ctx.contractStatuses());
+    }
+    if (ctx.ticketStatuses() != null && !ctx.ticketStatuses().isEmpty()) {
+      sb.append("- 服务：\n");
+      appendStatuses(sb, "工单（按状态）", ctx.ticketStatuses());
+    }
+
+    List<FollowUpExcerpt> followUps = ctx.followUps();
+    if (followUps != null && !followUps.isEmpty()) {
+      sb.append("- 最近跟进（按时间倒序，每条为节选）：\n");
+      for (FollowUpExcerpt f : followUps) {
+        sb.append("  - ").append(f.date() == null ? "" : f.date()).append(' ').append(f.text());
+        if (f.truncated()) {
+          sb.append("（本条已节选）");
+        }
+        sb.append('\n');
+      }
+    }
+    return sb.toString();
+  }
+
+  private static void appendAmount(StringBuilder sb, String label, String yuan) {
+    if (yuan != null && !yuan.isBlank()) {
+      sb.append("  - ").append(label).append('：').append(yuan).append(" 元\n");
+    }
+  }
+
+  private static void appendStatuses(StringBuilder sb, String label, List<StatusCount> counts) {
+    if (counts == null || counts.isEmpty()) {
+      return;
+    }
+    sb.append("  - ").append(label).append('：');
+    for (int i = 0; i < counts.size(); i++) {
+      if (i > 0) {
+        sb.append('、');
+      }
+      sb.append(counts.get(i).status()).append(' ').append(counts.get(i).count());
+    }
+    sb.append('\n');
+  }
+
+  /**
+   * 分 → 元的字符串（金额在库里是<b>分</b>，直接送出去会让模型把"12345"读成 12345 元）。
+   *
+   * <p>{@code null} 进 {@code null} 出（"没有这个数"与"这个数是 0"是两件事，见 {@link #line}）。
+   */
+  public static String yuan(Long fen) {
+    if (fen == null) {
+      return null;
+    }
+    return java.math.BigDecimal.valueOf(fen).movePointLeft(2).toPlainString();
+  }
+
   /**
    * 按上限截断自由文本并给出"是否截过"的事实。
    *

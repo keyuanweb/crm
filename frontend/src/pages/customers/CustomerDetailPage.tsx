@@ -41,6 +41,7 @@ import { useAuthStore } from '../../store/authStore'
 import { hasPerm } from '../../hooks/usePermission'
 import { PERMS } from '../../constants/permissions'
 import AiGenerateButton from '../../components/AiGenerateButton'
+import AiCustomerSummaryButton from '../../components/AiCustomerSummaryButton'
 import FollowUpTimeline from '../../components/FollowUpTimeline'
 import CommentSection from '../../components/CommentSection'
 import type {
@@ -71,9 +72,14 @@ export default function CustomerDetailPage() {
   // ② 的 ADMIN 例外必须保留：后端允许管理员共享任何人的客户，而 `hasPerm` 无法表达
   // "是 ADMIN 但不是 owner"这一支（它对 ADMIN 与持码者都返回 true，两者被合并了）。
   const isAdmin = user?.role === 'ADMIN'
-  // 104 P1：AI 邮件草稿。`ai:generate` 对预置角色**零授予**（`AiPermissionGrantIT`），故实际只有
-  // ADMIN 看得到这个按钮——这正是 FR-020 那份决定在界面上的形状，前端不再另设一套判据。
-  const canGenerateDraft = hasPerm(PERMS.aiGenerate, user)
+  // 104 P1/P2：AI 邮件草稿 + AI 客户 360 摘要。`ai:generate` 对预置角色**零授予**
+  // （`AiPermissionGrantIT`），故实际只有 ADMIN 看得到这两个按钮——这正是 FR-020 那份决定在界面上的
+  // 形状，前端不再另设一套判据。
+  //
+  // 两个能力**共用同一个判定**不是图省事：后端两个端点挂的是同一个权限码、同一个限流 scope、
+  // 同一个日预算桶（见 `AiCustomerSummaryButton.tsx` 的 ⚠️）。给它们各写一个 hasPerm 只会制造
+  // 「两处判定被改得不一致」的机会，而两者在契约上本来就是同一个问题。
+  const canGenerateAiText = hasPerm(PERMS.aiGenerate, user)
   const [shareOpen, setShareOpen] = useState(false)
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
   const [shareForm] = Form.useForm<{ sharedToUserId: number }>()
@@ -647,7 +653,8 @@ export default function CustomerDetailPage() {
                 {t('common.button.share')}
               </Button>
             )}
-            {canGenerateDraft && <AiGenerateButton customerId={customerId} />}
+            {canGenerateAiText && <AiGenerateButton customerId={customerId} />}
+            {canGenerateAiText && <AiCustomerSummaryButton customerId={customerId} />}
           </Space>
         </div>
       </Card>

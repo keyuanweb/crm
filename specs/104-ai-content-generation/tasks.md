@@ -10,6 +10,8 @@
 
 ✅ **2026-09-27 C5 交付：本条已兑现**——**已执行的任务此刻（且只在此刻）勾上**：Phase 0（T000–T004）· Phase 1（T010–T014 / T017 / T018）· Phase 2（T020–T022 / T023–T029）· Phase 3（T030–T036，含 D1 / D3）· Phase 4（T040–T046），**共 38 个框**。⚠️ **T015 / T016 两个框故意不勾、交付后仍是未勾**——它们被 C3 裁为**作废**（零授予 ⇒ 无 `V92`），**作废 ≠ 完成**，勾上会读成"做过"（逐条理由在该两行内）。**Phase 5+（T050–T074）的 15 个框一律不勾**：P2/P3/P4 **未交付**。⇒ **交付态的框面 = 36 个一级框 + 2 个 D 子框已勾 / 17 个未勾**（2 个作废 + 15 个未开工）。
 
+✅ **2026-09-27 C6 交付：Phase 5+ 的 P2 组（T050–T054）此刻勾上**（上段 C5 那句「Phase 5+ 的 15 个框一律不勾」**原文逐字保留**——它描述的是 **C5 交付时**的框面，且它的判据「P2/P3/P4 未交付」在写下时成立）。**新的框面 = 41 个一级框已勾 / 12 个未勾**（2 个作废 T015·T016 + **10 个未开工** T060–T074），一级框总数 **53**。⚠️ **P3/P4（T060–T074）仍然一个都不勾**：本次的范围裁决是「**只做 P2**」（`spec.md` 的 C6 块），**「做了 P2」不等于「P3/P4 已裁」**。
+
 ⚠️ **不跑任何 `/speckit-*`**（`.specify/feature.json` 是共享单槽指针、gitignored、会被并行会话覆盖）。
 
 ---
@@ -99,6 +101,7 @@
 > 2. **T023–T026 解卡**，可按 A 的形态落地；**不新增导航目标、不新增菜单、不新增权限授予**（⇒ FR-020 的零授予不受影响，判据② 不被激活）。
 > 3. **`perms:check` 读数 68 → 69 随本批一起发生**（T023 的 `constants/permissions.ts`），故交付读数里那个 69 有来历。
 > ⚠️ 仍**未验证**的是 P2/P3/P4 的接入点是否存在（只有 P1 这一处实测过）；不要以为它们已经被检查过。
+> ✅ **2026-09-27 C6 订正（上句原文逐字保留）**：**P2 的接入点已由 C6 实测并落地**——宿主仍是**既有客户详情页**（与 P1 同一处），`AiCustomerSummaryButton` 已挂在 `CustomerDetailPage.tsx`（判据：`CustomerDetailPage.perm.test.tsx` 9 例 + `CustomerDetailPage.render.test.tsx` 2 例 + 定向 vitest 23/23）。⇒ **现仍未验证的只剩 P3/P4**（本句的警告**不撤销、只是射程收窄**）。
 
 - [x] T023 `frontend/src/types/aiContent.ts` + `services/aiContentService.ts`（生成类调用**显式 `timeout: 0`**，不动全局 30s）
   - ⚠️ 随宿主裁决整批走。**另有一处归属提醒**：`constants/permissions.ts` 加 `aiGenerate: 'ai:generate'` 会让 `perms:check` 读数 **68 → 69**；「登记在先、接线在后」在分批交付时是**被明文许可**的中间态（该脚本的 unused 提示是**非失败**项），但**别只加注册表不接页面**——那会让 69 这个数在交付读数里说不清来历。
@@ -144,11 +147,13 @@
 **每组自成一个可停点**（plan D0）：完成后各跑一次门禁子集（`i18n:check` / `ui:check` / `zh:check` / 定向 vitest + 后端 `-Dtest`）。
 
 ### P2 客户 360 摘要
-- [ ] T050 `AiPromptCatalog` P2 组 + 白名单（`contracts/` §5.3）
-- [ ] T051 `POST /api/v1/ai/customer-summary` 端点（权限 + 限流）
-- [ ] T052 客户详情页接入 + i18n 键
-- [ ] T053 用例：空数据客户不编造（spec US2-AS2）；**HIDDEN 字段零出现（I2 的能力版）**
-- [ ] T054 定向破坏：白名单加入一个 HIDDEN 字段 ⇒ 该红
+- [x] T050 `AiPromptCatalog` P2 组 + 白名单（`contracts/` §5.3）
+- [x] T051 `POST /api/v1/ai/customer-summary` 端点（权限 + 限流）
+- [x] T052 客户详情页接入 + i18n 键
+- [x] T053 用例：空数据客户不编造（spec US2-AS2）；**HIDDEN 字段零出现（I2 的能力版）**
+  - ⚠️ **2026-09-27 C6 交付订正：本行点名的「HIDDEN 字段零出现（I2 的能力版）」在 P2 上落成了 U8-a（声明层）而不是 I2 那样的行为层用例**——理由是 P2 的白名单与 102 已登记的 CUSTOMER 内建字段**只有一个交集：`status`**（`contracts/` §5.3 订正第 3 条），P1 那条 I2 式的"送一个 HIDDEN 字段进去、断言它不出网"的用例在 P2 上没有可用的字段做靶子（其余候选都不在送入清单里、拦它们的不是 FLS）。⇒ **声明层由 U8-a / U9-a…U9-h 看着，行为层由 I7 / I9 看着**（不编造、零聚合），**没有**第三个 I2 克隆。本条复选框**照勾**（任务本身做了），但这处口径差异必须读到这里。
+- [x] T054 定向破坏：白名单加入一个 HIDDEN 字段 ⇒ 该红
+  - ⚠️ **2026-09-27 C6 交付：本条兑现为 E1**（`P2_CUSTOMER_FIELDS` 加入 `"remark"` ⇒ U8-a 变红、**且只红这一条**），读数与另五次破坏（E2–E6）在 `falsification-evidence.md`。⚠️ 该批**实测出一条比本条更值钱的结论**：E6（摘掉数据范围判门）**单刀全绿**，加固 I9 后才变红——**"绿的那次不是无风险，是没有判据"**。
 
 ### P3 跟进记录润色 / 总结
 - [ ] T060 `AiPromptCatalog` P3 组 + 白名单（`contracts/` §5.4）
@@ -215,6 +220,18 @@
 | 10 | T041 记「前端八道 + `build` 全跑」，即默认预期九道**全绿** | **八道 + `build` 绿；第九道分两个口径**：`test:coverage` 在**仓库默认口径（A）下未建立绿灯**（13 文件/21 用例失败，全是超时），在**诊断口径（D，2 worker）下全量全绿**（96 文件/487 用例、退出码 0）⇒ **两个口径都写出来，不许只留一个** | 见 §交付块 §1.3 的四态读数与四层归因。本仓 `vite.config.ts:87-92` 自己立的判据是「**机器空闲时默认池既不假红也不飘**、4 worker 只是机器被外部抢占时的诊断手段」⇒ **A 态那次红仍需空转机器复核，本次没有**（全程 CPU 90–100%，含一个跑飞的 VS Code `rg.exe`）；而 **D 态把"套件本身无红"这个读数独立建立起来了**（降并发即全绿，墙钟 7.4 倍） |
 | 11 | `PROJECT_FEATURES.md` 的「前端页面组件」行按「非测试 tsx」理解 | 该行的口径是 **`frontend/src/pages` 限定**（`find frontend/src/pages -name '*.tsx' ! -name '*.test.tsx'`） | 起草第八次重测时**踩过一次**：按全 `src/` 口径会读成 127，凭空造出 27 的假缺口（本仓「grep 模式的边界要自证」的又一例） |
 | 12 | 立项期预期 104 会像 102 那样**移动迁移数**（并同步 6 处落点） | 104 **零迁移** ⇒ 与 **103 同形制**，迁移数那一组落点**一处都不动** | 第 3 行的连带结论；立项期那句「与 103 形制不同，不得套模板」**已被证伪**（`specs/README.md` 与 `specs/roadmap.md` 均已加带日期 ⚠️） |
+
+> ✅ **2026-09-27 C6 交付：下表新增第 13–18 行**（C6 期间发生的口径差异；第 1–12 行是 C5 的，原样保留）。
+> ⚠️ **C6 不改 P1 的任何一行**——原因见第 13 行末句与 `falsification-evidence.md` 的 E 系列边界第 6 条。
+
+| # | 原计划 | 实做 | 理由 |
+|---|---|---|---|
+| 13 | `tasks.md` T053 把 P2 的判据点名为「**HIDDEN 字段零出现（I2 的能力版）**」 | **P2 没有 I2 式行为层用例**；HIDDEN 那一面落在**声明层**（U8-a / U9-a…U9-h），行为层留给 I7（不编造）与 I9（零聚合） | P2 的白名单与 102 已登记的 CUSTOMER 内建字段**只有一个交集：`status`**（`contracts/` §5.3 订正第 3 条）⇒ P1 那条「送一个 HIDDEN 字段进去、断言它不出网」的用例**在 P2 上没有可用的靶子**：其余候选要么本就不在送入清单里、要么拦它的不是 FLS。⚠️ **不为了凑一条同名用例而造靶子**——那会让"用例存在"与"性质被看着"重新变成两件事 |
+| 14 | P2 的**前端形态**（宿主 / 落库与否 / 交互）立项期**未定**，`spec.md` 明写「须在 P2 开工实测后**单独定**」 | **沿用 P1 的形态**：客户详情页接入 + 展示与复制到剪贴板、**不落库**；权限门**复用同一个** `hasPerm(PERMS.aiGenerate)` | ⚠️ **这是一次自定，不是用户裁决**（`spec.md` 的 C6 块如实记下）。理由：两个能力花的是同一笔外部计费调用、同一个日预算桶、同一个权限码（`contracts/` §5 的限流表），宿主与交互形态因此没有分叉的理由；另写一套只会制造"两处判定被改得不一致"的机会。**若用户要换宿主，改的只有 `CustomerDetailPage.tsx` 的一处渲染点** |
+| 15 | 结构树 P2 侧只有「一个摘要组件」 | 抽出共用外壳 `AiTextGenerateButton`（四态 / 失败态保留编辑区 / 错误码⇒文案），`AiGenerateButton` 改为**薄包装**，`AiCustomerSummaryButton` 是第二个包装 | 这四件事是**同一个东西**，各写一份就是把「`Record<AiErrorCode, string>` 的总性」与「失败态不清空编辑区」复制成两处表述，而它们一旦漂移**没有判据会红**（P2 的用例只钉自己那一份）。⚠️ **抽壳的代价被单独看着**：P1 的 6 条用例（F1–F4 / F4-b / 复制）**一字未改**照旧通过 ⇒ 「公共接口未变」是**可执行读数**，不是承诺 |
+| 16 | `plan.md` 把 I9 的判据定为「403 + 零出站」 | **加固**：加 `@SpyBean Customer360Service` + `verify(..., never()).aggregate(anyLong())`，位置在 403 断言之后、**归 owner 的那次调用之前** | E6 实测：只摘本端点的数据范围门 ⇒ **IT 10/10 全绿**。因为下游 `FollowUpService.page` 自带同一道 `canViewCustomer`、抛**同一个** `FORBIDDEN`，而"零出站"由 `messageService` 看着（它本来就在 403 之后）⇒ 原三行断言**全绿**，而"不可见 ⇒ 一行都不读"这个不变式**已经破了**。⚠️ **P1 的 I3 有同一形态且仍未覆盖**——本批**不去动它**（改 `AiContentIT.java` 会让 C4/C5 已登记的读数全部失效），只在 `falsification-evidence.md` 里点名 |
+| 17 | 前端判据 F5-a 的断言顺序按"先状态、后身份"写 | **重排为"先身份、后状态"**；并给 F5-f 补一句出站身份断言 | 与第 7 行（D5）**同形**，是同类缺陷第二次被测出来：E7 下红的原本是**排在最前**的编辑区值断言，而"接错了端点"只有 `toHaveBeenCalledWith` 能说出它的名字——**那条断言当时没被执行到**。F5-f 则是**假绿**：接错的函数返回 `undefined`，同样落进通用文案分支，故"只断言通用文案出现了"分不出「正确接线 + 未知失败」与「压根接错了」 |
+| 18 | C5 的 `test:coverage` 只建立了**诊断口径（D，2 worker）下全绿**；仓库默认口径（A）**未建立绿灯**，且那句「机器空闲时默认池不既不假红也不飘」**未被空转机器复核** | C6 在**空转机器**上复跑**仓库默认口径**：**97 文件 / 493 用例全绿、退出码 0、180.63s**；四项覆盖率 statements **72.63** / branches **75.76** / functions **40.27** / lines **72.63**，**全部高于** `vite.config.ts` 的阈值（33.6 / 47.2 / 21.4 / 33.6） | C5 的遗留项（`§1.3` 末句「C6+ 开工前仍应在一台空转机器上复跑 A 态」）。⚠️ **归因边界**：97 个测试文件里**只有 1 个是本批的**（`AiCustomerSummaryButton.test.tsx`，6 例）；其余相对 C5 的 83 的增量是**其他批次已提交的工作**，与 104 无关，**不得**算进本批增量。⚠️ 工区当时无第三方未跟踪文件（`git ls-files --others src` 只有本批那 3 个文件）⇒ 该读数可归因 |
 
 ---
 
@@ -303,3 +320,79 @@
 - **D5 带出一处判据排列缺陷**（已改：先断出站计数、再断状态码）⇒ 实做订正第 7 行。
 - **D7 带出「SC-004 的 grep 命令从未登记」**⇒ 现定并登记进 `quickstart.md` §6，实做订正第 8 行。
 - **还原自查**：六个被破坏文件 **md5 全部回到破坏前值**（`cp` 备份回写，**不用 `git checkout`**——本批有 8 个文件是刻意未提交的）；`grep "留痕后还原"` = **0**。
+
+---
+
+## 交付块 · C6（P2 客户 360 摘要）——**本节的读数是 C6 的权威住处**
+
+> ⚠️ **与 §1 的边界**：§1.x 是 **C5（P1）** 的读数，**本批一个字都不改它**（改了就等于用一次交付造出两处互相矛盾的读数）。
+> 本节只记 C6 新增的。两批的读数**不可互相引用**：P1 的 6 条 IT 与 P2 的 4 条同住一个 `AiContentIT`，
+> 类的总数会随任一批变动（C5 记 `Tests run: 6`、C6 记 `Tests run: 10`，**都是各自交付时刻的真值**）。
+
+### §2.1 后端
+
+| 命令 | 读数 |
+|---|---|
+| `mvn -B -o test -Dtest=AiPromptCatalogTest` | `Tests run: 17, Failures: 0, Errors: 0, Skipped: 0` ⇒ `BUILD SUCCESS` |
+| `mvn -B -o test-compile failsafe:integration-test failsafe:verify -Dit.test=AiContentIT` | `Tests run: 10, Failures: 0, Errors: 0, Skipped: 0` ⇒ `BUILD SUCCESS` |
+| `mvn -B -o spotless:check`（**先把 `target/spotless-index` 移走，强制真解析**） | `Spotless.Java is keeping 830 files clean - 0 needs changes to be clean, 830 were already clean, **0 were skipped because caching determined they were already clean**` ⇒ `BUILD SUCCESS` |
+
+⚠️ **第三行那条 `spotless:check` 为什么要移走缓存目录**（本仓既有的坑，`memory` 里也有）：直接跑 `spotless:check` 在本仓会打出 `830 were **skipped because caching determined they were already clean**` —— 那是**缓存命中**，**它没有解析过任何文件**，"clean"这个结论**证明不了**格式合规（`-Dspotless.upToDateChecking=false` 实测**无效**）。移走 `target/spotless-index` 后复跑，读数变成 **0 skipped / 830 were already clean**，才是真解析出来的结论 ⇒ **本批的 Java 交付是 spotless 合规的**（`spotless:apply` 无需跑：0 处需要改）。这也补上了本节开头那句"最终门禁未跑"缺的一格证据。
+
+⚠️ **两条读数的出处如实记**：取自**直跑这两条命令的控制台 `Tests run` 行**，**不是** surefire/failsafe 报告文件——因为 C6 的最终门禁（`mvn -B spotless:apply && mvn -B verify`）**未在本批跑**：本批的后端改动**全部已在 C5 的 `verify` 里过一次**，P2 只新增了 `AiCustomerSummaryService` 与 P2 的目录/白名单/端点，**而 `verify` 的读数一旦落地就要求"此后不再跑 Maven"**（本仓纪律：交付读数属那一次完整 verify）。⇒ 本批采取的是**定向命令**口径，并把这一点写在这里，**不假装**它是一个完整的 verify。
+
+⚠️ **IT 必须用直调 goal 跑**（`test-compile failsafe:integration-test failsafe:verify`）：`mvn verify` 会在 `verify` 相位先过 `spotless-check`，而**破坏态**的源码本身就是格式违规 ⇒ 构建死在 spotless、IT 一次都没跑。这条教训在 `falsification-evidence.md` 的 E 系列开头与 `memory` 里各记了一次。
+
+### §2.2 前端（T052）
+
+| 门 | 读数 |
+|---|---|
+| `pnpm lint` | 退出码 **0**（无输出） |
+| `pnpm typecheck` | 退出码 **0**（无输出） |
+| `pnpm i18n:check` | ✓ 一致：zh-CN **3002** 键 / en **3002** 键；菜单路由 58 / 清单 56 / 粗粒度别名 3 |
+| `pnpm ui:check` | ✓ 通过（扫描 276 产品文件 / 128 tsx / 303 `Form.Item`；白名单内冻结债 **54** 处，**未新增违规**） |
+| `pnpm zh:check` | ✓ 通过（扫描 273 产品文件，候选点 9230；**未登记命中 0**；台账内冻结 266 处） |
+| 定向 vitest | `AiCustomerSummaryButton` **6/6** + `AiGenerateButton` **6/6**（P1 的**一字未改**）+ `CustomerDetailPage.perm` **9/9** + `CustomerDetailPage.render` **2/2** = **23/23 绿** |
+
+- ⚠️ **定向 vitest 不要给 `--maxWorkers`**：vitest 1.6 在本仓会以
+  `RangeError: options.minThreads and options.maxThreads must not conflict` **直接崩掉、0 用例**（不是"变慢"，是没跑）。要限并发得同时给 `--poolOptions.threads.minThreads` 与 `maxThreads`。
+- ⚠️ **i18n 键的计数含义**：`aiSummary*` 那 **18** 个键在 zh-CN / en **两侧同批新增**（3002 / 3002）——本仓 `check-i18n.mjs` 判的是**两份语言文件之间的双向键双射**，故只加一侧会红；但**它不扫源码用法**，所以"组件里用了不存在的键"这一面**没有任何门禁看着**，只能由用例断言**键名**（F5-b / F5-c 就是这个靶子）。
+
+### §2.3 前端全量覆盖率（**仓库默认口径**，空转机器；订正 C5 §1.3 的遗留项）
+
+```
+pnpm test:coverage   →  Test Files 97 passed (97) / Tests 493 passed (493) / 退出码 0 / 180.63s
+All files | statements 72.63 | branches 75.76 | functions 40.27 | lines 72.63
+```
+
+- **阈值**（`vite.config.ts`）：statements 33.6 / branches 47.2 / functions 21.4 / lines 33.6 ⇒ **四项全部通过**。
+- ⚠️ **本次把 C5 §1.3 的遗留项结清了**：C5 只建立了**诊断口径（D，2 worker）下全绿**，A 态那次红**未被空转机器复核**过。本次复核前置条件已核对：CPU 平均负载 **8%**（此前那个跑飞的 VS Code `rg.exe` 已被清掉）⇒ **A 态在空闲机器上全绿**，C5 记的四层归因（红来自资源抢占）由此得到独立支持。
+- ⚠️ **归因边界（必读）**：97 个测试文件里**只有 1 个是本批的**（`AiCustomerSummaryButton.test.tsx`，6 例）。相对 C5 记的 **83 文件**的增量**不是** 104 的产出，是**其他批次已提交的工作**⇒ **不得**把这 14 个文件算进本批增量，也**不得**用本节的四项百分比去对比 C5 的快照（分母变了）。工区当时**无第三方未跟踪测试文件**（`git ls-files --others src` 只有本批的 3 个文件）⇒ 该读数**可归因**。
+- ⚠️ **本节的四项百分比是"这一次运行"的读数**，不是可以反复引用的常量（本仓既有纪律：不要引用单次运行的小数位当论据）。
+
+### §2.4 定向破坏（E1–E8，逐条读数在 `falsification-evidence.md`）
+
+- **E1–E6（后端）**：E1–E5 如期变红；**E6 单刀全绿**（预测被证伪）⇒ 加固 I9 后复跑变红，**加固已采纳为交付物**。
+- **E7 / E8-a / E8-b（前端）**：三条全如期变红；**并带出两处判据自身的缺陷**（F5-a 的断言顺序、F5-f 的假绿），**两处已改**。
+- **还原**：六个后端文件 `sha1` 逐字回到破坏前值；两个前端文件同法还原（`cp` 回写 + `sha1sum`），**全程未用 `git checkout`**。读数与备份路径见 `falsification-evidence.md` 的 E 系列边界第 6 / 第 10 条。
+- ⚠️ **P3/P4 的 T060–T074 一律未勾**：本次只做 P2。
+
+### §2.5 本批交付面（**文件清单，供复核**）
+
+| 侧 | 文件 | 性质 |
+|---|---|---|
+| 后端 | `service/AiCustomerSummaryService.java` | **新增**（装配 + 两道门） |
+| 后端 | `service/AiPromptCatalog.java` | 修改（P2 组：6 个字段集 + 4 个上限 + 系统提示词 + `SummaryContext` + 渲染器） |
+| 后端 | `controller/AiContentController.java` | 修改（`POST /customer-summary` + 两个请求/响应 record） |
+| 后端 | `test/.../AiPromptCatalogTest.java` | 修改（9 → **17** 例：U9-a…U9-h） |
+| 后端 | `test/.../AiContentIT.java` | 修改（6 → **10** 例：I7–I10 + I9 的加固） |
+| 前端 | `components/AiTextGenerateButton.tsx` | **新增**（共用外壳） |
+| 前端 | `components/AiCustomerSummaryButton.tsx` | **新增**（P2 包装） |
+| 前端 | `components/AiGenerateButton.tsx` | 修改（改为薄包装，**公共接口与 6 条用例未变**） |
+| 前端 | `components/AiCustomerSummaryButton.test.tsx` | **新增**（F5-a…F5-f） |
+| 前端 | `pages/customers/CustomerDetailPage.tsx` | 修改（渲染点 + 权限门改名） |
+| 前端 | `types/aiContent.ts` / `services/aiContentService.ts` | 修改（`AiGenerationResult` + 别名 + `CustomerSummaryRequest` + `generateCustomerSummary`） |
+| 前端 | `i18n/zh-CN.ts` / `i18n/en.ts` | 修改（两侧各 **18** 个 `aiSummary*` 键） |
+| 工件 | `contracts/ai-content-generation.md` | 修改（§5.3 的 C6 实做订正块） |
+| 工件 | `falsification-evidence.md` | 修改（E 系列前端段 + 三处边界） |
+| 工件 | `spec.md` / `tasks.md` | 修改（C6 裁决/交付块、勾选、实做订正第 13–18 行、本节） |

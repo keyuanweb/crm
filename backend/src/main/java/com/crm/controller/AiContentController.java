@@ -4,6 +4,7 @@ import com.crm.common.ApiResponse;
 import com.crm.security.RateLimit;
 import com.crm.security.RateLimitDimension;
 import com.crm.security.RequirePermission;
+import com.crm.service.AiCustomerSummaryService;
 import com.crm.service.AiEmailDraftService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,9 +16,13 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * AI 文本生成端点（104-ai-content-generation，契约 {@code contracts/ai-content-generation.md}）。
  *
- * <p><b>本类最终会有四个端点，但本批（C3 = P1）只落一个</b>：{@code POST /email-draft}。P2/P3/P4 的 {@code
- * /customer-summary}（T051）·{@code /followup-polish}（T061）·{@code /opportunity-advice}（T071）
- * 各自在自己的批次里加进来——<b>不预先占位</b>：一个没有实现的方法要么必须写死返回、要么直接抛，两者都是把 "未完成"伪装成"已完成"的形态。
+ * <p><b>本类最终会有四个端点，已落两个</b>：{@code POST /email-draft}（P1，C3）与 {@code POST
+ * /customer-summary}（P2，C6）。 P3/P4 的 {@code /followup-polish}（T061）·{@code
+ * /opportunity-advice}（T071）各自在自己的批次里加进来——<b>不预先占位</b>： 一个没有实现的方法要么必须写死返回、要么直接抛，两者都是把
+ * "未完成"伪装成"已完成"的形态。
+ *
+ * <p><b>两个端点共用同一套门</b>：同一个权限码 {@code ai:generate}、同一个限流 scope {@code ai-generate}——
+ * 它们花的是同一笔外部计费调用、同一个日预算桶（FR-015/FR-017），分成两套限额只会让"总花费"变成两个都不能单独回答的数。
  *
  * <p><b>权限码 {@code ai:generate} 按判据③ 裁为"一个角色都不授予"</b>（详见 {@code RoleConstants} 里那段
  * 注释）：本端点挂在<b>既有页面</b>上（不是新菜单），既无"改造前那道粗粒度门"可继承、也无菜单承诺可依据 ⇒ 不补授、只接码。这不是遗漏：它的可执行痕迹是 {@code
@@ -54,9 +59,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AiContentController {
 
   private final AiEmailDraftService aiEmailDraftService;
+  private final AiCustomerSummaryService aiCustomerSummaryService;
 
-  public AiContentController(AiEmailDraftService aiEmailDraftService) {
+  public AiContentController(
+      AiEmailDraftService aiEmailDraftService, AiCustomerSummaryService aiCustomerSummaryService) {
     this.aiEmailDraftService = aiEmailDraftService;
+    this.aiCustomerSummaryService = aiCustomerSummaryService;
   }
 
   /**
@@ -71,6 +79,17 @@ public class AiContentController {
 
   /** 响应体：契约 §2.2 的 {@code data}。<b>不返回</b> token usage（FR-016 的 usage 只落审计）。 */
   public record EmailDraftResponse(String text, String model, boolean truncated) {}
+
+  /**
+   * P2 请求体。<b>只有一个字段</b>——契约 §2.3 明写本能力无 {@code tone} / {@code instruction}。
+   *
+   * <p>这不是"先留空、以后再补"：请求体多一个自由文本字段，就等于多一条把任意用户输入送进提示词的路径（P1 的 {@code instruction} 为此单独定了长度上限与 {@code
+   * INSTRUCTION_MAX_CHARS}）。本能力不需要它，故不设。
+   */
+  public record CustomerSummaryRequest(Long customerId) {}
+
+  /** P2 响应体：契约 §2.3 的 {@code data}，与 P1 同形。 */
+  public record CustomerSummaryResponse(String text, String model, boolean truncated) {}
 
   /**
    * 生成一封发给客户的邮件草稿。
@@ -93,5 +112,23 @@ public class AiContentController {
                 request.instruction()));
     return ApiResponse.ok(
         new EmailDraftResponse(result.text(), result.model(), result.truncated()));
+  }
+
+  /**
+   * 生成一名客户的 360 摘要（P2）。
+   *
+   * <p>审计同样落在 {@code CUSTOMER} 上、动作 {@code GENERATE}，由 {@link com.crm.service.AiContentService}
+   * 统一写入（理由同 P1：写审计的地方若有两个，就要在两处都保证 detail 不含提示词与客户数据）。
+   */
+  @PostMapping("/customer-summary")
+  @RequirePermission("ai:generate")
+  @RateLimit(scope = "ai-generate", limit = 10, windowSeconds = 60, by = RateLimitDimension.USER)
+  @Operation(summary = "生成客户 360 摘要（P2，返回纯文本）")
+  public ApiResponse<CustomerSummaryResponse> customerSummary(
+      @RequestBody CustomerSummaryRequest request) {
+    AiCustomerSummaryService.SummaryResult result =
+        aiCustomerSummaryService.generate(request.customerId());
+    return ApiResponse.ok(
+        new CustomerSummaryResponse(result.text(), result.model(), result.truncated()));
   }
 }

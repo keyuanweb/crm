@@ -98,6 +98,21 @@ sed -n '/static String auditDetail(/,/{/p' backend/src/main/java/com/crm/service
 - ⚠️ **它只是一个补充判据，真判据在落点处**：`record(...)` 是**调用者**，而 detail 的**构造者**是 `auditDetail(...)`（`AiContentService.java:187`）。把提示词塞进 detail 的**唯一**写法是先改那个签名 ⇒ 判据②（形参表 **4 个标量、无 String 载荷位**）才是**锚在落点上**的那条；判据①只证明「这一次的实参里没有多余载荷」。
 - **行为层孪生**（真正会被打红的）：单测 `AiContentServiceTest.usageComesFromTheSdkAndAuditHasMetadataOnly`（`:363`）与 IT `AiContentIT.generationWritesNothingButOneMetadataOnlyAuditRow`（锚字符串「审计只放元数据（FR-016）」；引用行号须连同锚字符串一起引——C4 期间该行由 `:283` 漂到 `:279`）。
 
+⚠️ **2026-09-27 C6 对 §6 首条命令期望值的订正（**「应 4 处 RequirePermission + 4 处 RateLimit」这个期望值是错的，且它在 C5 交付时就已经是错的——**本条为如实补记**）**：
+
+- **实测（P2 交付后的当前树）**：`grep -c 'RequirePermission("ai:generate")' …/AiContentController.java` → **2**；`grep -c 'RateLimit' …` → **4**，而**其中只有 2 行是注解**——另 2 行是 `import com.crm.security.RateLimit;` 与 `import com.crm.security.RateLimitDimension;`（**`grep -c 'RateLimit'` 把两行 import 也数了进去**）。
+- **为什么「4」从来不可复现**：那个期望值是按**规格里的四档能力（P1–P4）**写的，而**实际交付到哪一档**才决定端点数——P1 交付后应为 **1**、P2 交付后为 **2**。⇒ 括号里的数字是**「计划数」冒充「读数」**，与 `DELIVERY_SCOPE.md` 那句「四个 AI 入口一律 409」**同形、同一类错误**（**同一批订正**）。
+- **改用与端点数挂钩的自证口径**（三条必须同时成立且相等，当前读数均为 **2**）：
+  ```bash
+  grep -cE '@(Post|Get|Put|Delete|Patch)Mapping' backend/src/main/java/com/crm/controller/AiContentController.java  # 端点数
+  grep -cE '^\s*@RequirePermission\(' backend/src/main/java/com/crm/controller/AiContentController.java             # 权限码注解数（须 == 端点数）
+  grep -cE '^\s*@RateLimit\(' backend/src/main/java/com/crm/controller/AiContentController.java                    # 限流注解数（须 == 端点数）
+  ```
+  ⚠️ **两个注解命令都加了行首锚 `^\s*@`**：不加的话 `RateLimit` 那条会**把两行 import 一起数进来**（4 vs 2），**而这类错误自证不了**——除非把命中行原样打印出来对照（本仓「grep 模式的边界要自证」那条的又一实例）。
+- ⚠️ **一处顺带确认（不是缺陷）**：两个端点**共用同一个限流 scope `"ai-generate"`**（各 `limit = 10 / windowSeconds = 60 / by USER`）——这是 C5 的既定设计（两个能力共用权限码、限流 scope 与日预算桶，理由见 `CustomerDetailPage.tsx` 的权限注释），**不是复制粘贴漏改**。
+- ⚠️ **上面命令块里的旧期望值原文逐字保留、不重写**，**自本条起以本⚠️为准**。
+- ⚠️ **另两条命令的"文件射程"要扩到 P2 的新类**（**命令原文不改，只记射程**）：「零裸 Mapper 取数」与「审计 detail 只放元数据」两条写的都是 `AiContentService.java` 一个文件。P2 新增的 **`AiCustomerSummaryService.java`** 实测：**裸 Mapper 命中 0**（它全程走 `CustomerService` / `Customer360Service` / `TagService` / `FollowUpService`，**不碰 Mapper**）；**该类内 `auditService` / `auditDetail` 命中也是 0**——因为 P2 **复用** P1 的 `AiContentService` 发请求与记审计（`private final AiContentService aiContentService`），**审计 detail 的构造者仍是 P1 那个 4 标量签名**（即上条"真判据在落点处"那句话**对 P2 同样成立**）。⇒ **两条命令的射程加一句**：判据的落点**没有因为多了一个端点而移动**，这正是"复用同一个 `AiContentService`"换来的；⚠️ **若将来有某一档不走这个类，这两条命令必须重新划射程**（本条即为此立据）。
+
 ## 7 交付时填（**不得预填**）
 
 | 项 | 读数 |
@@ -105,8 +120,8 @@ sed -n '/static String auditDetail(/,/{/p' backend/src/main/java/com/crm/service
 | 门禁那次 `verify` 的结果 | 交付时填，**权威读数写在 `tasks.md` §交付块**（本文件只留指针——「一个数字住在好几个地方」是本仓严打的） |
 | `jacoco.exec` 字节数 / mtime | 同上 |
 | 前端九道（含 `build`） | 同上 |
-| `i18n:check` 键数 | ✅ **交付时已填（2026-09-27）：2984/2984**；**开工基线 2966/2966**（**2026-09-27 已实跑复测、与立项期读数逐字相同**，见 `research.md` §6.1——本项**新增 i18n 键**，故交付读数与基线**不等**：**每语各 +18 键**（**2966 → 2984**，两语同数——正合本仓「双语键同数新增」的规矩；本行原写的「差值 = 新增键数×2」说的是**两语合计**的键条目 +36，**不是**门禁报的那个数 +36） |
+| `i18n:check` 键数 | ✅ **交付时已填（2026-09-27）：2984/2984**；**开工基线 2966/2966**（**2026-09-27 已实跑复测、与立项期读数逐字相同**，见 `research.md` §6.1——本项**新增 i18n 键**，故交付读数与基线**不等**：**每语各 +18 键**（**2966 → 2984**，两语同数——正合本仓「双语键同数新增」的规矩；本行原写的「差值 = 新增键数×2」说的是**两语合计**的键条目 +36，**不是**门禁报的那个数 +36）。⚠️ **2026-09-27 C6 档（P2）再填**：现读 **3002/3002**（P2 的 `aiSummary*` 族**每语各 +18 键**，**两语同数**），**上句 2984/2984 原文逐字保留** |
 | 定向破坏 D1–D10 的实测输出 | 见 `falsification-evidence.md`（**交付相位才写**，开工前不得编造）✅ **已产**（C4），**D1–D10 逐条实测、逐条还原**，三处与预测不符 |
-| 四项能力实际交付到哪一档（P1 单发 / P1+P2 / 全量） | ✅ **交付时已填（2026-09-27）：P1 单发**——`POST /api/v1/ai/email-draft` 一项；P2/P3/P4 **未交付**（Phase 5+ 保持未勾）。本文件的 §2/§3 对四档**均适用** |
+| 四项能力实际交付到哪一档（P1 单发 / P1+P2 / 全量） | ✅ **交付时已填（2026-09-27）：P1 单发**——`POST /api/v1/ai/email-draft` 一项；P2/P3/P4 **未交付**（Phase 5+ 保持未勾）。本文件的 §2/§3 对四档**均适用**。⚠️ **2026-09-27 C6 档再填（上句原文逐字保留）**：**现为「P1 + P2」**——增 `POST /api/v1/ai/customer-summary`（客户 360 摘要）；**P3/P4 仍未交付**（Phase 5+ 保持未勾）。⚠️ **本行的档位措辞是"交付进度"、不改判据**：§2/§3 对四档**均适用**这句**一字不变** |
 
 > ✅ **2026-09-27 C5：上表「不得预填」的禁令已在交付相位解除**，两处读数与一处工件状态按上表就地填写（**前四行仍是"指向 `tasks.md` §交付块"的指针**，不在此复制数字——本仓严打「一个数字住在好几个地方」）。

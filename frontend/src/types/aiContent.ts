@@ -58,8 +58,14 @@ export interface EmailDraftRequest {
   instruction?: string
 }
 
-/** `POST /api/v1/ai/email-draft` 的成功响应体（= 后端 `EmailDraftResponse` record）。 */
-export interface EmailDraft {
+/**
+ * 全部四个能力的成功响应体**同形**（后端也是四个 `*Response` record，字段逐字相同）：
+ * P1 `EmailDraftResponse` / P2 `CustomerSummaryResponse` / P3 / P4 都是 `{text, model, truncated}`。
+ *
+ * <p>故这里只有**一个**形状，各能力用别名指过来（`EmailDraft` / `CustomerSummary`）。写四份同形
+ * 的 interface 不会更安全，只会让"四个能力里有一个多了/少了一个字段"变成看不出的事。
+ */
+export interface AiGenerationResult {
   text: string
   /** 实际出字的模型名（部署可换模型，故由响应带回而不是前端写死）。 */
   model: string
@@ -70,4 +76,21 @@ export interface EmailDraft {
    * 结果给用户（契约 §2.5 / F4）。
    */
   truncated: boolean
+}
+
+/** `POST /api/v1/ai/email-draft` 的成功响应体（= 后端 `EmailDraftResponse` record）。 */
+export type EmailDraft = AiGenerationResult
+
+/** `POST /api/v1/ai/customer-summary` 的成功响应体（= 后端 `CustomerSummaryResponse` record）。 */
+export type CustomerSummary = AiGenerationResult
+
+/**
+ * `POST /api/v1/ai/customer-summary` 的请求体（= 后端 `CustomerSummaryRequest` record）。
+ *
+ * <p><b>只有一个字段</b>，且这不是"先留空、以后再补"：契约 §2.3 明写本能力无 `tone` / `instruction`。
+ * 请求体多一个自由文本字段，就等于多一条把任意用户输入送进提示词的路径——而这条路径上的
+ * 防护（长度上限、内容比例）在 P1 是**单独定过**的，搬过来并不免费。
+ */
+export interface CustomerSummaryRequest {
+  customerId: number
 }
