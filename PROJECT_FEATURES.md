@@ -204,6 +204,42 @@
 > **旧值逐字留痕（仍可在本段与本文件表头 grep 到，不是静默改写）**：
 > `93 / 7`、`**101 个（001–102，缺 069）**`。
 
+> ⚠️ **2026-09-27 第八次重测（由 104 = 104-ai-content-generation 执行）——本次动 6 行**
+>
+> **本项的活动半径是「后端 1 个新端点 + 6 个新类 + 1 个新配置类 + 前端 1 个组件 + 1 个新 service + 两语新增键 + 文档」**（**零新迁移、零新表、零新实体、零新权限码授予、零新菜单/路由**）。
+> ⚠️ **C3 的零授予裁决是本段的关键前提**：`ai:generate` **授予任何角色** 这一条被裁为**不做** ⇒ **`V92` 不存在** ⇒ `INSTALL.md` 与 `specs/README.md` 的迁移表**都不动**，**Flyway 一行因此「不变」而不是「+1」**（这一点与 096/102 那两次 **形制相反**，不得套模板）。
+> ⇒ 动的 6 行如下，其余各行**逐字未变**：
+>
+> | 行 | 旧值（逐字见下方留痕） | 新值 | 变动来源 |
+> |---|---|---|---|
+> | 后端 REST Controller | 66 | **67** | +`controller/AiContentController.java`（`POST /api/v1/ai/email-draft`，P1 唯一新端点） |
+> | 后端测试类 | 197 / 204 | **204 / 212** | +**7 个含用例的类**（`AiPermissionGrantIT` · `AiStatusTest` · `AiContentIT` · `AiContentUnconfiguredIT` · `AiContentServiceTest` · `AiPromptCatalogTest` · `AiTokenBudgetTest`）+ **1 个不含用例的 `.java`**（`support/AnthropicTestResponses.java`，SDK `Message` 是 final 构造链 ⇒ 抽出来的**共用桩**，无 `@Test`）⇒ **两半同增、但增量不同（7 / 8）**，见下方口径提醒 |
+> | 前端 service | 56（非测试 60） | **57（非测试 61）** | +`services/aiContentService.ts` |
+> | 前端单测 / E2E | 95 / 7 | **96 / 7** | +`components/AiGenerateButton.test.tsx`（F1–F4）；**E2E 仍 7**（104 不写 e2e） |
+> | i18n 资源 | zh-CN 3457 行 / en 3430 行（键 2966/2966） | **zh-CN 3476 行 / en 3448 行（键 2984/2984）** | 两语各 +18 键（`aiDraft*` 族）；zh 侧另有 1 行说明注释 ⇒ **行数 +19 / +18、键数 +18 / +18**（**两把尺子的差额恰好由那一行注释解释**）；行数差 27 → **28** |
+> | Spec 模块 | 102（001–103，缺 069） | **103（001–104，缺 069）** | 104 自己的目录（**同 097/099/100/101/102/103 的处置：它不给自己豁免**） |
+>
+> **未变的行（逐条点名，不写「若干行」；⚠️ **本次动过的 6 行见上表、不混进这个名单**）**：数据库表 **86**（**零迁移**——正确口径是 `grep -h 'CREATE TABLE' …/*.sql | sed … | sort -u | wc -l`；⚠️ **别用 `sed 's/.*CREATE TABLE //;s/[ (].*//'` 那种写法**：本仓 SQL 一律写 ``CREATE TABLE `name` ``、少数写 `IF NOT EXISTS`，那种写法会把后者截成 `IF` 并把 86 张表**塌成 5 个名字**——本段起草时踩过一次，**这类错误自证不了**，故把正确命令写在这里）；Flyway 迁移 **90（V1–V91，缺 V72）**（**零迁移**，见上）；前端页面组件 **100（含测试共 177）**（104 新增的两个 tsx 落在 `components/`，**不在本行的 `pages/` 口径内**）；前端路由定义 **87**（P1 的宿主是**既有**客户详情页，**不新增菜单/路由**，`grep -c '<Route' frontend/src/App.tsx` 仍 **88** ⇒ 减 `<Routes>` 1 处 = 87）。
+>
+> 复算命令即上表「依据」列；本次实跑读数（当前工作区）：
+> `find backend/src/main/java -name '*Controller.java' | wc -l` → **67**；
+> `grep -rlE "@Test|@ParameterizedTest" backend/src/test/java | wc -l` → **204**；`find backend/src/test/java -name '*.java' | wc -l` → **212**；
+> `find frontend/src/services -name '*Service.ts' | wc -l` → **57**、加 `! -name '*.test.ts'` 的非测试 `.ts` → **61**；
+> `find frontend/src -name '*.test.ts*' | wc -l` → **96**；`find frontend/e2e -name '*.spec.ts' | wc -l` → **7**；
+> `wc -l frontend/src/i18n/zh-CN.ts frontend/src/i18n/en.ts` → **3476 / 3448**；`pnpm i18n:check` → **2984/2984**（路由 58 / 清单 56 / 别名 3）；
+> `find frontend/src/pages -name '*.tsx' | wc -l` → **177**、加 `! -name '*.test.tsx'` → **100**；`grep -c '<Route' frontend/src/App.tsx` → **88**；
+> `ls -d specs/[0-9]* | wc -l` → **103**（缺号实测仍**只有 `069`**）；`ls backend/src/main/resources/db/migration/*.sql | wc -l` → **90**。
+>
+> ⚠️ **一处口径提醒（本段专记，否则「后端测试类」那行的 7 / 8 会被读成笔误）**：该行的两半是**两把尺子**——前半数的是**文件里出现过 `@Test`/`@ParameterizedTest`**，后半数的是**文件总数**。104 新增的 8 个测试文件里 **`AnthropicTestResponses` 一个用例也没有**（它是桩）⇒ **两半同增而不等**。这与 100 那次「两者同增 6」**形制相反**，**不是漏改**；日后新增纯基类/纯 fixture 时同样只会动后半。
+>
+> ⚠️ **前端那两行的证据强度须分开读**：本行的 **96** 是**文件计数**；**i18n 的 2984/2984 是门禁读数**。
+> 104 的前端用例证据是**全量 `test:coverage`（含 `AiGenerateButton.test.tsx` 6 passed）**，读数见本批 `tasks.md` §交付块与 `specs/README.md` 的 104 行——**不在此重复**（「一个数字住在好几个地方」）。⚠️ **但须在此点一句口径**：那道门禁**分两个口径**——**诊断口径（2 worker）下全量全绿（96 文件 / 487 用例）**，**仓库默认口径下未建立绿灯**（红全是 `testTimeout`、与 104 无关）；**只引其一必失真**。
+>
+> **旧值逐字留痕（仍可在本段与本文件表头 grep 到，不是静默改写）**：
+> **56 个 `*Service.ts`（+`apiClient.ts`；`services/` 非测试 `.ts` 共 60）**、**66**、**197 / 204**、**95 / 7**、
+> **zh-CN 3457 行 / en 3430 行（键 2966/2966）**、**102 个（001–103，缺 069）**、**90（V1–V91，缺 V72）**、**86**、**100（含测试共 177）**、**87**。
+> （上面这一串就是**动与不动两类旧值**的原样：前半是本次动过的 6 行，后半是本次点名的未变行。都已随本段正文留在文件里，**不是静默改写**。）
+
 ## 二、技术栈
 
 | 层级 | 技术 |

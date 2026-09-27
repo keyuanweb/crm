@@ -62,6 +62,8 @@
 | **「`field_id` 与 `field_key` 恰好一列非空」的 DB 级约束** | 无。只有服务层的 `upsert` 保证 | 实测 H2 与 MySQL **都允许双 NULL 行**（读数落在 `specs/102-builtin-field-permission/data-model.md`）⇒ 这类错行**没有任何自动判据**能发现 |
 | **「省略即销毁」缺陷类的全面修复** | 只修了**一处**（自定义字段的受保护值）。其余同类路径**登记不修** | 见 §5。盘点判据与其余各处的登记在 `specs/103-omission-not-destruction/research.md` |
 | **自定义字段的读写边界** | 有三处已知边界，均**登记不修** | ① **必填校验对权限不可见** ⇒ 必填且 `READ_ONLY` 的字段被省略时先 422（回补够不着）；必填且 `HIDDEN` 的字段**任何调用方都无法满足**；② **回传格式脆弱**：`READ_ONLY` 的回传之所以安全，只因其初始值是库中的原始字符串，任何「格式化后回传」都会变成 422；③ **分页端点的 `permission` 漂移**（`/custom-fields/definitions` 下发、分页端点不下发）⇒ 前端只能按可选字段编码 |
+| **模型主机、模型账号与 API key** | 零。**不在交付范围内**——本项只交付「**一条可配置的生成式通路**」，**不附带**任何模型主机、账号或密钥 | `crm.ai.enabled` 出厂 `false`（`application.yml`）⇒ 四个 AI 入口 **409 + 零出站**；部署侧自备出网 / 密钥 / Anthropic 兼容端点，见 §4 第 6 条与该目录 `contracts/ai-content-generation.md` §1 |
+| **生成式 AI 的其余三项能力**（客户 360 摘要 / 跟进润色·总结 / 商机下一步建议） | 零。**未交付**——本批只交 **P1 邮件草稿**；另三项是同一规格里的 P2 / P3 / P4 组 | `specs/104-ai-content-generation/tasks.md` 的 Phase 5+；`CRM_FEATURE_COMPARISON.md` 2.10 该行「四项生成能力只交了 1 项」 |
 
 **另有两条不写成「缺陷」、只写成「没有判据看着」**（措辞刻意如此，**不得**读成「已验证无风险」）：
 
@@ -83,6 +85,22 @@
 4. **单实例假设**：见 §3 的「多实例 / 集群部署」行。需要多实例时，先解决定时任务的集群锁与
    实时通知的跨实例投递。
 5. **部署步骤、环境变量与首次启动的说明**以 `INSTALL.md` 为唯一真源，本文件不复制其内容。
+6. **AI 文本生成（104）给部署包新增了一条「可选、默认关闭」的对外依赖** —— `crm.ai.enabled`
+   出厂为 `false` ⇒ 四个 AI 入口一律 **409 `AI_NOT_CONFIGURED` 且零出站**，**不配置就与交付前
+   无差别**。显式打开后，部署侧须**自备**三样东西（本仓**不附带**任何模型主机、账号或密钥）：
+   ① **出网**：目标模型主机必须允许出站，**且必须同时把它加进 `crm.outbound.allowed-hosts`
+   （env `CRM_OUTBOUND_ALLOWED_HOSTS`）——否则后端启动即失败**。本项唯一的出站准入控制就是
+   启动期的这一次校验（官方 Java SDK 内部走 OkHttp，**绕过** `OutboundUrlValidator` 的逐跳校验；
+   该偏离的威胁模型论证已显式声明在 `specs/104-ai-content-generation/plan.md` 的 Constitution Check
+   原则三，**不是静默绕过**）。
+   ② **API key**：`crm.ai.api-key`（env `CRM_AI_API_KEY`）由部署方提供并保管；它**不进日志、
+   不进响应、不进审计 detail**（判据见该目录 `quickstart.md` §6 与 `falsification-evidence.md` 的 D7）。
+   ③ **接口形状**：接口标准是 **Anthropic Messages API 兼容** —— **「可配置 base URL」不等于
+   「任何模型都能用」**：Ollama / vLLM 的**原生** API 不是该形状，**必须前置一层协议转换网关**
+   （约束原文见该目录 `contracts/ai-content-generation.md` §1 与 `spec.md` 的 A-001）。
+   ⚠️ **依赖足迹**：本项新增 `com.anthropic:anthropic-java` 及其传递依赖（okhttp / okio / kotlin-stdlib
+   等），逐条读数见 `specs/104-ai-content-generation/research.md` §12.1；**这些 jar 随包分发**，
+   与「出网」是两件事（不发一个请求也会进类路径）。
 
 ---
 

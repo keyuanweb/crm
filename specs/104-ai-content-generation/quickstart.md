@@ -73,6 +73,13 @@ git diff --stat -- backend/src/main/resources/db/migration/
 # 预算键族只应出现在 AiTokenBudget 一处，且**不得**出现 022 的 ai:ignore:（应为 1 个文件、0 命中）
 grep -rln "ai:gen:budget" backend/src/main/java/com/crm/
 grep -rn "ai:ignore:" backend/src/main/java/com/crm/service/AiTokenBudget.java
+# 审计 detail 只放元数据、提示词与客户数据一律不进（SC-004 / FR-016）——**两条一起看，缺一条即判据不完整**
+# ① 调用点的载荷白描：该段必须**原样打印出来**（它同时是「扫到了什么」的自证；不打印就分不清「0 命中」与「sed 没扫到」）
+sed -n '/auditService\.record(/,/);/p' backend/src/main/java/com/crm/service/AiContentService.java
+sed -n '/auditService\.record(/,/);/p' backend/src/main/java/com/crm/service/AiContentService.java | grep -cniE "prompt|instruction|content|customer|name|company"   # 期望 0
+# ② 落点处（detail 的**构造者**，不是调用者）：形参表本身应**只有 4 个标量**、**没有任何 String 载荷位**
+#    ⇒ 结构上不可能把提示词塞进 detail 而不先改这个签名（这是本项真判据的落点；见下方 D7 段）
+sed -n '/static String auditDetail(/,/{/p' backend/src/main/java/com/crm/service/AiContentService.java
 ```
 
 ⚠️ **2026-09-27 C2 对上面两条命令的订正**（原命令逐字保留）：
@@ -84,6 +91,13 @@ grep -rn "ai:ignore:" backend/src/main/java/com/crm/service/AiTokenBudget.java
   一条 0 命中的否定判据单独存在时是**自证不了**的：它无法区分"密钥被管住了"与"密钥被挪到别处了"。
 - **`git diff --stat -- db/migration/` 那条**：其后半句的自证方式（空输出=正确读数）**只在 `V92` 真的存在时**才成立。C3 若按判据③ 裁为零授予 ⇒ 本项**根本不新增迁移**，"空输出"于是同时兼容两种情形（什么都没加 / 加了但被误提交为已跟踪文件的修改），**该命令失去分辨力**。此时正确的判据换成迁移计数不动：`ls backend/src/main/resources/db/migration/ | wc -l`（交付基线 **90**，最高 `V91`）。 ✅ **2026-09-27 C3：这个分支已被走到（裁为零授予）⇒ 上面那条 `ls | wc -l` 就是本项的**生效判据**，`git diff --stat` 那条自此只作补充；权威落点 `research.md` §13.6**
 
+⚠️ **2026-09-27 C4/C5 补登记：审计 detail 那条判据**（`falsification-evidence.md` 的 D7 记下了「**该判据在本项工件里没有登记过命令**」——C4 的提交信息里承诺「需在 C5 的落点表登记」，本段即兑现）：
+
+- **命令与两态读数**（C4 实测）：`sed -n '/auditService\.record(/,/);/p' <file> | grep -cniE "prompt|instruction|content|customer|name|company"` ⇒ **还原态 0 / 破坏态 2**（破坏态的两行是 `+ " prompt="` 与 `+ request.userPrompt()`）。C5 复跑还原态，**仍为 0**。
+- ⚠️ **为什么必须把该段原样打印出来**：这条 grep 的模式里含 `content`，而**同文件里到处是 `AiContentService` / `AiContentIT`** ⇒ 只要把扫描范围放宽到全文（或那段落空），读数就会从 0 变成一大串、且**与提示词无关**。**6 行白描就是它的正对照**：没有白描，"0 命中"分不清「判据成立」与「sed 根本没扫到」。这也正是本仓「grep 模式的边界要自证」那条的又一例。
+- ⚠️ **它只是一个补充判据，真判据在落点处**：`record(...)` 是**调用者**，而 detail 的**构造者**是 `auditDetail(...)`（`AiContentService.java:187`）。把提示词塞进 detail 的**唯一**写法是先改那个签名 ⇒ 判据②（形参表 **4 个标量、无 String 载荷位**）才是**锚在落点上**的那条；判据①只证明「这一次的实参里没有多余载荷」。
+- **行为层孪生**（真正会被打红的）：单测 `AiContentServiceTest.usageComesFromTheSdkAndAuditHasMetadataOnly`（`:363`）与 IT `AiContentIT.generationWritesNothingButOneMetadataOnlyAuditRow`（锚字符串「审计只放元数据（FR-016）」；引用行号须连同锚字符串一起引——C4 期间该行由 `:283` 漂到 `:279`）。
+
 ## 7 交付时填（**不得预填**）
 
 | 项 | 读数 |
@@ -91,6 +105,8 @@ grep -rn "ai:ignore:" backend/src/main/java/com/crm/service/AiTokenBudget.java
 | 门禁那次 `verify` 的结果 | 交付时填，**权威读数写在 `tasks.md` §交付块**（本文件只留指针——「一个数字住在好几个地方」是本仓严打的） |
 | `jacoco.exec` 字节数 / mtime | 同上 |
 | 前端九道（含 `build`） | 同上 |
-| `i18n:check` 键数 | 交付时填；**开工基线 2966/2966**（**2026-09-27 已实跑复测、与立项期读数逐字相同**，见 `research.md` §6.1——本项**新增 i18n 键**，故交付读数应与基线**不等**，差值 = 本项新增键数×2） |
-| 定向破坏 D1–D10 的实测输出 | 见 `falsification-evidence.md`（**交付相位才写**，开工前不得编造） |
-| 四项能力实际交付到哪一档（P1 单发 / P1+P2 / 全量） | 交付时填 —— 本文件的 §2/§3 对四档**均适用** |
+| `i18n:check` 键数 | ✅ **交付时已填（2026-09-27）：2984/2984**；**开工基线 2966/2966**（**2026-09-27 已实跑复测、与立项期读数逐字相同**，见 `research.md` §6.1——本项**新增 i18n 键**，故交付读数与基线**不等**：**每语各 +18 键**（**2966 → 2984**，两语同数——正合本仓「双语键同数新增」的规矩；本行原写的「差值 = 新增键数×2」说的是**两语合计**的键条目 +36，**不是**门禁报的那个数 +36） |
+| 定向破坏 D1–D10 的实测输出 | 见 `falsification-evidence.md`（**交付相位才写**，开工前不得编造）✅ **已产**（C4），**D1–D10 逐条实测、逐条还原**，三处与预测不符 |
+| 四项能力实际交付到哪一档（P1 单发 / P1+P2 / 全量） | ✅ **交付时已填（2026-09-27）：P1 单发**——`POST /api/v1/ai/email-draft` 一项；P2/P3/P4 **未交付**（Phase 5+ 保持未勾）。本文件的 §2/§3 对四档**均适用** |
+
+> ✅ **2026-09-27 C5：上表「不得预填」的禁令已在交付相位解除**，两处读数与一处工件状态按上表就地填写（**前四行仍是"指向 `tasks.md` §交付块"的指针**，不在此复制数字——本仓严打「一个数字住在好几个地方」）。
