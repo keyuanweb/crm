@@ -336,6 +336,16 @@ export const PERMS = {
   // ---- 外勤拜访（FieldVisitController） ----
   /** 签到 / 取消拜访：POST /api/v1/field-visits/{id}/check-in、/cancel。 */
   visitManage: 'visit:manage',
+
+  // ---- AI 文本生成（AiContentController） ----
+  /**
+   * 生成 AI 文本：POST /api/v1/ai/email-draft（P1）、以及 P2–P4 的三个端点。
+   *
+   * <p>四个端点**共用一个码**：它们在权限面上同生同灭（104 FR-020 把 `ai:generate` 裁为
+   * **预置角色零授予**，是一份记录在案的决定，见后端 `AiPermissionGrantIT`）。P1 只用得到
+   * `/email-draft`，故本码的接线点是客户详情页的「生成邮件草稿」。
+   */
+  aiGenerate: 'ai:generate',
 } as const
 
 export type PermCode = (typeof PERMS)[keyof typeof PERMS]

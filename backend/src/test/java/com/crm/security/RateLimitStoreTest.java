@@ -2,6 +2,7 @@ package com.crm.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
@@ -220,5 +222,103 @@ class RateLimitStoreTest {
     assertEquals("rl:open-api-read:key:7", RateLimitKeys.apiKey("open-api-read", 7L));
     assertEquals("rl:public-read:ip:203.0.113.7", RateLimitKeys.ip("public-read", "203.0.113.7"));
     assertEquals("rl:", RateLimitKeys.PREFIX, "前缀与 auth:* 同级，运维按前缀注入故障与监控");
+  }
+
+  // ===== 配额语义：同一个类型上的第二种计数（104-ai-content-generation，2026-09-27） =====
+
+  /**
+   * 配额<b>读</b>：走 {@code get}，且整条路径<b>不写</b>。
+   *
+   * <p>与 {@link #countsWithIncrementNeverWithGetAndSet} 是同一条纪律的镜像：两种语义必须各用各的原语。
+   * 读路径一旦带上写，就会出现"查一次预算就凭空多记一次消费"这种症状——而它在任何只看响应码的用例里 都看不出来（响应照样是 200）。
+   */
+  @Test
+  @DisplayName("配额读：走 get（不是 increment），且不写键、不设窗")
+  void usageReadsWithGetAndNeverWrites() {
+    when(valueOps.get(KEY)).thenReturn(1234L);
+
+    assertEquals(1234L, store.usage(KEY));
+
+    verify(valueOps).get(KEY);
+    verify(valueOps, never()).increment(anyString());
+    verify(valueOps, never()).increment(anyString(), anyLong());
+    verify(template, never()).expire(anyString(), any(Duration.class));
+  }
+
+  /**
+   * 配额读对<b>值的形态</b>宽容：键不存在 ⇒ 0；字符串数字 ⇒ 按数字读；真不是数字 ⇒ 0 而不是抛。
+   *
+   * <p>后两种是"序列化器与写入方不匹配"这一真 bug 的两种表现。把它变成异常，会让 AI 端点直接 500—— <b>用一个更大的故障替换一个小故障</b>（同 fail open
+   * 的立场论述）；而日志里带上类型名，让排查有落点。
+   */
+  @Test
+  @DisplayName("配额读：键不存在 ⇒ 0；字符串数字 ⇒ 按数字读；非数字 ⇒ 0（都不抛）")
+  void usageIsLenientAboutTheStoredShape() {
+    when(valueOps.get(KEY)).thenReturn(null);
+    assertEquals(0L, store.usage(KEY), "键不存在 = 今天还没花过（也让「键存在」等价于「真的花过钱」）");
+
+    when(valueOps.get(KEY)).thenReturn("42");
+    assertEquals(42L, store.usage(KEY), "写进去的是字符串数字时仍要读得出来，否则预算静默失效");
+
+    when(valueOps.get(KEY)).thenReturn("不是数字");
+    assertEquals(0L, store.usage(KEY), "按 0 计 = 暂时失效；抛异常 = 全站 AI 端点不可用");
+  }
+
+  @Test
+  @DisplayName("配额读：Redis 故障 ⇒ 0（fail open，与 record 同一立场）")
+  void usageIsFailOpen() {
+    doThrow(new RedisConnectionFailureException("redis down")).when(valueOps).get(KEY);
+
+    assertEquals(0L, store.usage(KEY), "拿不到已用量时「当作花光了」会让全站在抖动期间不可用");
+  }
+
+  /**
+   * 配额<b>记</b>：走 {@code increment(key, amount)}，窗口只在首次写入时设。
+   *
+   * <p>"首次"的判据是 {@code count == amount}（恰好等于本次增量），不是 {@code count == 0}—— 后者在累计量语义下永远为假，于是 TTL
+   * 一次都不会被设上。故这条用会真累加的答案 （照 {@link #theWindowIsSetOnlyOnTheFirstRequest} 的 AtomicLong 写法），而不是常量答案。
+   */
+  @Test
+  @DisplayName("配额记：走 increment(key, amount)；首次写入设窗，后续消费不续窗")
+  void chargeIncrementsByAmountAndArmsTheWindowOnlyOnce() {
+    AtomicLong accumulated = new AtomicLong();
+    when(valueOps.increment(KEY, 500L)).thenAnswer(inv -> accumulated.addAndGet(500L));
+
+    store.charge(KEY, 500L, WINDOW);
+    store.charge(KEY, 500L, WINDOW);
+
+    verify(valueOps, times(2)).increment(KEY, 500L);
+    verify(valueOps, never()).increment(anyString());
+    verify(template, times(1)).expire(KEY, Duration.ofSeconds(WINDOW));
+  }
+
+  /**
+   * {@code amount <= 0} ⇒ <b>一个键都不写</b>。
+   *
+   * <p>这不是省一次往返的优化：「预算键存在」这件事被当作"今天真的花过钱"的证据（{@code AiTokenBudget} 的 记账判据、以及运维按前缀观察成本），一个没花钱的调用在
+   * Redis 里留下键会让这条推断失真。
+   */
+  @Test
+  @DisplayName("配额记：amount ≤ 0 一个键都不写（「键存在」继续等价于「今天真的花过钱」）")
+  void chargeWritesNothingForNonPositiveAmounts() {
+    store.charge(KEY, 0, WINDOW);
+    store.charge(KEY, -5, WINDOW);
+
+    verifyNoInteractions(valueOps);
+    verify(template, never()).expire(anyString(), any(Duration.class));
+  }
+
+  /** 配额记的失败立场同 {@link #everyStoreFailureIsFailOpen}：不记、不抛，且没拿到答复就不设窗。 */
+  @Test
+  @DisplayName("配额记：存储故障 / 无明确答复 ⇒ 不记也不抛（fail open）")
+  void chargeIsFailOpen() {
+    doThrow(new RedisConnectionFailureException("redis down")).when(valueOps).increment(KEY, 500L);
+    store.charge(KEY, 500L, WINDOW);
+
+    // doReturn 而不是 when(...)：when() 会真的去调那个刚被设成抛异常的桩（同上一条用例的论述）。
+    doReturn(null).when(valueOps).increment(KEY, 500L);
+    store.charge(KEY, 500L, WINDOW);
+
+    verify(template, never()).expire(anyString(), any(Duration.class));
   }
 }

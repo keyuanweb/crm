@@ -3,7 +3,10 @@ package com.crm.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -64,7 +67,24 @@ class BuiltinFieldPermissionFixture {
    * 第二次必然因编码重复而失败，不影响后续。角色是否真的建成功，会由「持码角色不被拒」的正对照暴露。
    */
   void ensureRole() throws Exception {
-    String perms = PERMISSIONS.stream().map(p -> "\"" + p + "\"").collect(Collectors.joining(","));
+    ensureRole(List.of());
+  }
+
+  /**
+   * 建角色并授码，<b>外加</b> {@code extraPermissions}。
+   *
+   * <p><b>为什么要有这个重载，而不是把 {@code ai:generate} 加进 {@link #PERMISSIONS}</b>：那是一份**基线**清单， 102
+   * 的六个用例类共用它，其中三条（掩码 / 写侧回补 / 导出）都在断言"这个角色**看不见**什么"。给基线加上一个与
+   * 字段权限无关的码，等于让"这个角色有什么"这件事在每个用例里的含义都悄悄变宽——而宽出去的那一部分谁也没在看着。 需要额外码的用例自己点名要，基线不动。
+   *
+   * <p>⚠️ 由此产生的一条纪律：本重载授出的码<b>必须是字典里有的</b>（{@code PermissionDictionaryTestSupport.codes()}）， 否则
+   * {@code POST /roles} 会以 400/422 拒掉整个建角色请求，而症状是"该角色连基线权限都没有"——
+   * 表现为用例里的正对照（持码角色不被拒）红，指向的却是权限配置而不是这一行。
+   */
+  void ensureRole(List<String> extraPermissions) throws Exception {
+    List<String> all = new ArrayList<>(PERMISSIONS);
+    all.addAll(extraPermissions);
+    String perms = all.stream().map(p -> "\"" + p + "\"").collect(Collectors.joining(","));
     call(
         adminToken,
         HttpMethod.POST,
@@ -194,7 +214,11 @@ class BuiltinFieldPermissionFixture {
         parsed = null; // 非 JSON 响应（xlsx）由调用方用 bytes 取
       }
     }
-    return new Res(result.getResponse().getStatus(), parsed, content);
+    Map<String, String> headers = new LinkedHashMap<>();
+    for (String name : result.getResponse().getHeaderNames()) {
+      headers.put(name, result.getResponse().getHeader(name));
+    }
+    return new Res(result.getResponse().getStatus(), parsed, content, headers);
   }
 
   /** 取 xlsx 之类二进制响应体。 */
@@ -215,5 +239,22 @@ class BuiltinFieldPermissionFixture {
 
   record Actor(long id, String token) {}
 
-  record Res(int status, JsonNode body, byte[] bytes) {}
+  /**
+   * 一次响应。
+   *
+   * <p>{@code headers} 是 104 加的（C4 批）：日预算耗尽的 429 有一个<b>响应头</b>（{@code Retry-After}）才是完整的
+   * 机器可读判据，而只断状态码的话，那个头是 0 还是 86400 都看不出来。
+   */
+  record Res(int status, JsonNode body, byte[] bytes, Map<String, String> headers) {
+
+    /** 按名取响应头（**不分大小写**——HTTP 头名的大小写不参与语义，而这里的键是容器原样存下来的）。 */
+    String header(String name) {
+      for (Map.Entry<String, String> entry : headers.entrySet()) {
+        if (entry.getKey().equalsIgnoreCase(name)) {
+          return entry.getValue();
+        }
+      }
+      return null;
+    }
+  }
 }

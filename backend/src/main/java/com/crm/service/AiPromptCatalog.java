@@ -91,9 +91,17 @@ public final class AiPromptCatalog {
   /** 语气缺省值。 */
   public static final String DEFAULT_TONE = "FORMAL";
 
-  /** 语气 → 中文说明（进提示词）。 */
+  /**
+   * 语气 → 中文说明（进提示词）。
+   *
+   * <p>⚠️ {@code tone} 为 null <b>必须</b>走缺省分支：本类其余每一个字段都对 null 宽容（{@code line} 判空、 {@code followUps}
+   * 判空、{@code instruction} 判空，见 {@link #renderEmailDraftUserPrompt}），语气是其中
+   * <b>唯一</b>能因缺值抛异常的那一个。{@code switch} 对 null 抛 NPE ⇒ 会以 500 的形式出现在一个 AI 端点上，
+   * 而"调用方应当先规范化"是一条<b>没有任何东西看着</b>的推断（本仓先例：022 的"范围过滤在别处"）。 调用方 {@code
+   * AiEmailDraftService.validate} 现在确实会规范化，但渲染器不该是"缺值变成异常"的那一处。
+   */
   private static String toneLabel(String tone) {
-    return switch (tone) {
+    return switch (tone == null ? DEFAULT_TONE : tone) {
       case "FRIENDLY" -> "亲切、口语化，但不失礼貌";
       case "CONCISE" -> "简洁，直入主题，尽量少客套";
       default -> "正式、专业、书面";

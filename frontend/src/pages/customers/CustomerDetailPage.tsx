@@ -40,6 +40,7 @@ import { formatAmount } from '../../types/opportunity'
 import { useAuthStore } from '../../store/authStore'
 import { hasPerm } from '../../hooks/usePermission'
 import { PERMS } from '../../constants/permissions'
+import AiGenerateButton from '../../components/AiGenerateButton'
 import FollowUpTimeline from '../../components/FollowUpTimeline'
 import CommentSection from '../../components/CommentSection'
 import type {
@@ -70,6 +71,9 @@ export default function CustomerDetailPage() {
   // ② 的 ADMIN 例外必须保留：后端允许管理员共享任何人的客户，而 `hasPerm` 无法表达
   // "是 ADMIN 但不是 owner"这一支（它对 ADMIN 与持码者都返回 true，两者被合并了）。
   const isAdmin = user?.role === 'ADMIN'
+  // 104 P1：AI 邮件草稿。`ai:generate` 对预置角色**零授予**（`AiPermissionGrantIT`），故实际只有
+  // ADMIN 看得到这个按钮——这正是 FR-020 那份决定在界面上的形状，前端不再另设一套判据。
+  const canGenerateDraft = hasPerm(PERMS.aiGenerate, user)
   const [shareOpen, setShareOpen] = useState(false)
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([])
   const [shareForm] = Form.useForm<{ sharedToUserId: number }>()
@@ -643,6 +647,7 @@ export default function CustomerDetailPage() {
                 {t('common.button.share')}
               </Button>
             )}
+            {canGenerateDraft && <AiGenerateButton customerId={customerId} />}
           </Space>
         </div>
       </Card>
