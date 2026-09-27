@@ -47,12 +47,17 @@ public class AiContentService {
 
   private final AiStatus aiStatus;
   private final AiClientFactory clientFactory;
+  private final AiTokenBudget tokenBudget;
   private final AuditService auditService;
 
   public AiContentService(
-      AiStatus aiStatus, AiClientFactory clientFactory, AuditService auditService) {
+      AiStatus aiStatus,
+      AiClientFactory clientFactory,
+      AiTokenBudget tokenBudget,
+      AuditService auditService) {
     this.aiStatus = aiStatus;
     this.clientFactory = clientFactory;
+    this.tokenBudget = tokenBudget;
     this.auditService = auditService;
   }
 
@@ -63,11 +68,13 @@ public class AiContentService {
    * 故它们的拼接发生在<b>调用方</b>（{@code AiPromptCatalog}）而不是本类：本类不认识业务，只负责"把两段发出去、把结果与用量带回来"。
    *
    * @param capability 能力名，仅用于审计与日志（不进提示词）
+   * @param userId <b>花钱的人</b>：日预算记在谁头上（FR-015）。恒非空——{@code AiTokenBudget} 拒绝 null
    * @param entityType 审计落点：本能力作用于哪类对象（如 {@code CUSTOMER}）
    * @param entityId 审计落点 id；可为 null（如邮件草稿在保存前没有实体）
    */
   public record AiRequest(
       String capability,
+      Long userId,
       String entityType,
       Long entityId,
       String systemPrompt,
@@ -92,6 +99,9 @@ public class AiContentService {
     if (!aiStatus.isConfigured()) {
       throw new AiNotConfiguredException();
     }
+    // 日预算闸（FR-015/FR-017）：与判门**同侧**——在出站之前。耗尽即抛 RateLimitExceededException
+    // （429 + Retry-After 到明天零点），此时还没有产生任何外部流量。
+    tokenBudget.check(request.userId());
     AnthropicClient client = clientFactory.client().orElseThrow(AiNotConfiguredException::new);
 
     MessageCreateParams params =
@@ -143,6 +153,9 @@ public class AiContentService {
 
     long inputTokens = message.usage().inputTokens();
     long outputTokens = message.usage().outputTokens();
+    // 记账在**成功之后**、审计之前：用 SDK 给的 usage，不估算（FR-016）。失败路径不记账（拿不到用量，
+    // 而"估算一个数记进去"正是 FR-016 禁止的那件事）。
+    tokenBudget.charge(request.userId(), inputTokens + outputTokens);
     auditService.record(
         AUDIT_ACTION,
         request.entityType(),

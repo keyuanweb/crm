@@ -133,6 +133,10 @@ public class AiEmailDraftService {
         aiContentService.generate(
             new AiContentService.AiRequest(
                 AiPromptCatalog.P1_CAPABILITY,
+                // 同一个 userId 既决定"能看什么"（上面两道可见性判定），又决定"记在谁头上"（日预算桶）。
+                // 两处用同一个值不是巧合：它必须来自同一次身份解析，否则"某人看不到的数据被算进另一个人的额度"
+                // 这种组合会悄悄成立。
+                userId,
                 "CUSTOMER",
                 customer.getId(),
                 AiPromptCatalog.P1_SYSTEM_PROMPT,

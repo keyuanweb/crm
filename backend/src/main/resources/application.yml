@@ -88,7 +88,7 @@ crm:
     # 否则**启动即失败**——本项唯一的出站准入控制就是启动期的这一次校验（SDK 内部走 OkHttp，
     # 绕过 OutboundUrlValidator 的逐跳校验）。配置判据只有一处，见 com.crm.config.AiStatus。
     #
-    # ⚠️ 本节六项的默认值必须与 AiStatus 构造器上的 @Value 兜底值**逐字一致**（FR-002）：
+    # ⚠️ 本节七项的默认值必须与 AiStatus 构造器上的 @Value 兜底值**逐字一致**（FR-002）：
     # 两处不一致时，判据会随"有没有 application.yml 覆盖"而变，而那种差异在测试里看不见。
     enabled: ${CRM_AI_ENABLED:false}
     # 模型服务基地址。可配置是为了支持自建网关／代理；但协议仍须是 Anthropic Messages API
@@ -100,6 +100,12 @@ crm:
     # 单次生成的最大输出 token 数与超时秒数。超时**不受**前端全局 30s 约束（前端生成类调用走 timeout: 0）。
     max-tokens: ${CRM_AI_MAX_TOKENS:4096}
     timeout-seconds: ${CRM_AI_TIMEOUT_SECONDS:60}
+    # 每用户每日 token 预算（FR-015/FR-017，2026-09-27 C4 批新增）。它是**总量**闸，与 @RateLimit 的
+    # **突发**闸互补。计的是 SDK 返回的 input+output tokens（FR-016：不估算），耗尽即回 429 +
+    # Retry-After（到明天零点），Redis 键 ai:gen:budget:user:{userId}:{yyyyMMdd}。
+    # ⚠️ <=0 = 闸关闭（不限）——唯一能表达"关掉这个闸"的取值，故默认值必须是正数：
+    # 100000 ≈ 单次最坏情况（输入 ~1.3k + 输出 ≤4096）的 19 次，或典型用量（输出数百 token）的数十次。
+    daily-token-budget: ${CRM_AI_DAILY_TOKEN_BUDGET:100000}
   rate-limit:
     # 全局限流（100-rate-limit-consolidation）。**逐端点的配额数字不在这里**——它们写在端点方法上的
     # @RateLimit(scope, limit, windowSeconds)（与端点同址，照 @RequirePermission 的体例），

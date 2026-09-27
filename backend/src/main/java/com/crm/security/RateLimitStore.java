@@ -43,6 +43,14 @@ import org.springframework.stereotype.Component;
  * (RedisConnectionFailureException | DataAccessException)} 是**编译错误**—— 多 catch 不允许一支被另一支涵盖）。测试替身
  * {@code failOnKeyPrefix} 注入的正是 {@code RedisConnectionFailureException}，所以 IT 里那条 fail-open
  * 用例打的是同一分支。
+ *
+ * <p><b>配额语义（104-ai-content-generation，2026-09-27 起）</b>：{@link #usage} / {@link #charge}
+ * 是本类承载的<b>第二种</b>计数语义—— 值是<b>累计量</b>（AI 端点里是 token 数），不是请求次数。判定<b>不由本类做</b>：{@link #record}
+ * 自带"次数是否超阈值"的判定，而配额把判定留给调用方 （阈值多少、耗尽之后回什么码，是业务决定，见 {@code
+ * AiTokenBudget}）。两者共用同一套存储协议与失败立场，所以同居本类——这也让本类 "全仓唯一碰计数原语的地方"那句继续成立，而不是被第二个计数实现悄悄架空。
+ *
+ * <p>⚠️ 配额两方法<b>不</b>复用 {@link #record} 那条"读时补窗并放行"的处置：那个处置救的是"计数已满但窗口丢了 ⇒ 该主体<b>永久</b> 429"，
+ * 而配额键里已经带了日期（{@code …:{yyyyMMdd}}），TTL 丢了也只影响当天、不会跨天累加，于是补窗在这里没有要救的东西。
  */
 @Component
 public class RateLimitStore {
@@ -84,6 +92,66 @@ public class RateLimitStore {
       return 0;
     }
     return retryAfterSeconds(key, windowSeconds);
+  }
+
+  /**
+   * 读取一个<b>配额</b>键的已用量（配额语义：值是累计量，不是请求次数）。
+   *
+   * <p><b>键不存在或 Redis 不可用 ⇒ 返回 0</b>（fail open，与 {@link #record} 同一立场）：拿不到已用量时"当作没花过"
+   * 会让预算暂时失效，而"当作花光了"会让全站 AI 端点在 Redis 抖动期间不可用——后者更坏（同 {@link #record} 的立场论述）。
+   *
+   * <p>⚠️ 值<b>不是数字时也只警告、按 0 计</b>，不抛：序列化器与写入方不匹配（比如写进去的是字符串 {@code "42"}）是一种真 bug，
+   * 但它的症状会是"预算怎么都不生效"；把它变成异常则会让 AI 端点直接 500，那是用一个更大的故障替换一个小故障。日志里带上类型名，让 排查有落点。
+   */
+  public long usage(String key) {
+    Object raw;
+    try {
+      raw = redisTemplate.opsForValue().get(key);
+    } catch (DataAccessException ex) {
+      log.warn("配额已用量不可读，按 0 计（fail open）：key={}，原因={}", key, ex.getMessage());
+      return 0;
+    }
+    if (raw == null) {
+      return 0;
+    }
+    if (raw instanceof Number number) {
+      return number.longValue();
+    }
+    try {
+      return Long.parseLong(raw.toString().trim());
+    } catch (NumberFormatException ex) {
+      log.warn("配额键的值不是数字，按 0 计（fail open）：key={} type={}", key, raw.getClass().getName());
+      return 0;
+    }
+  }
+
+  /**
+   * 记一次<b>配额</b>消费（{@code amount} 为累计量，如本次调用的 token 数）。
+   *
+   * <p>{@code amount <= 0} 直接返回、<b>不写键</b>：一个没花钱的调用不该在 Redis 里留下一个键（也让"预算键存在"这件事继续等价于"今天真的花过钱"）。
+   *
+   * <p>TTL 只在<b>首次写入</b>那次设置（同 {@link #record} 的正确范式，不无条件续期）。⚠️ 这里的 TTL 是<b>清理</b>而不是"窗口"：
+   * 键名里已经带了日期， 即使 TTL 丢了也不会跨天累加，只是键会多躺一会儿。
+   */
+  public void charge(String key, long amount, long windowSeconds) {
+    if (amount <= 0) {
+      return;
+    }
+    Long count;
+    try {
+      count = redisTemplate.opsForValue().increment(key, amount);
+      if (count == null) {
+        // 管道/事务下 increment 可能返回 null：拿不到明确答复时不记（fail open）。
+        log.warn("配额计数未返回结果，本次消费未记（fail open）：key={}", key);
+        return;
+      }
+      if (count == amount) {
+        // 首次写入：此时计数恰好等于本次增量。
+        redisTemplate.expire(key, Duration.ofSeconds(windowSeconds));
+      }
+    } catch (DataAccessException ex) {
+      log.warn("配额计数不可用，本次消费未记（fail open）：key={}，原因={}", key, ex.getMessage());
+    }
   }
 
   /** 已超限：读取窗口剩余时间；窗口缺失则补回整窗并放行本次。 */

@@ -59,6 +59,7 @@ public class AiStatus implements ApplicationRunner {
   private final String model;
   private final int maxTokens;
   private final int timeoutSeconds;
+  private final int dailyTokenBudget;
   private final OutboundUrlValidator outboundUrlValidator;
 
   public AiStatus(
@@ -68,6 +69,7 @@ public class AiStatus implements ApplicationRunner {
       @Value("${crm.ai.model:claude-opus-5}") String model,
       @Value("${crm.ai.max-tokens:4096}") int maxTokens,
       @Value("${crm.ai.timeout-seconds:60}") int timeoutSeconds,
+      @Value("${crm.ai.daily-token-budget:100000}") int dailyTokenBudget,
       OutboundUrlValidator outboundUrlValidator) {
     this.enabled = enabled;
     this.baseUrl = baseUrl == null ? "" : baseUrl.trim();
@@ -75,6 +77,7 @@ public class AiStatus implements ApplicationRunner {
     this.model = model == null ? "" : model.trim();
     this.maxTokens = maxTokens;
     this.timeoutSeconds = timeoutSeconds;
+    this.dailyTokenBudget = dailyTokenBudget;
     this.outboundUrlValidator = outboundUrlValidator;
   }
 
@@ -106,6 +109,20 @@ public class AiStatus implements ApplicationRunner {
   /** 单次生成的超时秒数（FR-008：服务端超时由此控制，不受前端全局 30s 约束）。 */
   public int timeoutSeconds() {
     return timeoutSeconds;
+  }
+
+  /**
+   * 每用户每日 token 预算（FR-015，2026-09-27 C4 批新增的第 7 个配置项）。
+   *
+   * <p>它是<b>总量</b>闸（一天能烧多少），与 {@code @RateLimit} 的<b>突发</b>闸（一分钟能点几次）互补。单位是 token，计的是每次调用 SDK 返回的
+   * {@code inputTokens + outputTokens}（FR-016：不得估算）。
+   *
+   * <p>⚠️ {@code <= 0} 表示<b>闸关闭（不限）</b>——这是唯一能表达"关掉这个闸"的取值，故默认值必须是正数（{@code 100000}）。 该取值由 {@code
+   * AiTokenBudget} 解释；{@link #checkConfiguration()} 在启用且取值非正时<b>告警但不拒绝启动</b>（照"空 = 合法但告警"的判例：
+   * 一个不限预算的部署是运维的合法选择，只是值得在日志里说一声）。
+   */
+  public int dailyTokenBudget() {
+    return dailyTokenBudget;
   }
 
   /** 出站基地址；**不含**任何凭据（凭据只经 {@code apiKey()} 单独取用，见 FR-004）。 */
@@ -162,6 +179,14 @@ public class AiStatus implements ApplicationRunner {
   void checkConfiguration() {
     if (!enabled) {
       return;
+    }
+    if (dailyTokenBudget <= 0) {
+      // 合法但不寻常：不限预算的部署是运维的选择，不是误配（误配的形状是"没配"或"畸形"，本项有默认值兜底）。
+      // 之所以还是要说一声：这是"花钱不设上限"这件事在日志里唯一的痕迹。
+      log.warn(
+          "AI 文本生成已启用但 crm.ai.daily-token-budget={}（<=0 表示不限预算）：每用户每日 token 闸不生效。"
+              + "成本上界此时只剩服务商侧的用量上限/账单告警。",
+          dailyTokenBudget);
     }
     if (baseUrl.isEmpty() || apiKey.isEmpty()) {
       // "没配"是合法的失败姿态（调用时 409），但在启动时说一声——否则运维要到第一次点生成才知道。

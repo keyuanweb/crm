@@ -70,6 +70,9 @@ grep -c "RequirePermission(\"ai:generate\")" backend/src/main/java/com/crm/contr
 grep -rniE "apiKey|api-key" backend/src/main/java/com/crm/service/AiContentService.java | grep -viE "^\s*//|\*"
 # 迁移是否只有新增、无编辑（V1–V91 应一动不动）
 git diff --stat -- backend/src/main/resources/db/migration/
+# 预算键族只应出现在 AiTokenBudget 一处，且**不得**出现 022 的 ai:ignore:（应为 1 个文件、0 命中）
+grep -rln "ai:gen:budget" backend/src/main/java/com/crm/
+grep -rn "ai:ignore:" backend/src/main/java/com/crm/service/AiTokenBudget.java
 ```
 
 ⚠️ **2026-09-27 C2 对上面两条命令的订正**（原命令逐字保留）：

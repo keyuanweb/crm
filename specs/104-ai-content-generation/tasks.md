@@ -34,6 +34,7 @@
 - [ ] T012 `common/ErrorCode.java`：**只增不改**三个码（状态码按 T000 的实测结果定）
 - [ ] T013 `service/AiContentService.java`：**唯一出网点**——SDK 客户端持有、超时、`usage` 取数、错误映射（`RateLimitException` → 可重试码）、审计写入（**detail 不含提示词与客户数据**）。**不加 `@Async`**（plan D3）
 - [ ] T014 `resources/application.yml`：新增 `crm.ai.*` 六项，**默认值与 `@Value` 兜底逐字一致**（FR-002）；`.env.example` 增占位（**空值，不是真密钥**）
+  - ✅ **2026-09-27 C4：实为**七**项**——第 7 项 `crm.ai.daily-token-budget`（默认 `100000`）随 T029 的预算闸同批落地。⚠️ "六项"这个计数写在三处（本行、`application.yml` 的注释、`spec.md` FR-001），**三处已同批改为七项**；只改一处就是用一次订正造出两处新矛盾。原文逐字保留。
 - [ ] T015 `db/migration/V92__ai_generate_permission.sql`：**仅权限授予**（无 DDL）
   - ⚠️ **2026-09-27 C2：移到 C3，且「授给谁」本身是待裁项**——按本仓权限授予判据③（改造前无粗粒度门、也无菜单承诺 ⇒ **一个都不补**，只接码），本码很可能**一个角色都不授予**；那样就**没有 `V92` 这个文件**（`plan.md` 顶部 ⚠️ ①②）。**在 C3 裁决前不要创建此文件。** ✅ **2026-09-27 C3 已裁：零授予成立 ⇒ 本任务整条作废（文件不创建）**。上句"在 C3 裁决前不要创建此文件"已被遵守（`git status` 里没有 `db/migration/` 任何新文件）。⚠️ **此复选框故意保持未勾**——作废 ≠ 完成，勾上会读成"做过"。权威落点 `research.md` §13.6；零授予的可执行痕迹 = `com.crm.integration.AiPermissionGrantIT#aiGenerateIsGrantedToNoPresetRole`。
 - [ ] T016 同步 `schema-h2.sql`（行尾 `-- V92` 标记）+ `SchemaParityIT` 镜像清单；确认 `SchemaIdempotencyIT` 仍可重跑
@@ -66,6 +67,13 @@
   - **缺口是查出来的**：`grep -n "预算\|budget\|ai:gen:" tasks.md` → **零命中**（C3 开工前）。plan 只有设计（D8）、C4 有断言（U7 的键形），**中间没有实现任务**。
   - ⚠️ **这导致一个顺序约束**：**U7 断言的是这个键的形状，而它在 C3 未实现** ⇒ 若不在 C4 之前补上实现，U7 就是一条"断言一个不存在的东西"的用例。裁决（补实现 / 改 U7 / 推到后续批次）**须在 C4 开工前定**。
   - 本批未实现的是**成本闸**那一半；已落地的 `@RateLimit` 只管**突发**（契约 §4 的 C3 块写了这个分工）。
+  - ✅ **2026-09-27 C4 已裁并已落地（顺序约束解除）**：**先落门、再写 U7**（用户裁定）。落地形状——
+    - `service/AiTokenBudget.java`【新】：`check(userId)` 判在**出站之前**、`charge(userId, tokens)` 记在**成功之后**；耗尽抛 `RateLimitExceededException`（429 + `Retry-After` = **到明天零点**的秒数）。
+    - 计数原语**不新开一处**：`AiTokenBudget` 只在 `security/RateLimitStore` 之上定义配额语义，后者新增 `usage(key)` / `charge(key, amount, window)` 两个方法——`RateLimitStore` 的 javadoc 里"全仓唯一碰计数原语的地方"那句因此仍然成立（否则它会被第二个计数实现悄悄架空）。
+    - 键形按 plan D8 落地为 **`ai:gen:budget:user:{userId}:{yyyyMMdd}`**（`{scope}` 那一段是**身份种类**，照 `RateLimitKeys` 的 `rl:{scope}:user:{id}` 形状；将来加全局闸应新增同族的 `…:global:all:…`，**不改这一段**）。U7 断言的 `ai:gen:budget:*` 与 `≠ ai:ignore:` 都成立。
+    - 配置项 **`crm.ai.daily-token-budget`（默认 `100000`，`<=0` = 闸关闭/不限）**：`AiStatus` 第 7 个 `@Value` + `application.yml` + `.env.example` 三处同批（FR-001/FR-002 的"六项"→"七项"同步订正，见该处 ✅）。
+    - 两处**已知边界**（写出来而不是等它成为事故）：① **check-then-charge 的窗口**——并发 N 次可各自过检，当日用量最多超出 (N−1) 次调用的成本，N 的上界就是 `@RateLimit` 的 10 次/60 秒；② **fail open**——Redis 不可用时放行（同 `RateLimitStore` 的立场），故成本上界仍应由服务商侧的用量上限兜底。
+    - 裁决与算式见 `research.md` §14；验证（U 系列 + I 系列）在 C4 的用例批。
 > ⚠️ **2026-09-27 C3：本相位的前端半边（T023–T026）整批未动 —— 不是排期原因，是"接入点根本不存在"**（`research.md` §13.7 有实测证据）。
 >
 > `plan.md:186` 把 P1 的落点写成"**邮件编辑/活动页**（P1 草稿）"。**实测：本仓前端没有"带客户上下文的邮件编辑器"这个页面。** 唯一的"邮件主题 + 正文"编辑器是 `pages/marketing/EmailTemplatePage.tsx`——**模板 CRUD 弹窗**，字段名 `content`，走 `createEmailTemplate` / `updateEmailTemplate`，**与客户无关**（没有客户选择器，也没有客户上下文）。契约 §2.5 要求的"与 022 的规则式建议在同一页面上做视觉区分"同样没有落点：`playbookService.fetchOpportunityActions` **全仓无引用** ⇒ 022 那条建议当前没有任何页面在渲染它。
@@ -79,6 +87,12 @@
 > | **C. 新建一个小页/抽屉** | 独立的"AI 邮件草稿"入口 + 客户选择器 | 最干净，但引入新导航目标 ⇒ `menu:check` / `perms:check` / i18n / `ui:check` **四道门禁全都要动**，且要新授一个菜单（与 FR-020 的"零授予"直接冲突：菜单承诺一旦存在，判据② 就要求按菜单持有者补授）|
 >
 > **我的建议是 A**：它是唯一不需要改既有页面语义、也不新增菜单/权限面的选项，且"生成 → 复制 → 粘到任何地方"对用户是可解释的；代价集中在一处（订正 FR-019 的持久化那半句）。**但这条建议只在用户认可"P1 不落库"时成立**，故须先问。
+>
+> ✅ **2026-09-27 用户裁定：选 A（客户详情页 + 复制到剪贴板）**。⇒ 随之生效的三条：
+> 1. **FR-019 的"插入既有编辑区、经既有保存路径持久化"订正为"展示 + 复制"**（P1 不落库；「零新增表」那半句不变）。`spec.md` FR-019 处已就地补 ✅。
+> 2. **T023–T026 解卡**，可按 A 的形态落地；**不新增导航目标、不新增菜单、不新增权限授予**（⇒ FR-020 的零授予不受影响，判据② 不被激活）。
+> 3. **`perms:check` 读数 68 → 69 随本批一起发生**（T023 的 `constants/permissions.ts`），故交付读数里那个 69 有来历。
+> ⚠️ 仍**未验证**的是 P2/P3/P4 的接入点是否存在（只有 P1 这一处实测过）；不要以为它们已经被检查过。
 
 - [ ] T023 `frontend/src/types/aiContent.ts` + `services/aiContentService.ts`（生成类调用**显式 `timeout: 0`**，不动全局 30s）
   - ⚠️ 随宿主裁决整批走。**另有一处归属提醒**：`constants/permissions.ts` 加 `aiGenerate: 'ai:generate'` 会让 `perms:check` 读数 **68 → 69**；「登记在先、接线在后」在分批交付时是**被明文许可**的中间态（该脚本的 unused 提示是**非失败**项），但**别只加注册表不接页面**——那会让 69 这个数在交付读数里说不清来历。

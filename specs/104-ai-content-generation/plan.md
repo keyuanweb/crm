@@ -133,6 +133,7 @@ if (enabled && !outboundUrlValidator.isAllowed(baseUrl)) {
 
 `ai:` 前缀**已被 022 占用**：`SuggestionService.java:36` 的 `IGNORE_PREFIX = "ai:ignore:"`，键形 `ai:ignore:{userId}:`、成员 `entityType:entityId`、TTL 90 天。
 ⇒ 本项预算键走 **`ai:gen:budget:{scope}:{id}:{yyyyMMdd}`**，两族**互不影响**（022 的忽略集不会误伤本项，反之亦然）。
+✅ **2026-09-27 C4 落地读数**：键形实落为 **`ai:gen:budget:user:{userId}:{yyyyMMdd}`**——`{scope}` 那一段是**身份种类**（照 `RateLimitKeys` 的 `rl:{scope}:user:{id}`），`{id}` 是 userId；**日期进键**使"每日"由键本身表达，跨天即重置，不需要任何定时任务；TTL = 到明天零点的秒数，只在首次写入时设置，它是**清理**而非"窗口"（键名带日期 ⇒ TTL 丢了也不会跨天累加，只是键多躺一会儿）。`Retry-After` 用同一算法（`AiTokenBudget.secondsUntilTomorrow`，向上取整）。⚠️ 将来若要加**全局**日闸，正确做法是同族新增 `ai:gen:budget:global:all:{yyyyMMdd}`，**不许**改 `user` 这一段（改了会让当天已记的用量读到新桶，症状是"预算突然又满了"）。
 
 ---
 
@@ -151,7 +152,10 @@ backend/src/main/java/com/crm/
 ├── service/
 │   ├── AiContentService.java             【新】唯一出网点：SDK 调用、超时、usage 取数、审计
 │   ├── AiPromptCatalog.java              【新】四组提示词常量 + 逐能力字段白名单
-│   └── AiEmailDraftService.java          【新】P1 上下文装配器  ⚠️ 2026-09-27 C3：**实现期新增件，本树原无此行**（见树下 ⚠️）
+│   ├── AiEmailDraftService.java          【新】P1 上下文装配器  ⚠️ 2026-09-27 C3：**实现期新增件，本树原无此行**（见树下 ⚠️）
+│   └── AiTokenBudget.java                【新】每用户每日 token 预算闸（FR-015/FR-017）  ⚠️ 2026-09-27 C4：**实现期新增件，本树原无此行**
+├── security/
+│   └── RateLimitStore.java               【改】+`usage` / `charge` 两个配额方法（计数原语仍只此一处）  ⚠️ 2026-09-27 C4：本树原无此行
 ├── controller/
 │   └── AiContentController.java          【新】4 个生成端点，全部 @RateLimit + @RequirePermission
 └── resources/db/migration/
@@ -160,9 +164,10 @@ backend/src/main/java/com/crm/
 
 ⚠️ **2026-09-27 C3 对上面这棵树的订正**（树内原文逐字保留，只加不改）：
 
-- **`AiEmailDraftService.java` 是本树漏掉的一件**（C3 实现期新增）。取数、判可见、过 FLS、渲染这四步既不属于"出网点"（那层不认识客户），也不属于"常量与纯函数件"（那层刻意不认识 Spring / 数据库 / 当前用户）⇒ 必须有第三件。**理由不是洁癖**：`quickstart.md` §6 的 `grep -rl "apiKey()"` **读数应为 1** 靠的是"取密钥与别的关注点分居两个文件"，把装配逻辑塞进 `AiContentService` 会让那条断言失去区分力（`research.md` §13.1）。同 C2 的 `AiClientFactory`：**本项的结构树已三次在落地时被订正**，每次都在 `research.md` 留痕。
+- **`AiEmailDraftService.java` 是本树漏掉的一件**（C3 实现期新增）。取数、判可见、过 FLS、渲染这四步既不属于"出网点"（那层不认识客户），也不属于"常量与纯函数件"（那层刻意不认识 Spring / 数据库 / 当前用户）⇒ 必须有第三件。**理由不是洁癖**：`quickstart.md` §6 的 `grep -rl "apiKey()"` **读数应为 1** 靠的是"取密钥与别的关注点分居两个文件"，把装配逻辑塞进 `AiContentService` 会让那条断言失去区分力（`research.md` §13.1）。同 C2 的 `AiClientFactory`：**本项的结构树已三次在落地时被订正**，每次都在 `research.md` 留痕。 ⚠️ **2026-09-27 C4：实为四次**——上面那句里的"三次"指 C2 的 `AiClientFactory` / `AiPromptCatalog` 与 C3 的 `AiEmailDraftService`；**第四次就是本块下方那条（预算闸的 `AiTokenBudget` + `RateLimitStore` 两行）**。次数不是修辞：每一次都意味着"树在写下时漏了一件落地必须有的东西"，四次里有三次的根因是同一个（**出网点 / 纯常量件 / 装配件 / 记账件四种身份，写树时只想到前两种**）。**
 - **`V92__ai_generate_permission.sql` 已裁为"不存在"**：判据③（无"改造前的粗粒度门"可继承、无菜单承诺可依据）⇒ `ai:generate` 一个角色都不授予 ⇒ **本项零新增迁移**（`research.md` §13.6）。树里这一行**不再是待裁状态**。
 - **`AiContentController` 的"4 个生成端点"在 C3 只落 1 个**（`POST /email-draft`）；其余三个各自在 P2/P3/P4 的批次里加，**不预先占位**（一个没有实现的方法要么写死返回、要么直接抛，两者都是把"未完成"伪装成"已完成"）。
+- **2026-09-27 C4 订正两行（第四次）**：`service/AiTokenBudget.java`【新】= FR-015/FR-017 的日预算闸（**plan 只给了键形 D8 与断言 U7，中间没有实现任务**，缺口是 `grep -n "预算\|budget" tasks.md` 查出来的，见 `tasks.md` T029）；`security/RateLimitStore.java`【改】= 配额方法 `usage` / `charge` 加在**既有的计数原语落点**上，**不新开第二个计数实现**（否则该类 javadoc 里"全仓唯一碰计数原语的地方"那句当场变假，而"键名/协议写错"是一种没有任何行为用例能发现的缺陷）。设计与读数见 `research.md` §14。
 
 **不新增的（刻意）**：无实体、无 DTO 包（响应是纯文本 + 元数据的小 record）、无新的 MyBatis Mapper、无 `AsyncConfigurer`。
   - ⚠️ **2026-09-27 C3：这一行落地时逐项成立**——请求/响应是两个**嵌在控制器里的 record**（`EmailDraftRequest` / `EmailDraftResponse`），**没有新建 `dto/` 下的包**；实体、Mapper、`AsyncConfigurer` 均未新增。（本仓既有体例是 DTO 单列 `com.crm.dto.<域>` 包，此处刻意偏离，理由就是本行；同理服务层的 `DraftCommand` / `DraftResult` 也嵌在 `AiEmailDraftService` 里。）
